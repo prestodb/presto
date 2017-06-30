@@ -56,6 +56,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
@@ -193,26 +194,11 @@ public final class PlanMatchPattern
                 Optional.of(new SymbolAlias(hashSymbol))));
     }
 
-    public static PlanMatchPattern window(
-            ExpectedValueProvider<WindowNode.Specification> specification,
-            List<ExpectedValueProvider<FunctionCall>> windowFunctions,
-            PlanMatchPattern source)
+    public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> windowMatcherBuilderConsumer, PlanMatchPattern source)
     {
-        PlanMatchPattern result = node(WindowNode.class, source).with(new WindowMatcher(specification));
-        windowFunctions.forEach(
-                function -> result.withAlias(Optional.empty(), new WindowFunctionMatcher(function)));
-        return result;
-    }
-
-    public static PlanMatchPattern window(
-            ExpectedValueProvider<WindowNode.Specification> specification,
-            Map<String, ExpectedValueProvider<FunctionCall>> assignments,
-            PlanMatchPattern source)
-    {
-        PlanMatchPattern result = node(WindowNode.class, source).with(new WindowMatcher(specification));
-        assignments.entrySet().forEach(
-                assignment -> result.withAlias(assignment.getKey(), new WindowFunctionMatcher(assignment.getValue())));
-        return result;
+        WindowMatcher.Builder windowMatcherBuilder = new WindowMatcher.Builder(source);
+        windowMatcherBuilderConsumer.accept(windowMatcherBuilder);
+        return windowMatcherBuilder.build();
     }
 
     public static PlanMatchPattern sort(PlanMatchPattern source)

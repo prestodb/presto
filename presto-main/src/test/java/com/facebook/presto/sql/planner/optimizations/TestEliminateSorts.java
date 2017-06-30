@@ -63,8 +63,9 @@ public class TestEliminateSorts
 
         PlanMatchPattern pattern =
                 output(
-                        window(windowSpec,
-                                ImmutableList.of(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowSpec)
+                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
                                 anyTree(LINEITEM_TABLESCAN_Q)));
 
         assertUnitPlan(sql, pattern);
@@ -78,8 +79,9 @@ public class TestEliminateSorts
         PlanMatchPattern pattern =
                 anyTree(
                         sort(
-                                window(windowSpec,
-                                        ImmutableList.of(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowSpec)
+                                                .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
                                         anyTree(LINEITEM_TABLESCAN_Q))));
 
         assertUnitPlan(sql, pattern);

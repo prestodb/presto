@@ -43,7 +43,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 
 public class TestMergeAdjacentWindows
-            extends BaseRuleTest
+        extends BaseRuleTest
 {
     private static final WindowNode.Frame frame = new WindowNode.Frame(WindowFrame.Type.RANGE, UNBOUNDED_PRECEDING,
             Optional.empty(), CURRENT_ROW, Optional.empty());
@@ -176,12 +176,12 @@ public class TestMergeAdjacentWindows
                                         p.values(p.symbol("a"))
                                 )
                         ))
-                .matches(window(
-                        specificationA,
-                        ImmutableList.of(
-                                functionCall("avg", Optional.empty(), ImmutableList.of(columnAAlias)),
-                                functionCall("sum", Optional.empty(), ImmutableList.of(columnAAlias))),
-                        values(ImmutableMap.of(columnAAlias, 0))));
+                .matches(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specificationA)
+                                        .addFunction(functionCall("avg", Optional.empty(), ImmutableList.of(columnAAlias)))
+                                        .addFunction(functionCall("sum", Optional.empty(), ImmutableList.of(columnAAlias))),
+                                values(ImmutableMap.of(columnAAlias, 0))));
     }
 
     private static WindowNode.Specification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName)
