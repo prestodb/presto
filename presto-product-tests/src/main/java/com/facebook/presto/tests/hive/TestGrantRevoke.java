@@ -27,6 +27,7 @@ import java.util.Set;
 import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static com.teradata.tempto.assertions.QueryAssert.Row;
@@ -247,7 +248,7 @@ public class TestGrantRevoke
                 containsOnly(ownerGrants());
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS, QUARANTINE})
     public void testViewOwnerPrivileges()
     {
         onHive().executeQuery("set role admin;");
