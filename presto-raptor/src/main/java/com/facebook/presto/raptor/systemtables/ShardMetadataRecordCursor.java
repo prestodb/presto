@@ -46,6 +46,7 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardInde
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -54,6 +55,7 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toList;
 
 public class ShardMetadataRecordCursor
@@ -266,8 +268,23 @@ public class ShardMetadataRecordCursor
         Long tableId = tableIds.next();
         Long columnId = metadataDao.getTemporalColumnId(tableId);
 
-        String minColumn = (columnId == null) ? "null" : minColumn(columnId);
-        String maxColumn = (columnId == null) ? "null" : maxColumn(columnId);
+        String minColumn = "null";
+        String maxColumn = "null";
+
+        if (columnId != null) {
+            Type columnType = metadataDao.getTableColumn(tableId, columnId).getDataType();
+            checkState(columnType.equals(DATE) || columnType.equals(TIMESTAMP), "Temporal column must be of type timestamp or date: %s", columnType);
+            if (columnType.equals(DATE)) {
+                // convert a date value into a timestamp value by using the UTC midnight timestamp of that date
+                // this will convert all references to that column in the where clause as well
+                minColumn = convertDaysToMidnightTimestamp(minColumn(columnId));
+                maxColumn = convertDaysToMidnightTimestamp(maxColumn(columnId));
+            }
+            else {
+                minColumn = minColumn(columnId);
+                maxColumn = maxColumn(columnId);
+            }
+        }
 
         List<String> columnNames = getMappedColumnNames(minColumn, maxColumn);
         try {
@@ -285,6 +302,12 @@ public class ShardMetadataRecordCursor
             close();
             throw metadataError(e);
         }
+    }
+
+    private String convertDaysToMidnightTimestamp(String columnName)
+    {
+        // A date is stored as an integer of days from 1970-01-01. Multiplying it by milliseconds per day renders the UTC midnight timestamp, which is stored as a bigint.
+        return format("(CAST (%s AS BIGINT) * %s)", columnName, DAYS.toMillis(1));
     }
 
     private List<String> getMappedColumnNames(String minColumn, String maxColumn)
