@@ -120,13 +120,12 @@ public final class InternalResourceGroupManager
         checkState(configurationManager.get() != null, "configurationManager not set");
         ResourceGroupId group;
         try {
-            group = selectGroup(queryExecution.getSession());
+            group = selectGroup(queryExecution.getSession(), executor);
         }
         catch (PrestoException e) {
             queryExecution.fail(e);
             return;
         }
-        createGroupIfNecessary(group, queryExecution.getSession(), executor);
         groups.get(group).run(queryExecution);
     }
 
@@ -272,12 +271,19 @@ public final class InternalResourceGroupManager
         }
     }
 
-    private ResourceGroupId selectGroup(Session session)
+    private ResourceGroupId selectGroup(Session session, Executor executor)
     {
         SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource(), getQueryPriority(session));
         for (ResourceGroupSelector selector : configurationManager.get().getSelectors()) {
             Optional<ResourceGroupId> group = selector.match(context);
             if (group.isPresent()) {
+                try {
+                    createGroupIfNecessary(group.get(), session, executor);
+                }
+                catch (RuntimeException e) {
+                    log.error(e, "Cannot create resource group %s", group.toString());
+                    continue;
+                }
                 return group.get();
             }
         }
