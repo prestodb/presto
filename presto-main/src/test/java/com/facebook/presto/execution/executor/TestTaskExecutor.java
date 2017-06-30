@@ -328,9 +328,9 @@ public class TestTaskExecutor
                     int higherLevelEnd = drivers[0].getCompletedPhases() + drivers[1].getCompletedPhases();
                     int higherLevelTime = higherLevelEnd - higherLevelStart;
 
-                    if (higherLevelTime > 5) {
-                        assertGreaterThan(lowerLevelTime, (higherLevelTime * 2) - 5);
-                        assertLessThan(higherLevelTime, (lowerLevelTime * 2) + 5);
+                    if (higherLevelTime > 20) {
+                        assertGreaterThan(lowerLevelTime, (higherLevelTime * 2) - 10);
+                        assertLessThan(higherLevelTime, (lowerLevelTime * 2) + 10);
                     }
                 }
 
