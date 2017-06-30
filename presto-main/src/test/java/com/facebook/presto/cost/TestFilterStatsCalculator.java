@@ -22,6 +22,8 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
@@ -243,5 +245,50 @@ public class TestFilterStatsCalculator
                                 .highValue(10.0)
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.4)); // FIXME - nulls shouldn't be restored
+    }
+
+    @Test
+    public void testIsNullFilter()
+    {
+        Expression isNullPredicate = new IsNullPredicate(new SymbolReference("x"));
+        assertExpression(isNullPredicate)
+                .outputRowsCount(250.0)
+                .symbolStats(new Symbol("x"), symbolStats -> {
+                    symbolStats.distinctValuesCount(0)
+                            .emptyRange()
+                            .nullsFraction(1.0);
+                });
+
+        Expression isNullEmptyRangePredicate = new IsNullPredicate(new SymbolReference("emptyRange"));
+        assertExpression(isNullEmptyRangePredicate)
+                .outputRowsCount(1000.0)
+                .symbolStats(new Symbol("emptyRange"), symbolStats -> {
+                    symbolStats.distinctValuesCount(0.0)
+                            .emptyRange()
+                            .nullsFraction(1.0);
+                });
+    }
+
+    @Test
+    public void testIsNotNullFilter()
+    {
+        Expression isNotNullPredicate = new IsNotNullPredicate(new SymbolReference("x"));
+        assertExpression(isNotNullPredicate)
+                .outputRowsCount(750.0)
+                .symbolStats("x", symbolStats -> {
+                    symbolStats.distinctValuesCount(40.0)
+                            .lowValue(-10.0)
+                            .highValue(10.0)
+                            .nullsFraction(0.0);
+                });
+
+        Expression isNotNullEmptyRangePredicate = new IsNotNullPredicate(new SymbolReference("emptyRange"));
+        assertExpression(isNotNullEmptyRangePredicate)
+                .outputRowsCount(0.0)
+                .symbolStats("emptyRange", symbolStats -> {
+                    symbolStats.distinctValuesCount(0.0)
+                            .emptyRange()
+                            .nullsFraction(1.0);
+                });
     }
 }
