@@ -19,9 +19,12 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -45,6 +48,8 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.NaN;
+import static java.lang.Double.isInfinite;
+import static java.lang.Double.min;
 import static java.lang.String.format;
 
 public class FilterStatsCalculator
@@ -173,6 +178,56 @@ public class FilterStatsCalculator
                                         .setDistinctValuesCount(0.0).build());
             }
             return visitExpression(node, context);
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitBetweenPredicate(BetweenPredicate node, Void context)
+        {
+            if (!(node.getValue() instanceof SymbolReference) || !(node.getMin() instanceof Literal) || !(node.getMax() instanceof Literal)) {
+                return visitExpression(node, context);
+            }
+
+            SymbolStatsEstimate valueStats = input.getSymbolStatistics(Symbol.from((SymbolReference) node.getValue()));
+            Expression leftComparison;
+            Expression rightComparison;
+
+            // We want to do heuristic cut (infinite range to finite range) ASAP and than do filtering on finite range.
+            if (isInfinite(valueStats.getLowValue())) {
+                leftComparison = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
+                rightComparison = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
+            }
+            else {
+                rightComparison = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
+                leftComparison = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
+            }
+
+            // we relay on and processing left to right
+            return process(and(leftComparison, rightComparison));
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitInPredicate(InPredicate node, Void context)
+        {
+            if (!(node.getValueList() instanceof InListExpression) || !(node.getValue() instanceof SymbolReference)) {
+                return visitExpression(node, context);
+            }
+
+            InListExpression inList = (InListExpression) node.getValueList();
+            PlanNodeStatsEstimate statsSum = inList.getValues().stream()
+                    .map(inValue -> process(new ComparisonExpression(EQUAL, node.getValue(), inValue)))
+                    .reduce(filterForFalseExpression(),
+                            PlanNodeStatsEstimateMath::addStats);
+
+            Symbol inValueSymbol = Symbol.from(node.getValue());
+            SymbolStatsEstimate symbolStat = input.getSymbolStatistics(inValueSymbol);
+            double notNullValuesBeforeIn = input.getOutputRowCount() * (1 - symbolStat.getNullsFraction());
+
+            return statsSum.mapOutputRowCount(rowCount -> min(rowCount, notNullValuesBeforeIn))
+                    .mapSymbolColumnStatistics(inValueSymbol,
+                            symbolStats ->
+                                    symbolStats.mapNullsFraction(x -> 0.0)
+                                            .mapDistinctValuesCount(distinctValues ->
+                                                    min(distinctValues, input.getSymbolStatistics(inValueSymbol).getDistinctValuesCount())));
         }
 
         @Override
