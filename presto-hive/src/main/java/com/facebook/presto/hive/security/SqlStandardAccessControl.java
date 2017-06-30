@@ -57,6 +57,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectV
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static java.util.Objects.requireNonNull;
 
+@SuppressWarnings("SimplifiableIfStatement")
 public class SqlStandardAccessControl
         implements ConnectorAccessControl
 {
@@ -148,7 +149,7 @@ public class SqlStandardAccessControl
     @Override
     public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
     {
-        return tableNames.stream().filter(tableName -> checkTablePermission(transactionHandle, identity, tableName, SELECT)).collect(Collectors.toSet());
+        return tableNames.stream().filter(tableName -> checkAnyTablePermission(transactionHandle, identity, tableName)).collect(Collectors.toSet());
     }
 
     @Override
@@ -299,12 +300,23 @@ public class SqlStandardAccessControl
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
             return true;
         }
+        return getTablePrivileges(transaction, identity, tableName).containsAll(ImmutableSet.copyOf(requiredPrivileges));
+    }
 
+    private boolean checkAnyTablePermission(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    {
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return true;
+        }
+        return !getTablePrivileges(transaction, identity, tableName).isEmpty();
+    }
+
+    private Set<HivePrivilege> getTablePrivileges(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        Set<HivePrivilege> privilegeSet = metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName()).stream()
+        return metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName()).stream()
                 .map(HivePrivilegeInfo::getHivePrivilege)
                 .collect(Collectors.toSet());
-        return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 
     private boolean isAdmin(ConnectorTransactionHandle transaction, Identity identity)
