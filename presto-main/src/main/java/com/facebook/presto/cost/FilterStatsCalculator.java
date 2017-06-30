@@ -16,13 +16,30 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Literal;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import javax.inject.Inject;
 
 import java.util.Map;
+
+import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToLiteralStats;
+import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToSymbolStats;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStats;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInNonRangeStats;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInStats;
+import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
+import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Double.NaN;
 
 public class FilterStatsCalculator
 {
@@ -71,6 +88,44 @@ public class FilterStatsCalculator
         private PlanNodeStatsEstimate filterForUnknownExpression()
         {
             return filterStatsForUnknownExpression(input);
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
+        {
+            if (node.getLeft() instanceof SymbolReference && node.getRight() instanceof SymbolReference) {
+                return comparisonSymbolToSymbolStats(input,
+                        Symbol.from(node.getLeft()),
+                        Symbol.from(node.getRight()),
+                        node.getType()
+                );
+            }
+            else if (node.getLeft() instanceof SymbolReference && node.getRight() instanceof Literal) {
+                Symbol symbol = Symbol.from(node.getLeft());
+                return comparisonSymbolToLiteralStats(input,
+                        symbol,
+                        doubleValueFromLiteral(types.get(symbol), (Literal) node.getRight()),
+                        node.getType()
+                );
+            }
+            else if (node.getLeft() instanceof Literal && node.getRight() instanceof SymbolReference) {
+                Symbol symbol = Symbol.from(node.getRight());
+                return comparisonSymbolToLiteralStats(input,
+                        symbol,
+                        doubleValueFromLiteral(types.get(symbol), (Literal) node.getLeft()),
+                        node.getType().flip()
+                );
+            }
+            else {
+                return filterStatsForUnknownExpression(input);
+            }
+        }
+
+        private double doubleValueFromLiteral(Type type, Literal literal)
+        {
+            Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), literal);
+            DomainConverter domainConverter = new DomainConverter(type, metadata.getFunctionRegistry(), session.toConnectorSession());
+            return domainConverter.translateToDouble(literalValue).orElse(NaN);
         }
     }
 }
