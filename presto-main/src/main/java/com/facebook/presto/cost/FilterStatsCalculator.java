@@ -23,6 +23,8 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 
 import javax.inject.Inject;
@@ -41,6 +43,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.NaN;
+import static java.lang.String.format;
 
 public class FilterStatsCalculator
 {
@@ -105,6 +108,30 @@ public class FilterStatsCalculator
                                             .setNullsFraction(NaN).build()));
 
             return falseStatsBuilder.setOutputRowCount(0.0).build();
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitNotExpression(NotExpression node, Void context)
+        {
+            return differenceInStats(input, process(node.getValue()));
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        {
+            PlanNodeStatsEstimate leftStats = process(node.getLeft());
+            PlanNodeStatsEstimate rightStats = process(node.getRight());
+            PlanNodeStatsEstimate andStats = new FilterExpressionStatsCalculatingVisitor(leftStats, session, types).process(node.getRight());
+
+            switch (node.getType()) {
+                case AND:
+                    return andStats;
+                case OR:
+                    return differenceInNonRangeStats(addStats(leftStats, rightStats), andStats);
+                default:
+                    checkState(false, format("Unimplemented logical binary operator expression %s", node.getType()));
+                    return PlanNodeStatsEstimate.UNKNOWN_STATS;
+            }
         }
 
         @Override

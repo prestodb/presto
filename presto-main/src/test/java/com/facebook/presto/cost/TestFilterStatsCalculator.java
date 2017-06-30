@@ -18,13 +18,20 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -128,7 +135,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testBooleanLiteralStas()
     {
-        assertExpression(TRUE_LITERAL).equals(standardInputStatistics);
+        assertExpression(TRUE_LITERAL).equalTo(standardInputStatistics);
 
         assertExpression(FALSE_LITERAL).outputRowsCount(0.0)
                 .symbolStats("x", symbolStats -> {
@@ -166,5 +173,68 @@ public class TestFilterStatsCalculator
                             .emptyRange()
                             .nullsFraction(1.0);
                 });
+    }
+
+    @Test
+    public void testOrStats()
+    {
+        Expression leftExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
+        Expression rightExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("-7.5"));
+
+        assertExpression(or(leftExpression, rightExpression))
+                .outputRowsCount(375)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10.0)
+                                .highValue(0.0)
+                                .distinctValuesCount(20.0)
+                                .nullsFraction(0.0)
+                );
+
+        Expression leftExpressionSingleValue = new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new DoubleLiteral("0.0"));
+        Expression rightExpressionSingleValue = new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new DoubleLiteral("-7.5"));
+
+        assertExpression(or(leftExpressionSingleValue, rightExpressionSingleValue))
+                .outputRowsCount(37.5)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-7.5)
+                                .highValue(0.0)
+                                .distinctValuesCount(2.0)
+                                .nullsFraction(0.0)
+                );
+    }
+
+    @Test
+    public void testAndStats()
+    {
+        Expression leftExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
+        Expression rightExpression = new ComparisonExpression(ComparisonExpressionType.GREATER_THAN, new SymbolReference("x"), new DoubleLiteral("-7.5"));
+
+        assertExpression(and(leftExpression, rightExpression))
+                .outputRowsCount(281.25)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-7.5)
+                                .highValue(0.0)
+                                .distinctValuesCount(15.0)
+                                .nullsFraction(0.0)
+                );
+    }
+
+    @Test
+    public void testNotStats()
+    {
+        Expression innerExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
+
+        assertExpression(new NotExpression(innerExpression))
+                .outputRowsCount(625) // FIXME - nulls shouldn't be restored
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(0.0)
+                                .highValue(10.0)
+                                .distinctValuesCount(20.0)
+                                .nullsFraction(0.4) // FIXME - nulls shouldn't be restored
+                );
     }
 }
