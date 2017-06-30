@@ -81,4 +81,39 @@ public class PlanNodeStatsEstimateMath
                 .setNullsFraction((nullsCountLeft - nullsCountRight) / newRowCount)
                 .build();
     }
+
+    public static PlanNodeStatsEstimate addStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    {
+        PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
+        double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
+
+        Stream.concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
+                .forEach(symbol -> {
+                    statsBuilder.addSymbolStatistics(symbol,
+                            addColumnStats(left.getSymbolStatistics(symbol),
+                                    left.getOutputRowCount(),
+                                    right.getSymbolStatistics(symbol),
+                                    right.getOutputRowCount(), newRowCount));
+                });
+
+        return statsBuilder.setOutputRowCount(newRowCount).build();
+    }
+
+    private static SymbolStatsEstimate addColumnStats(SymbolStatsEstimate leftStats, double leftRows, SymbolStatsEstimate rightStats, double rightRows, double newRowCount)
+    {
+        StatisticRange leftRange = StatisticRange.from(leftStats);
+        StatisticRange rightRange = StatisticRange.from(rightStats);
+
+        StatisticRange sum = leftRange.add(rightRange);
+        double nullsCountRight = rightStats.getNullsFraction() * rightRows;
+        double nullsCountLeft = leftStats.getNullsFraction() * leftRows;
+        double totalSizeLeft = leftRows * leftStats.getAverageRowSize();
+        double totalSizeRight = rightRows * rightStats.getAverageRowSize();
+
+        return SymbolStatsEstimate.builder()
+                .setStatisticsRange(sum)
+                .setAverageRowSize((totalSizeLeft + totalSizeRight) / newRowCount) // FIXME, weights to average. left and right should be equal in most cases anyway
+                .setNullsFraction((nullsCountLeft + nullsCountRight) / newRowCount)
+                .build();
+    }
 }

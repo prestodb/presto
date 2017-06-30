@@ -134,6 +134,12 @@ public class StatisticRange
         return empty();
     }
 
+    public StatisticRange add(StatisticRange other)
+    {
+        double newDistinctValues = distinctValues + other.distinctValues;
+        return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
+    }
+
     public StatisticRange subtract(StatisticRange rightRange)
     {
         StatisticRange intersect = intersect(rightRange);
