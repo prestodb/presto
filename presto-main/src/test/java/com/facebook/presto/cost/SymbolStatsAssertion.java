@@ -69,6 +69,13 @@ public class SymbolStatsAssertion
         return highValue(POSITIVE_INFINITY);
     }
 
+    public SymbolStatsAssertion emptyRange()
+    {
+        assertTrue(isNaN(statistics.getLowValue()) && isNaN(statistics.getHighValue()),
+                "expected empty range (NaN, NaN) but got (" + statistics.getLowValue() + ", " + statistics.getHighValue() + ") instead");
+        return this;
+    }
+
     public SymbolStatsAssertion distinctValuesCount(double expected)
     {
         assertEquals(statistics.getDistinctValuesCount(), expected, "distinctValuesCount mismatch");

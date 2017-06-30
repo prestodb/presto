@@ -168,6 +168,13 @@ public class SymbolStatsEstimate
         private double averageRowSize = NaN;
         private double distinctValuesCount = NaN;
 
+        public Builder setStatisticsRange(StatisticRange range)
+        {
+            return setLowValue(range.getLow())
+                    .setHighValue(range.getHigh())
+                    .setDistinctValuesCount(range.getDistinctValuesCount());
+        }
+
         public Builder setLowValue(double lowValue)
         {
             this.lowValue = lowValue;
