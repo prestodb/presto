@@ -57,7 +57,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectV
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static java.util.Objects.requireNonNull;
 
-@SuppressWarnings("SimplifiableIfStatement")
 public class SqlStandardAccessControl
         implements ConnectorAccessControl
 {
