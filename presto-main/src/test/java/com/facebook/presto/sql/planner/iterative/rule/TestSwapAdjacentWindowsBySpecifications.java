@@ -39,7 +39,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 
 public class TestSwapAdjacentWindowsBySpecifications
-            extends BaseRuleTest
+        extends BaseRuleTest
 {
     private WindowNode.Frame frame;
     private Signature signature;
@@ -110,11 +110,14 @@ public class TestSwapAdjacentWindowsBySpecifications
                                         ImmutableMap.of(p.symbol("avg_2", DOUBLE),
                                                 new WindowNode.Function(new FunctionCall(QualifiedName.of("avg"), windowAB, false, ImmutableList.of(new SymbolReference("b"))), signature, frame)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
-                .matches(window(specificationAB,
-                        ImmutableList.of(functionCall("avg", Optional.empty(), ImmutableList.of(columnBAlias))),
-                        window(specificationA,
-                                ImmutableList.of(functionCall("avg", Optional.empty(), ImmutableList.of(columnAAlias))),
-                                values(ImmutableMap.of(columnAAlias, 0, columnBAlias, 1)))));
+                .matches(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specificationAB)
+                                        .addFunction(functionCall("avg", Optional.empty(), ImmutableList.of(columnBAlias))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(specificationA)
+                                                .addFunction(functionCall("avg", Optional.empty(), ImmutableList.of(columnAAlias))),
+                                        values(ImmutableMap.of(columnAAlias, 0, columnBAlias, 1)))));
     }
 
     @Test
