@@ -15,7 +15,6 @@ package com.facebook.presto.execution.executor;
 
 import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -27,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -45,7 +45,7 @@ public class TaskHandle
     @GuardedBy("this")
     private final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    private long taskThreadUsageNanos;
+    private long scheduledNanos;
     @GuardedBy("this")
     private boolean destroyed;
     @GuardedBy("this")
@@ -53,28 +53,53 @@ public class TaskHandle
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    public TaskHandle(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
+    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
+    private final MultilevelSplitQueue splitQueue;
+
+    public TaskHandle(TaskId taskId, MultilevelSplitQueue splitQueue, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
     {
         this.taskId = taskId;
+        this.splitQueue = splitQueue;
         this.utilizationSupplier = utilizationSupplier;
         this.concurrencyController = new SplitConcurrencyController(initialSplitConcurrency, splitConcurrencyAdjustFrequency);
     }
 
-    public synchronized long addThreadUsageNanos(long durationNanos)
+    public synchronized Priority addScheduledNanos(long quantaNanos)
     {
-        concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
-        taskThreadUsageNanos += durationNanos;
-        return taskThreadUsageNanos;
+        concurrencyController.update(quantaNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
+        scheduledNanos += quantaNanos;
+
+        Priority newPriority = splitQueue.updatePriority(priority.get(), quantaNanos, scheduledNanos);
+
+        priority.set(newPriority);
+        return newPriority;
     }
 
-    public TaskId getTaskId()
+    public synchronized Priority resetLevelPriority()
     {
-        return taskId;
+        long levelMinPriority = splitQueue.getLevelMinPriority(priority.get().getLevel(), scheduledNanos);
+        if (priority.get().getLevelPriority() < levelMinPriority) {
+            Priority newPriority = new Priority(priority.get().getLevel(), levelMinPriority);
+            priority.set(newPriority);
+            return newPriority;
+        }
+
+        return priority.get();
     }
 
     public synchronized boolean isDestroyed()
     {
         return destroyed;
+    }
+
+    public Priority getPriority()
+    {
+        return priority.get();
+    }
+
+    public TaskId getTaskId()
+    {
+        return taskId;
     }
 
     // Returns any remaining splits. The caller must destroy these.
@@ -104,15 +129,14 @@ public class TaskHandle
         runningIntermediateSplits.add(split);
     }
 
-    @VisibleForTesting
-    public synchronized int getRunningLeafSplits()
+    synchronized int getRunningLeafSplits()
     {
         return runningLeafSplits.size();
     }
 
-    public synchronized long getThreadUsageNanos()
+    public synchronized long getScheduledNanos()
     {
-        return taskThreadUsageNanos;
+        return scheduledNanos;
     }
 
     public synchronized PrioritizedSplitRunner pollNextSplit()
