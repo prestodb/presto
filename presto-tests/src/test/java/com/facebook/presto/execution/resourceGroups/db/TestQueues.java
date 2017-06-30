@@ -131,7 +131,8 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 60_000)
+    // This test is flaky. Disabled temporarily until fixed.
+//    @Test(timeOut = 60_000)
     public void testTooManyQueries()
             throws Exception
     {
