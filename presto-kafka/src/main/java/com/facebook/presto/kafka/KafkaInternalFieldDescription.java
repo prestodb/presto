@@ -18,6 +18,8 @@ import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -95,11 +97,22 @@ public class KafkaInternalFieldDescription
      */
     public static final KafkaInternalFieldDescription KEY_LENGTH_FIELD = new KafkaInternalFieldDescription("_key_length", BigintType.BIGINT, "Total number of key bytes");
 
+    /**
+     * <tt>_message_timestamp</tt> - Message Timestamp.
+     */
+    public static final KafkaInternalFieldDescription MESSAGE_TIMESTAMP_FIELD = new KafkaInternalFieldDescription("_message_timestamp", TimestampType.TIMESTAMP, "Message Timestamp");
+
+    /**
+     * <tt>_message_timestamp_type</tt> - Message Timestamp Type.
+     */
+    public static final KafkaInternalFieldDescription MESSAGE_TIMESTAMP_TYPE_FIELD = new KafkaInternalFieldDescription("_message_timestamp_type", SmallintType.SMALLINT, "Message Timestamp Type");
+
     public static Set<KafkaInternalFieldDescription> getInternalFields()
     {
         return ImmutableSet.of(PARTITION_ID_FIELD, PARTITION_OFFSET_FIELD,
                 SEGMENT_START_FIELD, SEGMENT_END_FIELD, SEGMENT_COUNT_FIELD,
                 KEY_FIELD, KEY_CORRUPT_FIELD, KEY_LENGTH_FIELD,
+                MESSAGE_TIMESTAMP_FIELD,MESSAGE_TIMESTAMP_TYPE_FIELD,
                 MESSAGE_FIELD, MESSAGE_CORRUPT_FIELD, MESSAGE_LENGTH_FIELD);
     }
 

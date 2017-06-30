@@ -217,6 +217,8 @@ public class KafkaRecordSet
             fieldValueProviders.add(KafkaInternalFieldDescription.KEY_LENGTH_FIELD.forLongValue(keyData.length));
             fieldValueProviders.add(KafkaInternalFieldDescription.KEY_CORRUPT_FIELD.forBooleanValue(keyDecoder.decodeRow(keyData, null, fieldValueProviders, columnHandles, keyFieldDecoders)));
             fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_CORRUPT_FIELD.forBooleanValue(messageDecoder.decodeRow(messageData, null, fieldValueProviders, columnHandles, messageFieldDecoders)));
+            fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_TIMESTAMP_FIELD.forLongValue(consumerRecord.timestamp()));
+            fieldValueProviders.add(KafkaInternalFieldDescription.MESSAGE_TIMESTAMP_TYPE_FIELD.forLongValue(consumerRecord.timestampType().id));
 
             this.fieldValueProviders = new FieldValueProvider[columnHandles.size()];
 
