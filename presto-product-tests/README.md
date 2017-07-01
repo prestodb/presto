@@ -139,16 +139,17 @@ groups run the following command:
 presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
 ```
 
-where [profile](#profile) is one of either:
+where profile is one of either:
+#### Profiles
 - **multinode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. For multinode the default configuration is
  1 coordinator and 1 worker.
-- **[singlenode](#singlenode)** - pseudo-distributed Hadoop installation running on a
+- **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
 - **singlenode-hdfs-impersonation** - HDFS impersonation enabled on top of the
- environment in [singlenode](#singlenode) profile. Presto impersonates the user
+ environment in singlenode profile. Presto impersonates the user
  who is running the query when accessing HDFS.
 - **singlenode-kerberos-hdfs-impersonation** - pseudo-distributed kerberized
  Hadoop installation running on a single Docker container and a single node
@@ -432,7 +433,7 @@ running the debugger.
 
 Use the `docker-compose` (probably using a [wrapper](#use-the-docker-compose-wrappers))
 and `docker` utilities to control and troubleshoot containers.
-In the following examples ``<profile>`` is [profile](#profile).
+In the following examples ``<profile>`` is [profiles](#profiles).
 
 1. Use the following command to view output from running containers:
 
