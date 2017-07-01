@@ -25,6 +25,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStats;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 // WIP
 public class ExchangeStatsRule
         implements ComposableStatsCalculator.Rule
@@ -41,68 +45,37 @@ public class ExchangeStatsRule
     public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
         ExchangeNode exchangeNode = (ExchangeNode) node;
+        // QUESTION should I check partitioning schema?
 
-        if (exchangeNode.getSources().size() > 1) {
-            return Optional.of(PlanNodeStatsEstimate.UNKNOWN_STATS);
-        }
-
-        PlanNode source = exchangeNode.getSources().get(0);
-        PlanNodeStatsEstimate sourceStats = lookup.getStats(source, session, types);
-        List<Symbol> sourceSymbols = exchangeNode.getInputs().get(0);
-
-        PlanNodeStatsEstimate.Builder outputStats = PlanNodeStatsEstimate.builder();
-        outputStats.setOutputRowCount(sourceStats.getOutputRowCount());
-        for (int symbolIndex = 0; symbolIndex < sourceSymbols.size(); ++symbolIndex) {
-            Symbol sourceSymbol = sourceSymbols.get(symbolIndex);
-            Symbol outputSymbol = exchangeNode.getOutputSymbols().get(symbolIndex);
-            outputStats.addSymbolStatistics(outputSymbol, sourceStats.getSymbolStatistics(sourceSymbol));
-        }
-        return Optional.of(outputStats.build());
-    }
-
-    /*
-        // we do not replicate logic for rows replication here as stats
-        // are used mostly in phase where exchanges are not in plan anyway
-        List<Symbol> outputSymbols = exchangeNode.getOutputSymbols();
-        Map<Symbol, ColumnStatistics> resultSymbolStatistics = new HashMap<>();
-        Estimate resultOutputRowCount = Estimate.zeroValue();
-        for (int sourceIndex = 0; sourceIndex < exchangeNode.getSources().size(); ++sourceIndex) {
-            PlanNode source = exchangeNode.getSources().get(sourceIndex);
+        Optional<PlanNodeStatsEstimate> estimate = Optional.empty();
+        for (int i = 0; i < node.getSources().size(); i++) {
+            PlanNode source = node.getSources().get(i);
             PlanNodeStatsEstimate sourceStats = lookup.getStats(source, session, types);
-            for (int outputIndex = 0; outputIndex < outputSymbols.size(); outputIndex++) {
-                Symbol outputSymbol = exchangeNode.getOutputSymbols().get(outputIndex);
-                Symbol sourceSymbol = exchangeNode.getInputs().get(sourceIndex).get(outputIndex);
 
-                Optional<ColumnStatistics> outputSymbolStatistics = Optional.ofNullable(resultSymbolStatistics.get(outputSymbol));
-                ColumnStatistics sourceSymbolStatistics = sourceStats.getSymbolStatistics(sourceSymbol);
-                if (outputSymbolStatistics.isPresent()) {
-                    resultSymbolStatistics.put(outputSymbol, mergeSymbolStatistics(outputSymbolStatistics.get(), sourceSymbolStatistics));
-                }
-                else {
-                    resultSymbolStatistics.put(outputSymbol, sourceSymbolStatistics);
-                }
+            PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, exchangeNode.getInputs().get(i), exchangeNode.getOutputSymbols());
+
+            if (estimate.isPresent()) {
+                estimate = Optional.of(addStats(estimate.get(), sourceStatsWithMappedSymbols));
             }
-            resultOutputRowCount = resultOutputRowCount.add(sourceStats.getOutputRowCount());
+            else {
+                estimate = Optional.of(sourceStatsWithMappedSymbols);
+            }
         }
 
-        return Optional.of(PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(resultOutputRowCount)
-                .setSymbolStatistics(resultSymbolStatistics)
-                .build());
+        checkState(estimate.isPresent());
+        return estimate;
     }
 
-    private ColumnStatistics mergeSymbolStatistics(ColumnStatistics left, ColumnStatistics right)
+    private PlanNodeStatsEstimate mapToOutputSymbols(PlanNodeStatsEstimate estimate, List<Symbol> inputs, List<Symbol> outputs)
     {
-        return ColumnStatistics.builder()
-                .setNullsFraction(left.getNullsFraction().add(right.getNullsFraction()))
-                .addRange(mergeRange(left.getOnlyRangeColumnStatistics(), right.getOnlyRangeColumnStatistics()))
-                .build();
-    }
+        checkArgument(inputs.size() == outputs.size(), "Inputs does not match outputs");
+        PlanNodeStatsEstimate.Builder mapped = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(estimate.getOutputRowCount());
 
-    private RangeColumnStatistics mergeRange(RangeColumnStatistics left, RangeColumnStatistics right)
-    {
-        return RangeColumnStatistics.builder()
-                .set
+        for (int i = 0; i < inputs.size(); i++) {
+            mapped.addSymbolStatistics(outputs.get(i), estimate.getSymbolStatistics(inputs.get(i)));
+        }
+
+        return mapped.build();
     }
-    */
 }
