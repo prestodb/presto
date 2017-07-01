@@ -34,6 +34,7 @@ import static com.facebook.presto.util.MoreMaps.mergeMaps;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.DataSize.succinctDataSize;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -68,6 +69,7 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeOutputPositions = new HashMap<>();
         Map<PlanNodeId, Long> planNodeOutputBytes = new HashMap<>();
         Map<PlanNodeId, Long> planNodeWallMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeSpilledBytes = new HashMap<>();
 
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -128,14 +130,16 @@ public class PlanNodeStatsSummarizer
             for (OperatorStats operatorStats : reverse(pipelineStats.getOperatorSummaries())) {
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
 
-                // An "internal" pipeline like a hash build, links to another pipeline which is the actual output for this plan node
-                if (operatorStats.getPlanNodeId().equals(outputPlanNode) && !pipelineStats.isOutputPipeline()) {
-                    continue;
-                }
                 if (processedNodes.contains(planNodeId)) {
                     continue;
                 }
 
+                planNodeSpilledBytes.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
+
+                // An "internal" pipeline like a hash build, links to another pipeline which is the actual output for this plan node
+                if (operatorStats.getPlanNodeId().equals(outputPlanNode) && !pipelineStats.isOutputPipeline()) {
+                    continue;
+                }
                 planNodeOutputPositions.merge(planNodeId, operatorStats.getOutputPositions(), Long::sum);
                 planNodeOutputBytes.merge(planNodeId, operatorStats.getOutputDataSize().toBytes(), Long::sum);
                 processedNodes.add(planNodeId);
@@ -156,6 +160,7 @@ public class PlanNodeStatsSummarizer
                     // and therefore only have wall time, but no output stats
                     planNodeOutputPositions.getOrDefault(planNodeId, 0L),
                     succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                    succinctBytes(planNodeSpilledBytes.get(entry.getKey())),
                     operatorInputStats.get(planNodeId),
                     // Only some operators emit hash collisions statistics
                     operatorHashCollisionsStats.getOrDefault(planNodeId, emptyMap())));

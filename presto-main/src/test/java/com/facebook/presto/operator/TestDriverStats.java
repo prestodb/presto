@@ -58,6 +58,7 @@ public class TestDriverStats
             new DataSize(17, BYTE),
             18,
 
+            new DataSize(19, BYTE),
             ImmutableList.of(TestOperatorStats.EXPECTED));
 
     @Test
@@ -100,5 +101,6 @@ public class TestDriverStats
 
         assertEquals(actual.getOperatorStats().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorStats().get(0));
+        assertEquals(actual.getSpilledDataSize(), new DataSize(19, BYTE));
     }
 }

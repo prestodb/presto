@@ -51,6 +51,7 @@
     "processedInputPositions": 0,
     "outputDataSize": "0B",
     "outputPositions": 0,
+    "spilledDataSize": "0B",
     "operatorSummaries": []
   },
   "setSessionProperties": {},
@@ -169,7 +170,8 @@
       "processedInputDataSize": "0B",
       "processedInputPositions": 0,
       "outputDataSize": "0B",
-      "outputPositions": 0
+      "outputPositions": 0,
+      "spilledDataSize": "0B"
     },
     "tasks": [
       {
@@ -220,6 +222,7 @@
           "processedInputPositions": 0,
           "outputDataSize": "0B",
           "outputPositions": 0,
+          "spilledDataSize": "0B",
           "pipelines": []
         },
         "failures": []
@@ -377,7 +380,8 @@
           "processedInputDataSize": "0B",
           "processedInputPositions": 0,
           "outputDataSize": "0B",
-          "outputPositions": 0
+          "outputPositions": 0,
+          "spilledDataSize": "0B"
         },
         "tasks": [],
         "subStages": [],
