@@ -197,4 +197,19 @@ public class TestTpchLocalStats
                         .verifyNoColumnStatistics("count")
                         .verifyExactColumnStatistics("n_name"));
     }
+
+    @Test
+    public void testUnion()
+    {
+        statisticsAssertion.check(
+                "SELECT * FROM nation " +
+                        "UNION ALL " +
+                        "SELECT * FROM nation " +
+                        "UNION ALL " +
+                        "SELECT * FROM nation ",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("n_regionkey"));
+    }
 }
