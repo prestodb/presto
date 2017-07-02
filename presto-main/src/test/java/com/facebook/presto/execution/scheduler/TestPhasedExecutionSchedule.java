@@ -116,7 +116,7 @@ public class TestPhasedExecutionSchedule
             throws Exception
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
-        PlanFragment joinFragment = createBroadcastJoinPlanFragment("join", buildFragment);
+        PlanFragment joinFragment = createBroadcastJoinPlanFragment(buildFragment);
 
         List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment));
         assertEquals(phases, ImmutableList.of(ImmutableSet.of(joinFragment.getId(), buildFragment.getId())));
@@ -178,11 +178,11 @@ public class TestPhasedExecutionSchedule
         return createFragment(planNode);
     }
 
-    private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
+    private static PlanFragment createBroadcastJoinPlanFragment(PlanFragment buildFragment)
     {
         Symbol symbol = new Symbol("column");
         PlanNode tableScan = new TableScanNode(
-                new PlanNodeId(name),
+                new PlanNodeId("join"),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
@@ -192,7 +192,7 @@ public class TestPhasedExecutionSchedule
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of());
         PlanNode join = new JoinNode(
-                new PlanNodeId(name + "_id"),
+                new PlanNodeId("join" + "_id"),
                 INNER,
                 tableScan,
                 remote,
