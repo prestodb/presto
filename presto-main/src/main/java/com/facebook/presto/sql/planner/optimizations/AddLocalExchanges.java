@@ -413,14 +413,13 @@ public class AddLocalExchanges
             }
 
             // multiple streams preferred
-            ExchangeNode result = new ExchangeNode(
+            ExchangeNode exchangeNode = new ExchangeNode(
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
                     new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                     sources,
                     inputLayouts);
-            ExchangeNode exchangeNode = result;
 
             return deriveProperties(exchangeNode, inputProperties);
         }
