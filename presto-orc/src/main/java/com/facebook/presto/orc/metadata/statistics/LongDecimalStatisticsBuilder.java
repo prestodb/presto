@@ -17,11 +17,14 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
 import static java.util.Objects.requireNonNull;
 
 public class LongDecimalStatisticsBuilder
         implements StatisticsBuilder
 {
+    public static final long LONG_DECIMAL_VALUE_BYTES = 16L;
+
     private long nonNullValueCount;
     private BigDecimal minimum;
     private BigDecimal maximum;
@@ -70,14 +73,16 @@ public class LongDecimalStatisticsBuilder
     @Override
     public ColumnStatistics buildColumnStatistics()
     {
+        Optional<DecimalStatistics> decimalStatistics = buildDecimalStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
+                decimalStatistics.map(s -> DECIMAL_VALUE_BYTES_OVERHEAD + LONG_DECIMAL_VALUE_BYTES).orElse(0L),
                 null,
                 null,
                 null,
                 null,
                 null,
-                buildDecimalStatistics().orElse(null),
+                decimalStatistics.orElse(null),
                 null,
                 null);
     }

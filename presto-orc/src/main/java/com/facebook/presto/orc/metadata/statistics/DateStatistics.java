@@ -21,6 +21,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class DateStatistics
         implements RangeStatistics<Integer>
 {
+    // 1 byte to denote if null + 4 bytes for the value (date is of integer type)
+    public static final long DATE_VALUE_BYTES = Byte.BYTES + Integer.BYTES;
+
     private final Integer minimum;
     private final Integer maximum;
 

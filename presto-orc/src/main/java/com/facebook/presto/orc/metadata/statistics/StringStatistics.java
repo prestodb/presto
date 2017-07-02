@@ -23,6 +23,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class StringStatistics
         implements RangeStatistics<Slice>
 {
+    // 1 byte to denote if null + 4 bytes to denote offset
+    public static final long STRING_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
+
     private final Slice minimum;
     private final Slice maximum;
     private final long sum;

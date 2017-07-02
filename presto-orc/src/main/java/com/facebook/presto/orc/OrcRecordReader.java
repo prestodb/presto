@@ -406,6 +406,9 @@ public class OrcRecordReader
 
         RowGroup currentRowGroup = rowGroups.next();
         currentGroupRowCount = currentRowGroup.getRowCount();
+        if (currentRowGroup.getMinAverageRowBytes() > 0) {
+            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / currentRowGroup.getMinAverageRowBytes())));
+        }
 
         currentPosition = currentStripePosition + currentRowGroup.getRowOffset();
         filePosition = stripeFilePositions.get(currentStripe) + currentRowGroup.getRowOffset();

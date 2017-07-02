@@ -15,10 +15,12 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DATE;
+import static com.facebook.presto.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.Integer.MIN_VALUE;
 import static org.testng.Assert.fail;
@@ -68,5 +70,14 @@ public class TestDateStatisticsBuilder
         }
         catch (ArithmeticException expected) {
         }
+    }
+
+    @Test
+    public void testMinAverageValueBytes()
+    {
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(42));
+        assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(0));
+        assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(0, 42, 42, 43));
     }
 }

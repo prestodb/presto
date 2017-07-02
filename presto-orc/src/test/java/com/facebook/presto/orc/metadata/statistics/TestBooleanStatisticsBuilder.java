@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.BOOLEAN;
+import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static org.testng.Assert.assertEquals;
 
@@ -90,6 +92,15 @@ public class TestBooleanStatisticsBuilder
         statisticsBuilder.addValue(true);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedBooleanStatistics(statisticsList, 10, 3);
+    }
+
+    @Test
+    public void testMinAverageValueBytes()
+    {
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(true));
+        assertMinAverageValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(false));
+        assertMinAverageValueBytes(BOOLEAN_VALUE_BYTES, ImmutableList.of(true, true, false, true));
     }
 
     private void assertMergedBooleanStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, int trueValueCount)

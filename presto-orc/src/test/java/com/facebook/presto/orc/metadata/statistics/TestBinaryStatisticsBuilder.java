@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.NONE;
+import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -77,6 +78,15 @@ public class TestBinaryStatisticsBuilder
         statisticsBuilder.addValue(SECOND_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedBinaryStatistics(statisticsList, 6, FIRST_VALUE.length() * 2 + SECOND_VALUE.length());
+    }
+
+    @Test
+    public void testMinAverageValueBytes()
+    {
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
+        assertMinAverageValueBytes(FIRST_VALUE.length() + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE));
+        assertMinAverageValueBytes((FIRST_VALUE.length() + SECOND_VALUE.length()) / 2 + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE, SECOND_VALUE));
     }
 
     private void assertMergedBinaryStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, long expectedSum)
