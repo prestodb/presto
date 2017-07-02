@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -421,7 +422,7 @@ public class PlanBuilder
 
     public UnionNode union(List<? extends PlanNode> sources, ListMultimap<Symbol, Symbol> outputsToInputs, List<Symbol> outputs)
     {
-        return new UnionNode(idAllocator.getNextId(), (List<PlanNode>) sources, outputsToInputs, outputs);
+        return new UnionNode(idAllocator.getNextId(), new MultiSourceSymbolMapping(outputsToInputs, outputs, (List<PlanNode>) sources));
     }
 
     public Symbol symbol(String name)

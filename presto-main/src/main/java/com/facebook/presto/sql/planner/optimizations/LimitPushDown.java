@@ -213,7 +213,7 @@ public class LimitPushDown
                 sources.add(context.rewrite(node.getSources().get(i), childLimit));
             }
 
-            PlanNode output = new UnionNode(node.getId(), sources, node.getSymbolMapping(), node.getOutputSymbols());
+            PlanNode output = new UnionNode(node.getId(), node.getMultiSourceSymbolMapping().replaceSources(sources));
             if (limit != null) {
                 output = new LimitNode(idAllocator.getNextId(), output, limit.getCount(), limit.isPartial());
             }

@@ -25,6 +25,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -134,9 +135,7 @@ public class TestTypeValidator
 
         PlanNode node = new UnionNode(
                 newId(),
-                ImmutableList.of(baseTableScan, baseTableScan),
-                mappings,
-                ImmutableList.copyOf(mappings.keySet()));
+                new MultiSourceSymbolMapping(mappings, ImmutableList.of(baseTableScan, baseTableScan)));
 
         assertTypesValid(node);
     }
@@ -383,9 +382,7 @@ public class TestTypeValidator
 
         PlanNode node = new UnionNode(
                 newId(),
-                ImmutableList.of(baseTableScan, baseTableScan),
-                mappings,
-                ImmutableList.copyOf(mappings.keySet()));
+                new MultiSourceSymbolMapping(mappings, ImmutableList.of(baseTableScan, baseTableScan)));
 
         assertTypesValid(node);
     }

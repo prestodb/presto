@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -32,7 +33,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.collect.ListMultimap;
 
 import java.util.List;
 import java.util.Map;
@@ -128,9 +128,9 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            ListMultimap<Symbol, Symbol> symbolMapping = node.getSymbolMapping();
-            for (Symbol keySymbol : symbolMapping.keySet()) {
-                List<Symbol> valueSymbols = symbolMapping.get(keySymbol);
+            MultiSourceSymbolMapping symbolMapping = node.getMultiSourceSymbolMapping();
+            for (Symbol keySymbol : node.getOutputSymbols()) {
+                List<Symbol> valueSymbols = symbolMapping.getInput(keySymbol);
                 Type expectedType = types.get(keySymbol);
                 for (Symbol valueSymbol : valueSymbols) {
                     verifyTypeSignature(keySymbol, expectedType.getTypeSignature(), types.get(valueSymbol).getTypeSignature());

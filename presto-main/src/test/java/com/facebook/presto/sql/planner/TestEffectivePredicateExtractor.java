@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -393,14 +394,14 @@ public class TestEffectivePredicateExtractor
             throws Exception
     {
         ImmutableListMultimap<Symbol, Symbol> symbolMapping = ImmutableListMultimap.of(A, B, A, C, A, E);
-        PlanNode node = new UnionNode(newId(),
-                ImmutableList.of(
-                        filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
-                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
-                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))
-                ),
-                symbolMapping,
-                ImmutableList.copyOf(symbolMapping.keySet()));
+        PlanNode node = new UnionNode(
+                newId(),
+                new MultiSourceSymbolMapping(
+                        symbolMapping,
+                        ImmutableList.of(
+                                filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
+                                filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
+                                filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))))));
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

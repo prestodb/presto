@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -53,7 +54,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -550,35 +550,28 @@ public class HashGenerationOptimizer
             }
 
             // add hash symbols to sources
-            ImmutableListMultimap.Builder<Symbol, Symbol> newSymbolMapping = ImmutableListMultimap.builder();
-            newSymbolMapping.putAll(node.getSymbolMapping());
-            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+            MultiSourceSymbolMapping.Builder multiSourceMapping = MultiSourceSymbolMapping.builder()
+                    .putAll(node.getMultiSourceSymbolMapping().getOutputToInputs());
             for (int sourceId = 0; sourceId < node.getSources().size(); sourceId++) {
                 // translate preference to input symbols
                 Map<Symbol, Symbol> outputToInputMap = new HashMap<>();
                 for (Symbol outputSymbol : node.getOutputSymbols()) {
-                    outputToInputMap.put(outputSymbol, node.getSymbolMapping().get(outputSymbol).get(sourceId));
+                    outputToInputMap.put(outputSymbol, node.getMultiSourceSymbolMapping().getInput(outputSymbol, sourceId));
                 }
                 Function<Symbol, Optional<Symbol>> outputToInputTranslator = symbol -> Optional.of(outputToInputMap.get(symbol));
 
                 HashComputationSet sourcePreference = preference.translate(outputToInputTranslator);
                 PlanWithProperties child = planAndEnforce(node.getSources().get(sourceId), sourcePreference, true, sourcePreference);
-                newSources.add(child.getNode());
+                multiSourceMapping.addSource(child.getNode());
 
                 // add hash symbols to inputs
                 for (Entry<HashComputation, Symbol> entry : newHashSymbols.entrySet()) {
                     HashComputation hashComputation = entry.getKey().translate(outputToInputTranslator).get();
-                    newSymbolMapping.put(entry.getValue(), child.getRequiredHashSymbol(hashComputation));
+                    multiSourceMapping.put(entry.getValue(), child.getRequiredHashSymbol(hashComputation));
                 }
             }
 
-            return new PlanWithProperties(
-                    new UnionNode(
-                            idAllocator.getNextId(),
-                            newSources.build(),
-                            newSymbolMapping.build(),
-                            ImmutableList.copyOf(newSymbolMapping.build().keySet())),
-                    newHashSymbols);
+            return new PlanWithProperties(new UnionNode(idAllocator.getNextId(), multiSourceMapping.build()), newHashSymbols);
         }
 
         @Override

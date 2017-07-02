@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
@@ -191,7 +192,7 @@ public class ImplementIntersectAndExceptAsUnion
         {
             ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
             for (int i = 0; i < nodes.size(); i++) {
-                result.add(appendMarkers(nodes.get(i), i, markers, node.sourceSymbolMap(i)));
+                result.add(appendMarkers(nodes.get(i), i, markers, node.getMultiSourceSymbolMapping().sourceSymbolMap(i)));
             }
             return result.build();
         }
@@ -223,7 +224,7 @@ public class ImplementIntersectAndExceptAsUnion
                 }
             }
 
-            return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build(), outputs);
+            return new UnionNode(idAllocator.getNextId(), new MultiSourceSymbolMapping(outputsToInputs.build(), outputs, nodes));
         }
         private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> aggregationOutputs)
         {

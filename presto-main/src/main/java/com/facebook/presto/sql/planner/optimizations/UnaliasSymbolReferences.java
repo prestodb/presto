@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -48,7 +49,6 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -535,28 +535,36 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Void> context)
         {
-            return new UnionNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
+            return new UnionNode(node.getId(), rewriteMultiSourceMapping(node.getMultiSourceSymbolMapping(), context));
         }
 
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Void> context)
         {
-            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
+            return new IntersectNode(node.getId(), rewriteMultiSourceMapping(node.getMultiSourceSymbolMapping(), context));
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Void> context)
         {
-            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
+            return new ExceptNode(node.getId(), rewriteMultiSourceMapping(node.getMultiSourceSymbolMapping(), context));
         }
 
-        private static ImmutableList.Builder<PlanNode> rewriteSources(SetOperationNode node, RewriteContext<Void> context)
+        private MultiSourceSymbolMapping rewriteMultiSourceMapping(MultiSourceSymbolMapping multiSourceSymbolMapping, RewriteContext<Void> context)
         {
-            ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
-            for (PlanNode source : node.getSources()) {
-                rewrittenSources.add(context.rewrite(source));
-            }
-            return rewrittenSources;
+            // sources have to be rewritten before they are used
+            List<PlanNode> sources = rewrite(multiSourceSymbolMapping.getSources(), context);
+            return new MultiSourceSymbolMapping(
+                    canonicalizeSetOperationSymbolMap(multiSourceSymbolMapping.getOutputToInputs()),
+                    canonicalizeAndDistinct(multiSourceSymbolMapping.getOutputSymbols()),
+                    sources);
+        }
+
+        private static List<PlanNode> rewrite(List<PlanNode> nodes, RewriteContext<Void> context)
+        {
+            return nodes.stream()
+                    .map(context::rewrite)
+                    .collect(toImmutableList());
         }
 
         @Override

@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -169,11 +170,11 @@ public class TestPhasedExecutionSchedule
     {
         PlanNode planNode = new UnionNode(
                 new PlanNodeId(name + "_id"),
-                Stream.of(fragments)
-                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitioningScheme().getOutputLayout()))
-                        .collect(toImmutableList()),
-                ImmutableListMultimap.of(),
-                ImmutableList.of());
+                new MultiSourceSymbolMapping(
+                        ImmutableListMultimap.of(),
+                        Stream.of(fragments)
+                                .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitioningScheme().getOutputLayout()))
+                                .collect(toImmutableList())));
 
         return createFragment(planNode);
     }

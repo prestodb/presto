@@ -215,7 +215,7 @@ public class EffectivePredicateExtractor
     @Override
     public Expression visitUnion(UnionNode node, Void context)
     {
-        return deriveCommonPredicates(node, source -> node.outputSymbolMap(source).entries());
+        return deriveCommonPredicates(node, source -> node.getMultiSourceSymbolMapping().outputSymbolMap(source).entries());
     }
 
     @Override

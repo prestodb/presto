@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -72,7 +73,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 
 import java.util.ArrayList;
@@ -598,9 +598,9 @@ class RelationPlanner
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for UNION");
 
-        SetOperationPlan setOperationPlan = process(node);
+        MultiSourceSymbolMapping multiSourceSymbolMapping = process(node);
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), multiSourceSymbolMapping);
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
@@ -612,9 +612,9 @@ class RelationPlanner
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for INTERSECT");
 
-        SetOperationPlan setOperationPlan = process(node);
+        MultiSourceSymbolMapping multiSourceSymbolMapping = process(node);
 
-        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), multiSourceSymbolMapping);
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols());
     }
 
@@ -623,13 +623,13 @@ class RelationPlanner
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for EXCEPT");
 
-        SetOperationPlan setOperationPlan = process(node);
+        MultiSourceSymbolMapping multiSourceSymbolMapping = process(node);
 
-        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), multiSourceSymbolMapping);
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols());
     }
 
-    private SetOperationPlan process(SetOperation node)
+    private MultiSourceSymbolMapping process(SetOperation node)
     {
         List<Symbol> outputs = null;
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
@@ -669,7 +669,7 @@ class RelationPlanner
             sources.add(relationPlan.getRoot());
         }
 
-        return new SetOperationPlan(sources.build(), symbolMapping.build());
+        return new MultiSourceSymbolMapping(symbolMapping.build(), sources.build());
     }
 
     private PlanBuilder initializePlanBuilder(RelationPlan relationPlan)
@@ -692,27 +692,5 @@ class RelationPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    private static class SetOperationPlan
-    {
-        private final List<PlanNode> sources;
-        private final ListMultimap<Symbol, Symbol> symbolMapping;
-
-        private SetOperationPlan(List<PlanNode> sources, ListMultimap<Symbol, Symbol> symbolMapping)
-        {
-            this.sources = sources;
-            this.symbolMapping = symbolMapping;
-        }
-
-        public List<PlanNode> getSources()
-        {
-            return sources;
-        }
-
-        public ListMultimap<Symbol, Symbol> getSymbolMapping()
-        {
-            return symbolMapping;
-        }
     }
 }
