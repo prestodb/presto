@@ -51,6 +51,14 @@ import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
+import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
+import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
+import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.Character.MIN_SURROGATE;
@@ -208,8 +216,44 @@ public class OrcMetadataReader
 
     private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.ColumnStatistics statistics, boolean isRowGroup)
     {
+        long minAverageValueBytes;
+
+        if (statistics.hasBucketStatistics()) {
+            minAverageValueBytes = BOOLEAN_VALUE_BYTES;
+        }
+        else if (statistics.hasIntStatistics()) {
+            minAverageValueBytes = INTEGER_VALUE_BYTES;
+        }
+        else if (statistics.hasDoubleStatistics()) {
+            minAverageValueBytes = DOUBLE_VALUE_BYTES;
+        }
+        else if (statistics.hasStringStatistics()) {
+            minAverageValueBytes = STRING_VALUE_BYTES_OVERHEAD;
+            if (statistics.hasNumberOfValues() && statistics.getNumberOfValues() > 0) {
+                minAverageValueBytes += statistics.getStringStatistics().getSum() / statistics.getNumberOfValues();
+            }
+        }
+        else if (statistics.hasDateStatistics()) {
+            minAverageValueBytes = DATE_VALUE_BYTES;
+        }
+        else if (statistics.hasDecimalStatistics()) {
+            // could be 8 or 16; return the smaller one given it is a min average
+            minAverageValueBytes = DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES;
+        }
+        else if (statistics.hasBinaryStatistics()) {
+            // offset and value length
+            minAverageValueBytes = BINARY_VALUE_BYTES_OVERHEAD;
+            if (statistics.hasNumberOfValues() && statistics.getNumberOfValues() > 0) {
+                minAverageValueBytes += statistics.getBinaryStatistics().getSum() / statistics.getNumberOfValues();
+            }
+        }
+        else {
+            minAverageValueBytes = 0;
+        }
+
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
+                minAverageValueBytes,
                 toBooleanStatistics(statistics.getBucketStatistics()),
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),

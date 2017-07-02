@@ -18,6 +18,8 @@ import io.airlift.slice.Slice;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class StringStatisticsBuilder
@@ -80,12 +82,15 @@ public class StringStatisticsBuilder
     @Override
     public ColumnStatistics buildColumnStatistics()
     {
+        Optional<StringStatistics> stringStatistics = buildStringStatistics();
+        stringStatistics.ifPresent(s -> verify(nonNullValueCount > 0));
         return new ColumnStatistics(
                 nonNullValueCount,
+                stringStatistics.map(s -> STRING_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount).orElse(0L),
                 null,
                 null,
                 null,
-                buildStringStatistics().orElse(null),
+                stringStatistics.orElse(null),
                 null,
                 null,
                 null,

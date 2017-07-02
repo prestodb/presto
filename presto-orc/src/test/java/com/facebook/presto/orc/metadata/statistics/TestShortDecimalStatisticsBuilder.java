@@ -15,6 +15,7 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
@@ -22,6 +23,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DECIMAL;
+import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
+import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
 import static org.testng.Assert.assertEquals;
@@ -56,6 +59,16 @@ public class TestShortDecimalStatisticsBuilder
         assertValues(0L, 42L, ContiguousSet.create(Range.closed(0L, 42L), DiscreteDomain.longs()).asList());
         assertValues(MIN_VALUE, MIN_VALUE + 42, ContiguousSet.create(Range.closed(MIN_VALUE, MIN_VALUE + 42), DiscreteDomain.longs()).asList());
         assertValues(MAX_VALUE - 42L, MAX_VALUE, ContiguousSet.create(Range.closed(MAX_VALUE - 42L, MAX_VALUE), DiscreteDomain.longs()).asList());
+    }
+
+    @Test
+    public void testMinAverageValueBytes()
+    {
+        long shortDecimalBytes = DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES;
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(shortDecimalBytes, ImmutableList.of(0L));
+        assertMinAverageValueBytes(shortDecimalBytes, ImmutableList.of(42L));
+        assertMinAverageValueBytes(shortDecimalBytes, ImmutableList.of(0L, 1L, 42L, 44L, 52L));
     }
 
     @Override

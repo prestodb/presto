@@ -15,6 +15,7 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
@@ -23,6 +24,8 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DECIMAL;
+import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
+import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.LONG_DECIMAL_VALUE_BYTES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.math.BigDecimal.ZERO;
 
@@ -57,6 +60,16 @@ public class TestLongDecimalStatisticsBuilder
         assertValues(LARGE_NEGATIVE_VALUE, MEDIUM_VALUE, toBigDecimalList(LARGE_NEGATIVE_VALUE, MEDIUM_VALUE, ZERO_TO_42));
         assertValues(MEDIUM_VALUE, LARGE_POSITIVE_VALUE, toBigDecimalList(MEDIUM_VALUE, LARGE_POSITIVE_VALUE, ZERO_TO_42));
         assertValues(LARGE_NEGATIVE_VALUE, LARGE_POSITIVE_VALUE, toBigDecimalList(LARGE_NEGATIVE_VALUE, LARGE_POSITIVE_VALUE, ZERO_TO_42));
+    }
+
+    @Test
+    public void testMinAverageValueBytes()
+    {
+        long longDecimalBytes = DECIMAL_VALUE_BYTES_OVERHEAD + LONG_DECIMAL_VALUE_BYTES;
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(longDecimalBytes, ImmutableList.of(LARGE_POSITIVE_VALUE));
+        assertMinAverageValueBytes(longDecimalBytes, ImmutableList.of(LARGE_NEGATIVE_VALUE));
+        assertMinAverageValueBytes(longDecimalBytes, ImmutableList.of(LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE, LARGE_POSITIVE_VALUE, LARGE_NEGATIVE_VALUE));
     }
 
     private static List<BigDecimal> toBigDecimalList(BigDecimal minValue, BigDecimal maxValue, List<Long> values)

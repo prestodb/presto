@@ -22,6 +22,7 @@ import java.util.List;
 
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.STRING;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
+import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
@@ -114,6 +115,15 @@ public class TestStringStatisticsBuilder
         statisticsBuilder.addValue(LOW_TOP_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 6, LOW_BOTTOM_VALUE.length() * 2 + LOW_TOP_VALUE.length());
+    }
+
+    @Test
+    public void testMinAverageValueBytes()
+    {
+        assertMinAverageValueBytes(0L, ImmutableList.of());
+        assertMinAverageValueBytes(STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
+        assertMinAverageValueBytes(LOW_BOTTOM_VALUE.length() + STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE));
+        assertMinAverageValueBytes((LOW_BOTTOM_VALUE.length() + LOW_TOP_VALUE.length()) / 2 + STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE, LOW_TOP_VALUE));
     }
 
     private void assertMergedStringStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, long expectedSum)

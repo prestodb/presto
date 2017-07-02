@@ -28,6 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class ColumnStatistics
 {
     private final Long numberOfValues;
+    private final long minAverageValueSizeInBytes;
     private final BooleanStatistics booleanStatistics;
     private final IntegerStatistics integerStatistics;
     private final DoubleStatistics doubleStatistics;
@@ -39,6 +40,7 @@ public class ColumnStatistics
 
     public ColumnStatistics(
             Long numberOfValues,
+            long minAverageValueSizeInBytes,
             BooleanStatistics booleanStatistics,
             IntegerStatistics integerStatistics,
             DoubleStatistics doubleStatistics,
@@ -49,6 +51,7 @@ public class ColumnStatistics
             HiveBloomFilter bloomFilter)
     {
         this.numberOfValues = numberOfValues;
+        this.minAverageValueSizeInBytes = minAverageValueSizeInBytes;
         this.booleanStatistics = booleanStatistics;
         this.integerStatistics = integerStatistics;
         this.doubleStatistics = doubleStatistics;
@@ -67,6 +70,22 @@ public class ColumnStatistics
     public long getNumberOfValues()
     {
         return numberOfValues == null ? 0 : numberOfValues;
+    }
+
+    public boolean hasMinAverageValueSizeInBytes()
+    {
+        return hasNumberOfValues() && numberOfValues > 0;
+    }
+
+    /**
+     * The minimum average value sizes.
+     * The actual average value size is no less than the return value.
+     * It provides a lower bound of the size of data to be loaded
+     */
+    public long getMinAverageValueSizeInBytes()
+    {
+        // it is ok to return 0 if the size does not exist given it is a lower bound
+        return minAverageValueSizeInBytes;
     }
 
     public BooleanStatistics getBooleanStatistics()
@@ -113,6 +132,7 @@ public class ColumnStatistics
     {
         return new ColumnStatistics(
                 numberOfValues,
+                minAverageValueSizeInBytes,
                 booleanStatistics,
                 integerStatistics,
                 doubleStatistics,
@@ -171,8 +191,16 @@ public class ColumnStatistics
                 .mapToLong(ColumnStatistics::getNumberOfValues)
                 .sum();
 
+        long minAverageValueBytes = 0;
+        if (numberOfRows > 0) {
+            minAverageValueBytes = stats.stream()
+                    .mapToLong(s -> s.getMinAverageValueSizeInBytes() * s.getNumberOfValues())
+                    .sum() / numberOfRows;
+        }
+
         return new ColumnStatistics(
                 numberOfRows,
+                minAverageValueBytes,
                 mergeBooleanStatistics(stats).orElse(null),
                 mergeIntegerStatistics(stats).orElse(null),
                 mergeDoubleStatistics(stats).orElse(null),

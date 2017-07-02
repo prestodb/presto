@@ -17,6 +17,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class BinaryStatistics
 {
+    // 1 byte to denote if null + 4 bytes to denote offset
+    public static final long BINARY_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
+
     private final long sum;
 
     public BinaryStatistics(long sum)

@@ -22,6 +22,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class DecimalStatistics
         implements RangeStatistics<BigDecimal>
 {
+    // 1 byte to denote if null
+    public static final long DECIMAL_VALUE_BYTES_OVERHEAD = Byte.BYTES;
+
     private final BigDecimal minimum;
     private final BigDecimal maximum;
 

@@ -21,6 +21,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class IntegerStatistics
         implements RangeStatistics<Long>
 {
+    // 1 byte to denote if null + 8 bytes for the value (integer is of long type)
+    public static final long INTEGER_VALUE_BYTES = Byte.BYTES + Long.BYTES;
+
     private final Long minimum;
     private final Long maximum;
 

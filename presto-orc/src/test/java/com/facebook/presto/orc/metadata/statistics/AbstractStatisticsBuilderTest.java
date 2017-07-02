@@ -68,6 +68,30 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), 0);
     }
 
+    public void assertMinAverageValueBytes(long expectedAverageValueBytes, List<T> values)
+    {
+        // test add value
+        B statisticsBuilder = statisticsBuilderSupplier.get();
+        for (T value : values) {
+            adder.accept(statisticsBuilder, value);
+        }
+        assertEquals(statisticsBuilder.buildColumnStatistics().getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
+
+        // test merge
+        statisticsBuilder = statisticsBuilderSupplier.get();
+        for (int i = 0; i < values.size() / 2; i++) {
+            adder.accept(statisticsBuilder, values.get(i));
+        }
+        ColumnStatistics firstStats = statisticsBuilder.buildColumnStatistics();
+
+        statisticsBuilder = statisticsBuilderSupplier.get();
+        for (int i = values.size() / 2; i < values.size(); i++) {
+            adder.accept(statisticsBuilder, values.get(i));
+        }
+        ColumnStatistics secondStats = statisticsBuilder.buildColumnStatistics();
+        assertEquals(mergeColumnStatistics(ImmutableList.of(firstStats, secondStats)).getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
+    }
+
     public void assertMinMaxValues(T expectedMin, T expectedMax)
     {
         // just min
@@ -147,7 +171,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
     static List<ColumnStatistics> insertEmptyColumnStatisticsAt(List<ColumnStatistics> statisticsList, int index, long numberOfValues)
     {
         List<ColumnStatistics> newStatisticsList = new ArrayList<>(statisticsList);
-        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, null, null, null, null, null, null, null, null));
+        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, 0, null, null, null, null, null, null, null, null));
         return newStatisticsList;
     }
 

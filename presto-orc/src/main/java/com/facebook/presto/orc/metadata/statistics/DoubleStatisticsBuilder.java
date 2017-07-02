@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata.statistics;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleStatisticsBuilder
@@ -61,11 +62,13 @@ public class DoubleStatisticsBuilder
     @Override
     public ColumnStatistics buildColumnStatistics()
     {
+        Optional<DoubleStatistics> doubleStatistics = buildDoubleStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
+                doubleStatistics.map(s -> DOUBLE_VALUE_BYTES).orElse(0L),
                 null,
                 null,
-                buildDoubleStatistics().orElse(null),
+                doubleStatistics.orElse(null),
                 null,
                 null,
                 null,

@@ -21,6 +21,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class DoubleStatistics
         implements RangeStatistics<Double>
 {
+    // 1 byte to denote if null + 8 bytes for the value
+    public static final long DOUBLE_VALUE_BYTES = Byte.BYTES + Double.BYTES;
+
     private final Double minimum;
     private final Double maximum;
 
