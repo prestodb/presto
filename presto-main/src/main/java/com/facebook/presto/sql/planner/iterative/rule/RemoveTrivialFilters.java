@@ -21,13 +21,17 @@ import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static java.util.Collections.emptyList;
+import static java.util.Optional.empty;
 
-public class CanonicalizeFilterExpressions
+public class RemoveTrivialFilters
         implements Rule
 {
     private static final Pattern PATTERN = Pattern.node(FilterNode.class);
@@ -43,12 +47,16 @@ public class CanonicalizeFilterExpressions
     {
         FilterNode filterNode = (FilterNode) node;
 
-        Expression canonicalized = canonicalizeExpression(filterNode.getPredicate());
+        Expression predicate = filterNode.getPredicate();
 
-        if (canonicalized.equals(filterNode.getPredicate())) {
-            return Optional.empty();
+        if (predicate.equals(TRUE_LITERAL)) {
+            return Optional.of(filterNode.getSource());
         }
 
-        return Optional.of(new FilterNode(node.getId(), filterNode.getSource(), canonicalized));
+        if (predicate.equals(FALSE_LITERAL)) {
+            return Optional.of(new ValuesNode(idAllocator.getNextId(), filterNode.getOutputSymbols(), emptyList()));
+        }
+
+        return empty();
     }
 }
