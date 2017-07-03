@@ -64,6 +64,11 @@ public class SymbolStatsEstimate
         return nullsFraction;
     }
 
+    public StatisticRange statisticRange()
+    {
+        return  new StatisticRange(lowValue, highValue, distinctValuesCount);
+    }
+
     public double getValuesFraction()
     {
         return 1.0 - nullsFraction;
