@@ -57,7 +57,7 @@ public class CapDistinctValuesCountToTypeDomainRangeLength
     {
         SymbolStatsEstimate symbolStatistics = estimate.getSymbolStatistics(symbol);
 
-        if (symbolStatistics.getDomainLength() == 0) {
+        if (symbolStatistics.statisticRange().length() == 0) {
             return 1;
         }
 
