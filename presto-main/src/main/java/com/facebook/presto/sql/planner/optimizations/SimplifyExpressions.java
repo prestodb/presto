@@ -115,6 +115,7 @@ public class SimplifyExpressions
         {
             PlanNode source = context.rewrite(node.getSource());
             Expression simplified = simplifyExpression(node.getPredicate());
+            //When porting this to Rule(s), keep in mind the following logic is already implemented in RemoveTrivialFilters rule
             if (simplified.equals(TRUE_LITERAL)) {
                 return source;
             }

@@ -54,6 +54,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
@@ -185,6 +186,7 @@ public class PlanOptimizers
                                         new MergeLimitWithTopN(),
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughSemiJoin(),
+                                        new RemoveTrivialFilters(),
                                         new MergeLimitWithDistinct()))
                                 .build()
                 ),

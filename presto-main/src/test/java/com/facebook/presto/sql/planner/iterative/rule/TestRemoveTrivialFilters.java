@@ -14,30 +14,39 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 
-public class TestCanonicalizeFilterExpressions
+public class TestRemoveTrivialFilters
         extends BaseRuleTest
 {
     @Test
-    public void testDoesNotFireForExpressionsInCanonicalForm()
+    public void testDoesNotFire()
     {
-        tester().assertThat(new CanonicalizeFilterExpressions())
-                .on(p -> p.filter(FALSE_LITERAL, p.values()))
+        tester().assertThat(new RemoveTrivialFilters())
+                .on(p -> p.filter(p.expression("1 = 1"), p.values()))
                 .doesNotFire();
     }
 
     @Test
-    public void testCanonicalizesExpressions()
+    public void testRemovesTrueFilter()
     {
-        tester().assertThat(new CanonicalizeFilterExpressions())
+        tester().assertThat(new RemoveTrivialFilters())
+                .on(p -> p.filter(p.expression("TRUE"), p.values()))
+                .matches(values());
+    }
+
+    @Test
+    public void testRemovesFalseFilter()
+    {
+        tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        p.expression("x IS NOT NULL"),
-                        p.values(p.symbol("x"))))
-                .matches(filter("NOT (x IS NULL)", values("x")));
+                        p.expression("FALSE"),
+                        p.values(
+                                ImmutableList.of(p.symbol("a")),
+                                ImmutableList.of(p.expressions("1")))))
+                .matches(values("a"));
     }
 }
