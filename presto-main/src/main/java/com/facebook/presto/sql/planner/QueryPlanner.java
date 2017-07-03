@@ -409,8 +409,9 @@ class QueryPlanner
     {
         TranslationMap translations = subPlan.copyTranslations();
 
-        Assignments assignments = Assignments.builder().putAll(coerce(uncoerced, subPlan, translations))
-                .putAll(Assignments.identity(alreadyCoerced))
+        Assignments assignments = Assignments.builder()
+                .putAll(coerce(uncoerced, subPlan, translations))
+                .putIdentities(alreadyCoerced)
                 .build();
 
         return new PlanBuilder(translations, new ProjectNode(

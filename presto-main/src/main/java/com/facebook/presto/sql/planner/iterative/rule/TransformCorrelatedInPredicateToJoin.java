@@ -179,7 +179,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 decorrelatedBuildSource,
                 Assignments.builder()
-                        .putAll(Assignments.identity(decorrelatedBuildSource.getOutputSymbols()))
+                        .putIdentities(decorrelatedBuildSource.getOutputSymbols())
                         .put(buildSideKnownNonNull, bigint(0))
                         .build()
         );
@@ -236,7 +236,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 aggregation,
                 Assignments.builder()
-                        .putAll(Assignments.identity(apply.getInput().getOutputSymbols()))
+                        .putIdentities(apply.getInput().getOutputSymbols())
                         .put(inPredicateOutputSymbol, inPredicateEquivalent)
                         .build()
         );
