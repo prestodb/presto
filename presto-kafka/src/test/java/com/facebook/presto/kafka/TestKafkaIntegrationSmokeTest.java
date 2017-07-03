@@ -15,6 +15,7 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -39,6 +40,14 @@ public class TestKafkaIntegrationSmokeTest
     {
         super(() -> createKafkaQueryRunner(embeddedKafka, ORDERS));
         this.embeddedKafka = embeddedKafka;
+    }
+
+    @Test
+    public void testKafkaEngineWillNotFailMetaQuery()
+    {
+        getQueryRunner().createCatalog("kafka", "kafka", ImmutableMap.of());
+
+        assertQuery("SELECT * FROM system.jdbc.columns WHERE TABLE_CAT = 'kafka' AND TABLE_NAME LIKE '%'");
     }
 
     @AfterClass(alwaysRun = true)

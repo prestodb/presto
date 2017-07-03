@@ -151,14 +151,6 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "line 1:49: Column name 'orderkey' specified more than once");
     }
 
-    @Test
-    public void testKafkaEngineWillNotFailMetaQuery()
-    {
-        getQueryRunner().createCatalog("kafka", "kafka", ImmutableMap.of());
-
-        assertQuery("SELECT * FROM system.jdbc.columns WHERE TABLE_CAT = 'kafka' AND TABLE_NAME LIKE '%'");
-    }
-
     private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
     {
         String orderDateType;
