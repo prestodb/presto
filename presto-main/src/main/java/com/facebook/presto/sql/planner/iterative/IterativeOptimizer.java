@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.cost.CachingCostCalculator;
+import com.facebook.presto.cost.CachingStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.matching.MatchingEngine;
@@ -81,7 +83,7 @@ public class IterativeOptimizer
         }
 
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = new MemoBasedLookup(memo, statsCalculator, costCalculator);
+        Lookup lookup = Lookup.from(memo::resolve, new CachingStatsCalculator(statsCalculator), new CachingCostCalculator(costCalculator));
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session));

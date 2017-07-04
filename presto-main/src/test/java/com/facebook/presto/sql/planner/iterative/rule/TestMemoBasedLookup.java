@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
-import com.facebook.presto.sql.planner.iterative.MemoBasedLookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -60,7 +59,7 @@ public class TestMemoBasedLookup
         PlanNode plan = node(source);
         Memo memo = new Memo(idAllocator, plan);
 
-        MemoBasedLookup lookup = new MemoBasedLookup(memo, new NodeCountingStatsCalculator(), new CostCalculatorUsingExchanges(() -> 1));
+        Lookup lookup = Lookup.from(memo::resolve, new NodeCountingStatsCalculator(), new CostCalculatorUsingExchanges(() -> 1));
         PlanNode memoSource = Iterables.getOnlyElement(memo.getNode(memo.getRootGroup()).getSources());
         checkState(memoSource instanceof GroupReference, "expected GroupReference");
         assertEquals(lookup.resolve(memoSource), source);
@@ -71,7 +70,7 @@ public class TestMemoBasedLookup
     {
         PlanNode plan = node(node(node()));
         Memo memo = new Memo(idAllocator, plan);
-        MemoBasedLookup lookup = new MemoBasedLookup(memo, new NodeCountingStatsCalculator(), new CostCalculatorUsingExchanges(() -> 1));
+        Lookup lookup = Lookup.from(memo::resolve, new NodeCountingStatsCalculator(), new CostCalculatorUsingExchanges(() -> 1));
 
         PlanNodeStatsEstimate actualStats = lookup.getStats(memo.getNode(memo.getRootGroup()), queryRunner.getDefaultSession(), ImmutableMap.of());
         PlanNodeStatsEstimate expectedStats = PlanNodeStatsEstimate.builder().setOutputRowCount(3).build();
