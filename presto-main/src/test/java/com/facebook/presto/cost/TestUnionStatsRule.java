@@ -64,8 +64,7 @@ public class TestUnionStatsRule
                                 .putAll(pb.symbol("o3", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i23", BIGINT))
                                 .putAll(pb.symbol("o4", BIGINT), pb.symbol("i14", BIGINT), pb.symbol("i24", BIGINT))
                                 .putAll(pb.symbol("o5", BIGINT), pb.symbol("i15", BIGINT), pb.symbol("i25", BIGINT))
-                                .build(),
-                        ImmutableList.of(pb.symbol("o1", BIGINT), pb.symbol("o2", BIGINT), pb.symbol("o3", BIGINT), pb.symbol("o4", BIGINT), pb.symbol("o5", BIGINT))))
+                                .build()))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(new Symbol("i11"), SymbolStatsEstimate.builder()
