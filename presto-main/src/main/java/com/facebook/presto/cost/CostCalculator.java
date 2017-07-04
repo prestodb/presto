@@ -21,8 +21,6 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.inject.BindingAnnotation;
 
-import javax.annotation.concurrent.ThreadSafe;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.Map;
@@ -36,7 +34,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * Computes estimated cost of executing given PlanNode.
  * Implementation may use lookup to compute needed traits for self/source nodes.
  */
-@ThreadSafe
 public interface CostCalculator
 {
     PlanNodeCostEstimate calculateCost(
