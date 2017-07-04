@@ -187,14 +187,11 @@ public class PlanOptimizers
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughSemiJoin(),
                                         new RemoveTrivialFilters(),
+                                        new ImplementFilteredAggregations(),
+                                        new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct()))
                                 .build()
                 ),
-                new IterativeOptimizer(
-                        stats,
-                        ImmutableSet.of(
-                                new ImplementFilteredAggregations(),
-                                new ImplementBernoulliSampleAsFilter())),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
@@ -214,17 +211,13 @@ public class PlanOptimizers
                         ImmutableList.of(
                                 new RemoveUnreferencedScalarLateralNodes(),
                                 new TransformUncorrelatedLateralToJoin(),
-                                new TransformUncorrelatedInPredicateSubqueryToSemiJoin()),
+                                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                                new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry())),
                         ImmutableSet.of(
                                 new com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes(),
                                 new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin(),
-                                new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin()
-                        )
-                ),
-                new IterativeOptimizer(
-                        stats,
-                        ImmutableList.of(new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry())),
-                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()))),
+                                new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                                new com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()))),
                 new IterativeOptimizer(
                         stats,
                         ImmutableSet.of(
