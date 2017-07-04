@@ -18,9 +18,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.presto.cost.PlanNodeStatsEstimate.buildFrom;
+import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.google.common.base.Predicates.not;
 
 public class EnsureStatsMatchOutput
@@ -29,16 +30,16 @@ public class EnsureStatsMatchOutput
     @Override
     public PlanNodeStatsEstimate normalize(PlanNode node, PlanNodeStatsEstimate estimate, Map<Symbol, Type> types)
     {
-        Map<Symbol, SymbolStatsEstimate> symbolSymbolStats = new HashMap<>();
-        estimate.getSymbolsWithKnownStatistics().stream()
-                .filter(node.getOutputSymbols()::contains)
-                .forEach(symbol -> symbolSymbolStats.put(symbol, estimate.getSymbolStatistics(symbol)));
+        PlanNodeStatsEstimate.Builder builder = buildFrom(estimate);
 
         node.getOutputSymbols().stream()
                 .filter(not(estimate.getSymbolsWithKnownStatistics()::contains))
-                .filter(not(symbolSymbolStats::containsKey))
-                .forEach(symbol -> symbolSymbolStats.put(symbol, SymbolStatsEstimate.UNKNOWN_STATS));
+                .forEach(symbol -> builder.addSymbolStatistics(symbol, UNKNOWN_STATS));
 
-        return PlanNodeStatsEstimate.buildFrom(estimate).setSymbolStatistics(symbolSymbolStats).build();
+        estimate.getSymbolsWithKnownStatistics().stream()
+                .filter(not(node.getOutputSymbols()::contains))
+                .forEach(builder::removeSymbolStatistics);
+
+        return builder.build();
     }
 }
