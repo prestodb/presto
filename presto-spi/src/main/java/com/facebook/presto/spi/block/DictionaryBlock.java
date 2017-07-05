@@ -203,7 +203,7 @@ public class DictionaryBlock
 
     private void calculateCompactSize()
     {
-        int sizeInBytes = 0;
+        long sizeInBytes = 0;
         int uniqueIds = 0;
         boolean[] seen = new boolean[dictionary.getPositionCount()];
         for (int i = 0; i < positionCount; i++) {
