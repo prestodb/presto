@@ -30,7 +30,7 @@ import static io.airlift.slice.SizeOf.sizeOfIntArray;
 public class SingleMapBlock
         extends AbstractSingleMapBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
 
     private final int offset;
     private final int positionCount;
