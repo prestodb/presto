@@ -15,8 +15,13 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingCostCalculator;
+import com.facebook.presto.cost.CachingStatsCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.JoinNodeCachingStatsCalculator;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.EqualityInference;
@@ -83,10 +88,14 @@ public class ReorderJoins
     private static final Pattern PATTERN = Pattern.typeOf(JoinNode.class);
 
     private final CostComparator costComparator;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
-    public ReorderJoins(CostComparator costComparator)
+    public ReorderJoins(CostComparator costComparator, StatsCalculator statsCalculator, CostCalculator costCalculator)
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
 
     @Override
@@ -116,7 +125,8 @@ public class ReorderJoins
             return Optional.empty();
         }
 
-        JoinEnumerationResult result = new JoinEnumerator(idAllocator, symbolAllocator, session, lookup, multiJoinNode.getFilter(), costComparator).chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
+        Lookup joinCachingStatsLookup = Lookup.from(context.getLookup()::resolve, new JoinNodeCachingStatsCalculator(new CachingStatsCalculator(statsCalculator)), new CachingCostCalculator(costCalculator));
+        JoinEnumerationResult result = new JoinEnumerator(context.getIdAllocator(), context.getSymbolAllocator(), context.getSession(), joinCachingStatsLookup, multiJoinNode.getFilter(), costComparator).chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
         return result.getCost().hasUnknownComponents() || result.getCost().equals(INFINITE_COST) ? Optional.empty() : result.getPlanNode();
     }
 
