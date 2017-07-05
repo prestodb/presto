@@ -15,8 +15,8 @@ Description
 Execute the statement and show the distributed execution plan of the statement
 along with the cost of each operation.
 
-The ``VERBOSE`` option will give more detailed information and low-level statistics
-They may not be understandable for users not familiar with Presto internals and implementation details.
+The ``VERBOSE`` option will give more detailed information and low-level statistics;
+understanding these may require knowledge of Presto internals and implementation details.
 
 .. note::
 
@@ -72,7 +72,8 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
                     orderdate := tpch:orderdate
                     clerk := tpch:clerk
 
-When ``VERBOSE`` option is used, some operators may report additional information, e.g. for Window Function operator you may notice:
+When the ``VERBOSE`` option is used, some operators may report additional information.
+For example, the window function operator will output the following:
 
 .. code-block:: none
 
