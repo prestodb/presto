@@ -171,7 +171,7 @@ public abstract class AbstractFixedWidthBlock
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
-        return length * (fixedSize + Byte.BYTES);
+        return (fixedSize + Byte.BYTES) * (long) length;
     }
 
     private int valueOffset(int position)

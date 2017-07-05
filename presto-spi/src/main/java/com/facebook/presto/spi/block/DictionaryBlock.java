@@ -229,7 +229,7 @@ public class DictionaryBlock
             return getSizeInBytes();
         }
 
-        int sizeInBytes = 0;
+        long sizeInBytes = 0;
         boolean[] seen = new boolean[dictionary.getPositionCount()];
         for (int i = positionOffset; i < positionOffset + length; i++) {
             int position = getId(i);
@@ -240,7 +240,8 @@ public class DictionaryBlock
                 seen[position] = true;
             }
         }
-        return sizeInBytes + (length * Integer.BYTES);
+        sizeInBytes += Integer.BYTES * (long) length;
+        return sizeInBytes;
     }
 
     @Override

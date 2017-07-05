@@ -261,7 +261,7 @@ public abstract class AbstractInterleavedBlock
             return getSizeInBytes();
         }
         validateRange(position, length);
-        int result = 0;
+        long result = 0;
         for (int blockIndex = 0; blockIndex < getBlockCount(); blockIndex++) {
             result += getBlock(blockIndex).getRegionSizeInBytes(position / columns, length / columns);
         }

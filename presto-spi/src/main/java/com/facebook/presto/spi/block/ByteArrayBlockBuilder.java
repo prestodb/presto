@@ -135,7 +135,7 @@ public class ByteArrayBlockBuilder
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (Byte.BYTES + Byte.BYTES) * length;
+        return (Byte.BYTES + Byte.BYTES) * (long) length;
     }
 
     @Override

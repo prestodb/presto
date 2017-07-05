@@ -136,7 +136,7 @@ public class ShortArrayBlockBuilder
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (Short.BYTES + Byte.BYTES) * length;
+        return (Short.BYTES + Byte.BYTES) * (long) length;
     }
 
     @Override
