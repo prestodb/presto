@@ -100,7 +100,7 @@ public abstract class AbstractArrayBlock
         int valueStart = getOffsets()[getOffsetBase() + position];
         int valueEnd = getOffsets()[getOffsetBase() + position + length];
 
-        return getValues().getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * length);
+        return getValues().getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) length);
     }
 
     @Override

@@ -156,8 +156,8 @@ public abstract class AbstractMapBlock
 
         return getKeys().getRegionSizeInBytes(entriesStart, entryCount) +
                 getValues().getRegionSizeInBytes(entriesStart, entryCount) +
-                (Integer.BYTES + Byte.BYTES) * length +
-                Integer.BYTES * HASH_MULTIPLIER * entryCount;
+                (Integer.BYTES + Byte.BYTES) * (long) length +
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
     }
 
     @Override

@@ -110,7 +110,7 @@ public class VariableWidthBlockBuilder
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " length " + length + " in block with " + positionCount + " positions");
         }
-        long arraysSizeInBytes = (Integer.BYTES + Byte.BYTES) * length;
+        long arraysSizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) length;
         return getOffset(positionOffset + length) - getOffset(positionOffset) + arraysSizeInBytes;
     }
 
