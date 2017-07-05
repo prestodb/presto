@@ -237,6 +237,7 @@ public final class MapTransformValueFunction
         body.append(mapBlockBuilder
                 .invoke("closeEntry", BlockBuilder.class)
                 .pop());
+        body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, resultMapType)
                 .invoke(
                         "getObject",
