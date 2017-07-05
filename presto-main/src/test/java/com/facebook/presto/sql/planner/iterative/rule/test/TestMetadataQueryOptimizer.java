@@ -35,7 +35,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.MetadataQueryOptimizer;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -124,8 +123,8 @@ public class TestMetadataQueryOptimizer
         tester.assertThat(metadataQueryOptimizer)
                 .on(p -> p.aggregation(s -> s.source(
                         p.values(p.symbol("key", BIGINT)))
-                        .addAggregation(new Symbol("COUNT"), countFunctionCall, ImmutableList.of(BIGINT))
-                        .addGroupingSet(new Symbol("key"))))
+                        .addAggregation(p.symbol("COUNT", BIGINT), countFunctionCall, ImmutableList.of(BIGINT))
+                        .addGroupingSet(p.symbol("key", BIGINT))))
                 .doesNotFire();
     }
 
@@ -138,8 +137,8 @@ public class TestMetadataQueryOptimizer
                                 Assignments.of(
                                         p.symbol("non_deterministic", BOOLEAN), p.expression("random()")),
                                 p.values(p.symbol("key", BIGINT))))
-                        .addAggregation(new Symbol("COUNT"), COUNT_DISTINCT_FUNCTION_CALL, ImmutableList.of(BIGINT))
-                        .addGroupingSet(new Symbol("key"))))
+                        .addAggregation(p.symbol("COUNT", BIGINT), COUNT_DISTINCT_FUNCTION_CALL, ImmutableList.of(BIGINT))
+                        .addGroupingSet(p.symbol("key", BIGINT))))
                 .doesNotFire();
     }
 
@@ -149,8 +148,8 @@ public class TestMetadataQueryOptimizer
         tester.assertThat(metadataQueryOptimizer)
                 .on(p -> p.aggregation(s -> s.source(
                         p.limit(5, p.values(p.symbol("key", BIGINT))))
-                        .addAggregation(new Symbol("COUNT"), COUNT_DISTINCT_FUNCTION_CALL, ImmutableList.of(BIGINT))
-                        .addGroupingSet(new Symbol("key"))))
+                        .addAggregation(p.symbol("COUNT", BIGINT), COUNT_DISTINCT_FUNCTION_CALL, ImmutableList.of(BIGINT))
+                        .addGroupingSet(p.symbol("key", BIGINT))))
                 .doesNotFire();
     }
 
@@ -162,8 +161,8 @@ public class TestMetadataQueryOptimizer
                         p.filter(p.expression("key > 1"), p.tableScan(
                                 ImmutableList.of(p.symbol("key", BIGINT)),
                                 ImmutableMap.of(p.symbol("key", BIGINT), new TestingColumnHandle("key")))))
-                        .addAggregation(new Symbol("COUNT"), COUNT_DISTINCT_FUNCTION_CALL, ImmutableList.of(BIGINT))
-                        .addGroupingSet(new Symbol("key"))))
+                        .addAggregation(p.symbol("COUNT", BIGINT), COUNT_DISTINCT_FUNCTION_CALL, ImmutableList.of(BIGINT))
+                        .addGroupingSet(p.symbol("key", BIGINT))))
                 .doesNotFire();
     }
 
@@ -185,8 +184,8 @@ public class TestMetadataQueryOptimizer
                                 ImmutableMap.of(p.symbol("orderstatus", VARCHAR), ORDER_STATUS),
                                 ordersTable,
                                 ordersTableLayout))
-                        .addAggregation(new Symbol("COUNT"), COUNT_DISTINCT_FUNCTION_CALL, ImmutableList.of(BIGINT))
-                        .addGroupingSet(new Symbol("orderstatus"))))
+                        .addAggregation(p.symbol("COUNT", BIGINT), COUNT_DISTINCT_FUNCTION_CALL, ImmutableList.of(BIGINT))
+                        .addGroupingSet(p.symbol("orderstatus", VARCHAR))))
                 .matches(aggregation(ImmutableMap.of("COUNT", distinctFunctionCall("count", ImmutableList.of("orderstatus"))),
                         values(ImmutableMap.of("orderstatus", 0))));
     }
