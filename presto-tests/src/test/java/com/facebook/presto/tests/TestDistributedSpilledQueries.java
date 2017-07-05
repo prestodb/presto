@@ -46,8 +46,8 @@ public class TestDistributedSpilledQueries
                 .build();
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
+                .put("beta.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
+                .put("beta.spiller-max-used-space-threshold", "1.0")
                 .put("experimental.memory-revoking-threshold", "0.0") // revoke always
                 .put("experimental.memory-revoking-target", "0.0")
                 .build();

@@ -64,11 +64,11 @@ public class TestQuerySpillLimits
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.aggregation-operator-unspill-memory-limit", "1B")
-                .put("experimental.max-spill-per-node", "10B")
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
+                .put("beta.spiller-spill-path", spillPath.getAbsolutePath())
+                .put("beta.spill-enabled", "true")
+                .put("beta.aggregation-operator-unspill-memory-limit", "1B")
+                .put("beta.max-spill-per-node", "10B")
+                .put("beta.spiller-max-used-space-threshold", "1.0")
                 .build();
         try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setMaxSpillPerNode(DataSize.succinctBytes(10)))) {
             queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
@@ -80,11 +80,11 @@ public class TestQuerySpillLimits
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.aggregation-operator-unspill-memory-limit", "1B")
-                .put("experimental.query-max-spill-per-node", "10B")
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
+                .put("beta.spiller-spill-path", spillPath.getAbsolutePath())
+                .put("beta.spill-enabled", "true")
+                .put("beta.aggregation-operator-unspill-memory-limit", "1B")
+                .put("beta.query-max-spill-per-node", "10B")
+                .put("beta.spiller-max-used-space-threshold", "1.0")
                 .build();
         try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setQueryMaxSpillPerNode(DataSize.succinctBytes(10)))) {
             queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
