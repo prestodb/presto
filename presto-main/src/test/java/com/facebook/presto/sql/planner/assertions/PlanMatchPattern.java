@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -192,6 +193,21 @@ public final class PlanMatchPattern
                 new SymbolAlias(markerSymbol),
                 toSymbolAliases(distinctSymbols),
                 Optional.of(new SymbolAlias(hashSymbol))));
+    }
+
+    public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
+            WindowFrame.Type type,
+            FrameBound.Type startType,
+            Optional<String> startValue,
+            FrameBound.Type endType,
+            Optional<String> endValue)
+    {
+        return new WindowFrameProvider(
+                type,
+                startType,
+                startValue.map(SymbolAlias::new),
+                endType,
+                endValue.map(SymbolAlias::new));
     }
 
     public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> windowMatcherBuilderConsumer, PlanMatchPattern source)
