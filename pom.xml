@@ -120,6 +120,7 @@
         <module>presto-thrift-testing-server</module>
         <module>presto-thrift-connector</module>
         <module>presto-matching</module>
+        <module>presto-connector-tests</module>
     </modules>
 
     <dependencyManagement>
@@ -337,6 +338,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-sqlserver</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-connector-tests</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -932,6 +939,24 @@
                 <groupId>com.facebook.presto.cassandra</groupId>
                 <artifactId>cassandra-driver</artifactId>
                 <version>3.1.4-1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>${dep.junit-jupiter.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-launcher</artifactId>
+                <version>${dep.junit-platform.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${dep.junit-jupiter.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
