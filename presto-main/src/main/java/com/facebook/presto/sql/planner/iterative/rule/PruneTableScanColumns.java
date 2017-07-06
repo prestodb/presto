@@ -24,14 +24,12 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
+import static com.google.common.collect.Maps.filterKeys;
 
 public class PruneTableScanColumns
         implements Rule
@@ -61,17 +59,14 @@ public class PruneTableScanColumns
             return Optional.empty();
         }
 
-        List<Symbol> newOutputs = filteredCopy(child.getOutputSymbols(), dependencies.get()::contains);
-
         return Optional.of(
                 new ProjectNode(
                         parent.getId(),
                         new TableScanNode(
                                 child.getId(),
                                 child.getTable(),
-                                newOutputs,
-                                newOutputs.stream()
-                                        .collect(Collectors.toMap(Function.identity(), e -> child.getAssignments().get(e))),
+                                filteredCopy(child.getOutputSymbols(), dependencies.get()::contains),
+                                filterKeys(child.getAssignments(), dependencies.get()::contains),
                                 child.getLayout(),
                                 child.getCurrentConstraint(),
                                 child.getOriginalConstraint()),
