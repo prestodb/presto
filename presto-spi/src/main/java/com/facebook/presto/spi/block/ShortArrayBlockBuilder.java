@@ -126,11 +126,10 @@ public class ShortArrayBlockBuilder
         }
     }
 
-    // Copied from ShortArrayBlock
     @Override
     public long getSizeInBytes()
     {
-        return (Short.BYTES + Byte.BYTES) * positionCount;
+        return (Short.BYTES + Byte.BYTES) * (long) positionCount;
     }
 
     @Override

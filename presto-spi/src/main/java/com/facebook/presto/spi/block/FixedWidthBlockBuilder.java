@@ -87,7 +87,7 @@ public class FixedWidthBlockBuilder
     @Override
     public long getSizeInBytes()
     {
-        return sliceOutput.size() + valueIsNull.size();
+        return sliceOutput.size() + (long) valueIsNull.size();
     }
 
     @Override

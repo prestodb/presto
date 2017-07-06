@@ -74,7 +74,7 @@ public class FixedWidthBlock
     @Override
     public long getSizeInBytes()
     {
-        return getRawSlice().length() + valueIsNull.length();
+        return getRawSlice().length() + (long) valueIsNull.length();
     }
 
     @Override

@@ -125,11 +125,10 @@ public class ByteArrayBlockBuilder
         }
     }
 
-    // Copied from ByteArrayBlock
     @Override
     public long getSizeInBytes()
     {
-        return (Byte.BYTES + Byte.BYTES) * positionCount;
+        return (Byte.BYTES + Byte.BYTES) * (long) positionCount;
     }
 
     @Override
