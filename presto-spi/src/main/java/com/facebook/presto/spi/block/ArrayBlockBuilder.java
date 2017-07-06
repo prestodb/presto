@@ -95,7 +95,7 @@ public class ArrayBlockBuilder
     @Override
     public long getSizeInBytes()
     {
-        return values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * positionCount);
+        return values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * (long) positionCount);
     }
 
     @Override

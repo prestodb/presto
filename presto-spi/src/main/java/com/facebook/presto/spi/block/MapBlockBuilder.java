@@ -154,8 +154,8 @@ public class MapBlockBuilder
     public long getSizeInBytes()
     {
         return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() +
-                (Integer.BYTES + Byte.BYTES) * positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * keyBlockBuilder.getPositionCount();
+                (Integer.BYTES + Byte.BYTES) * (long) positionCount +
+                Integer.BYTES * HASH_MULTIPLIER * (long) keyBlockBuilder.getPositionCount();
     }
 
     @Override

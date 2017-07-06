@@ -99,7 +99,7 @@ public class VariableWidthBlockBuilder
     @Override
     public long getSizeInBytes()
     {
-        long arraysSizeInBytes = (Integer.BYTES + Byte.BYTES) * positions;
+        long arraysSizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) positions;
         return sliceOutput.size() + arraysSizeInBytes;
     }
 

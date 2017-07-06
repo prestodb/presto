@@ -139,8 +139,8 @@ public class MapBlock
         int entryCount = entriesEnd - entriesStart;
         sizeInBytes = keyBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 valueBlock.getRegionSizeInBytes(entriesStart, entryCount) +
-                (Integer.BYTES + Byte.BYTES) * this.positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * entryCount;
+                (Integer.BYTES + Byte.BYTES) * (long) this.positionCount +
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
     }
 
     @Override

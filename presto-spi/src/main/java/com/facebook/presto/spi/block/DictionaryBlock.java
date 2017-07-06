@@ -216,7 +216,7 @@ public class DictionaryBlock
                 seen[position] = true;
             }
         }
-        this.sizeInBytes = sizeInBytes + (positionCount * Integer.BYTES);
+        this.sizeInBytes = sizeInBytes + (Integer.BYTES * (long) positionCount);
         this.uniqueIds = uniqueIds;
     }
 
