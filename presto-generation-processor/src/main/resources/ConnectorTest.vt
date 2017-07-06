@@ -1,0 +1,22 @@
+package ${package};
+
+#foreach(${supportedFeature} in ${supportedFeatures})
+import static com.facebook.presto.test.ConnectorFeature.${supportedFeature};
+#end
+
+import com.facebook.presto.test.SupportedFeatures;
+import ${fqTestBaseClass};
+
+import static ${fqConnectorClass}.getHelper;
+
+@SupportedFeatures(supportedFeatures = {#foreach(${supportedFeature} in ${supportedFeatures})${supportedFeature}, #end})
+public final class ${testClassName}
+    extends ${testBaseClass}
+{
+    public ${testClassName}()
+	throws Exception
+    {
+        super(getHelper(), ${connectorTestCount});
+    }
+
+}

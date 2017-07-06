@@ -115,6 +115,9 @@
         <module>presto-thrift-connector-api</module>
         <module>presto-thrift-testing-server</module>
         <module>presto-thrift-connector</module>
+        <module>presto-generation-annotation</module>
+        <module>presto-generation-processor</module>
+        <module>presto-generation-test</module>
     </modules>
 
     <dependencyManagement>
@@ -326,6 +329,24 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-sqlserver</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-generation-annotation</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-generation-processor</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-generation-test</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
