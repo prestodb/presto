@@ -80,8 +80,8 @@ Properties controlling spilling
 
     Spilling works by offloading memory to disk. This process can allow some queries with large memory
     footprint to pass at the cost of slower execution times. Currently, spilling is supported only for
-    aggregations, so this property will not reduce memory usage required for joins, window functions and
-    sorting.
+    aggregations and joins, so this property will not reduce memory usage required for window functions
+    and sorting.
 
     Be aware that this is an experimental feature and should be used with care.
 
