@@ -195,7 +195,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 

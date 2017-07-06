@@ -38,7 +38,9 @@ import org.testng.annotations.BeforeClass;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -56,22 +58,32 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    private static final QueryRunnerCache queryRunnerCache = new QueryRunnerCache();
     private QueryRunnerSupplier queryRunnerSupplier;
+    private int connectorTestCount;
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
     private CostCalculator costCalculator;
 
+    public static final Map<String, Integer> testCounts = new HashMap<String, Integer>();
+
     protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
+        this(supplier, 0);
+    }
+
+    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier, int connectorTestCount)
+    {
         this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+        this.connectorTestCount = connectorTestCount;
     }
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        queryRunner = queryRunnerSupplier.get();
+        queryRunner = queryRunnerCache.get(queryRunnerSupplier, connectorTestCount);
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
         costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
@@ -81,7 +93,8 @@ public abstract class AbstractTestQueryFramework
     public void close()
             throws Exception
     {
-        closeAllRuntimeException(queryRunner, h2QueryRunner);
+        closeAllRuntimeException(h2QueryRunner);
+        queryRunnerCache.dispose(queryRunnerSupplier);
         queryRunner = null;
         h2QueryRunner = null;
         sqlParser = null;
@@ -327,5 +340,65 @@ public abstract class AbstractTestQueryFramework
     {
         QueryRunner get()
                 throws Exception;
+    }
+
+    private static class QueryRunnerCache
+    {
+        private Map<QueryRunnerSupplier, QueryRunnerHolder> cache = new HashMap<>();
+
+        private synchronized QueryRunner get(QueryRunnerSupplier supplier, int connectorTestCount)
+                throws Exception
+        {
+            QueryRunnerHolder entry = cache.get(supplier);
+
+            if (entry == null) {
+                entry = new QueryRunnerHolder(supplier, connectorTestCount);
+                cache.put(supplier, entry);
+            }
+
+            return entry.get();
+        }
+
+        private synchronized void dispose(QueryRunnerSupplier supplier)
+        {
+            if (cache.get(supplier).dispose() == 0) {
+                cache.remove(supplier);
+            }
+        }
+    }
+
+    private static class QueryRunnerHolder
+    {
+        private QueryRunner queryRunner;
+        private final int connectorTestCount;
+        private int remainingTestClasses;
+
+        public QueryRunnerHolder(QueryRunnerSupplier supplier, int connectorTestCount)
+                throws Exception
+        {
+            this.queryRunner = requireNonNull(supplier, "supplier is Null").get();
+            this.connectorTestCount = connectorTestCount;
+            this.remainingTestClasses = connectorTestCount;
+        }
+
+        public QueryRunner get()
+        {
+            return queryRunner;
+        }
+
+        public int dispose()
+        {
+            // If we don't have a count, leave it open.
+            if (connectorTestCount == 0) {
+                return 0;
+            }
+
+            if (--remainingTestClasses == 0) {
+                closeAllRuntimeException(queryRunner);
+                this.queryRunner = null;
+            }
+
+            return remainingTestClasses;
+        }
     }
 }
