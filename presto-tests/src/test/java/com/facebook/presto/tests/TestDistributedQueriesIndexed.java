@@ -15,9 +15,14 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
+import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
@@ -41,5 +46,26 @@ public class TestDistributedQueriesIndexed
         queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));
         queryRunner.createCatalog("tpch_indexed", "tpch_indexed");
         return queryRunner;
+    }
+
+    @Test
+    public void testAnalyzeIndexedJoin()
+            throws Exception
+    {
+        assertExplainAnalyze("EXPLAIN ANALYZE " +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT *\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "JOIN orders o\n" +
+                "  ON l.orderkey = o.orderkey");
+    }
+
+    private void assertExplainAnalyze(@Language("SQL") String query)
+    {
+        String value = getOnlyElement(computeActual(query).getOnlyColumnAsSet());
+
+        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
     }
 }
