@@ -22,7 +22,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
@@ -50,13 +50,17 @@ public class AggregationStatsRule
             return Optional.empty();
         }
 
-        PlanNodeStatsEstimate sourceStats = lookup.getStats(aggregationNode.getSource(), session, types);
+        return Optional.of(groupBy(
+                lookup.getStats(aggregationNode.getSource(), session, types),
+                getOnlyElement(aggregationNode.getGroupingSets()),
+                aggregationNode.getAggregations()));
+    }
 
-        List<Symbol> groupBySymbols = getOnlyElement(aggregationNode.getGroupingSets());
-
+    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate input, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
+    {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         for (Symbol groupBySymbol : groupBySymbols) {
-            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
+            SymbolStatsEstimate symbolStatistics = input.getSymbolStatistics(groupBySymbol);
             result.addSymbolStatistics(groupBySymbol, symbolStatistics.mapNullsFraction(nullsFraction -> {
                 if (isPositiveOrNan(nullsFraction)) {
                     double distinctValuesCount = symbolStatistics.getDistinctValuesCount();
@@ -68,20 +72,20 @@ public class AggregationStatsRule
 
         double rowsCount = 1;
         for (Symbol groupBySymbol : groupBySymbols) {
-            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
+            SymbolStatsEstimate symbolStatistics = input.getSymbolStatistics(groupBySymbol);
             int nullRow = isPositiveOrNan(symbolStatistics.getNullsFraction()) ? 1 : 0;
             rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
         }
         result.setOutputRowCount(rowsCount);
 
-        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregationNode.getAggregations().entrySet()) {
-            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
+        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
+            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), input));
         }
 
-        return Optional.of(result.build());
+        return result.build();
     }
 
-    private SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
+    private static SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
     {
         requireNonNull(aggregation, "aggregation is null");
         requireNonNull(sourceStats, "sourceStats is null");
