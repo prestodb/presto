@@ -207,7 +207,10 @@ public final class MapTransformKeyFunction
         else {
             // make sure invokeExact will not take uninitialized keys during compile time
             // but if we reach this point during runtime, it is an exception
+            // also close the block builder before throwing as we may be in a TRY() call
+            // so that subsequent calls do not find it in an inconsistent state
             loadKeyElement = new BytecodeBlock()
+                    .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
                     .append(keyElement.set(constantNull(keyJavaType)))
                     .append(throwNullKeyException);
         }
@@ -240,6 +243,7 @@ public final class MapTransformKeyFunction
 
             // make sure getObjectValue takes a known key type
             throwDuplicatedKeyException = new BytecodeBlock()
+                    .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
                     .append(newInstance(
                             PrestoException.class,
                             getStatic(INVALID_FUNCTION_ARGUMENT.getDeclaringClass(), "INVALID_FUNCTION_ARGUMENT").cast(ErrorCodeSupplier.class),

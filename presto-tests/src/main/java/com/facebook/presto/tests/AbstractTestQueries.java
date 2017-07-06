@@ -632,6 +632,9 @@ public abstract class AbstractTestQueries
     public void testMaps()
     {
         assertQuery("SELECT m[max_key] FROM (SELECT map_agg(orderkey, orderkey) m, max(orderkey) max_key FROM orders)", "SELECT max(orderkey) FROM orders");
+        // Make sure that even if the map constructor throws with the NULL key the block builders are left in a consistent state
+        // and the TRY() call eventually succeeds and return NULL values.
+        assertQuery("SELECT JSON_FORMAT(CAST(TRY(MAP(ARRAY[NULL], ARRAY[x])) AS JSON)) FROM (VALUES 1, 2) t(x)", "SELECT * FROM (VALUES NULL, NULL)");
     }
 
     @Test
