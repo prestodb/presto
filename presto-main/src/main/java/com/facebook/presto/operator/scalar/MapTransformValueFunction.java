@@ -195,7 +195,10 @@ public final class MapTransformValueFunction
         else {
             // make sure invokeExact will not take uninitialized keys during compile time
             // but if we reach this point during runtime, it is an exception
+            // also close the block builder before throwing as we may be in a TRY() call
+            // so that subsequent calls do not find it in an inconsistent state
             loadKeyElement = new BytecodeBlock()
+                    .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
                     .append(keyElement.set(constantNull(keyJavaType)))
                     .append(throwNullKeyException);
         }

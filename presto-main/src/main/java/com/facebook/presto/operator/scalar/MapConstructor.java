@@ -104,6 +104,7 @@ public final class MapConstructor
     @UsedByGeneratedCode
     public static Block createMap(MapType mapType, MethodHandle keyEqual, MethodHandle keyHashCode, State state, Block keyBlock, Block valueBlock)
     {
+        checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
         PageBuilder pageBuilder = state.getPageBuilder();
         if (pageBuilder.isFull()) {
             pageBuilder.reset();
@@ -111,9 +112,11 @@ public final class MapConstructor
 
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
-        checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
         for (int i = 0; i < keyBlock.getPositionCount(); i++) {
             if (keyBlock.isNull(i)) {
+                // close block builder before throwing as we may be in a TRY() call
+                // so that subsequent calls do not find it in an inconsistent state
+                mapBlockBuilder.closeEntry();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
             mapType.getKeyType().appendTo(keyBlock, i, blockBuilder);
