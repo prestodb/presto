@@ -71,20 +71,23 @@ public class TestCostCalculator
     @Test
     public void testTableScan()
     {
+        TableScanNode tableScan = tableScan("ts", "orderkey");
+
         assertCost(
-                tableScan("ts", "orderkey"),
+                tableScan,
                 ImmutableMap.of(),
                 ImmutableMap.of("ts", statsEstimate(1000)))
                 .cpu(1000)
-                .memory(0)
-                .network(0);
+                .memoryUnknown()
+                .networkUnknown();
+
         assertCostEstimatedExchanges(
-                tableScan("ts", "orderkey"),
+                tableScan,
                 ImmutableMap.of(),
                 ImmutableMap.of("ts", statsEstimate(1000)))
                 .cpu(1000)
-                .memory(0)
-                .network(1000);
+                .memoryUnknown()
+                .networkUnknown();
     }
 
     @Test
@@ -99,16 +102,16 @@ public class TestCostCalculator
                 costs,
                 stats)
                 .cpu(1000 + 4000)
-                .memory(0)
-                .network(0);
+                .memoryUnknown()
+                .networkUnknown();
 
         assertCostEstimatedExchanges(
                 project,
                 costs,
                 stats)
                 .cpu(1000 + 4000)
-                .memory(0)
-                .network(0);
+                .memoryUnknown()
+                .networkUnknown();
     }
 
     @Test
@@ -135,16 +138,16 @@ public class TestCostCalculator
                 costs,
                 stats)
                 .cpu(12000 + 6000 + 1000 + 6000 + 1000)
-                .memory(1000)
-                .network(0);
+                .memoryUnknown()
+                .networkUnknown();
 
         assertCostEstimatedExchanges(
                 join,
                 costs,
                 stats)
                 .cpu(12000 + 6000 + 1000 + 6000 + 1000 + 6000 + 1000)
-                .memory(1000)
-                .network(6000 + 1000);
+                .memoryUnknown()
+                .networkUnknown();
     }
 
     @Test
@@ -171,16 +174,16 @@ public class TestCostCalculator
                 costs,
                 stats)
                 .cpu(12000 + 6000 + 10000 + 6000 + 1000)
-                .memory(10000)
-                .network(0);
+                .memoryUnknown()
+                .networkUnknown();
 
         assertCostEstimatedExchanges(
                 join,
                 costs,
                 stats)
                 .cpu(12000 + 6000 + 10000 + 6000 + 1000)
-                .memory(10000)
-                .network(NUMBER_OF_NODES * 1000);
+                .memoryUnknown()
+                .networkUnknown();
     }
 
     @Test
@@ -196,13 +199,14 @@ public class TestCostCalculator
 
         assertCost(aggregationNode, costs, stats)
                 .cpu(6000 + 6000)
-                .memory(8)
-                .network(0);
+                .memoryUnknown()
+                .networkUnknown();
+
 
         assertCostEstimatedExchanges(aggregationNode, costs, stats)
                 .cpu(6000 + 6000 + 6000)
-                .memory(8)
-                .network(6000);
+                .memoryUnknown()
+                .networkUnknown();
     }
 
     private CostAssertionBuilder assertCost(
