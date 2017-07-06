@@ -55,8 +55,10 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestCostCalculator
@@ -242,9 +244,21 @@ public class TestCostCalculator
             return this;
         }
 
+        public CostAssertionBuilder networkUnknown()
+        {
+            assertIsNaN(actual.getNetworkCost());
+            return this;
+        }
+
         public CostAssertionBuilder cpu(double value)
         {
             assertEquals(actual.getCpuCost(), value, 0.1);
+            return this;
+        }
+
+        public CostAssertionBuilder cpuUnknown()
+        {
+            assertIsNaN(actual.getCpuCost());
             return this;
         }
 
@@ -252,6 +266,17 @@ public class TestCostCalculator
         {
             assertEquals(actual.getMemoryCost(), value, 0.1);
             return this;
+        }
+
+        public CostAssertionBuilder memoryUnknown()
+        {
+            assertIsNaN(actual.getMemoryCost());
+            return this;
+        }
+
+        private void assertIsNaN(double value)
+        {
+            assertTrue(isNaN(value), "Expected NaN got " + value);
         }
     }
 
