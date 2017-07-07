@@ -24,8 +24,6 @@ public interface Rule
 {
     /**
      * Returns a pattern to which plan nodes this rule applies.
-     * Notice that rule may be still invoked for plan nodes which given pattern does not apply,
-     * then rule should return Optional.empty() in such case
      */
     default Pattern getPattern()
     {
