@@ -160,7 +160,7 @@ public class SqlTaskExecution
             List<DriverFactory> driverFactories;
             try {
                 LocalExecutionPlan localExecutionPlan = planner.plan(
-                        taskContext.getSession(),
+                        taskContext,
                         fragment.getRoot(),
                         fragment.getSymbols(),
                         fragment.getPartitioningScheme(),
