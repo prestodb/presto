@@ -35,9 +35,10 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.override;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 
 public class TestHttpBackupStore
         extends AbstractTestBackupStore<BackupStore>
@@ -78,7 +79,7 @@ public class TestHttpBackupStore
     public void teardown()
             throws Exception
     {
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
         if (lifeCycleManager != null) {
             lifeCycleManager.stop();
         }

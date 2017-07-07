@@ -25,7 +25,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 public class EmbeddedZookeeper
         implements Closeable
@@ -67,6 +68,7 @@ public class EmbeddedZookeeper
 
     @Override
     public void close()
+            throws IOException
     {
         if (started.get() && !stopped.getAndSet(true)) {
             cnxnFactory.shutdown();
@@ -81,7 +83,7 @@ public class EmbeddedZookeeper
                 zkServer.shutdown();
             }
 
-            deleteRecursively(zkDataDir);
+            deleteRecursively(zkDataDir.toPath(), ALLOW_INSECURE);
         }
     }
 

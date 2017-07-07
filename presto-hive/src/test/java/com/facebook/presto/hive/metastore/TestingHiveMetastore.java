@@ -29,6 +29,8 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,7 +57,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
@@ -205,7 +208,7 @@ public class TestingHiveMetastore
             for (String location : locations) {
                 File directory = new File(URI.create(location));
                 checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
-                deleteRecursively(directory);
+                deleteDirectory(directory);
             }
         }
     }
@@ -434,7 +437,7 @@ public class TestingHiveMetastore
         if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
             File directory = new File(URI.create(partition.getStorage().getLocation()));
             checkArgument(isParentDir(directory, baseDirectory), "Partition directory must be inside of the metastore base directory");
-            deleteRecursively(directory);
+            deleteDirectory(directory);
         }
     }
 
@@ -636,6 +639,16 @@ public class TestingHiveMetastore
         // a table can only be owned by a user
         Optional<Table> table = getTable(databaseName, tableName);
         return table.isPresent() && user.equals(table.get().getOwner());
+    }
+
+    static void deleteDirectory(File dir)
+    {
+        try {
+            deleteRecursively(dir.toPath(), ALLOW_INSECURE);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static class PartitionName

@@ -27,13 +27,16 @@ import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
-import io.airlift.testing.FileUtils;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.Closeable;
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
+
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 public class TestingDiscoveryServer
         implements Closeable
@@ -81,6 +84,7 @@ public class TestingDiscoveryServer
 
     @Override
     public void close()
+            throws IOException
     {
         try {
             if (lifeCycleManager != null) {
@@ -91,7 +95,7 @@ public class TestingDiscoveryServer
             Throwables.propagate(e);
         }
         finally {
-            FileUtils.deleteRecursively(tempDir);
+            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
         }
     }
 }

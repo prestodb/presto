@@ -52,11 +52,11 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.TestingHiveMetastore.deleteDirectory;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -235,7 +235,7 @@ public class InMemoryHiveMetastore
                 if (location != null) {
                     File directory = new File(new Path(location).toUri());
                     checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
-                    deleteRecursively(directory);
+                    deleteDirectory(directory);
                 }
             }
         }
