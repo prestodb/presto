@@ -181,7 +181,7 @@ public class ThriftPageSource
     @Override
     public CompletableFuture<?> isBlocked()
     {
-        return future == null || future.isDone() ? NOT_BLOCKED : future;
+        return future == null ? NOT_BLOCKED : future;
     }
 
     @Override
