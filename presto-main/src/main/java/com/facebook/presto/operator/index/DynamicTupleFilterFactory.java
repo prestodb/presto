@@ -72,7 +72,7 @@ public class DynamicTupleFilterFactory
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata);
         this.outputProjections = IntStream.range(0, outputTypes.size())
-                .mapToObj(field -> pageFunctionCompiler.compileProjection(Expressions.field(field, outputTypes.get(field))))
+                .mapToObj(field -> pageFunctionCompiler.compileProjection(Expressions.field(field, outputTypes.get(field)), Optional.empty()))
                 .collect(toImmutableList());
     }
 
