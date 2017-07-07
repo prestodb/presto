@@ -24,6 +24,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -35,6 +36,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestPageFunctionCompiler
@@ -51,7 +53,7 @@ public class TestPageFunctionCompiler
                 field(0, BIGINT),
                 constant(10L, BIGINT));
 
-        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(add10);
+        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(add10, Optional.empty());
         PageProjection projection = projectionSupplier.get();
 
         // process good page and verify we got the expected number of result rows
@@ -73,6 +75,25 @@ public class TestPageFunctionCompiler
         // if block builder in generated code was not reset properly, we could get junk results after the failure
         goodResult = projection.project(SESSION, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
         assertEquals(goodPage.getPositionCount(), goodResult.getPositionCount());
+    }
+
+    @Test
+    public void testGeneratedClassName()
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager());
+        RowExpression add10 = call(
+                Signature.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+                BIGINT,
+                field(0, BIGINT),
+                constant(10L, BIGINT));
+
+        String planNodeId = "7";
+        String stageId = "20170707_223500_67496_zguwn.2";
+        String classSuffix = stageId + "_" + planNodeId;
+        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(add10, Optional.of(classSuffix));
+        PageProjection projection = projectionSupplier.get();
+        // class name should look like PageProjection_20170707_223500_67496_zguwn_2_7_XX
+        assertTrue(projection.getClass().getSimpleName().startsWith("PageProjection_" + stageId.replace('.', '_') + "_" + planNodeId));
     }
 
     private static Page createLongBlockPage(long... values)
