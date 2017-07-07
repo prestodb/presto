@@ -13,11 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -34,9 +30,9 @@ public class PushTableWriteThroughUnion
         implements Rule
 {
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        if (!isPushTableWriteThroughUnion(session)) {
+        if (!isPushTableWriteThroughUnion(context.getSession())) {
             return Optional.empty();
         }
 
@@ -54,7 +50,7 @@ public class PushTableWriteThroughUnion
             return Optional.empty();
         }
 
-        PlanNode child = lookup.resolve(tableWriterNode.getSource());
+        PlanNode child = context.getLookup().resolve(tableWriterNode.getSource());
         if (!(child instanceof UnionNode)) {
             return Optional.empty();
         }
@@ -66,12 +62,12 @@ public class PushTableWriteThroughUnion
             int index = i;
             ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
             for (Symbol outputSymbol : node.getOutputSymbols()) {
-                Symbol newSymbol = symbolAllocator.newSymbol(outputSymbol);
+                Symbol newSymbol = context.getSymbolAllocator().newSymbol(outputSymbol);
                 newSymbols.add(newSymbol);
                 mappings.put(outputSymbol, newSymbol);
             }
             rewrittenSources.add(new TableWriterNode(
-                    idAllocator.getNextId(),
+                    context.getIdAllocator().getNextId(),
                     unionNode.getSources().get(index),
                     tableWriterNode.getTarget(),
                     tableWriterNode.getColumns().stream()
@@ -82,6 +78,6 @@ public class PushTableWriteThroughUnion
                     tableWriterNode.getPartitioningScheme()));
         }
 
-        return Optional.of(new UnionNode(idAllocator.getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
+        return Optional.of(new UnionNode(context.getIdAllocator().getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
     }
 }

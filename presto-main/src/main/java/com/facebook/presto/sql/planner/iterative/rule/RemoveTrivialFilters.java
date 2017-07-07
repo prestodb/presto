@@ -13,11 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -43,7 +39,7 @@ public class RemoveTrivialFilters
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         FilterNode filterNode = (FilterNode) node;
 
@@ -54,7 +50,7 @@ public class RemoveTrivialFilters
         }
 
         if (predicate.equals(FALSE_LITERAL)) {
-            return Optional.of(new ValuesNode(idAllocator.getNextId(), filterNode.getOutputSymbols(), emptyList()));
+            return Optional.of(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
         }
 
         return empty();

@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -39,17 +36,17 @@ public class RemoveUnreferencedScalarLateralNodes
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         LateralJoinNode lateralJoinNode = (LateralJoinNode) node;
         PlanNode input = lateralJoinNode.getInput();
         PlanNode subquery = lateralJoinNode.getSubquery();
 
-        if (isUnreferencedScalar(input, lookup)) {
+        if (isUnreferencedScalar(input, context.getLookup())) {
             return Optional.of(subquery);
         }
 
-        if (isUnreferencedScalar(subquery, lookup)) {
+        if (isUnreferencedScalar(subquery, context.getLookup())) {
             return Optional.of(input);
         }
 

@@ -32,5 +32,16 @@ public interface Rule extends Matchable
         return Pattern.any();
     }
 
-    Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session);
+    Optional<PlanNode> apply(PlanNode node, Context context);
+
+    interface Context
+    {
+        Lookup getLookup();
+
+        PlanNodeIdAllocator getIdAllocator();
+
+        SymbolAllocator getSymbolAllocator();
+
+        Session getSession();
+    }
 }

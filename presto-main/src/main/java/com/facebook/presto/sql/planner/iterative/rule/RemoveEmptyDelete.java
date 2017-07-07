@@ -13,11 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -61,13 +57,13 @@ public class RemoveEmptyDelete
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         // TODO split into multiple rules (https://github.com/prestodb/presto/issues/7292)
 
         TableFinishNode finish = (TableFinishNode) node;
 
-        PlanNode finishSource = lookup.resolve(finish.getSource());
+        PlanNode finishSource = context.getLookup().resolve(finish.getSource());
         if (!(finishSource instanceof ExchangeNode)) {
             return Optional.empty();
         }
@@ -77,13 +73,13 @@ public class RemoveEmptyDelete
             return Optional.empty();
         }
 
-        PlanNode exchangeSource = lookup.resolve(getOnlyElement(exchange.getSources()));
+        PlanNode exchangeSource = context.getLookup().resolve(getOnlyElement(exchange.getSources()));
         if (!(exchangeSource instanceof DeleteNode)) {
             return Optional.empty();
         }
         DeleteNode delete = (DeleteNode) exchangeSource;
 
-        PlanNode deleteSource = lookup.resolve(delete.getSource());
+        PlanNode deleteSource = context.getLookup().resolve(delete.getSource());
         if (!(deleteSource instanceof ValuesNode)) {
             return Optional.empty();
         }

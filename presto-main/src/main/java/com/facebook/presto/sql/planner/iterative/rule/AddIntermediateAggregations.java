@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -76,8 +75,12 @@ public class AddIntermediateAggregations
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
+        Lookup lookup = context.getLookup();
+        PlanNodeIdAllocator idAllocator = context.getIdAllocator();
+        Session session = context.getSession();
+
         if (!SystemSessionProperties.isEnableIntermediateAggregations(session)) {
             return Optional.empty();
         }

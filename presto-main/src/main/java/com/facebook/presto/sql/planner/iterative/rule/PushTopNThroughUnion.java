@@ -13,12 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -46,7 +42,7 @@ public class PushTopNThroughUnion
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         if (!(node instanceof TopNNode)) {
             return Optional.empty();
@@ -58,7 +54,7 @@ public class PushTopNThroughUnion
             return Optional.empty();
         }
 
-        PlanNode child = lookup.resolve(topNNode.getSource());
+        PlanNode child = context.getLookup().resolve(topNNode.getSource());
         if (!(child instanceof UnionNode)) {
             return Optional.empty();
         }
@@ -75,7 +71,7 @@ public class PushTopNThroughUnion
                 Symbol unionInput = getLast(intersection(inputSymbols, sourceOutputSymbols));
                 symbolMapper.put(unionOutput, unionInput);
             }
-            sources.add(symbolMapper.build().map(topNNode, source, idAllocator.getNextId()));
+            sources.add(symbolMapper.build().map(topNNode, source, context.getIdAllocator().getNextId()));
         }
 
         return Optional.of(new UnionNode(

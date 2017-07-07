@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -95,9 +94,9 @@ public class PushAggregationThroughOuterJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        if (!shouldPushAggregationThroughJoin(session)) {
+        if (!shouldPushAggregationThroughJoin(context.getSession())) {
             return Optional.empty();
         }
 
@@ -106,15 +105,15 @@ public class PushAggregationThroughOuterJoin
         }
 
         AggregationNode aggregation = (AggregationNode) node;
-        PlanNode source = lookup.resolve(aggregation.getSource());
+        PlanNode source = context.getLookup().resolve(aggregation.getSource());
         if (!(source instanceof JoinNode)) {
             return Optional.empty();
         }
         JoinNode join = (JoinNode) source;
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
-                || !groupsOnAllOuterTableColumns(aggregation, lookup.resolve(getOuterTable(join)))
-                || !isDistinct(lookup.resolve(getOuterTable(join)), lookup::resolve)) {
+                || !groupsOnAllOuterTableColumns(aggregation, context.getLookup().resolve(getOuterTable(join)))
+                || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)) {
             return Optional.empty();
         }
 
@@ -164,7 +163,7 @@ public class PushAggregationThroughOuterJoin
                     join.getDistributionType());
         }
 
-        return Optional.of(coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, symbolAllocator, idAllocator, lookup));
+        return Optional.of(coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup()));
     }
 
     private static PlanNode getInnerTable(JoinNode join)

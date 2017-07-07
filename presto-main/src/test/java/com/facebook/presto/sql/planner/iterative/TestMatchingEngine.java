@@ -14,12 +14,10 @@
 
 package com.facebook.presto.sql.planner.iterative;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.MatchingEngine;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.DummyMetadata;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -111,7 +109,7 @@ public class TestMatchingEngine
         }
 
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+        public Optional<PlanNode> apply(PlanNode node, Context context)
         {
             return Optional.empty();
         }

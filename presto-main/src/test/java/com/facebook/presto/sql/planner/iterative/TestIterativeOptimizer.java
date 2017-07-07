@@ -15,9 +15,7 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StatsRecorder;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -90,7 +88,7 @@ public class TestIterativeOptimizer
         // In that case, it will be removed.
         // Thanks to that approach, it never converges and always produces different node.
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+        public Optional<PlanNode> apply(PlanNode node, Context context)
         {
             if (node instanceof ProjectNode) {
                 ProjectNode project = (ProjectNode) node;
@@ -99,7 +97,7 @@ public class TestIterativeOptimizer
                 }
             }
 
-            PlanNode projectNode = new ProjectNode(idAllocator.getNextId(), node, Assignments.identity(node.getOutputSymbols()));
+            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), node, Assignments.identity(node.getOutputSymbols()));
             return Optional.of(projectNode);
         }
 
