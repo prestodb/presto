@@ -24,7 +24,6 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.facebook.presto.hive.PrestoS3FileSystem.UnrecoverableS3OperationException;
-import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -52,8 +51,11 @@ import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.createTempFile;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.apache.http.HttpStatus.SC_INTERNAL_SERVER_ERROR;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
@@ -206,8 +208,7 @@ public class TestPrestoS3FileSystem
     public void testCreateWithNonexistentStagingDirectory()
             throws Exception
     {
-        java.nio.file.Path tmpdir = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
-        java.nio.file.Path stagingParent = Files.createTempDirectory(tmpdir, "test");
+        java.nio.file.Path stagingParent = createTempDirectory("test");
         java.nio.file.Path staging = Paths.get(stagingParent.toString(), "staging");
         // stagingParent = /tmp/testXXX
         // staging = /tmp/testXXX/staging
@@ -223,7 +224,7 @@ public class TestPrestoS3FileSystem
             assertTrue(Files.exists(staging));
         }
         finally {
-            deleteRecursively(stagingParent.toFile());
+            deleteRecursively(stagingParent, ALLOW_INSECURE);
         }
     }
 
@@ -231,8 +232,7 @@ public class TestPrestoS3FileSystem
     public void testCreateWithStagingDirectoryFile()
             throws Exception
     {
-        java.nio.file.Path tmpdir = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
-        java.nio.file.Path staging = Files.createTempFile(tmpdir, "staging", null);
+        java.nio.file.Path staging = createTempFile("staging", null);
         // staging = /tmp/stagingXXX.tmp
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
@@ -252,8 +252,7 @@ public class TestPrestoS3FileSystem
     public void testCreateWithStagingDirectorySymlink()
             throws Exception
     {
-        java.nio.file.Path tmpdir = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
-        java.nio.file.Path staging = Files.createTempDirectory(tmpdir, "staging");
+        java.nio.file.Path staging = createTempDirectory("staging");
         java.nio.file.Path link = Paths.get(staging + ".symlink");
         // staging = /tmp/stagingXXX
         // link = /tmp/stagingXXX.symlink -> /tmp/stagingXXX
@@ -278,8 +277,8 @@ public class TestPrestoS3FileSystem
             }
         }
         finally {
-            deleteRecursively(link.toFile());
-            deleteRecursively(staging.toFile());
+            deleteRecursively(link, ALLOW_INSECURE);
+            deleteRecursively(staging, ALLOW_INSECURE);
         }
     }
 
