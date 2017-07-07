@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
@@ -104,7 +103,7 @@ public class TransformCorrelatedInPredicateToJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         if (!(node instanceof ApplyNode)) {
             return Optional.empty();
@@ -128,7 +127,7 @@ public class TransformCorrelatedInPredicateToJoin
         InPredicate inPredicate = (InPredicate) assignmentExpression;
         Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
 
-        return apply(apply, inPredicate, inPredicateOutputSymbol, lookup, idAllocator, symbolAllocator);
+        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
     private Optional<PlanNode> apply(

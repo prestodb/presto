@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -77,7 +73,7 @@ public class TransformExistsApplyToLateralNode
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         ApplyNode parent = (ApplyNode) node;
 
@@ -90,7 +86,7 @@ public class TransformExistsApplyToLateralNode
             return Optional.empty();
         }
 
-        Symbol count = symbolAllocator.newSymbol(COUNT.toString(), BIGINT);
+        Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
         return Optional.of(
@@ -98,9 +94,9 @@ public class TransformExistsApplyToLateralNode
                         node.getId(),
                         parent.getInput(),
                         new ProjectNode(
-                                idAllocator.getNextId(),
+                                context.getIdAllocator().getNextId(),
                                 new AggregationNode(
-                                        idAllocator.getNextId(),
+                                        context.getIdAllocator().getNextId(),
                                         parent.getSubquery(),
                                         ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
                                         ImmutableList.of(ImmutableList.of()),

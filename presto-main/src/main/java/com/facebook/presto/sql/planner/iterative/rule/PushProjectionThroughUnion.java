@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -48,7 +44,7 @@ public class PushProjectionThroughUnion
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         if (!(node instanceof ProjectNode)) {
             return Optional.empty();
@@ -56,7 +52,7 @@ public class PushProjectionThroughUnion
 
         ProjectNode parent = (ProjectNode) node;
 
-        PlanNode child = lookup.resolve(parent.getSource());
+        PlanNode child = context.getLookup().resolve(parent.getSource());
         if (!(child instanceof UnionNode)) {
             return Optional.empty();
         }
@@ -82,12 +78,12 @@ public class PushProjectionThroughUnion
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
             for (Map.Entry<Symbol, Expression> entry : parent.getAssignments().entrySet()) {
                 Expression translatedExpression = translateExpression(entry.getValue(), outputToInput);
-                Type type = symbolAllocator.getTypes().get(entry.getKey());
-                Symbol symbol = symbolAllocator.newSymbol(translatedExpression, type);
+                Type type = context.getSymbolAllocator().getTypes().get(entry.getKey());
+                Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
                 assignments.put(symbol, translatedExpression);
                 projectSymbolMapping.put(entry.getKey(), symbol);
             }
-            outputSources.add(new ProjectNode(idAllocator.getNextId(), source.getSources().get(i), assignments.build()));
+            outputSources.add(new ProjectNode(context.getIdAllocator().getNextId(), source.getSources().get(i), assignments.build()));
             outputLayout.forEach(symbol -> mappings.put(symbol, projectSymbolMapping.get(symbol)));
         }
 

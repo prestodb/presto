@@ -150,7 +150,7 @@ public class RuleAssert
             return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
         }
 
-        Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), lookup, idAllocator, symbolAllocator, session));
+        Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), ruleContext(symbolAllocator, lookup, session)));
 
         return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
     }
@@ -169,6 +169,36 @@ public class RuleAssert
                     session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
+    }
+
+    private Rule.Context ruleContext(SymbolAllocator symbolAllocator, Lookup lookup, Session session)
+    {
+        return new Rule.Context()
+        {
+            @Override
+            public Lookup getLookup()
+            {
+                return lookup;
+            }
+
+            @Override
+            public PlanNodeIdAllocator getIdAllocator()
+            {
+                return idAllocator;
+            }
+
+            @Override
+            public SymbolAllocator getSymbolAllocator()
+            {
+                return symbolAllocator;
+            }
+
+            @Override
+            public Session getSession()
+            {
+                return session;
+            }
+        };
     }
 
     private static class RuleApplication

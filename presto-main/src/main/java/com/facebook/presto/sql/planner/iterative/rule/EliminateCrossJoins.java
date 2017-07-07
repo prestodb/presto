@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -59,17 +56,17 @@ public class EliminateCrossJoins
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         if (!(node instanceof JoinNode)) {
             return Optional.empty();
         }
 
-        if (!SystemSessionProperties.isJoinReorderingEnabled(session)) {
+        if (!SystemSessionProperties.isJoinReorderingEnabled(context.getSession())) {
             return Optional.empty();
         }
 
-        JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, lookup);
+        JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup());
         if (joinGraph.size() < 3) {
             return Optional.empty();
         }
@@ -79,7 +76,7 @@ public class EliminateCrossJoins
             return Optional.empty();
         }
 
-        PlanNode replacement = buildJoinTree(node.getOutputSymbols(), joinGraph, joinOrder, idAllocator);
+        PlanNode replacement = buildJoinTree(node.getOutputSymbols(), joinGraph, joinOrder, context.getIdAllocator());
         return Optional.of(replacement);
     }
 

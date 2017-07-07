@@ -13,12 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -66,7 +62,7 @@ public class ImplementFilteredAggregations
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         AggregationNode aggregation = (AggregationNode) node;
 
@@ -91,7 +87,7 @@ public class ImplementFilteredAggregations
 
             if (call.getFilter().isPresent()) {
                 Expression filter = call.getFilter().get();
-                Symbol symbol = symbolAllocator.newSymbol(filter, BOOLEAN);
+                Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
                 newAssignments.put(symbol, filter);
                 mask = Optional.of(symbol);
             }
@@ -106,9 +102,9 @@ public class ImplementFilteredAggregations
 
         return Optional.of(
                 new AggregationNode(
-                        idAllocator.getNextId(),
+                        context.getIdAllocator().getNextId(),
                         new ProjectNode(
-                                idAllocator.getNextId(),
+                                context.getIdAllocator().getNextId(),
                                 aggregation.getSource(),
                                 newAssignments.build()),
                         aggregations.build(),

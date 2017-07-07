@@ -128,7 +128,7 @@ public class IterativeOptimizer
                 long duration;
                 try {
                     long start = System.nanoTime();
-                    transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator(), context.getSession());
+                    transformed = rule.apply(node, context);
                     duration = System.nanoTime() - start;
                 }
                 catch (RuntimeException e) {
@@ -170,7 +170,7 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private static class Context
+    private static class Context implements Rule.Context
     {
         private final Memo memo;
         private final Lookup lookup;
@@ -205,16 +205,19 @@ public class IterativeOptimizer
             return memo;
         }
 
+        @Override
         public Lookup getLookup()
         {
             return lookup;
         }
 
+        @Override
         public PlanNodeIdAllocator getIdAllocator()
         {
             return idAllocator;
         }
 
+        @Override
         public SymbolAllocator getSymbolAllocator()
         {
             return symbolAllocator;
@@ -230,6 +233,7 @@ public class IterativeOptimizer
             return timeoutInMilliseconds;
         }
 
+        @Override
         public Session getSession()
         {
             return session;
