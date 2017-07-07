@@ -777,7 +777,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-postgresql-server</artifactId>
-                <version>9.6.3-1</version>
+                <version>9.6.3-2</version>
             </dependency>
 
             <dependency>
