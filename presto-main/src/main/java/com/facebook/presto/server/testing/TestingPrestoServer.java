@@ -70,6 +70,7 @@ import org.weakref.jmx.guice.MBeanModule;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -82,11 +83,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
-import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.lang.Integer.parseInt;
+import static java.nio.file.Files.isDirectory;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -279,6 +282,7 @@ public class TestingPrestoServer
 
     @Override
     public void close()
+            throws IOException
     {
         try {
             if (lifeCycleManager != null) {
@@ -289,7 +293,9 @@ public class TestingPrestoServer
             throw Throwables.propagate(e);
         }
         finally {
-            deleteRecursively(baseDataDir);
+            if (isDirectory(baseDataDir)) {
+                deleteRecursively(baseDataDir, ALLOW_INSECURE);
+            }
         }
     }
 

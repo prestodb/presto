@@ -57,6 +57,7 @@ public class TestPrestoDatabaseMetaData
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
+            throws Exception
     {
         server.close();
     }
