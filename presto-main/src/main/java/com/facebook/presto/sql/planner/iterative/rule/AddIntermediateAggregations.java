@@ -39,7 +39,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 /**
  * Adds INTERMEDIATE aggregations between an un-grouped FINAL aggregation and its preceding
@@ -195,7 +195,8 @@ public class AddIntermediateAggregations
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
-            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue().getCall()));
+            Symbol input = SymbolsExtractor.extractAll(entry.getValue().getCall())
+                    .collect(onlyElement());
             builder.put(input, entry.getValue());
         }
         return builder.build();

@@ -15,22 +15,21 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 public final class SymbolsExtractor
@@ -63,71 +62,34 @@ public final class SymbolsExtractor
 
     public static Set<Symbol> extractUnique(Expression expression)
     {
-        return ImmutableSet.copyOf(extractAll(expression));
+        return extractUnique(ImmutableList.of(expression));
     }
 
     public static Set<Symbol> extractUnique(Iterable<? extends Expression> expressions)
     {
-        ImmutableSet.Builder<Symbol> unique = ImmutableSet.builder();
-        for (Expression expression : expressions) {
-            unique.addAll(extractAll(expression));
-        }
-        return unique.build();
+        return stream(expressions)
+                .flatMap(SymbolsExtractor::extractAll)
+                .collect(toImmutableSet());
     }
 
-    public static List<Symbol> extractAll(Expression expression)
+    public static Stream<Symbol> extractAll(Expression expression)
     {
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        new SymbolBuilderVisitor().process(expression, builder);
-        return builder.build();
+        return AstUtils.preOrder(expression)
+                .filter(SymbolReference.class::isInstance)
+                .map(SymbolReference.class::cast)
+                .map(Symbol::from);
     }
 
     // to extract qualified name with prefix
     public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
-        ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(columnReferences).process(expression, builder);
-        return builder.build();
-    }
+        requireNonNull(expression, "expression is null");
+        requireNonNull(columnReferences, "columnReferences is null");
 
-    private static class SymbolBuilderVisitor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
-    {
-        @Override
-        protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
-        {
-            builder.add(Symbol.from(node));
-            return null;
-        }
-    }
-
-    private static class QualifiedNameBuilderVisitor
-            extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
-    {
-        private final Set<NodeRef<Expression>> columnReferences;
-
-        private QualifiedNameBuilderVisitor(Set<NodeRef<Expression>> columnReferences)
-        {
-            this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
-        }
-
-        @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<QualifiedName> builder)
-        {
-            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                builder.add(DereferenceExpression.getQualifiedName(node));
-            }
-            else {
-                process(node.getBase(), builder);
-            }
-            return null;
-        }
-
-        @Override
-        protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<QualifiedName> builder)
-        {
-            builder.add(QualifiedName.of(node.getName()));
-            return null;
-        }
+        return AstUtils.preOrder(expression)
+                .filter(node -> columnReferences.contains(NodeRef.of(node)))
+                .map(Expression.class::cast)
+                .map(QualifiedName::from)
+                .collect(toImmutableSet());
     }
 }

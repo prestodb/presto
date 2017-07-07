@@ -89,7 +89,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .flatMap(entry -> SymbolsExtractor.extractAll(entry).stream())
+                .flatMap(SymbolsExtractor::extractAll)
                 .collect(toSet());
 
         Assignments.Builder childAssignments = Assignments.builder();
@@ -137,7 +137,7 @@ public class InlineProjections
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
                 .getExpressions().stream()
-                .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
+                .flatMap(SymbolsExtractor::extractAll)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants
@@ -167,7 +167,7 @@ public class InlineProjections
         return AstUtils.preOrder(expression)
                 .filter(TryExpression.class::isInstance)
                 .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())
+                .flatMap(SymbolsExtractor::extractAll)
                 .collect(toSet());
     }
 }
