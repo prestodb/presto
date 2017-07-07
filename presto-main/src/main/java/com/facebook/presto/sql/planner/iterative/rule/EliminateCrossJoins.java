@@ -32,7 +32,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +44,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutput
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class EliminateCrossJoins
@@ -111,7 +111,7 @@ public class EliminateCrossJoins
 
         PriorityQueue<PlanNode> nodesToVisit = new PriorityQueue<>(
                 graph.size(),
-                (Comparator<PlanNode>) (node1, node2) -> priorities.get(node1.getId()).compareTo(priorities.get(node2.getId())));
+                comparing(node -> priorities.get(node.getId())));
         Set<PlanNode> visited = new HashSet<>();
 
         nodesToVisit.add(graph.getNode(0));
