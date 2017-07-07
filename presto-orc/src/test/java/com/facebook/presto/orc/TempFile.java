@@ -15,9 +15,11 @@ package com.facebook.presto.orc;
 
 import java.io.Closeable;
 import java.io.File;
+import java.io.IOException;
 
 import static com.google.common.io.Files.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 class TempFile
         implements Closeable
@@ -39,8 +41,9 @@ class TempFile
 
     @Override
     public void close()
+            throws IOException
     {
         // hadoop creates crc files that must be deleted also, so just delete the whole directory
-        deleteRecursively(tempDir);
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 }

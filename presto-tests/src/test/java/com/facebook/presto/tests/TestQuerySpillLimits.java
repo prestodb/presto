@@ -18,7 +18,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import io.airlift.testing.FileUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -27,6 +26,8 @@ import java.io.File;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 @Test(singleThreaded = true)
 public class TestQuerySpillLimits
@@ -49,7 +50,7 @@ public class TestQuerySpillLimits
     public void tearDown()
             throws Exception
     {
-        FileUtils.deleteRecursively(spillPath);
+        deleteRecursively(spillPath.toPath(), ALLOW_INSECURE);
     }
 
     @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local spill limit of 10B")

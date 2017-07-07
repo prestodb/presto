@@ -34,7 +34,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.kafka.util.TestUtils.findUnusedPort;
 import static com.facebook.presto.kafka.util.TestUtils.toProperties;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Objects.requireNonNull;
 
 public class EmbeddedKafka
@@ -100,12 +101,13 @@ public class EmbeddedKafka
 
     @Override
     public void close()
+            throws IOException
     {
         if (started.get() && !stopped.getAndSet(true)) {
             kafka.shutdown();
             kafka.awaitShutdown();
             zookeeper.close();
-            deleteRecursively(kafkaDataDir);
+            deleteRecursively(kafkaDataDir.toPath(), ALLOW_INSECURE);
         }
     }
 
