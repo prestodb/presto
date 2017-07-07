@@ -80,4 +80,18 @@ public class TestInlineProjections
                                         p.values(p.symbol("value")))))
                 .doesNotFire();
     }
+
+    @Test
+    public void testSubqueryProjections()
+            throws Exception
+    {
+        tester().assertThat(new InlineProjections())
+                .on(p ->
+                        p.project(
+                                Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value")),
+                                p.project(
+                                        Assignments.identity(p.symbol("value")),
+                                        p.values(p.symbol("value")))))
+                .doesNotFire();
+    }
 }
