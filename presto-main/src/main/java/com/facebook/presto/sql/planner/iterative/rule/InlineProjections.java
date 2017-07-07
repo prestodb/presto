@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
@@ -134,10 +135,14 @@ public class InlineProjections
         //      a. are not inputs to try() expressions
         //      b. appear only once across all expressions
         //      c. are not identity projections
+        // which come from the child, as opposed to an enclosing scope.
+
+        Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
                 .getExpressions().stream()
                 .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
+                .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants
