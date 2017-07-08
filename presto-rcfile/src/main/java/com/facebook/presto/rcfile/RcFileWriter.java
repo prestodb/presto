@@ -188,11 +188,15 @@ public class RcFileWriter
     public void close()
             throws IOException
     {
-        writeRowGroup();
-        output.close();
-        keySectionOutput.destroy();
-        for (ColumnEncoder columnEncoder : columnEncoders) {
-            columnEncoder.destroy();
+        try {
+            writeRowGroup();
+            output.close();
+        }
+        finally {
+            keySectionOutput.destroy();
+            for (ColumnEncoder columnEncoder : columnEncoders) {
+                columnEncoder.destroy();
+            }
         }
     }
 
