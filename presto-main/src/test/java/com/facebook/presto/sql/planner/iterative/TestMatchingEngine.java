@@ -27,13 +27,13 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 
 public class TestMatchingEngine
@@ -60,14 +60,14 @@ public class TestMatchingEngine
         ValuesNode valuesNode = planBuilder.values();
 
         assertEquals(
-                matchingEngine.getCandidates(projectNode).collect(toList()),
-                ImmutableList.of(projectRule1, projectRule2, anyRule));
+                matchingEngine.getCandidates(projectNode).collect(toSet()),
+                ImmutableSet.of(projectRule1, projectRule2, anyRule));
         assertEquals(
-                matchingEngine.getCandidates(filterNode).collect(toList()),
-                ImmutableList.of(filterRule, anyRule));
+                matchingEngine.getCandidates(filterNode).collect(toSet()),
+                ImmutableSet.of(filterRule, anyRule));
         assertEquals(
-                matchingEngine.getCandidates(valuesNode).collect(toList()),
-                ImmutableList.of(anyRule));
+                matchingEngine.getCandidates(valuesNode).collect(toSet()),
+                ImmutableSet.of(anyRule));
     }
 
     @Test
@@ -84,14 +84,14 @@ public class TestMatchingEngine
                 .build();
 
         assertEquals(
-                matchingEngine.getCandidates(new A() {}).collect(toList()),
-                ImmutableList.of(a));
+                matchingEngine.getCandidates(new A() {}).collect(toSet()),
+                ImmutableSet.of(a));
         assertEquals(
-                matchingEngine.getCandidates(new B() {}).collect(toList()),
-                ImmutableList.of(b));
+                matchingEngine.getCandidates(new B() {}).collect(toSet()),
+                ImmutableSet.of(b));
         assertEquals(
-                matchingEngine.getCandidates(new AB()).collect(toList()),
-                ImmutableList.of(ab, a, b));
+                matchingEngine.getCandidates(new AB()).collect(toSet()),
+                ImmutableSet.of(ab, a, b));
     }
 
     private static class NoOpRule
