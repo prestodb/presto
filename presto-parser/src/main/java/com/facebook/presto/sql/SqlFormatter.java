@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.CommentTable;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -886,6 +887,17 @@ public final class SqlFormatter
                     .append(node.getSource())
                     .append(" RENAME TO ")
                     .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCommentTable(CommentTable node, Integer context)
+        {
+            builder.append("COMMENT ON TABLE ")
+                    .append(node.getName())
+                    .append(" IS ")
+                    .append(formatStringLiteral(node.getComment()));
 
             return null;
         }

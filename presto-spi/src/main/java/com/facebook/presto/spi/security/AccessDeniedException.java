@@ -120,6 +120,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename table from %s to %s%s", tableName, newTableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCommentTable(String tableName)
+    {
+        denyCommentTable(tableName, null);
+    }
+
+    public static void denyCommentTable(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot comment table to %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyShowTablesMetadata(String schemaName)
     {
         denyShowTablesMetadata(schemaName, null);

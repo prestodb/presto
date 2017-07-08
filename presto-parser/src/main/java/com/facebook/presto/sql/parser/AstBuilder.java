@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.CommentTable;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -342,6 +343,12 @@ class AstBuilder
     public Node visitRenameTable(SqlBaseParser.RenameTableContext context)
     {
         return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
+    }
+
+    @Override
+    public Node visitCommentTable(SqlBaseParser.CommentTableContext context)
+    {
+        return new CommentTable(getLocation(context), getQualifiedName(context.qualifiedName()), ((StringLiteral) visit(context.string())).getValue());
     }
 
     @Override

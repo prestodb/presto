@@ -354,6 +354,23 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCommentTable()
+    {
+        assertUpdate("CREATE TABLE test_commnt(id integer)");
+        assertUpdate("COMMENT ON TABLE test_commnt IS 'test'");
+        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE test_commnt");
+        String expectedResult =
+                "CREATE TABLE hive.tpch.test_commnt (\n" +
+                "   id integer\n" +
+                ")\n" +
+                "COMMENT 'test'\n" +
+                "WITH (\n" +
+                "   format = 'RCBINARY'\n" +
+                ")";
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0).toString(), expectedResult);
+    }
+
+    @Test
     public void testRenameColumn()
     {
         assertUpdate("CREATE TABLE test_rename_column AS SELECT 123 x", 1);

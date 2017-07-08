@@ -85,6 +85,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanAddComment(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
     {
     }

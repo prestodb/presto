@@ -190,6 +190,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void addComment(Session session, TableHandle tableHandle, String comment)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         throw new UnsupportedOperationException();

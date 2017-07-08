@@ -576,6 +576,14 @@ public class MetadataManager
     }
 
     @Override
+    public void addComment(Session session, TableHandle tableHandle, String comment)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.commentTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), comment);
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();

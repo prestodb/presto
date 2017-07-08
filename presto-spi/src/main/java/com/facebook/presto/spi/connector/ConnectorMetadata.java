@@ -239,6 +239,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Comments to the specified table
+     */
+    default void commentTable(ConnectorSession session, ConnectorTableHandle tableHandle, String comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support commenting tables");
+    }
+
+    /**
      * Add the specified column
      */
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)

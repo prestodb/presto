@@ -372,4 +372,11 @@ public class TestAccumuloDistributedQueries
     {
         // this connector uses a non-canonical type for varchar columns in tpch
     }
+
+    @Override
+    public void testCommentTable()
+    {
+        // Accumulo connector currently does not support comment on table
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support commenting tables");
+    }
 }

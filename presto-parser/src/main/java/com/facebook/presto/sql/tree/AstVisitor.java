@@ -552,6 +552,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCommentTable(CommentTable node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitRenameColumn(RenameColumn node, C context)
     {
         return visitStatement(node, context);

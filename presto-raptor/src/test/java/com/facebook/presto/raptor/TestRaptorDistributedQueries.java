@@ -31,4 +31,11 @@ public class TestRaptorDistributedQueries
     {
         super(supplier);
     }
+
+    @Override
+    public void testCommentTable()
+    {
+        // Raptor connector currently does not support comment on table
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support commenting tables");
+    }
 }

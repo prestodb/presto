@@ -330,6 +330,12 @@ public class TestAccessControlManager
         }
 
         @Override
+        public void checkCanCommentTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
