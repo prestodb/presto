@@ -893,6 +893,13 @@ public class HiveMetadata
     }
 
     @Override
+    public void commentTable(ConnectorSession session, ConnectorTableHandle tableHandle, String comment)
+    {
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        metastore.commentTable(handle.getSchemaName(), handle.getTableName(), comment);
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;

@@ -79,6 +79,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
@@ -468,6 +469,17 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+    }
+
+    @Override
+    public synchronized void commentTable(String databaseName, String tableName, String comment)
+    {
+        alterTable(databaseName, tableName, oldTable -> {
+            return oldTable.withParameters(ImmutableMap.<String, String>builder()
+                    .putAll(oldTable.getParameters())
+                    .put(TABLE_COMMENT, comment)
+                    .build());
+        });
     }
 
     @Override

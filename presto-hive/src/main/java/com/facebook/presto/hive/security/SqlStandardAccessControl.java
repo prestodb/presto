@@ -37,6 +37,7 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCommentTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -130,6 +131,14 @@ public class SqlStandardAccessControl
     {
         if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanCommentTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+            denyCommentTable(tableName.toString());
         }
     }
 

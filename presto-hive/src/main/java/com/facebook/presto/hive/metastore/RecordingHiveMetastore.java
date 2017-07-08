@@ -304,6 +304,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public void commentTable(String databaseName, String tableName, String comment)
+    {
+        verifyRecordingMode();
+        delegate.commentTable(databaseName, tableName, comment);
+    }
+
+    @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         verifyRecordingMode();

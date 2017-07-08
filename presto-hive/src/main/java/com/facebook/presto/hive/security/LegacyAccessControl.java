@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCommentTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
@@ -41,6 +42,7 @@ public class LegacyAccessControl
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
+    private final boolean allowCommentTable;
     private final boolean allowAddColumn;
     private final boolean allowDropColumn;
     private final boolean allowRenameColumn;
@@ -55,6 +57,7 @@ public class LegacyAccessControl
         requireNonNull(securityConfig, "securityConfig is null");
         allowDropTable = securityConfig.getAllowDropTable();
         allowRenameTable = securityConfig.getAllowRenameTable();
+        allowCommentTable = securityConfig.getAllowCommentTable();
         allowAddColumn = securityConfig.getAllowAddColumn();
         allowDropColumn = securityConfig.getAllowDropColumn();
         allowRenameColumn = securityConfig.getAllowRenameColumn();
@@ -114,6 +117,14 @@ public class LegacyAccessControl
     {
         if (!allowRenameTable) {
             denyRenameTable(tableName.toString(), newTableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanCommentTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    {
+        if (!allowCommentTable) {
+            denyCommentTable(tableName.toString());
         }
     }
 

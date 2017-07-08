@@ -228,7 +228,7 @@ public class TableMetadata
                 columnStatistics);
     }
 
-    public TableMetadata withParameters(Map<String, String> parameters)
+    public TableMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
     {
         return new TableMetadata(
                 owner,
@@ -245,7 +245,7 @@ public class TableMetadata
                 columnStatistics);
     }
 
-    public TableMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+    public TableMetadata withParameters(Map<String, String> parameters)
     {
         return new TableMetadata(
                 owner,

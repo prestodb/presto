@@ -363,6 +363,11 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName));
     }
 
+    public synchronized void commentTable(String databaseName, String tableName, String comment)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.commentTable(databaseName, tableName, comment));
+    }
+
     public synchronized void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.addColumn(databaseName, tableName, columnName, columnType, columnComment));

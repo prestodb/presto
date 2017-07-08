@@ -499,6 +499,12 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void commentTable(String databaseName, String tableName, String comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "Table comment is not yet supported by Glue service");
+    }
+
+    @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         Table oldTable = getTableOrElseThrow(databaseName, tableName);

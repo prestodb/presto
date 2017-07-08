@@ -1936,6 +1936,42 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCommentTable()
+            throws Exception
+    {
+        String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   c1 bigint\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'RCBINARY'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_comment_table");
+
+        assertUpdate(createTableSql);
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertUpdate("COMMENT ON TABLE test_comment_table IS 'test'");
+
+        String commentedCreateTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   c1 bigint\n" +
+                        ")\n" +
+                        "COMMENT 'test'\n" +
+                        "WITH (\n" +
+                        "   format = 'RCBINARY'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_comment_table");
+
+        actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
+    }
+
+    @Test
     public void testPathHiddenColumn()
     {
         testWithAllStorageFormats(this::testPathHiddenColumn);

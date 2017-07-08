@@ -65,6 +65,8 @@ public interface ExtendedHiveMetastore
 
     void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
 
+    void commentTable(String databaseName, String tableName, String comment);
+
     void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
 
     void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName);

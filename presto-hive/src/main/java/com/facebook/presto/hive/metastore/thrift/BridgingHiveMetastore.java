@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
@@ -183,6 +184,22 @@ public class BridgingHiveMetastore
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
         table.setDbName(newDatabaseName);
         table.setTableName(newTableName);
+        alterTable(databaseName, tableName, table);
+    }
+
+    @Override
+    public void commentTable(String databaseName, String tableName, String comment)
+    {
+        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
+        if (!source.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+
+        Map<String, String> parameters = table.getParameters();
+        parameters.put(TABLE_COMMENT, comment);
+        table.setParameters(ImmutableMap.copyOf(parameters));
+
         alterTable(databaseName, tableName, table);
     }
 
