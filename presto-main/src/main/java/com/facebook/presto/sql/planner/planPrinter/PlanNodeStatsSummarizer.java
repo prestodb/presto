@@ -156,16 +156,17 @@ public class PlanNodeStatsSummarizer
             PlanNodeId planNodeId = entry.getKey();
             stats.add(new PlanNodeStats(
                     planNodeId,
-                    new Duration(planNodeWallMillis.get(planNodeId), MILLISECONDS),
-                    planNodeInputPositions.get(planNodeId),
-                    succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
+                    new Duration(entry.getValue(), MILLISECONDS),
+                    // It's possible there are no input stats e.g. for index join.
+                    planNodeInputPositions.getOrDefault(planNodeId, 0L),
+                    succinctDataSize(planNodeInputBytes.getOrDefault(planNodeId, 0L), BYTE),
                     // It's possible there will be no output stats because all the pipelines that we observed were non-output.
                     // For example in a query like SELECT * FROM a JOIN b ON c = d LIMIT 1
                     // It's possible to observe stats after the build starts, but before the probe does
                     // and therefore only have wall time, but no output stats
                     planNodeOutputPositions.getOrDefault(planNodeId, 0L),
                     succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
-                    operatorInputStats.get(planNodeId),
+                    operatorInputStats.getOrDefault(planNodeId, emptyMap()),
                     // Only some operators emit hash collisions statistics
                     operatorHashCollisionsStats.getOrDefault(planNodeId, emptyMap()),
                     Optional.ofNullable(windowNodeStats.get(planNodeId))));
