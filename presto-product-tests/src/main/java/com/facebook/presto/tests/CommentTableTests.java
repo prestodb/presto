@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.tests;
 
-import com.teradata.tempto.AfterTestWithContext;
-import com.teradata.tempto.BeforeTestWithContext;
-import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.Requires;
-import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
-import com.teradata.tempto.query.QueryResult;
 import io.airlift.log.Logger;
+import io.prestodb.tempto.AfterTestWithContext;
+import io.prestodb.tempto.BeforeTestWithContext;
+import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.Requires;
+import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.COMMENT_TABLE;
-import static com.teradata.tempto.query.QueryExecutor.query;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
