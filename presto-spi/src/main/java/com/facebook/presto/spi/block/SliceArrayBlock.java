@@ -165,7 +165,7 @@ public class SliceArrayBlock
         Map<Slice, Slice> distinctValues = new IdentityHashMap<>();
         for (int i = 0; i < newValues.length; i++) {
             Slice slice = newValues[i];
-            if (slice == null) {
+            if (slice == null || slice.isCompact()) {
                 continue;
             }
             Slice distinct = distinctValues.get(slice);
