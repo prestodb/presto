@@ -176,19 +176,20 @@ public abstract class AbstractMapBlock
         for (int i = 1; i < newOffsets.length; i++) {
             newOffsets[i] = getOffset(position + i) - startValueOffset;
         }
-        boolean[] newValueIsNull = Arrays.copyOfRange(getMapIsNull(), position + getOffsetBase(), position + getOffsetBase() + length);
+        boolean[] newMapIsNull = Arrays.copyOfRange(getMapIsNull(), position + getOffsetBase(), position + getOffsetBase() + length);
         int[] newHashTable = Arrays.copyOfRange(getHashTables(), startValueOffset * HASH_MULTIPLIER, endValueOffset * HASH_MULTIPLIER);
 
         return new MapBlock(
                 0,
                 length,
-                newValueIsNull,
+                newMapIsNull,
                 newOffsets,
                 newKeys,
                 newValues,
                 newHashTable,
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode);
+                keyBlockNativeEquals,
+                keyNativeHashCode);
     }
 
     @Override
