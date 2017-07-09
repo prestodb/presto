@@ -225,13 +225,12 @@ public class PagesIndex
             ObjectArrayList<Block> blocks = channels[channel];
             for (int i = nextBlockToCompact; i < blocks.size(); i++) {
                 Block block = blocks.get(i);
-                if (block.getSizeInBytes() < block.getRetainedSizeInBytes()) {
-                    // Copy the block to compact its size
-                    Block compactedBlock = block.copyRegion(0, block.getPositionCount());
-                    blocks.set(i, compactedBlock);
-                    pagesMemorySize -= block.getRetainedSizeInBytes();
-                    pagesMemorySize += compactedBlock.getRetainedSizeInBytes();
-                }
+
+                // Copy the block to compact its size
+                Block compactedBlock = block.copyRegion(0, block.getPositionCount());
+                blocks.set(i, compactedBlock);
+                pagesMemorySize -= block.getRetainedSizeInBytes();
+                pagesMemorySize += compactedBlock.getRetainedSizeInBytes();
             }
         }
         nextBlockToCompact = channels[0].size();
