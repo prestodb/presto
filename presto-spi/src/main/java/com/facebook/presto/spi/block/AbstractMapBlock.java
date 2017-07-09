@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockUtil.compactArray;
+import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -172,13 +174,13 @@ public abstract class AbstractMapBlock
         Block newKeys = getKeys().copyRegion(startValueOffset, endValueOffset - startValueOffset);
         Block newValues = getValues().copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
-        int[] newOffsets = new int[length + 1];
-        for (int i = 1; i < newOffsets.length; i++) {
-            newOffsets[i] = getOffset(position + i) - startValueOffset;
-        }
-        boolean[] newMapIsNull = Arrays.copyOfRange(getMapIsNull(), position + getOffsetBase(), position + getOffsetBase() + length);
-        int[] newHashTable = Arrays.copyOfRange(getHashTables(), startValueOffset * HASH_MULTIPLIER, endValueOffset * HASH_MULTIPLIER);
+        int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
+        boolean[] newMapIsNull = compactArray(getMapIsNull(), position + getOffsetBase(), length);
+        int[] newHashTable = compactArray(getHashTables(), startValueOffset * HASH_MULTIPLIER, (endValueOffset - startValueOffset) * HASH_MULTIPLIER);
 
+        if (newKeys == getKeys() && newValues == getValues() && newOffsets == getOffsets() && newMapIsNull == getMapIsNull() && newHashTable == getHashTables()) {
+            return this;
+        }
         return new MapBlock(
                 0,
                 length,

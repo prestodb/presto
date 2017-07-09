@@ -14,8 +14,10 @@
 package com.facebook.presto.spi.block;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+
+import static com.facebook.presto.spi.block.BlockUtil.compactArray;
+import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 
 public abstract class AbstractArrayBlock
         implements Block
@@ -115,13 +117,12 @@ public abstract class AbstractArrayBlock
         int endValueOffset = getOffset(position + length);
         Block newValues = getValues().copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
-        int[] newOffsets = new int[length + 1];
-        for (int i = 1; i < newOffsets.length; i++) {
-            newOffsets[i] = getOffset(position + i) - startValueOffset;
+        int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
+        boolean[] newValueIsNull = compactArray(getValueIsNull(), position + getOffsetBase(), length);
+
+        if (newValues == getValues() && newOffsets == getOffsets() && newValueIsNull == getValueIsNull()) {
+            return this;
         }
-
-        boolean[] newValueIsNull = Arrays.copyOfRange(getValueIsNull(), position + getOffsetBase(), position + getOffsetBase() + length);
-
         return new ArrayBlock(length, newValueIsNull, newOffsets, newValues);
     }
 
