@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -41,5 +42,13 @@ public class TestDistributedQueriesIndexed
         queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));
         queryRunner.createCatalog("tpch_indexed", "tpch_indexed");
         return queryRunner;
+    }
+
+    @Test
+    public void testExplainAnalyzeWithIndexJoin()
+    {
+        getQueryRunner().execute("" +
+                "EXPLAIN ANALYZE SELECT * FROM lineitem l\n" +
+                "JOIN orders o ON l.orderkey = o.orderkey");
     }
 }
