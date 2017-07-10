@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.clientproviders;
 
+import com.facebook.presto.connector.thrift.annotations.ForRetryDriver;
 import com.facebook.presto.connector.thrift.annotations.NonRetrying;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
@@ -28,6 +29,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.util.RetryDriver;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -48,10 +50,12 @@ public class RetryingPrestoThriftServiceProvider
     private final RetryDriver retry;
 
     @Inject
-    public RetryingPrestoThriftServiceProvider(@NonRetrying PrestoThriftServiceProvider original)
+    public RetryingPrestoThriftServiceProvider(@NonRetrying PrestoThriftServiceProvider original, @ForRetryDriver ListeningScheduledExecutorService retryExecutor)
     {
         this.original = requireNonNull(original, "original is null");
-        retry = RetryDriver.retry()
+        requireNonNull(retryExecutor, "retryExecutor is null");
+
+        retry = RetryDriver.retry(retryExecutor)
                 .maxAttempts(5)
                 .stopRetryingWhen(e -> e instanceof PrestoThriftServiceException && !((PrestoThriftServiceException) e).isRetryable())
                 .exponentialBackoff(
@@ -123,13 +127,13 @@ public class RetryingPrestoThriftServiceProvider
                 PrestoThriftNullableToken nextToken)
                 throws PrestoThriftServiceException
         {
-            return retry.run("getSplits", () -> getClient().getSplits(schemaTableName, desiredColumns, outputConstraint, maxSplitCount, nextToken));
+            return retry.runAsync("getSplits", () -> getClient().getSplits(schemaTableName, desiredColumns, outputConstraint, maxSplitCount, nextToken));
         }
 
         @Override
         public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
         {
-            return retry.run("getRows", () -> getClient().getRows(splitId, columns, maxBytes, nextToken));
+            return retry.runAsync("getRows", () -> getClient().getRows(splitId, columns, maxBytes, nextToken));
         }
 
         @Override
