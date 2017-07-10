@@ -14,11 +14,13 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.connector.thrift.annotations.ForMetadataRefresh;
+import com.facebook.presto.connector.thrift.annotations.ForRetryDriver;
 import com.facebook.presto.connector.thrift.annotations.NonRetrying;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.clientproviders.DefaultPrestoThriftServiceProvider;
 import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
 import com.facebook.presto.connector.thrift.clientproviders.RetryingPrestoThriftServiceProvider;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -29,9 +31,12 @@ import javax.inject.Singleton;
 import java.util.concurrent.Executor;
 
 import static com.facebook.swift.service.guice.ThriftClientBinder.thriftClientBinder;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class ThriftModule
         implements Module
@@ -56,5 +61,13 @@ public class ThriftModule
     public Executor createMetadataRefreshExecutor(ThriftConnectorConfig config)
     {
         return newFixedThreadPool(config.getMetadataRefreshThreads(), daemonThreadsNamed("metadata-refresh-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForRetryDriver
+    public ListeningScheduledExecutorService createRetryDriverScheduledExecutor(ThriftConnectorConfig config)
+    {
+        return listeningDecorator(newScheduledThreadPool(config.getRetryDriverThreads(), threadsNamed("thrift-retry-driver-%s")));
     }
 }
