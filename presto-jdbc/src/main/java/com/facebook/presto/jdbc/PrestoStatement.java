@@ -45,6 +45,7 @@ public class PrestoStatement
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<PrestoConnection> connection;
+    private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
     private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
@@ -171,8 +172,13 @@ public class PrestoStatement
     public void cancel()
             throws SQLException
     {
-        // TODO: handle non-query statements
         checkOpen();
+
+        StatementClient client = executingClient.get();
+        if (client != null) {
+            client.close();
+        }
+
         ResultSet resultSet = currentResult.get();
         if (resultSet != null) {
             resultSet.close();
@@ -225,6 +231,7 @@ public class PrestoStatement
             if (client.isFailed()) {
                 throw resultsException(client.finalResults());
             }
+            executingClient.set(client);
 
             resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer);
             checkSetOrResetSession(client);
@@ -252,6 +259,7 @@ public class PrestoStatement
             throw new SQLException("Error executing query", e);
         }
         finally {
+            executingClient.set(null);
             if (currentResult.get() == null) {
                 if (resultSet != null) {
                     resultSet.close();

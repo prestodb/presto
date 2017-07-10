@@ -62,12 +62,15 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -1459,6 +1462,50 @@ public class TestPrestoDriver
         }
     }
 
+    @Test(timeOut = 10000)
+    public void testUpdateCancelExplicit()
+            throws Exception
+    {
+        CountDownLatch queryFinished = new CountDownLatch(1);
+        AtomicReference<String> queryId = new AtomicReference<>();
+        AtomicReference<Throwable> queryFailure = new AtomicReference<>();
+        String queryUuid = "/* " + UUID.randomUUID().toString() + " */";
+
+        try (Connection connection = createConnection("blackhole", "default");
+                Statement statement = connection.createStatement()) {
+            // execute the slow update on another thread
+            executorService.execute(() -> {
+                try {
+                    statement.executeUpdate("CREATE TABLE test_cancel_create AS SELECT * FROM slow_test_table " + queryUuid);
+                }
+                catch (SQLException t) {
+                    queryFailure.set(t);
+                }
+                finally {
+                    queryFinished.countDown();
+                }
+            });
+
+            // start query and make sure it is not finished
+            while (true) {
+                Optional<QueryState> state = findQueryState(queryUuid);
+                if (state.isPresent()) {
+                    assertFalse(state.get().isDone());
+                    break;
+                }
+                MILLISECONDS.sleep(50);
+            }
+
+            // cancel the query from this test thread
+            statement.cancel();
+
+            // make sure the query was aborted
+            queryFinished.await(10, SECONDS);
+            assertNotNull(queryFailure.get());
+            assertEquals(findQueryState(queryUuid), Optional.of(FAILED));
+        }
+    }
+
     @Test(timeOut = 4000)
     public void testQueryTimeout()
             throws Exception
@@ -1516,6 +1563,22 @@ public class TestPrestoDriver
                 ResultSet resultSet = statement.executeQuery(sql)) {
             assertTrue(resultSet.next(), "Query was not found");
             return QueryState.valueOf(requireNonNull(resultSet.getString(1)));
+        }
+    }
+
+    private Optional<QueryState> findQueryState(String text)
+            throws SQLException
+    {
+        String sql = format("SELECT state FROM system.runtime.queries WHERE regexp_like(query, '%s$') /* */", Pattern.quote(text));
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            if (!resultSet.next()) {
+                return Optional.empty();
+            }
+            QueryState state = QueryState.valueOf(requireNonNull(resultSet.getString(1)));
+            assertFalse(resultSet.next(), "Found multiple queries");
+            return Optional.of(state);
         }
     }
 
