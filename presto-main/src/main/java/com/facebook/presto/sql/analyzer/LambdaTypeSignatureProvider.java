@@ -17,10 +17,24 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.List;
+import java.util.function.Function;
 
-public interface TypeSignatureProvider
+public class LambdaTypeSignatureProvider implements TypeSignatureProvider
 {
-    boolean hasDependency();
+    private final Function<List<Type>, TypeSignature> typeSignatureResolver;
 
-    TypeSignature getTypeSignature(List<Type> boundTypeParameters);
+    public LambdaTypeSignatureProvider(Function<List<Type>, TypeSignature> typeSignatureResolver)
+    {
+        this.typeSignatureResolver = typeSignatureResolver;
+    }
+
+    public boolean hasDependency()
+    {
+        return true;
+    }
+
+    public TypeSignature getTypeSignature(List<Type> boundTypeParameters)
+    {
+        return typeSignatureResolver.apply(boundTypeParameters);
+    }
 }

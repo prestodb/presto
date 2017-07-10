@@ -148,6 +148,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
+import static com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
@@ -176,7 +177,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSI
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;

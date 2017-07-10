@@ -20,6 +20,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider;
+import com.facebook.presto.sql.analyzer.LambdaTypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.TypeRegistry;
@@ -43,7 +45,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -1039,8 +1041,8 @@ public class TestSignatureBinder
         assertThat(applyTwice)
                 .boundTo(
                         "integer",
-                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
-                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                        new LambdaTypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new LambdaTypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
                 .produces(BoundVariables.builder()
                         .setTypeVariable("T", INTEGER)
                         .setTypeVariable("U", VARCHAR)
@@ -1049,16 +1051,16 @@ public class TestSignatureBinder
         assertThat(applyTwice)
                 .boundTo(
                         // pass function argument to non-function position of a function
-                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
-                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
-                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                        new LambdaTypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new LambdaTypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new LambdaTypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
                 .fails();
         assertThat(applyTwice)
                 .boundTo(
-                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new LambdaTypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
                         // pass non-function argument to function position of a function
                         "integer",
-                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                        new LambdaTypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
                 .fails();
 
         Signature flatMap = functionSignature()
@@ -1093,10 +1095,10 @@ public class TestSignatureBinder
                 .typeVariableConstraints(typeVariable("T"))
                 .build();
         assertThat(loop)
-                .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .boundTo("integer", new LambdaTypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
                 .fails();
         assertThat(loop)
-                .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .boundTo("integer", new LambdaTypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
                 .withCoercion()
                 .produces(BoundVariables.builder()
                         .setTypeVariable("T", BIGINT)
@@ -1104,7 +1106,7 @@ public class TestSignatureBinder
         // TODO: Support coercion of return type of lambda
         assertThat(loop)
                 .withCoercion()
-                .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeSignature()))
+                .boundTo("integer", new LambdaTypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeSignature()))
                 .fails();
     }
 
@@ -1185,7 +1187,7 @@ public class TestSignatureBinder
     private class BindSignatureAssertion
     {
         private final Signature function;
-        private List<TypeSignatureProvider> argumentTypes = null;
+        private List<? extends TypeSignatureProvider> argumentTypes = null;
         private Type returnType = null;
         private boolean allowCoercion = false;
 
@@ -1205,7 +1207,7 @@ public class TestSignatureBinder
             ImmutableList.Builder<TypeSignatureProvider> builder = ImmutableList.builder();
             for (Object argument : arguments) {
                 if (argument instanceof String) {
-                    builder.add(new TypeSignatureProvider(TypeSignature.parseTypeSignature((String) argument)));
+                    builder.add(new IndependentTypeSignatureProvider(TypeSignature.parseTypeSignature((String) argument)));
                     continue;
                 }
                 if (argument instanceof TypeSignatureProvider) {

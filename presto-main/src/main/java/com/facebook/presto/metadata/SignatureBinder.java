@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.FunctionType;
 import com.google.common.base.VerifyException;
@@ -34,7 +35,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
 import static com.facebook.presto.type.TypeRegistry.isCovariantTypeBase;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -95,7 +96,7 @@ public class SignatureBinder
         return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
     }
 
-    public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
+    public Optional<Signature> bind(List<IndependentTypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
     {
         Optional<BoundVariables> boundVariables = bindVariables(actualArgumentTypes, actualReturnType);
         if (!boundVariables.isPresent()) {
@@ -117,7 +118,7 @@ public class SignatureBinder
     public Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
     {
         ImmutableList.Builder<TypeConstraintSolver> constraintSolvers = ImmutableList.builder();
-        if (!appendConstraintSolversForReturnValue(constraintSolvers, new TypeSignatureProvider(actualReturnType.getTypeSignature()))) {
+        if (!appendConstraintSolversForReturnValue(constraintSolvers, new IndependentTypeSignatureProvider(actualReturnType.getTypeSignature()))) {
             return Optional.empty();
         }
         if (!appendConstraintSolversForArguments(constraintSolvers, actualArgumentTypes)) {
@@ -211,7 +212,7 @@ public class SignatureBinder
         }
     }
 
-    private boolean appendConstraintSolversForReturnValue(ImmutableList.Builder<TypeConstraintSolver> resultBuilder, TypeSignatureProvider actualReturnType)
+    private boolean appendConstraintSolversForReturnValue(ImmutableList.Builder<TypeConstraintSolver> resultBuilder, IndependentTypeSignatureProvider actualReturnType)
     {
         TypeSignature formalReturnTypeSignature = declaredSignature.getReturnType();
         return appendTypeRelationshipConstraintSolver(resultBuilder, formalReturnTypeSignature, actualReturnType, false)
@@ -290,7 +291,7 @@ public class SignatureBinder
             if (typeVariableConstraint == null) {
                 return true;
             }
-            Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature());
+            Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature(ImmutableList.of()));
             resultBuilder.add(new TypeParameterSolver(
                     formalTypeSignature.getBase(),
                     actualType,
@@ -300,15 +301,15 @@ public class SignatureBinder
             return true;
         }
 
-        Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature());
+        Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature(ImmutableList.of()));
         if (isTypeWithLiteralParameters(formalTypeSignature)) {
             resultBuilder.add(new TypeWithLiteralParametersSolver(formalTypeSignature, actualType));
             return true;
         }
 
-        List<TypeSignatureProvider> actualTypeParametersTypeSignatureProvider;
+        List<IndependentTypeSignatureProvider> actualTypeParametersTypeSignatureProvider;
         if (UNKNOWN.equals(actualType)) {
-            actualTypeParametersTypeSignatureProvider = Collections.nCopies(formalTypeSignature.getParameters().size(), new TypeSignatureProvider(UNKNOWN.getTypeSignature()));
+            actualTypeParametersTypeSignatureProvider = Collections.nCopies(formalTypeSignature.getParameters().size(), new IndependentTypeSignatureProvider(UNKNOWN.getTypeSignature()));
         }
         else {
             actualTypeParametersTypeSignatureProvider = fromTypes(actualType.getTypeParameters());
@@ -716,7 +717,7 @@ public class SignatureBinder
             }
             TypeSignature actualLambdaTypeSignature;
             if (!typeSignatureProvider.hasDependency()) {
-                actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature();
+                actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature(ImmutableList.of());
                 if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
@@ -734,10 +735,10 @@ public class SignatureBinder
 
             ImmutableList.Builder<TypeConstraintSolver> constraintsBuilder = ImmutableList.builder();
             // Coercion on function type is not supported yet.
-            if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), false)) {
+            if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTypeSignature, new IndependentTypeSignatureProvider(actualReturnType.getTypeSignature()), false)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), allowCoercion)) {
+            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTypeSignature, new IndependentTypeSignatureProvider(actualReturnType.getTypeSignature()), allowCoercion)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
             SolverReturnStatusMerger statusMerger = new SolverReturnStatusMerger();
@@ -795,7 +796,7 @@ public class SignatureBinder
                 formalTypeSignature,
                 typeVariables,
                 longVariables,
-                typeManager.getType(actualTypeSignatureProvider.getTypeSignature()),
+                typeManager.getType(actualTypeSignatureProvider.getTypeSignature(ImmutableList.of())),
                 allowCoercion));
         return true;
     }

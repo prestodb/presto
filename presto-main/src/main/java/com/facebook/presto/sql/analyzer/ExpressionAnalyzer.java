@@ -781,7 +781,7 @@ public class ExpressionAnalyzer
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
                 if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(
+                    argumentTypesBuilder.add(new LambdaTypeSignatureProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                         functionRegistry,
@@ -800,7 +800,7 @@ public class ExpressionAnalyzer
                             }));
                 }
                 else {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, context).getTypeSignature()));
+                    argumentTypesBuilder.add(new IndependentTypeSignatureProvider(process(expression, context).getTypeSignature()));
                 }
             }
 
@@ -819,7 +819,7 @@ public class ExpressionAnalyzer
                     process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
                 }
                 else {
-                    Type actualType = typeManager.getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = typeManager.getType(argumentTypes.get(i).getTypeSignature(ImmutableList.of()));
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
@@ -1064,7 +1064,7 @@ public class ExpressionAnalyzer
 
             if (types.size() != lambdaArguments.size()) {
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node,
-                        format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
+                        format("Expected a lambda that takes %s argument(s) but got %s in %s", types.size(), lambdaArguments.size(), node));
             }
             verify(types.size() == lambdaArguments.size());
 
