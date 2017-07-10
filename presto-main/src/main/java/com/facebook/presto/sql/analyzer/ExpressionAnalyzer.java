@@ -137,6 +137,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.UNKNOWN_IDENTIFIER;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
@@ -354,6 +355,9 @@ public class ExpressionAnalyzer
                 }
             }
             Type type = symbolTypes.get(Symbol.from(node));
+            if (type == null) {
+                throw new SemanticException(UNKNOWN_IDENTIFIER, node, "Unknown identifier: %s", node);
+            }
             return setExpressionType(node, type);
         }
 

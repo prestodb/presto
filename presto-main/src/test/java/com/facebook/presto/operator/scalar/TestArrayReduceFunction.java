@@ -21,6 +21,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.UNKNOWN_IDENTIFIER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
 
@@ -102,5 +103,11 @@ public class TestArrayReduceFunction
         assertFunction("reduce(ARRAY [123456789012345, NULL, 54321], 0, (s, x) -> s + coalesce(x, 0), s -> s)", BIGINT, 123456789066666L);
         // TODO: Support coercion of return type of lambda
         assertInvalidFunction("reduce(ARRAY [1, NULL, 2], 0, (s, x) -> CAST (s + x AS TINYINT), s -> s)", FUNCTION_NOT_FOUND);
+    }
+
+    @Test
+    public void testErrorMessageOnUnknownIdentifier()
+    {
+        assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> s + x, s -> z)", UNKNOWN_IDENTIFIER);
     }
 }

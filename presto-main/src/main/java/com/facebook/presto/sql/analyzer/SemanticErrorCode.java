@@ -90,4 +90,5 @@ public enum SemanticErrorCode
     INVALID_PARAMETER_USAGE,
 
     STANDALONE_LAMBDA,
+    UNKNOWN_IDENTIFIER,
 }
