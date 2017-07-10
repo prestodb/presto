@@ -94,6 +94,7 @@ public class RcFilePageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -111,11 +112,9 @@ public class RcFilePageSourceFactory
             return Optional.empty();
         }
 
-        long size;
         FSDataInputStream inputStream;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            size = fileSystem.getFileStatus(path).getLen();
             inputStream = fileSystem.open(path);
         }
         catch (Exception e) {
@@ -133,7 +132,7 @@ public class RcFilePageSourceFactory
             }
 
             RcFileReader rcFileReader = new RcFileReader(
-                    new HdfsRcFileDataSource(path.toString(), inputStream, size, stats),
+                    new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats),
                     rcFileEncoding,
                     readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),

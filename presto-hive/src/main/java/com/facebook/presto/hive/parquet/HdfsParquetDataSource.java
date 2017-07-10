@@ -90,12 +90,11 @@ public class HdfsParquetDataSource
         }
     }
 
-    public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length)
+    public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length, long fileSize)
     {
         try {
-            long size = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = fileSystem.open(path);
-            return new HdfsParquetDataSource(path, size, inputStream);
+            return new HdfsParquetDataSource(path, fileSize, inputStream);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

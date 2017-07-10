@@ -462,6 +462,7 @@ public class TestOrcPageSourceMemoryTracking
                     OptionalInt.empty(),
                     fileSplit.getStart(),
                     fileSplit.getLength(),
+                    fileSplit.getLength(),
                     schema,
                     TupleDomain.all(),
                     columns,
