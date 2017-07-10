@@ -53,8 +53,10 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.addExact;
@@ -116,6 +118,7 @@ public final class ConcatFunction
 
     private static Class<?> generateConcat(TypeSignature type, int arity)
     {
+        checkCondition(arity <= 254, NOT_SUPPORTED, "Too many arguments for string concatenation");
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 CompilerUtils.makeClassName(type.getBase() + "_concat" + arity + "ScalarFunction"),

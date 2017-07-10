@@ -40,6 +40,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -196,6 +197,23 @@ public abstract class AbstractTestFunctions
             assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
             assertEquals(e.getMessage(), message);
         }
+    }
+
+    protected void assertNotSupported(String projection, String message)
+    {
+        try {
+            functionAssertions.executeProjectionWithFullEngine(projection);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
+    }
+
+    protected void tryEvaluateWithAll(String projection, Type expectedType)
+    {
+        functionAssertions.tryEvaluateWithAll(projection, expectedType);
     }
 
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
