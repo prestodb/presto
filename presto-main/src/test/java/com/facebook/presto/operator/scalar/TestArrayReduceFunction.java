@@ -110,4 +110,17 @@ public class TestArrayReduceFunction
     {
         assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> s + x, s -> z)", UNKNOWN_IDENTIFIER);
     }
+
+    @Test
+    public void testErrorMessageOnWrongNumberOfArguments()
+    {
+        assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> s + x, s -> s, x -> x)", FUNCTION_NOT_FOUND,
+                "Unexpected parameters for function reduce. Expected: reduce(array(T), S, function(S,T,S), function(S,R)) for type(s): T, S, R, (wrong number of arguments: expected 4 got 5)");
+    }
+
+    @Test
+    public void testErrorMessageOnInvalidLambdaBody()
+    {
+        assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> concat(s, x), s -> s)", FUNCTION_NOT_FOUND);
+    }
 }
