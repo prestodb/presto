@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
@@ -26,11 +27,13 @@ import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -41,6 +44,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -93,53 +97,60 @@ public abstract class AbstractTestBlock
         Field[] fields = block.getClass().getDeclaredFields();
         try {
             for (Field field : fields) {
-                Class type = field.getType();
+                Class<?> type = field.getType();
                 if (type.isPrimitive()) {
                     continue;
                 }
 
                 field.setAccessible(true);
 
-                if (type.equals(Slice.class)) {
+                if (type == Slice.class) {
                     retainedSize += ((Slice) field.get(block)).getRetainedSize();
                 }
-                else if (type.equals(BlockBuilderStatus.class)) {
+                else if (type == BlockBuilderStatus.class) {
                     retainedSize += BlockBuilderStatus.INSTANCE_SIZE;
                 }
-                else if (type.equals(BlockBuilder.class) || type.equals(Block.class)) {
+                else if (type == BlockBuilder.class || type == Block.class) {
                     retainedSize += ((Block) field.get(block)).getRetainedSizeInBytes();
                 }
-                else if (type.equals(Slice[].class)) {
+                else if (type == Slice[].class) {
                     retainedSize += getSliceArrayRetainedSizeInBytes((Slice[]) field.get(block));
                 }
-                else if (type.equals(BlockBuilder[].class) || type.equals(Block[].class)) {
+                else if (type == BlockBuilder[].class || type == Block[].class) {
                     Block[] blocks = (Block[]) field.get(block);
                     for (Block innerBlock : blocks) {
                         assertRetainedSize(innerBlock);
                         retainedSize += innerBlock.getRetainedSizeInBytes();
                     }
                 }
-                else if (type.equals(SliceOutput.class)) {
+                else if (type == SliceOutput.class) {
                     retainedSize += ((SliceOutput) field.get(block)).getRetainedSize();
                 }
-                else if (type.equals(int[].class)) {
+                else if (type == int[].class) {
                     retainedSize += sizeOf((int[]) field.get(block));
                 }
-                else if (type.equals(boolean[].class)) {
+                else if (type == boolean[].class) {
                     retainedSize += sizeOf((boolean[]) field.get(block));
                 }
-                else if (type.equals(byte[].class)) {
+                else if (type == byte[].class) {
                     retainedSize += sizeOf((byte[]) field.get(block));
                 }
-                else if (type.equals(long[].class)) {
+                else if (type == long[].class) {
                     retainedSize += sizeOf((long[]) field.get(block));
                 }
-                else if (type.equals(short[].class)) {
+                else if (type == short[].class) {
                     retainedSize += sizeOf((short[]) field.get(block));
+                }
+                else if (type == DictionaryId.class || BlockEncoding.class.isAssignableFrom(type) || type == AtomicLong.class || type == MethodHandle.class) {
+                    // TODO: Some of these should be accounted in retainedSize
+                    // do nothing
+                }
+                else {
+                    throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
                 }
             }
         }
-        catch (IllegalAccessException | IllegalArgumentException t) {
+        catch (IllegalAccessException t) {
             throw new RuntimeException(t);
         }
         assertEquals(block.getRetainedSizeInBytes(), retainedSize);
