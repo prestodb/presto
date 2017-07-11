@@ -26,6 +26,7 @@ import com.google.common.primitives.Ints;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +43,12 @@ public class SymbolAllocator
     public SymbolAllocator(Map<Symbol, Type> initial)
     {
         symbols = new HashMap<>(initial);
+    }
+
+    public Symbol newSymbol(Symbol symbolHint)
+    {
+        checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
+        return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
     }
 
     public Symbol newSymbol(String nameHint, Type type)
