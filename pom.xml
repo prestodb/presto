@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?oxml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -118,6 +118,7 @@
         <module>presto-generation-annotation</module>
         <module>presto-generation-processor</module>
         <module>presto-generation-test</module>
+        <module>presto-connector-tests</module>
     </modules>
 
     <dependencyManagement>
@@ -316,6 +317,13 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-tests</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-benchmark</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -347,6 +355,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-generation-test</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-connector-tests</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
