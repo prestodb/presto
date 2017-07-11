@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -189,6 +190,16 @@ public interface SystemAccessControl
     default void checkCanAddColumn(Identity identity, CatalogSchemaTableName table)
     {
         denyAddColumn(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop columns from the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDropColumn(Identity identity, CatalogSchemaTableName table)
+    {
+        denyDropColumn(table.toString());
     }
 
     /**

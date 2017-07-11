@@ -9,6 +9,7 @@ Synopsis
 
     ALTER TABLE name RENAME TO new_name
     ALTER TABLE name ADD COLUMN column_name data_type
+    ALTER TABLE name DROP COLUMN column_name
     ALTER TABLE name RENAME COLUMN column_name TO new_column_name
 
 Description
@@ -26,6 +27,10 @@ Rename table ``users`` to ``people``::
 Add column ``zip`` to the ``users`` table::
 
     ALTER TABLE users ADD COLUMN zip varchar;
+
+Drop column ``zip`` from the ``users`` table::
+
+    ALTER TABLE users DROP COLUMN zip;
 
 Rename column ``id`` to ``user_id`` in the ``users`` table::
 

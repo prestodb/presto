@@ -50,6 +50,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    public void testDropColumn()
+    {
+        // Dropping columns are not supported by the connector
+    }
+
+    @Override
     public void testCreateTableAsSelect()
     {
         // This test is overridden due to Function "UUID" not found errors

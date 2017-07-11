@@ -207,6 +207,11 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanDropColumn(Identity identity, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanRenameColumn(Identity identity, CatalogSchemaTableName table)
     {
     }

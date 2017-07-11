@@ -116,6 +116,12 @@ public interface AccessControl
     void checkCanAddColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to drop columns from the specified table.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to rename a column in the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
