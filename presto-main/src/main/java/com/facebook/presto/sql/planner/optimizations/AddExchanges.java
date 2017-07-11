@@ -1214,31 +1214,13 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitApply(ApplyNode node, Context context)
         {
-            PlanWithProperties input = node.getInput().accept(this, context);
-            PlanWithProperties subquery = node.getSubquery().accept(this, context.withCorrelations(node.getCorrelation()));
-
-            ApplyNode rewritten = new ApplyNode(
-                    node.getId(),
-                    input.getNode(),
-                    subquery.getNode(),
-                    node.getSubqueryAssignments(),
-                    node.getCorrelation());
-            return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
+            throw new IllegalStateException("Unexpected node: " + node.getClass().getName());
         }
 
         @Override
         public PlanWithProperties visitLateralJoin(LateralJoinNode node, Context context)
         {
-            PlanWithProperties input = node.getInput().accept(this, context);
-            PlanWithProperties subquery = node.getSubquery().accept(this, context.withCorrelations(node.getCorrelation()));
-
-            LateralJoinNode rewritten = new LateralJoinNode(
-                    node.getId(),
-                    input.getNode(),
-                    subquery.getNode(),
-                    node.getCorrelation(),
-                    node.getType());
-            return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
+            throw new IllegalStateException("Unexpected node: " + node.getClass().getName());
         }
 
         private PlanWithProperties planChild(PlanNode node, Context context)
