@@ -31,6 +31,34 @@ import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Scalar aggregation is aggregation with GROUP BY 'a constant' (or empty GROUP BY).
+ * It always returns single row.
+ * <p>
+ * This optimizer rewrites correlated scalar aggregation subquery to left outer join in a way described here:
+ * https://github.com/prestodb/presto/wiki/Correlated-subqueries
+ * <p>
+ * From:
+ * <pre>
+ * - LateralJoin (with correlation list: [C])
+ *   - (input) plan which produces symbols: [A, B, C]
+ *   - (subquery) Aggregation(GROUP BY (); functions: [sum(F), count(), ...]
+ *     - Filter(D = C AND E > 5)
+ *       - plan which produces symbols: [D, E, F]
+ * </pre>
+ * to:
+ * <pre>
+ * - Aggregation(GROUP BY A, B, C, U; functions: [sum(F), count(non_null), ...]
+ *   - Join(LEFT_OUTER, D = C)
+ *     - AssignUniqueId(adds symbol U)
+ *       - (input) plan which produces symbols: [A, B, C]
+ *     - Filter(E > 5)
+ *       - projection which adds non null symbol used for count() function
+ *         - plan which produces symbols: [D, E, F]
+ * </pre>
+ * <p>
+ * Note that only conjunction predicates in FilterNode are supported
+ */
 public class TransformCorrelatedScalarAggregationToJoin
         implements Rule
 {
