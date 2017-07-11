@@ -34,6 +34,13 @@ and the schema ``sales``:
 
     jdbc:presto://example.net:8080/hive/sales
 
+The above URL can be used as follows to create a connection:
+
+.. code-block:: java
+
+    String url = "jdbc:presto://example.net:8080/hive/sales";
+    Connection connection = DriverManager.getConnection(url, "test", null);
+
 Connection Parameters
 ---------------------
 
@@ -48,10 +55,11 @@ examples are equivalent:
     Properties properties = new Properties();
     properties.setProperty("user", "test");
     properties.setProperty("password", "secret");
+    properties.setProperty("SSL", "true");
     Connection connection = DriverManager.getConnection(url, properties);
 
     // properties
-    String url = "jdbc:presto://example.net:8080/hive/sales?user=test&password=secret";
+    String url = "jdbc:presto://example.net:8080/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
 These methods may be mixed; some parameters may be specified in the URL
