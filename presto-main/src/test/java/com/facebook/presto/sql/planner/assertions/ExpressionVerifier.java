@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -31,11 +32,15 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
+import com.facebook.presto.sql.tree.WhenClause;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -313,5 +318,95 @@ final class ExpressionVerifier
             return verified;
         }
         return false;
+    }
+
+    @Override
+    protected Boolean visitSimpleCaseExpression(SimpleCaseExpression actual, Node expected)
+    {
+        if (!(expected instanceof SimpleCaseExpression)) {
+            return false;
+        }
+        SimpleCaseExpression expectedCase = (SimpleCaseExpression) expected;
+        if (!process(actual.getOperand(), expectedCase.getOperand())) {
+            return false;
+        }
+
+        if (!process(actual.getWhenClauses(), expectedCase.getWhenClauses())) {
+            return false;
+        }
+
+        return process(actual.getDefaultValue(), expectedCase.getDefaultValue());
+    }
+
+    @Override
+    protected Boolean visitWhenClause(WhenClause actual, Node expected)
+    {
+        if (!(expected instanceof WhenClause)) {
+            return false;
+        }
+        WhenClause expectedWhenClause = (WhenClause) expected;
+
+        return process(actual.getOperand(), expectedWhenClause.getOperand()) && process(actual.getResult(), expectedWhenClause.getResult());
+    }
+
+    @Override
+    protected Boolean visitFunctionCall(FunctionCall actual, Node expected)
+    {
+        if (!(expected instanceof FunctionCall)) {
+            return false;
+        }
+        FunctionCall expectedFunction = (FunctionCall) expected;
+
+        if (actual.isDistinct() != expectedFunction.isDistinct()) {
+            return false;
+        }
+
+        if (!actual.getName().equals(expectedFunction.getName())) {
+            return false;
+        }
+
+        if (!process(actual.getArguments(), expectedFunction.getArguments())) {
+            return false;
+        }
+
+        if (!process(actual.getFilter(), expectedFunction.getFilter())) {
+            return false;
+        }
+
+        if (!process(actual.getWindow(), expectedFunction.getWindow())) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    protected Boolean visitNullLiteral(NullLiteral node, Node expected)
+    {
+        return expected instanceof NullLiteral;
+    }
+
+    private <T extends Node> boolean process(List<T> actuals, List<T> expecteds)
+    {
+        if (actuals.size() != expecteds.size()) {
+            return false;
+        }
+        for (int i = 0; i < actuals.size(); i++) {
+            if (!process(actuals.get(i), expecteds.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private <T extends Node> boolean process(Optional<T> actual, Optional<T> expected)
+    {
+        if (actual.isPresent() != expected.isPresent()) {
+            return false;
+        }
+        if (actual.isPresent()) {
+            return process(actual.get(), expected.get());
+        }
+        return true;
     }
 }
