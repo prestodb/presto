@@ -164,6 +164,11 @@ public class Assignments
         return assignments.size();
     }
 
+    public boolean isEmpty()
+    {
+        return size() == 0;
+    }
+
     @Override
     public boolean equals(Object o)
     {
