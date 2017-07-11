@@ -343,6 +343,12 @@ public class TestAccessControlManager
         }
 
         @Override
+        public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
