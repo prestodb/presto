@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
 
@@ -71,12 +71,17 @@ public final class Signature
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, kind, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false);
+        this(name, kind, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
     public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends Type> argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
+    }
+
+    public static Signature internalOperator(OperatorType operator, TypeSignature returnType, TypeSignature... argumentTypes)
+    {
+        return internalOperator(operator, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
     public static Signature internalOperator(OperatorType operator, TypeSignature returnType, List<TypeSignature> argumentTypes)
@@ -101,7 +106,7 @@ public final class Signature
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return new Signature(name, SCALAR, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false);
+        return new Signature(name, SCALAR, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
     public Signature withAlias(String name)
@@ -208,6 +213,11 @@ public final class Signature
     public static TypeVariableConstraint comparableTypeParameter(String name)
     {
         return new TypeVariableConstraint(name, true, false, null);
+    }
+
+    public static TypeVariableConstraint orderableWithVariadicBound(String name, String variadicBound)
+    {
+        return new TypeVariableConstraint(name, false, true, variadicBound);
     }
 
     public static TypeVariableConstraint orderableTypeParameter(String name)

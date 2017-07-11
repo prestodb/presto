@@ -42,11 +42,20 @@ public class ArrayBlockEncoding
     {
         AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
 
-        valueBlockEncoding.writeBlock(sliceOutput, arrayBlock.getValues());
-        sliceOutput.appendInt(arrayBlock.getOffsetBase());
         int positionCount = arrayBlock.getPositionCount();
+
+        int offsetBase = arrayBlock.getOffsetBase();
+        int[] offsets = arrayBlock.getOffsets();
+
+        int valuesStartOffset = offsets[offsetBase];
+        int valuesEndOffset = offsets[offsetBase + positionCount];
+        Block values = arrayBlock.getValues().getRegion(valuesStartOffset, valuesEndOffset - valuesStartOffset);
+        valueBlockEncoding.writeBlock(sliceOutput, values);
+
         sliceOutput.appendInt(positionCount);
-        sliceOutput.writeBytes(arrayBlock.getOffsets(), 0, positionCount * 4);
+        for (int position = 0; position < positionCount + 1; position++) {
+            sliceOutput.writeInt(offsets[offsetBase + position] - valuesStartOffset);
+        }
         EncoderUtil.encodeNullsAsBits(sliceOutput, block);
     }
 
@@ -54,12 +63,12 @@ public class ArrayBlockEncoding
     public Block readBlock(SliceInput sliceInput)
     {
         Block values = valueBlockEncoding.readBlock(sliceInput);
-        int offsetBase = sliceInput.readInt();
+
         int positionCount = sliceInput.readInt();
-        byte[] offsets = new byte[positionCount * 4];
-        sliceInput.readBytes(offsets);
+        int[] offsets = new int[positionCount + 1];
+        sliceInput.readBytes(Slices.wrappedIntArray(offsets));
         boolean[] valueIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return new ArrayBlock(values, Slices.wrappedBuffer(offsets), offsetBase, Slices.wrappedBooleanArray(valueIsNull));
+        return new ArrayBlock(positionCount, valueIsNull, offsets, values);
     }
 
     @Override

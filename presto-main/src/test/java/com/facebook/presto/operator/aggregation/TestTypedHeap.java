@@ -70,7 +70,7 @@ public class TestTypedHeap
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).iterator());
     }
 
-    private void test(IntStream inputStream, BlockComparator comparator, PrimitiveIterator.OfInt outputIterator)
+    private static void test(IntStream inputStream, BlockComparator comparator, PrimitiveIterator.OfInt outputIterator)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), INPUT_SIZE);
         inputStream.forEach(x -> BIGINT.writeLong(blockBuilder, x));

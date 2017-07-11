@@ -30,34 +30,19 @@ import static java.util.Objects.requireNonNull;
 public class JmxTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final String objectName;
     private final List<JmxColumnHandle> columnHandles;
     private final boolean liveData;
 
-    @Deprecated
-    public JmxTableHandle(String connectorId, String objectName, List<JmxColumnHandle> columnHandles)
-    {
-        this(connectorId, objectName, columnHandles, true);
-    }
-
     @JsonCreator
     public JmxTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("objectName") String objectName,
             @JsonProperty("columnHandles") List<JmxColumnHandle> columnHandles,
             @JsonProperty("liveData") boolean liveData)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.objectName = requireNonNull(objectName, "objectName is null");
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.liveData = liveData;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -81,7 +66,7 @@ public class JmxTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, objectName, columnHandles, liveData);
+        return Objects.hash(objectName, columnHandles, liveData);
     }
 
     @Override
@@ -94,8 +79,7 @@ public class JmxTableHandle
             return false;
         }
         JmxTableHandle other = (JmxTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.objectName, other.objectName) &&
+        return Objects.equals(this.objectName, other.objectName) &&
                 Objects.equals(this.columnHandles, other.columnHandles) &&
                 Objects.equals(this.liveData, other.liveData);
     }
@@ -104,7 +88,6 @@ public class JmxTableHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("objectName", objectName)
                 .add("columnHandles", columnHandles)
                 .add("liveData", liveData)

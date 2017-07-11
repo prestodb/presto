@@ -43,7 +43,7 @@ public class StageExecutionPlan
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "dependencies is null"));
 
         fieldNames = (fragment.getRoot() instanceof OutputNode) ?
-                Optional.<List<String>>of(ImmutableList.copyOf(((OutputNode) fragment.getRoot()).getColumnNames())) :
+                Optional.of(ImmutableList.copyOf(((OutputNode) fragment.getRoot()).getColumnNames())) :
                 Optional.empty();
     }
 

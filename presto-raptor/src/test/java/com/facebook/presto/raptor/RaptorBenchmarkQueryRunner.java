@@ -54,7 +54,7 @@ public final class RaptorBenchmarkQueryRunner
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         // add raptor
         ConnectorFactory raptorConnectorFactory = getOnlyElement(new RaptorPlugin()

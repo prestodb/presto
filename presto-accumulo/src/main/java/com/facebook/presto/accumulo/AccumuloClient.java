@@ -101,17 +101,17 @@ public class AccumuloClient
             Connector connector,
             AccumuloConfig config,
             ZooKeeperMetadataManager metaManager,
-            AccumuloTableManager tableManager)
+            AccumuloTableManager tableManager,
+            IndexLookup indexLookup)
             throws AccumuloException, AccumuloSecurityException
     {
         this.connector = requireNonNull(connector, "connector is null");
         this.username = requireNonNull(config, "config is null").getUsername();
         this.metaManager = requireNonNull(metaManager, "metaManager is null");
         this.tableManager = requireNonNull(tableManager, "tableManager is null");
-        this.auths = connector.securityOperations().getUserAuthorizations(username);
+        this.indexLookup = requireNonNull(indexLookup, "indexLookup is null");
 
-        // Create the index lookup utility
-        this.indexLookup = new IndexLookup(connector, config, this.auths);
+        this.auths = connector.securityOperations().getUserAuthorizations(username);
     }
 
     public AccumuloTable createTable(ConnectorTableMetadata meta)
@@ -439,9 +439,6 @@ public class AccumuloClient
     public void dropTable(AccumuloTable table)
     {
         SchemaTableName tableName = new SchemaTableName(table.getSchema(), table.getTable());
-
-        // Drop cardinality cache from index lookup
-        indexLookup.dropCache(tableName.getSchemaName(), tableName.getTableName());
 
         // Remove the table metadata from Presto
         if (metaManager.getTable(tableName) != null) {

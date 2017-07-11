@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -34,8 +35,8 @@ import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import javax.annotation.Nonnull;
 
 import java.util.List;
+import java.util.Locale;
 
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -161,13 +162,13 @@ public final class HiveType
             case PRIMITIVE:
                 return getPrimitiveType((PrimitiveTypeInfo) typeInfo) != null;
             case MAP:
-                MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "typeInfo");
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
                 return isSupportedType(mapTypeInfo.getMapKeyTypeInfo()) && isSupportedType(mapTypeInfo.getMapValueTypeInfo());
             case LIST:
-                ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "typeInfo");
+                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 return isSupportedType(listTypeInfo.getListElementTypeInfo());
             case STRUCT:
-                StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "typeInfo");
+                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 return structTypeInfo.getAllStructFieldTypeInfos().stream()
                         .allMatch(HiveType::isSupportedType);
         }
@@ -217,25 +218,36 @@ public final class HiveType
                 }
                 return primitiveType.getTypeSignature();
             case MAP:
-                MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "fieldInspector");
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
                 TypeSignature keyType = getTypeSignature(mapTypeInfo.getMapKeyTypeInfo());
                 TypeSignature valueType = getTypeSignature(mapTypeInfo.getMapValueTypeInfo());
                 return new TypeSignature(
                         StandardTypes.MAP,
                         ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
             case LIST:
-                ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "fieldInspector");
+                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 TypeSignature elementType = getTypeSignature(listTypeInfo.getListElementTypeInfo());
                 return new TypeSignature(
                         StandardTypes.ARRAY,
                         ImmutableList.of(TypeSignatureParameter.of(elementType)));
             case STRUCT:
-                StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "fieldInspector");
-                List<TypeSignature> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos()
-                        .stream()
-                        .map(HiveType::getTypeSignature)
-                        .collect(toList());
-                return new TypeSignature(StandardTypes.ROW, fieldTypes, structTypeInfo.getAllStructFieldNames());
+                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+                List<TypeInfo> structFieldTypeInfos = structTypeInfo.getAllStructFieldTypeInfos();
+                List<String> structFieldNames = structTypeInfo.getAllStructFieldNames();
+                if (structFieldTypeInfos.size() != structFieldNames.size()) {
+                    throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
+                }
+                ImmutableList.Builder<TypeSignatureParameter> typeSignatureBuilder = ImmutableList.builder();
+                for (int i = 0; i < structFieldTypeInfos.size(); i++) {
+                    TypeSignature typeSignature = getTypeSignature(structFieldTypeInfos.get(i));
+                    // Lower case the struct field names.
+                    // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
+                    // Users can't work around this by casting in their queries because Presto parser always lower case types.
+                    // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
+                    String rowFieldName = structFieldNames.get(i).toLowerCase(Locale.US);
+                    typeSignatureBuilder.add(TypeSignatureParameter.of(new NamedTypeSignature(rowFieldName, typeSignature)));
+                }
+                return new TypeSignature(StandardTypes.ROW, typeSignatureBuilder.build());
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }

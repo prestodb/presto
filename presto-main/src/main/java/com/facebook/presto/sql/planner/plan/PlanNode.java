@@ -60,6 +60,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ExplainAnalyzeNode.class, name = "explainAnalyze"),
         @JsonSubTypes.Type(value = ApplyNode.class, name = "apply"),
         @JsonSubTypes.Type(value = AssignUniqueId.class, name = "assignUniqueId"),
+        @JsonSubTypes.Type(value = LateralJoinNode.class, name = "lateralJoin"),
 })
 public abstract class PlanNode
 {
@@ -81,7 +82,9 @@ public abstract class PlanNode
 
     public abstract List<Symbol> getOutputSymbols();
 
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
+
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitPlan(this, context);
     }

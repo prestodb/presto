@@ -7,7 +7,7 @@ See the [User Manual](https://prestodb.io/docs/current/) for deployment instruct
 ## Requirements
 
 * Mac OS X or Linux
-* Java 8 Update 60 or higher (8u60+), 64-bit
+* Java 8 Update 92 or higher (8u92+), 64-bit
 * Maven 3.3.9+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
@@ -15,13 +15,13 @@ See the [User Manual](https://prestodb.io/docs/current/) for deployment instruct
 
 Presto is a standard Maven project. Simply run the following command from the project root directory:
 
-    mvn clean install
+    ./mvnw clean install
 
 On the first build, Maven will download all the dependencies from the internet and cache them in the local repository (`~/.m2/repository`), which can take a considerable amount of time. Subsequent builds will be faster.
 
 Presto has a comprehensive set of unit tests that can take several minutes to run. You can disable the tests when building:
 
-    mvn clean install -DskipTests
+    ./mvnw clean install -DskipTests
 
 ## Running Presto in your IDE
 
@@ -38,7 +38,7 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
 
 * Main Class: `com.facebook.presto.server.PrestoServer`
-* VM Options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
+* VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
 * Working directory: `$MODULE_DIR$`
 * Use classpath of module: `presto-main`
 
@@ -83,3 +83,4 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Consider using String formatting (printf style formatting using the Java `Formatter` class): `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported). Sometimes, if you only need to append something, consider using the `+` operator.
 * Avoid using the ternary operator except for trivial expressions.
 * Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
+* When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorSession;
@@ -22,20 +21,15 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.plugin.blackhole.Types.checkType;
-
 public final class BlackHoleSplitManager
         implements ConnectorSplitManager
 {
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
-        BlackHoleTableLayoutHandle layout = checkType(
-                layoutHandle,
-                BlackHoleTableLayoutHandle.class,
-                "BlackHoleTableLayoutHandle");
+        BlackHoleTableLayoutHandle layout = (BlackHoleTableLayoutHandle) layoutHandle;
 
-        ImmutableList.Builder<BlackHoleSplit> builder = ImmutableList.<BlackHoleSplit>builder();
+        ImmutableList.Builder<BlackHoleSplit> builder = ImmutableList.builder();
 
         for (int i = 0; i < layout.getSplitCount(); i++) {
             builder.add(

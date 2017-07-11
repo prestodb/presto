@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -34,20 +35,20 @@ public class DoubleRegressionAggregation
     private DoubleRegressionAggregation() {}
 
     @InputFunction
-    public static void input(RegressionState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
+    public static void input(@AggregationState RegressionState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
     {
         updateRegressionState(state, independentValue, dependentValue);
     }
 
     @CombineFunction
-    public static void combine(RegressionState state, RegressionState otherState)
+    public static void combine(@AggregationState RegressionState state, @AggregationState RegressionState otherState)
     {
         mergeRegressionState(state, otherState);
     }
 
     @AggregationFunction("regr_slope")
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void regrSlope(RegressionState state, BlockBuilder out)
+    public static void regrSlope(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = getRegressionSlope(state);
         if (Double.isFinite(result)) {
@@ -60,7 +61,7 @@ public class DoubleRegressionAggregation
 
     @AggregationFunction("regr_intercept")
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void regrIntercept(RegressionState state, BlockBuilder out)
+    public static void regrIntercept(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = getRegressionIntercept(state);
         if (Double.isFinite(result)) {

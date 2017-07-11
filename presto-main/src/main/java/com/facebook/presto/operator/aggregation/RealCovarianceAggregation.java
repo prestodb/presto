@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -33,20 +34,20 @@ public class RealCovarianceAggregation
     private RealCovarianceAggregation() {}
 
     @InputFunction
-    public static void input(CovarianceState state, @SqlType(StandardTypes.REAL) long dependentValue, @SqlType(StandardTypes.REAL) long independentValue)
+    public static void input(@AggregationState CovarianceState state, @SqlType(StandardTypes.REAL) long dependentValue, @SqlType(StandardTypes.REAL) long independentValue)
     {
         DoubleCovarianceAggregation.input(state, intBitsToFloat((int) dependentValue), intBitsToFloat((int) independentValue));
     }
 
     @CombineFunction
-    public static void combine(CovarianceState state, CovarianceState otherState)
+    public static void combine(@AggregationState CovarianceState state, @AggregationState CovarianceState otherState)
     {
         DoubleCovarianceAggregation.combine(state, otherState);
     }
 
     @AggregationFunction("covar_samp")
     @OutputFunction(StandardTypes.REAL)
-    public static void covarSamp(CovarianceState state, BlockBuilder out)
+    public static void covarSamp(@AggregationState CovarianceState state, BlockBuilder out)
     {
         if (state.getCount() <= 1) {
             out.appendNull();
@@ -59,7 +60,7 @@ public class RealCovarianceAggregation
 
     @AggregationFunction("covar_pop")
     @OutputFunction(StandardTypes.REAL)
-    public static void covarPop(CovarianceState state, BlockBuilder out)
+    public static void covarPop(@AggregationState CovarianceState state, BlockBuilder out)
     {
         if (state.getCount() == 0) {
             out.appendNull();

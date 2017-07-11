@@ -38,9 +38,8 @@ import java.util.Set;
 
 import static com.facebook.presto.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -61,7 +60,7 @@ public class SystemTablesMetadata
 
     private SystemTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
-        SystemTableHandle systemTableHandle = checkType(tableHandle, SystemTableHandle.class, "tableHandle");
+        SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
         checkArgument(tables.containsKey(systemTableHandle.getSchemaTableName()));
         return systemTableHandle;
     }
@@ -87,7 +86,7 @@ public class SystemTablesMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        SystemTableHandle tableHandle = checkType(table, SystemTableHandle.class, "table");
+        SystemTableHandle tableHandle = (SystemTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new SystemTableLayoutHandle(tableHandle.getConnectorId(), tableHandle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
@@ -123,7 +122,7 @@ public class SystemTablesMetadata
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
 
-        String columnName = checkType(columnHandle, SystemColumnHandle.class, "columnHandle").getColumnName();
+        String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());

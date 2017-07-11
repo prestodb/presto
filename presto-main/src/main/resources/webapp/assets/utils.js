@@ -21,13 +21,13 @@ var GLYPHICON_HIGHLIGHT = {color: '#999999'};
 var STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
     RUNNING: '#19874e',
-    PLANNING: '#824b98',
+    PLANNING: '#674f98',
     FINISHED: '#1a4629',
-    BLOCKED: '#685b72',
-    USER_ERROR: '#a67559',
+    BLOCKED: '#61003b',
+    USER_ERROR: '#9a7d66',
     USER_CANCELED: '#858959',
     INSUFFICIENT_RESOURCES: '#7f5b72',
-    EXTERNAL_ERROR: '#caa55c',
+    EXTERNAL_ERROR: '#ca7640',
     UNKNOWN_ERROR: '#943524'
 };
 
@@ -39,8 +39,11 @@ function getQueryStateColor(query)
         case "PLANNING":
             return STATE_COLOR_MAP.PLANNING;
         case "STARTING":
-        case "RUNNING":
         case "FINISHING":
+        case "RUNNING":
+            if (query.queryStats && query.queryStats.fullyBlocked) {
+                return STATE_COLOR_MAP.BLOCKED;
+            }
             return STATE_COLOR_MAP.RUNNING;
         case "FAILED":
             switch (query.errorType) {
@@ -61,11 +64,11 @@ function getQueryStateColor(query)
         default:
             return STATE_COLOR_MAP.QUEUED;
     }
-};
+}
 
-function getStageStateColor(state)
+function getStageStateColor(stage)
 {
-    switch (state) {
+    switch (stage.state) {
         case "PLANNED":
             return STATE_COLOR_MAP.QUEUED;
         case "SCHEDULING":
@@ -73,13 +76,16 @@ function getStageStateColor(state)
         case "SCHEDULED":
             return STATE_COLOR_MAP.PLANNING;
         case "RUNNING":
+            if (stage.stageStats && stage.stageStats.fullyBlocked) {
+                return STATE_COLOR_MAP.BLOCKED;
+            }
             return STATE_COLOR_MAP.RUNNING;
         case "FINISHED":
             return STATE_COLOR_MAP.FINISHED;
         case "CANCELED":
         case "ABORTED":
         case "FAILED":
-            return STATE_COLOR_MAP.UNKNOWN_ERROR
+            return STATE_COLOR_MAP.UNKNOWN_ERROR;
         default:
             return "#b5b5b5"
     }
@@ -89,21 +95,27 @@ function getStageStateColor(state)
 // necessary to compute this string, and that these fields are consistently named.
 function getHumanReadableState(query)
 {
-    if (query.state == "RUNNING") {
+    if (query.state === "RUNNING") {
+        var title = "RUNNING";
+
         if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
-            return "RUNNING";
-        }
+            if (query.queryStats.fullyBlocked) {
+                title = "BLOCKED";
 
-        if (query.queryStats.fullyBlocked) {
-            return "BLOCKED (" + query.queryStats.blockedReasons.join(", ") + ")";
-        }
+                if (query.queryStats.blockedReasons && query.queryStats.blockedReasons.length > 0) {
+                    title += " (" + query.queryStats.blockedReasons.join(", ") + ")";
+                }
+            }
 
-        if (query.memoryPool === "reserved") {
-            return "RUNNING (RESERVED)";
+            if (query.memoryPool === "reserved") {
+                title += " (RESERVED)"
+            }
+
+            return title;
         }
     }
 
-    if (query.state == "FAILED") {
+    if (query.state === "FAILED") {
         switch (query.errorType) {
             case "USER_ERROR":
                 if (query.errorCode.name === "USER_CANCELED") {
@@ -122,28 +134,30 @@ function getHumanReadableState(query)
     return query.state;
 }
 
-function isProgressMeaningful(query)
-{
-    return query.scheduled && query.state == "RUNNING" && query.queryStats.totalDrivers > 0 && query.queryStats.completedDrivers > 0;
-}
-
 function getProgressBarPercentage(query)
 {
-    if (isProgressMeaningful(query)) {
-        return Math.round((query.queryStats.completedDrivers * 100.0) / query.queryStats.totalDrivers);
-    }
+    var progress = query.queryStats.progressPercentage;
 
     // progress bars should appear 'full' when query progress is not meaningful
-    return 100;
+    if (!progress || query.state !== "RUNNING") {
+        return 100;
+    }
+
+    return Math.round(progress);
 }
 
 function getProgressBarTitle(query)
 {
-    if (isProgressMeaningful(query)) {
+    if (query.queryStats.progressPercentage && query.state === "RUNNING") {
         return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
     }
 
     return getHumanReadableState(query)
+}
+
+function isQueryComplete(query)
+{
+    return ["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1;
 }
 
 // Sparkline-related functions
@@ -155,15 +169,15 @@ var MAX_HISTORY = 60 * 5;
 var MOVING_AVERAGE_ALPHA = 0.2;
 
 function addToHistory (value, valuesArray) {
-    if (valuesArray.length == 0) {
-        return valuesArray.concat([value]);;
+    if (valuesArray.length === 0) {
+        return valuesArray.concat([value]);
     }
     return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
 }
 
 function addExponentiallyWeightedToHistory (value, valuesArray) {
-    if (valuesArray.length == 0) {
-        return valuesArray.concat([value]);;
+    if (valuesArray.length === 0) {
+        return valuesArray.concat([value]);
     }
 
     var movingAverage = (value * MOVING_AVERAGE_ALPHA) + (valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA));
@@ -174,8 +188,92 @@ function addExponentiallyWeightedToHistory (value, valuesArray) {
     return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
 }
 
+// DagreD3 Graph-related functions
+// ===============================
+
+function initializeGraph()
+{
+    return new dagreD3.graphlib.Graph({compound: true})
+        .setGraph({rankdir: 'BT'})
+        .setDefaultEdgeLabel(function () { return {}; });
+}
+
+function initializeSvg(selector)
+{
+    const svg = d3.select(selector);
+    svg.append("g");
+
+    return svg;
+}
+
+function computeSources(nodeInfo)
+{
+    var sources = [];
+    var remoteSources = []; // TODO: put remoteSources in node-specific section
+    switch (nodeInfo['@type']) {
+        case 'output':
+        case 'explainAnalyze':
+        case 'project':
+        case 'filter':
+        case 'aggregation':
+        case 'sort':
+        case 'markDistinct':
+        case 'window':
+        case 'rowNumber':
+        case 'topnRowNumber':
+        case 'limit':
+        case 'distinctlimit':
+        case 'topn':
+        case 'sample':
+        case 'tablewriter':
+        case 'delete':
+        case 'metadatadelete':
+        case 'tablecommit':
+        case 'groupid':
+        case 'unnest':
+        case 'scalar':
+            sources = [nodeInfo.source];
+            break;
+        case 'join':
+            sources = [nodeInfo.left, nodeInfo.right];
+            break;
+        case 'semijoin':
+            sources = [nodeInfo.source, nodeInfo.filteringSource];
+            break;
+        case 'indexjoin':
+            sources = [nodeInfo.probeSource, nodeInfo.filterSource];
+            break;
+        case 'union':
+        case 'exchange':
+            sources = nodeInfo.sources;
+            break;
+        case 'remoteSource':
+            remoteSources = nodeInfo.sourceFragmentIds;
+            break;
+        case 'tablescan':
+        case 'values':
+        case 'indexsource':
+            break;
+        default:
+            console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);
+    }
+
+    return [sources, remoteSources];
+}
+
 // Utility functions
 // =================
+
+function updateClusterInfo() {
+    $.get("/v1/info", function (info) {
+        $('#version-number').text(info.nodeVersion.version);
+        $('#environment').text(info.environment);
+        $('#uptime').text(info.uptime);
+        $('#status-indicator').removeClass("status-light-red").removeClass("status-light-green").addClass("status-light-green");
+    }).error(function() {
+        $('#status-indicator').removeClass("status-light-red").removeClass("status-light-green").addClass("status-light-red");
+    });
+}
 
 function truncateString(inputString, length) {
     if (inputString && inputString.length > length) {
@@ -198,7 +296,7 @@ function getTaskIdInStage(taskId) {
 }
 
 function formatState(state, fullyBlocked) {
-    if (fullyBlocked && state == "RUNNING") {
+    if (fullyBlocked && state === "RUNNING") {
         return "BLOCKED";
     }
     else {
@@ -206,9 +304,19 @@ function formatState(state, fullyBlocked) {
     }
 }
 
+function getFirstParameter(searchString) {
+    var searchText = searchString.substring(1);
+
+    if (searchText.indexOf('&') !== -1) {
+        return searchText.substring(0, searchText.indexOf('&'));
+    }
+
+    return searchText;
+}
+
 function getHostname(url) {
     var hostname = new URL(url).hostname;
-    if ((hostname.charAt(0) == '[') && (hostname.charAt(hostname.length - 1) == ']')) {
+    if ((hostname.charAt(0) === '[') && (hostname.charAt(hostname.length - 1) === ']')) {
         hostname = hostname.substr(1, hostname.length - 2);
     }
     return hostname;
@@ -246,19 +354,19 @@ function formatDuration(duration) {
         duration /= 1000;
         unit = "s";
     }
-    if (unit == "s" && duration > 60) {
+    if (unit === "s" && duration > 60) {
         duration /= 60;
         unit = "m";
     }
-    if (unit == "m" && duration > 60) {
+    if (unit === "m" && duration > 60) {
         duration /= 60;
         unit = "h";
     }
-    if (unit == "h" && duration > 24) {
+    if (unit === "h" && duration > 24) {
         duration /= 24;
         unit = "d";
     }
-    if (unit == "d" && duration > 7) {
+    if (unit === "d" && duration > 7) {
         duration /= 7;
         unit = "w";
     }
@@ -300,28 +408,28 @@ function formatDataSize(size) {
 
 function formatDataSizeMinUnit(size, minUnit) {
     var unit = minUnit;
-    if (size == 0) {
+    if (size === 0) {
         return "0" + unit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "K";
+        unit = "K" + minUnit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "M";
+        unit = "M" + minUnit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "G";
+        unit = "G" + minUnit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "T";
+        unit = "T" + minUnit;
     }
     if (size >= 1024) {
         size /= 1024;
-        unit = "P";
+        unit = "P" + minUnit;
     }
     return precisionRound(size) + unit;
 }
@@ -329,7 +437,7 @@ function formatDataSizeMinUnit(size, minUnit) {
 function parseDataSize(value) {
     var DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
     var match = DATA_SIZE_PATTERN.exec(value);
-    if (match == null) {
+    if (match === null) {
         return null;
     }
     var number = parseFloat(match[1]);
@@ -355,7 +463,7 @@ function parseDuration(value) {
     var DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
 
     var match = DURATION_PATTERN.exec(value);
-    if (match == null) {
+    if (match === null) {
         return null;
     }
     var number = parseFloat(match[1]);
@@ -386,9 +494,9 @@ function formatStackTrace(info) {
 function doFormatStackTrace(info, parentStack, prefix, linePrefix) {
     var s = linePrefix + prefix + failureInfoToString(info) + "\n";
 
-    if (info.stack != null) {
+    if (info.stack) {
         var sharedStackFrames = 0;
-        if (parentStack != null) {
+        if (parentStack !== null) {
             sharedStackFrames = countSharedStackFrames(info.stack, parentStack);
         }
 
@@ -400,13 +508,13 @@ function doFormatStackTrace(info, parentStack, prefix, linePrefix) {
         }
     }
 
-    if (info.suppressed != null) {
+    if (info.suppressed) {
         for (var i = 0; i < info.suppressed.length; i++) {
             s += doFormatStackTrace(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
         }
     }
 
-    if (info.cause != null) {
+    if (info.cause) {
         s += doFormatStackTrace(info.cause, info.stack, "Caused by: ", linePrefix);
     }
 
@@ -423,7 +531,7 @@ function countSharedStackFrames(stack, parentStack) {
 }
 
 function failureInfoToString(t) {
-    return (t.message != null) ? (t.type + ": " + t.message) : t.type;
+    return (t.message !== null) ? (t.type + ": " + t.message) : t.type;
 }
 
 function formatShortTime(date) {
@@ -441,7 +549,7 @@ function formatShortDateTime(date) {
 
 function removeQueryId(id) {
     var pos = id.indexOf('.');
-    if (pos != -1) {
+    if (pos !== -1) {
         return id.substring(pos + 1);
     }
     return id;

@@ -22,8 +22,6 @@ import javax.inject.Inject;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.presto.util.Types.checkType;
-
 public class QueryExecutionMBean
 {
     private final ThreadPoolExecutorMBean executorMBean;
@@ -31,7 +29,7 @@ public class QueryExecutionMBean
     @Inject
     public QueryExecutionMBean(@ForQueryExecution ExecutorService executor)
     {
-        this.executorMBean = new ThreadPoolExecutorMBean(checkType(executor, ThreadPoolExecutor.class, "executor"));
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
     }
 
     @Managed

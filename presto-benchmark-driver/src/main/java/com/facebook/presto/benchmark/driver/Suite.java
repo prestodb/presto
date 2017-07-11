@@ -26,11 +26,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +44,7 @@ public class Suite
     public Suite(String name, Map<String, String> sessionProperties, Iterable<RegexTemplate> schemaNameTemplates, Iterable<Pattern> queryNamePatterns)
     {
         this.name = requireNonNull(name, "name is null");
-        this.sessionProperties = sessionProperties == null ? ImmutableMap.<String, String>of() : ImmutableMap.copyOf(sessionProperties);
+        this.sessionProperties = sessionProperties == null ? ImmutableMap.of() : ImmutableMap.copyOf(sessionProperties);
         this.schemaNameTemplates = ImmutableList.copyOf(requireNonNull(schemaNameTemplates, "schemaNameTemplates is null"));
         this.queryNamePatterns = ImmutableList.copyOf(requireNonNull(queryNamePatterns, "queryNamePatterns is null"));
     }
@@ -93,11 +93,11 @@ public class Suite
             return ImmutableList.copyOf(queries);
         }
 
-        List<BenchmarkQuery> filteredQueries = StreamSupport.stream(queries.spliterator(), false)
+        List<BenchmarkQuery> filteredQueries = stream(queries)
                 .filter(query -> getQueryNamePatterns().stream().anyMatch(pattern -> pattern.matcher(query.getName()).matches()))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
-        return ImmutableList.copyOf(filteredQueries);
+        return filteredQueries;
     }
 
     @Override
@@ -114,7 +114,7 @@ public class Suite
             throws IOException
     {
         requireNonNull(file, "file is null");
-        checkArgument(file.canRead(), "Can not read file: %s" + file);
+        checkArgument(file.canRead(), "Cannot read file: %s", file);
         byte[] json = Files.readAllBytes(file.toPath());
         Map<String, OptionsJson> options = mapJsonCodec(String.class, OptionsJson.class).fromJson(json);
         ImmutableList.Builder<Suite> runOptions = ImmutableList.builder();
@@ -136,8 +136,8 @@ public class Suite
                 @JsonProperty("session") Map<String, String> session,
                 @JsonProperty("query") List<String> query)
         {
-            this.schema = requireNonNull(ImmutableList.copyOf(schema), "schema is null");
-            this.session = requireNonNull(ImmutableMap.copyOf(session), "session is null");
+            this.schema = ImmutableList.copyOf(requireNonNull(schema, "schema is null"));
+            this.session = ImmutableMap.copyOf(requireNonNull(session, "session is null"));
             this.query = requireNonNull(query, "query is null");
         }
 

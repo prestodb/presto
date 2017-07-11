@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.tests.hive;
 
 import com.teradata.tempto.fulfillment.table.TableDefinitionsRepository;
@@ -111,7 +110,7 @@ public final class AllSimpleTypesTableDefinitions
 
     public static void populateDataToHiveTable(String tableName)
     {
-        onHive().executeQuery(format("INSERT INTO %s SELECT * FROM %s",
+        onHive().executeQuery(format("INSERT INTO TABLE %s SELECT * FROM %s",
                 tableName,
                 format(tableNameFormat, "textfile")));
     }

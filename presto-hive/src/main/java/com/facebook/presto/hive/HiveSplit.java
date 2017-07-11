@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Properties;
 
@@ -36,6 +37,7 @@ public class HiveSplit
     private final String path;
     private final long start;
     private final long length;
+    private final long fileSize;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
@@ -45,6 +47,7 @@ public class HiveSplit
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final OptionalInt bucketNumber;
     private final boolean forceLocalScheduling;
+    private final Map<Integer, HiveType> columnCoercions;
 
     @JsonCreator
     public HiveSplit(
@@ -55,16 +58,19 @@ public class HiveSplit
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
+            @JsonProperty("fileSize") long fileSize,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate)
+            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
+            @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions)
     {
         requireNonNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
+        checkArgument(fileSize >= 0, "fileSize must be positive");
         requireNonNull(database, "database is null");
         requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
@@ -74,6 +80,7 @@ public class HiveSplit
         requireNonNull(addresses, "addresses is null");
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(effectivePredicate, "tupleDomain is null");
+        requireNonNull(columnCoercions, "columnCoercions is null");
 
         this.clientId = clientId;
         this.database = database;
@@ -82,12 +89,14 @@ public class HiveSplit
         this.path = path;
         this.start = start;
         this.length = length;
+        this.fileSize = fileSize;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
         this.bucketNumber = bucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
         this.effectivePredicate = effectivePredicate;
+        this.columnCoercions = columnCoercions;
     }
 
     @JsonProperty
@@ -133,6 +142,12 @@ public class HiveSplit
     }
 
     @JsonProperty
+    public long getFileSize()
+    {
+        return fileSize;
+    }
+
+    @JsonProperty
     public Properties getSchema()
     {
         return schema;
@@ -169,6 +184,12 @@ public class HiveSplit
         return forceLocalScheduling;
     }
 
+    @JsonProperty
+    public Map<Integer, HiveType> getColumnCoercions()
+    {
+        return columnCoercions;
+    }
+
     @Override
     public boolean isRemotelyAccessible()
     {
@@ -182,12 +203,12 @@ public class HiveSplit
                 .put("path", path)
                 .put("start", start)
                 .put("length", length)
+                .put("fileSize", fileSize)
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)
                 .put("forceLocalScheduling", forceLocalScheduling)
                 .put("partitionName", partitionName)
-                .put("effectivePredicate", effectivePredicate)
                 .build();
     }
 
@@ -198,6 +219,7 @@ public class HiveSplit
                 .addValue(path)
                 .addValue(start)
                 .addValue(length)
+                .addValue(fileSize)
                 .addValue(effectivePredicate)
                 .toString();
     }

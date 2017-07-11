@@ -33,7 +33,7 @@ public class DeterminismEvaluator
     }
 
     private static class Visitor
-            implements RowExpressionVisitor<Void, Boolean>
+            implements RowExpressionVisitor<Boolean, Void>
     {
         private final FunctionRegistry registry;
 
@@ -64,6 +64,18 @@ public class DeterminismEvaluator
 
             return call.getArguments().stream()
                     .allMatch(expression -> expression.accept(this, context));
+        }
+
+        @Override
+        public Boolean visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return lambda.getBody().accept(this, context);
+        }
+
+        @Override
+        public Boolean visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return true;
         }
     }
 }

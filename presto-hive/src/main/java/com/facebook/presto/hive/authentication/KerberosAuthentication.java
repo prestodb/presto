@@ -52,7 +52,7 @@ public class KerberosAuthentication
         checkArgument(exists(keytabPath), "keytab does not exist: " + keytabLocation);
         checkArgument(isReadable(keytabPath), "keytab is not readable: " + keytabLocation);
         this.principal = createKerberosPrincipal(principal);
-        this.configuration = createConfiguration(principal, keytabLocation);
+        this.configuration = createConfiguration(this.principal.getName(), keytabLocation);
     }
 
     public Subject getSubject()
@@ -71,7 +71,7 @@ public class KerberosAuthentication
     private static KerberosPrincipal createKerberosPrincipal(String principal)
     {
         try {
-            return new KerberosPrincipal(getServerPrincipal(principal, InetAddress.getLocalHost().getHostName()));
+            return new KerberosPrincipal(getServerPrincipal(principal, InetAddress.getLocalHost().getCanonicalHostName()));
         }
         catch (IOException e) {
             throw Throwables.propagate(e);

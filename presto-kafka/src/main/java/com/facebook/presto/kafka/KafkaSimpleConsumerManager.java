@@ -19,7 +19,6 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import kafka.javaapi.consumer.SimpleConsumer;
 
@@ -29,6 +28,7 @@ import javax.inject.Inject;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -57,8 +57,8 @@ public class KafkaSimpleConsumerManager
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
 
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
-        this.connectTimeoutMillis = Ints.checkedCast(kafkaConnectorConfig.getKafkaConnectTimeout().toMillis());
-        this.bufferSizeBytes = Ints.checkedCast(kafkaConnectorConfig.getKafkaBufferSize().toBytes());
+        this.connectTimeoutMillis = toIntExact(kafkaConnectorConfig.getKafkaConnectTimeout().toMillis());
+        this.bufferSizeBytes = toIntExact(kafkaConnectorConfig.getKafkaBufferSize().toBytes());
 
         this.consumerCache = CacheBuilder.newBuilder().build(new SimpleConsumerCacheLoader());
     }

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
@@ -32,7 +31,9 @@ public final class StatementRewrite
 {
     private static final List<Rewrite> REWRITES = ImmutableList.of(
             new DescribeInputRewrite(),
+            new DescribeOutputRewrite(),
             new ShowQueriesRewrite(),
+            new ShowStatsRewrite(),
             new ExplainRewrite());
 
     private StatementRewrite() {}

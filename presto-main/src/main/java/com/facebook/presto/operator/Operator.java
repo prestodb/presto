@@ -33,19 +33,6 @@ public interface Operator
     List<Type> getTypes();
 
     /**
-     * Notifies the operator that no more pages will be added and the
-     * operator should finish processing and flush results. This method
-     * will not be called if the Task is already failed or canceled.
-     */
-    void finish();
-
-    /**
-     * Is this operator completely finished processing and no more
-     * output pages will be produced.
-     */
-    boolean isFinished();
-
-    /**
      * Returns a future that will be completed when the operator becomes
      * unblocked.  If the operator is not blocked, this method should return
      * {@code NOT_BLOCKED}.
@@ -71,6 +58,19 @@ public interface Operator
      * available, return null.
      */
     Page getOutput();
+
+    /**
+     * Notifies the operator that no more pages will be added and the
+     * operator should finish processing and flush results. This method
+     * will not be called if the Task is already failed or canceled.
+     */
+    void finish();
+
+    /**
+     * Is this operator completely finished processing and no more
+     * output pages will be produced.
+     */
+    boolean isFinished();
 
     /**
      * This method will always be called before releasing the Operator reference.

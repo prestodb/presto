@@ -364,6 +364,48 @@ only unique grouping sets are generated::
 
 The default set quantifier is ``ALL``.
 
+**GROUPING Operation**
+
+``grouping(col1, ..., colN) -> bigint``
+
+The grouping operation returns a bit set converted to decimal, indicating which columns are present in a
+grouping. It must be used in conjunction with ``GROUPING SETS``, ``ROLLUP``, ``CUBE``  or ``GROUP BY``
+and its arguments must match exactly the columns referenced in the corresponding ``GROUPING SETS``,
+``ROLLUP``, ``CUBE`` or ``GROUP BY`` clause.
+
+To compute the resulting bit set for a particular row, bits are assigned to the argument columns with
+the rightmost column being the least significant bit. For a given grouping, a bit is set to 0 if the
+corresponding column is included in the grouping and to 1 otherwise. For example, consider the query
+below::
+
+    SELECT origin_state, origin_zip, destination_state, sum(package_weight),
+           grouping(origin_state, origin_zip, destination_state)
+    FROM shipping
+    GROUP BY GROUPING SETS (
+            (origin_state),
+            (origin_state, origin_zip),
+            (destination_state));
+
+.. code-block:: none
+
+    origin_state | origin_zip | destination_state | _col3 | _col4
+    --------------+------------+-------------------+-------+-------
+    California   | NULL       | NULL              |  1397 |     3
+    New Jersey   | NULL       | NULL              |   225 |     3
+    New York     | NULL       | NULL              |     3 |     3
+    California   |      94131 | NULL              |    60 |     1
+    New Jersey   |       7081 | NULL              |   225 |     1
+    California   |      90210 | NULL              |  1337 |     1
+    New York     |      10002 | NULL              |     3 |     1
+    NULL         | NULL       | New Jersey        |    58 |     6
+    NULL         | NULL       | Connecticut       |  1562 |     6
+    NULL         | NULL       | Colorado          |     5 |     6
+    (10 rows)
+
+The first grouping in the above result only includes the ``origin_state`` column and excludes
+the ``origin_zip`` and ``destination_state`` columns. The bit set constructed for that grouping
+is ``011`` where the most significant bit represents ``origin_state``.
+
 HAVING Clause
 -------------
 
@@ -453,7 +495,7 @@ selects the values ``42`` and ``13``::
 
     SELECT 13
     UNION
-    SELECT * FROM VALUES(42, 13);
+    SELECT * FROM (VALUES 42, 13);
 
 .. code-block:: none
 
@@ -467,7 +509,7 @@ selects the values ``42`` and ``13``::
 
     SELECT 13
     UNION ALL
-    SELECT * FROM VALUES(42, 13);
+    SELECT * FROM (VALUES 42, 13);
 
 .. code-block:: none
 
@@ -486,7 +528,7 @@ possible ``INTERSECT`` clauses. It selects the values ``13`` and ``42`` and comb
 this result set with a second query that selects the value ``13``.  Since ``42``
 is only in the result set of the first query, it is not included in the final results.::
 
-    SELECT * FROM VALUES (13, 42)
+    SELECT * FROM (VALUES 13, 42)
     INTERSECT
     SELECT 13;
 
@@ -505,8 +547,8 @@ possible ``EXCEPT`` clauses. It selects the values ``13`` and ``42`` and combine
 this result set with a second query that selects the value ``13``.  Since ``13``
 is also in the result set of the second query, it is not included in the final result.::
 
-    SELECT * FROM VALUES (13, 42)
-     EXCEPT
+    SELECT * FROM (VALUES 13, 42)
+    EXCEPT
     SELECT 13;
 
 .. code-block:: none

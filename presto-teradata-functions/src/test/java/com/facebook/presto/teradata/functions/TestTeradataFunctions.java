@@ -13,23 +13,22 @@
  */
 package com.facebook.presto.teradata.functions;
 
-import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestTeradataFunctions
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
     @BeforeClass
     public void setUp()
     {
-        functionAssertions = new FunctionAssertions().addScalarFunctions(TeradataStringFunctions.class);
+        functionAssertions.addFunctions(extractFunctions(new TeradataFunctionsPlugin().getFunctions()));
     }
 
     @Test
@@ -71,10 +70,5 @@ public class TestTeradataFunctions
         assertFunction("CHAR2HEXINT('\uff71')", VARCHAR, "FF71");
         assertFunction("CHAR2HEXINT('\u0ca0\u76ca\u0ca0')", VARCHAR, "0CA076CA0CA0");
         assertFunction("CHAR2HEXINT('(\u30ce\u0ca0\u76ca\u0ca0)\u30ce\u5f61\u253b\u2501\u253b')", VARCHAR, "002830CE0CA076CA0CA0002930CE5F61253B2501253B");
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 }

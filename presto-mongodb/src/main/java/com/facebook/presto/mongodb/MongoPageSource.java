@@ -214,18 +214,18 @@ public class MongoPageSource
     {
         if (isArrayType(type)) {
             if (value instanceof List<?>) {
-                BlockBuilder builder = createParametersBlockBuilder(type, ((List<?>) value).size());
+                BlockBuilder builder = output.beginBlockEntry();
 
                 ((List<?>) value).forEach(element ->
                         appendTo(type.getTypeParameters().get(0), element, builder));
 
-                type.writeObject(output, builder.build());
+                output.closeEntry();
                 return;
             }
         }
         else if (isMapType(type)) {
             if (value instanceof List<?>) {
-                BlockBuilder builder = createParametersBlockBuilder(type, ((List<?>) value).size());
+                BlockBuilder builder = output.beginBlockEntry();
                 for (Object element : (List<?>) value) {
                     if (!(element instanceof Map<?, ?>)) {
                         continue;
@@ -238,14 +238,14 @@ public class MongoPageSource
                     }
                 }
 
-                type.writeObject(output, builder.build());
+                output.closeEntry();
                 return;
             }
         }
         else if (isRowType(type)) {
             if (value instanceof Map) {
                 Map<?, ?> mapValue = (Map<?, ?>) value;
-                BlockBuilder builder = createParametersBlockBuilder(type, mapValue.size());
+                BlockBuilder builder = output.beginBlockEntry();
                 List<String> fieldNames = type.getTypeSignature().getParameters().stream()
                                         .map(TypeSignatureParameter::getNamedTypeSignature)
                                         .map(NamedTypeSignature::getName)
@@ -254,12 +254,12 @@ public class MongoPageSource
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {
                     appendTo(type.getTypeParameters().get(index), mapValue.get(fieldNames.get(index).toString()), builder);
                 }
-                type.writeObject(output, builder.build());
+                output.closeEntry();
                 return;
             }
             else if (value instanceof List<?>) {
                 List<?> listValue = (List<?>) value;
-                BlockBuilder builder = createParametersBlockBuilder(type, listValue.size());
+                BlockBuilder builder = output.beginBlockEntry();
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {
                     if (index < listValue.size()) {
                         appendTo(type.getTypeParameters().get(index), listValue.get(index), builder);
@@ -268,7 +268,7 @@ public class MongoPageSource
                         builder.appendNull();
                     }
                 }
-                type.writeObject(output, builder.build());
+                output.closeEntry();
                 return;
             }
         }

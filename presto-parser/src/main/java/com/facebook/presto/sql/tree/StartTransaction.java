@@ -56,6 +56,12 @@ public final class StartTransaction
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return transactionModes;
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(transactionModes);

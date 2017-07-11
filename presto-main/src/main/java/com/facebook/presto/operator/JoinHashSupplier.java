@@ -13,50 +13,79 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isFastInequalityJoin;
 import static java.util.Objects.requireNonNull;
 
 public class JoinHashSupplier
-        implements Supplier<LookupSource>
+        implements LookupSourceSupplier
 {
-    private final ConnectorSession session;
+    private final Session session;
     private final PagesHash pagesHash;
     private final LongArrayList addresses;
     private final List<List<Block>> channels;
+    private final Optional<PositionLinks.Factory> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
     public JoinHashSupplier(
-            ConnectorSession session,
+            Session session,
             PagesHashStrategy pagesHashStrategy,
             LongArrayList addresses,
             List<List<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
-        requireNonNull(session, "session is null");
+        this.session = requireNonNull(session, "session is null");
+        this.addresses = requireNonNull(addresses, "addresses is null");
+        this.channels = requireNonNull(channels, "channels is null");
+        this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
-        requireNonNull(addresses, "addresses is null");
-        requireNonNull(channels, "channels is null");
-        requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
 
-        this.session = session;
-        this.pagesHash = new PagesHash(addresses, pagesHashStrategy);
-        this.addresses = addresses;
-        this.channels = channels;
-        this.filterFunctionFactory = filterFunctionFactory;
+        PositionLinks.FactoryBuilder positionLinksFactoryBuilder;
+        if (filterFunctionFactory.isPresent() &&
+                filterFunctionFactory.get().getSortChannel().isPresent() &&
+                isFastInequalityJoin(session)) {
+            positionLinksFactoryBuilder = SortedPositionLinks.builder(
+                    addresses.size(),
+                    pagesHashStrategy,
+                    addresses);
+        }
+        else {
+            positionLinksFactoryBuilder = ArrayPositionLinks.builder(addresses.size());
+        }
+
+        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder);
+        this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
+    }
+
+    @Override
+    public long getHashCollisions()
+    {
+        return pagesHash.getHashCollisions();
+    }
+
+    @Override
+    public double getExpectedHashCollisions()
+    {
+        return pagesHash.getExpectedHashCollisions();
     }
 
     @Override
     public JoinHash get()
     {
-        Optional<JoinFilterFunction> filterFunction = filterFunctionFactory.map(factory -> factory.create(session, addresses, channels));
-        return new JoinHash(pagesHash, filterFunction);
+        // We need to create new JoinFilterFunction per each thread using it, since those functions
+        // are not thread safe...
+        Optional<JoinFilterFunction> filterFunction =
+                filterFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channels));
+        return new JoinHash(
+                pagesHash,
+                filterFunction,
+                positionLinks.map(links -> links.create(filterFunction)));
     }
 }

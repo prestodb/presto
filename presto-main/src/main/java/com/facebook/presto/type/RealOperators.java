@@ -21,7 +21,7 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.google.common.primitives.Ints;
+import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -42,14 +42,26 @@ import static com.facebook.presto.spi.function.OperatorType.MODULUS;
 import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.valueOf;
+import static java.math.RoundingMode.FLOOR;
 
 public final class RealOperators
 {
+    private static final float MIN_LONG_AS_FLOAT = -0x1p63f;
+    private static final float MAX_LONG_PLUS_ONE_AS_FLOAT = 0x1p63f;
+    private static final float MIN_INTEGER_AS_FLOAT = -0x1p31f;
+    private static final float MAX_INTEGER_PLUS_ONE_AS_FLOAT = 0x1p31f;
+    private static final float MIN_SHORT_AS_FLOAT = -0x1p15f;
+    private static final float MAX_SHORT_PLUS_ONE_AS_FLOAT = 0x1p15f;
+    private static final float MIN_BYTE_AS_FLOAT = -0x1p7f;
+    private static final float MAX_BYTE_PLUS_ONE_AS_FLOAT = 0x1p7f;
+
     private RealOperators()
     {
     }
@@ -173,9 +185,9 @@ public final class RealOperators
     public static long castToInteger(@SqlType(StandardTypes.REAL) long value)
     {
         try {
-            return Ints.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+            return toIntExact((long) MathFunctions.round((double) intBitsToFloat((int) value)));
         }
-        catch (IllegalArgumentException e) {
+        catch (ArithmeticException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
         }
     }
@@ -233,5 +245,31 @@ public final class RealOperators
             return false;
         }
         return notEqual(left, right);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.REAL) long value)
+    {
+        return saturatedFloorCastToLong(value, Short.MIN_VALUE, MIN_SHORT_AS_FLOAT, Short.MAX_VALUE, MAX_SHORT_PLUS_ONE_AS_FLOAT);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.REAL) long value)
+    {
+        return saturatedFloorCastToLong(value, Byte.MIN_VALUE, MIN_BYTE_AS_FLOAT, Byte.MAX_VALUE, MAX_BYTE_PLUS_ONE_AS_FLOAT);
+    }
+
+    private static long saturatedFloorCastToLong(long valueBits, long minValue, float minValueAsDouble, long maxValue, float maxValuePlusOneAsDouble)
+    {
+        float value = intBitsToFloat((int) valueBits);
+        if (value <= minValueAsDouble) {
+            return minValue;
+        }
+        if (value + 1 >= maxValuePlusOneAsDouble) {
+            return maxValue;
+        }
+        return DoubleMath.roundToLong(value, FLOOR);
     }
 }

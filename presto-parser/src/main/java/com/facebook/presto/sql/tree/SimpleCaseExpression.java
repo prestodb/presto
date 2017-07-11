@@ -71,6 +71,16 @@ public class SimpleCaseExpression
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(operand);
+        nodes.addAll(whenClauses);
+        defaultValue.ifPresent(nodes::add);
+        return nodes.build();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.metadata.BooleanStatistics;
-import com.facebook.presto.orc.metadata.ColumnStatistics;
-import com.facebook.presto.orc.metadata.DateStatistics;
-import com.facebook.presto.orc.metadata.DecimalStatistics;
-import com.facebook.presto.orc.metadata.DoubleStatistics;
-import com.facebook.presto.orc.metadata.IntegerStatistics;
-import com.facebook.presto.orc.metadata.StringStatistics;
+import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.DateStatistics;
+import com.facebook.presto.orc.metadata.statistics.DecimalStatistics;
+import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
+import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
@@ -232,6 +232,8 @@ public class TestTupleDomainOrcPredicate
         assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, null, "taco")), create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), true));
         assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", null)), create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), true));
         assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, "apple", null)), create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), true));
+
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "\0 ", " ")), create(ValueSet.ofRanges(range(CHAR, utf8Slice("\0"), true, utf8Slice(""), true)), false));
     }
 
     private static ColumnStatistics stringColumnStats(Long numberOfValues, String minimum, String maximum)

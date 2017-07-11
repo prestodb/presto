@@ -18,7 +18,7 @@ import com.facebook.presto.spi.PageBuilder;
 
 public interface JoinProbe
 {
-    int getChannelCount();
+    int getOutputChannelCount();
 
     boolean advanceNextPosition();
 

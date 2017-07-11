@@ -17,11 +17,15 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import io.airlift.units.Duration;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface QueryExecution
 {
@@ -30,6 +34,12 @@ public interface QueryExecution
     QueryInfo getQueryInfo();
 
     QueryState getState();
+
+    Optional<ResourceGroupId> getResourceGroup();
+
+    void setResourceGroup(ResourceGroupId resourceGroupId);
+
+    Plan getQueryPlan();
 
     Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException;
@@ -65,4 +75,6 @@ public interface QueryExecution
     {
         T createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters);
     }
+
+    Optional<QueryType> getQueryType();
 }

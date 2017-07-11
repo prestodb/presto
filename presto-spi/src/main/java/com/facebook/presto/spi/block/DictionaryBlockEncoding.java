@@ -14,9 +14,9 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.TypeManager;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static java.util.Objects.requireNonNull;
 
@@ -55,10 +55,7 @@ public class DictionaryBlockEncoding
         dictionaryEncoding.writeBlock(sliceOutput, dictionary);
 
         // ids
-        Slice ids = dictionaryBlock.getIds();
-        sliceOutput
-                .appendInt(ids.length())
-                .writeBytes(ids);
+        sliceOutput.writeBytes(dictionaryBlock.getIds());
 
         // instance id
         sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getMostSignificantBits());
@@ -76,16 +73,18 @@ public class DictionaryBlockEncoding
         Block dictionaryBlock = dictionaryEncoding.readBlock(sliceInput);
 
         // ids
-        int lengthIdsSlice = sliceInput.readInt();
-        Slice ids = sliceInput.readSlice(lengthIdsSlice);
+        int[] ids = new int[positionCount];
+        sliceInput.readBytes(Slices.wrappedIntArray(ids));
 
         // instance id
         long mostSignificantBits = sliceInput.readLong();
         long leastSignificantBits = sliceInput.readLong();
         long sequenceId = sliceInput.readLong();
 
-        // we always compact the dictionary before we send it
-        return new DictionaryBlock(positionCount, dictionaryBlock, ids, true, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
+        // We always compact the dictionary before we send it. However, dictionaryBlock comes from sliceInput, which may over-retain memory.
+        // As a result, setting dictionaryIsCompacted to true is not appropriate here.
+        // TODO: fix DictionaryBlock so that dictionaryIsCompacted can be set to true when the underlying block over-retains memory.
+        return new DictionaryBlock(positionCount, dictionaryBlock, ids, false, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
     }
 
     @Override

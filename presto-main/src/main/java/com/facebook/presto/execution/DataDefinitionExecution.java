@@ -20,21 +20,29 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.resourceGroups.QueryType.DATA_DEFINITION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -107,12 +115,17 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            CompletableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters);
-            future.whenComplete((o, throwable) -> {
-                if (throwable == null) {
+            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters);
+            Futures.addCallback(future, new FutureCallback<Object>() {
+                @Override
+                public void onSuccess(@Nullable Object result)
+                {
                     stateMachine.transitionToFinishing();
                 }
-                else {
+
+                @Override
+                public void onFailure(Throwable throwable)
+                {
                     fail(throwable);
                 }
             });
@@ -142,6 +155,12 @@ public class DataDefinitionExecution<T extends Statement>
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
+    }
+
+    @Override
+    public Optional<QueryType> getQueryType()
+    {
+        return Optional.of(DATA_DEFINITION);
     }
 
     @Override
@@ -183,13 +202,35 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public QueryInfo getQueryInfo()
     {
-        return stateMachine.getQueryInfoWithoutDetails();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get();
+        }
+        return stateMachine.updateQueryInfo(Optional.empty());
+    }
+
+    @Override
+    public Plan getQueryPlan()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public QueryState getState()
     {
         return stateMachine.getQueryState();
+    }
+
+    @Override
+    public Optional<ResourceGroupId> getResourceGroup()
+    {
+        return stateMachine.getResourceGroup();
+    }
+
+    @Override
+    public void setResourceGroup(ResourceGroupId resourceGroupId)
+    {
+        stateMachine.setResourceGroup(resourceGroupId);
     }
 
     public List<Expression> getParameters()
@@ -244,7 +285,7 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

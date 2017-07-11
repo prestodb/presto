@@ -27,6 +27,7 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 @DefunctConfig({
@@ -34,7 +35,8 @@ import java.util.concurrent.TimeUnit;
         "task.max-memory",
         "task.http-notification-threads",
         "task.info-refresh-max-wait",
-        "task.operator-pre-allocated-memory"})
+        "task.operator-pre-allocated-memory",
+        "sink.new-implementation"})
 public class TaskManagerConfig
 {
     private boolean verboseStats;
@@ -49,20 +51,24 @@ public class TaskManagerConfig
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private boolean newSinkBufferImplementation;
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
-    private Duration infoUpdateInterval = new Duration(200, TimeUnit.MILLISECONDS);
+    private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
 
     private int writerCount = 1;
-    private int taskConcurrency = 1;
+    private int taskConcurrency = 16;
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
     private int taskNotificationThreads = 5;
+
+    private boolean levelAbsolutePriority = true;
+    private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
+
+    private boolean legacySchedulingBehavior = true;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -158,6 +164,35 @@ public class TaskManagerConfig
         return this;
     }
 
+    @Deprecated
+    @NotNull
+    public boolean isLevelAbsolutePriority()
+    {
+        return levelAbsolutePriority;
+    }
+
+    @Deprecated
+    @Config("task.level-absolute-priority")
+    public TaskManagerConfig setLevelAbsolutePriority(boolean levelAbsolutePriority)
+    {
+        this.levelAbsolutePriority = levelAbsolutePriority;
+        return this;
+    }
+
+    public BigDecimal getLevelTimeMultiplier()
+    {
+        return levelTimeMultiplier;
+    }
+
+    @Config("task.level-time-multiplier")
+    @ConfigDescription("Factor that determines the target scheduled time for a level relative to the next")
+    @Min(0)
+    public TaskManagerConfig setLevelTimeMultiplier(BigDecimal levelTimeMultiplier)
+    {
+        this.levelTimeMultiplier = levelTimeMultiplier;
+        return this;
+    }
+
     @Min(1)
     public int getMaxWorkerThreads()
     {
@@ -240,19 +275,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPagePartitioningBufferSize(DataSize size)
     {
         this.maxPagePartitioningBufferSize = size;
-        return this;
-    }
-
-    public boolean isNewSinkBufferImplementation()
-    {
-        return newSinkBufferImplementation;
-    }
-
-    @Config("sink.new-implementation")
-    @ConfigDescription("Experimental: use new output buffer implementations")
-    public TaskManagerConfig setNewSinkBufferImplementation(boolean newSinkBufferImplementation)
-    {
-        this.newSinkBufferImplementation = newSinkBufferImplementation;
         return this;
     }
 
@@ -350,6 +372,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
     {
         this.taskNotificationThreads = taskNotificationThreads;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacySchedulingBehavior()
+    {
+        return legacySchedulingBehavior;
+    }
+
+    @Deprecated
+    @Config("task.legacy-scheduling-behavior")
+    public TaskManagerConfig setLegacySchedulingBehavior(boolean legacySchedulingBehavior)
+    {
+        this.legacySchedulingBehavior = legacySchedulingBehavior;
         return this;
     }
 }

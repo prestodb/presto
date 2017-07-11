@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 
+import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -47,7 +49,7 @@ public abstract class AbstractResourceConfigurationManager
     @GuardedBy("generalPoolMemoryFraction")
     private long generalPoolBytes;
 
-    protected abstract Optional<Duration> getCpuQuotaPeriodMillis();
+    protected abstract Optional<Duration> getCpuQuotaPeriod();
     protected abstract List<ResourceGroupSpec> getRootGroups();
 
     protected void validateRootGroups(ManagerSpec managerSpec)
@@ -63,6 +65,18 @@ public abstract class AbstractResourceConfigurationManager
                 checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
                 checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
             }
+            if (group.getSchedulingPolicy().isPresent()) {
+                if (group.getSchedulingPolicy().get() == WEIGHTED) {
+                    for (ResourceGroupSpec subGroup : group.getSubGroups()) {
+                        checkArgument(subGroup.getSchedulingWeight().isPresent(), "Must specify scheduling weight for each sub group when using \"weighted\" scheduling policy");
+                    }
+                }
+                else {
+                    for (ResourceGroupSpec subGroup : group.getSubGroups()) {
+                        checkArgument(!subGroup.getSchedulingWeight().isPresent(), "Must use \"weighted\" scheduling policy when using scheduling weight");
+                    }
+                }
+            }
         }
     }
 
@@ -70,20 +84,57 @@ public abstract class AbstractResourceConfigurationManager
     {
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
-            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getGroup()));
+            validateSelectors(managerSpec.getRootGroups(), spec);
+            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getQueryType(), spec.getGroup()));
         }
         return selectors.build();
+    }
+
+    private void validateSelectors(List<ResourceGroupSpec> groups, SelectorSpec spec)
+    {
+        spec.getQueryType().ifPresent(this::validateQueryType);
+        List<ResourceGroupNameTemplate> selectorGroups = spec.getGroup().getSegments();
+        StringBuilder fullyQualifiedGroupName = new StringBuilder();
+        while (!selectorGroups.isEmpty()) {
+            ResourceGroupNameTemplate groupName = selectorGroups.get(0);
+            fullyQualifiedGroupName.append(groupName);
+            Optional<ResourceGroupSpec> match = groups
+                    .stream()
+                    .filter(groupSpec -> groupSpec.getName().equals(groupName))
+                    .findFirst();
+            if (!match.isPresent()) {
+                throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName.toString()));
+            }
+            fullyQualifiedGroupName.append(".");
+            groups = match.get().getSubGroups();
+            selectorGroups = selectorGroups.subList(1, selectorGroups.size());
+        }
+    }
+
+    private void validateQueryType(String queryType)
+    {
+        try {
+            QueryType.valueOf(queryType.toUpperCase());
+        }
+        catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(format("Selector specifies an invalid query type: %s", queryType));
+        }
     }
 
     protected AbstractResourceConfigurationManager(ClusterMemoryPoolManager memoryPoolManager)
     {
         memoryPoolManager.addChangeListener(new MemoryPoolId("general"), poolInfo -> {
+            Map<ResourceGroup, DataSize> memoryLimits = new HashMap<>();
             synchronized (generalPoolMemoryFraction) {
                 for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
                     double bytes = poolInfo.getMaxBytes() * entry.getValue();
-                    entry.getKey().setSoftMemoryLimit(new DataSize(bytes, BYTE));
+                    // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "generalPoolMemoryFraction" lock
+                    memoryLimits.put(entry.getKey(), new DataSize(bytes, BYTE));
                 }
                 generalPoolBytes = poolInfo.getMaxBytes();
+            }
+            for (Map.Entry<ResourceGroup, DataSize> entry : memoryLimits.entrySet()) {
+                entry.getKey().setSoftMemoryLimit(entry.getValue());
             }
         });
     }
@@ -139,18 +190,25 @@ public abstract class AbstractResourceConfigurationManager
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setMaxRunningQueries(match.getMaxRunning());
+        if (match.getQueuedTimeLimit().isPresent()) {
+            group.setQueuedTimeLimit(match.getQueuedTimeLimit().get());
+        }
+        if (match.getRunningTimeLimit().isPresent()) {
+            group.setRunningTimeLimit(match.getRunningTimeLimit().get());
+        }
         if (match.getSchedulingPolicy().isPresent()) {
             group.setSchedulingPolicy(match.getSchedulingPolicy().get());
         }
         if (match.getSchedulingWeight().isPresent()) {
             group.setSchedulingWeight(match.getSchedulingWeight().get());
         }
-        if (match.getJmxExport().isPresent()) {
+        // if the new and current values do not differ an exception is thrown
+        if (match.getJmxExport().isPresent() && match.getJmxExport().get() != group.getJmxExport()) {
             group.setJmxExport(match.getJmxExport().get());
         }
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
             // This will never throw an exception if the validateManagerSpec method succeeds
-            checkState(getCpuQuotaPeriodMillis().isPresent(), "Must specify hard CPU limit in addition to soft limit");
+            checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");
             Duration limit;
             if (match.getHardCpuLimit().isPresent()) {
                 limit = match.getHardCpuLimit().get();
@@ -158,7 +216,7 @@ public abstract class AbstractResourceConfigurationManager
             else {
                 limit = match.getSoftCpuLimit().get();
             }
-            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriodMillis().get().toMillis(), Long.MAX_VALUE);
+            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
         }

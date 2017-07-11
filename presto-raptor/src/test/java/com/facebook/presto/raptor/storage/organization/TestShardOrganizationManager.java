@@ -56,8 +56,8 @@ public class TestShardOrganizationManager
     private MetadataDao metadataDao;
     private ShardOrganizerDao organizerDao;
 
-    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty());
-    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1));
+    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), true);
+    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), true);
 
     private static final List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP);
 
@@ -131,10 +131,10 @@ public class TestShardOrganizationManager
         int day = 1;
 
         List<ShardIndexInfo> shards = ImmutableList.of(
-                shardWithRange(1, ShardRange.of(new Tuple(types, 5L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 7L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 6L, "hello", day, timestamp), new Tuple(types, 9L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 1L, "hello", day, timestamp), new Tuple(types, 5L, "hello", day, timestamp))));
+                shardWithSortRange(1, ShardRange.of(new Tuple(types, 5L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
+                shardWithSortRange(1, ShardRange.of(new Tuple(types, 7L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
+                shardWithSortRange(1, ShardRange.of(new Tuple(types, 6L, "hello", day, timestamp), new Tuple(types, 9L, "hello", day, timestamp))),
+                shardWithSortRange(1, ShardRange.of(new Tuple(types, 1L, "hello", day, timestamp), new Tuple(types, 5L, "hello", day, timestamp))));
 
         Set<OrganizationSet> actual = createOrganizationSets(tableInfo, shards);
 
@@ -171,7 +171,7 @@ public class TestShardOrganizationManager
         assertEquals(actual, ImmutableSet.of(extractIndexes(shards, 0, 2), extractIndexes(shards, 1, 3)));
     }
 
-    private static ShardIndexInfo shardWithRange(int bucketNumber, ShardRange shardRange)
+    private static ShardIndexInfo shardWithSortRange(int bucketNumber, ShardRange sortRange)
     {
         return new ShardIndexInfo(
                 1,
@@ -179,11 +179,11 @@ public class TestShardOrganizationManager
                 UUID.randomUUID(),
                 1,
                 1,
-                Optional.of(shardRange),
+                Optional.of(sortRange),
                 Optional.empty());
     }
 
-    private static ShardIndexInfo shardWithTemporalRange(int bucketNumber, ShardRange shardRange, ShardRange temporalRange)
+    private static ShardIndexInfo shardWithTemporalRange(int bucketNumber, ShardRange sortRange, ShardRange temporalRange)
     {
         return new ShardIndexInfo(
                 1,
@@ -191,7 +191,7 @@ public class TestShardOrganizationManager
                 UUID.randomUUID(),
                 1,
                 1,
-                Optional.of(shardRange),
+                Optional.of(sortRange),
                 Optional.of(temporalRange));
     }
 

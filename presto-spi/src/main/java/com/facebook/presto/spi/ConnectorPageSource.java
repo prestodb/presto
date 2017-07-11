@@ -15,10 +15,13 @@ package com.facebook.presto.spi;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 public interface ConnectorPageSource
         extends Closeable
 {
+    CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
+
     /**
      * Gets the total input bytes that will be processed by this page source.
      * This is normally the same size as the split.  If size is not available,
@@ -62,4 +65,14 @@ public interface ConnectorPageSource
     @Override
     void close()
             throws IOException;
+
+    /**
+     * Returns a future that will be completed when the page source becomes
+     * unblocked.  If the page source is not blocked, this method should return
+     * {@code NOT_BLOCKED}.
+     */
+    default CompletableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
+    }
 }

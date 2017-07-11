@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.155</version>
+        <version>0.181-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-redis</artifactId>
@@ -165,14 +165,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.gaul</groupId>
-                <artifactId>modernizer-maven-plugin</artifactId>
-                <configuration>
-                    <failOnViolations>false</failOnViolations>
-                </configuration>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

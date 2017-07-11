@@ -56,6 +56,12 @@ public final class Values
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return rows;
+    }
+
+    @Override
     public String toString()
     {
         return "(" + Joiner.on(", ").join(rows) + ")";

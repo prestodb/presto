@@ -19,7 +19,9 @@ import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.ThriftHiveMetastore;
 import com.facebook.presto.spi.ColumnHandle;
@@ -41,21 +43,21 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -74,14 +76,15 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenCol
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -143,10 +146,11 @@ public abstract class AbstractTestHiveClientS3
 
         setupHive(databaseName);
 
-        HiveClientConfig hiveClientConfig = new HiveClientConfig()
+        HiveS3Config s3Config = new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey);
 
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
@@ -155,7 +159,7 @@ public abstract class AbstractTestHiveClientS3
         HiveConnectorId connectorId = new HiveConnectorId("hive-test");
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-s3-%s"));
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig, s3Config));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(connectorId, TYPE_MANAGER, hiveClientConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
@@ -166,7 +170,6 @@ public abstract class AbstractTestHiveClientS3
                 writableBucket,
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
-        TypeRegistry typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 connectorId,
@@ -175,7 +178,7 @@ public abstract class AbstractTestHiveClientS3
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
-                typeManager,
+                TYPE_MANAGER,
                 locationService,
                 new TableParameterCodec(),
                 partitionUpdateCodec,
@@ -189,12 +192,24 @@ public abstract class AbstractTestHiveClientS3
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 new BoundedExecutor(executor, hiveClientConfig.getMaxSplitIteratorThreads()),
+                new HiveCoercionPolicy(TYPE_MANAGER),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled());
-        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), locationService, partitionUpdateCodec);
+        pageSinkProvider = new HivePageSinkProvider(
+                getDefaultHiveFileWriterFactories(hiveClientConfig),
+                hdfsEnvironment,
+                metastoreClient,
+                new GroupByHashPageIndexerFactory(new JoinCompiler()),
+                TYPE_MANAGER,
+                new HiveClientConfig(),
+                locationService,
+                partitionUpdateCodec,
+                new TestingNodeManager("fake-environment"),
+                new HiveEventClient(),
+                new HiveSessionProperties(hiveClientConfig));
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 
@@ -357,7 +372,7 @@ public abstract class AbstractTestHiveClientS3
             // write the records
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
             sink.appendPage(data.toPage());
-            Collection<Slice> fragments = sink.finish();
+            Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // commit the table
             metadata.finishCreateTable(session, outputHandle, fragments);
@@ -424,7 +439,7 @@ public abstract class AbstractTestHiveClientS3
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
         for (ColumnHandle columnHandle : columnHandles) {
-            HiveColumnHandle hiveColumnHandle = checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
+            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
             index.put(hiveColumnHandle.getName(), i);
             i++;
         }
@@ -447,20 +462,19 @@ public abstract class AbstractTestHiveClientS3
         @Override
         public Optional<Database> getDatabase(String databaseName)
         {
-            Optional<Database> database = super.getDatabase(databaseName);
-            if (database.isPresent()) {
-                database.get().setLocationUri("s3://" + writableBucket + "/");
-            }
-            return database;
+            return super.getDatabase(databaseName)
+                    .map(database -> Database.builder(database)
+                            .setLocation(Optional.of("s3://" + writableBucket + "/"))
+                            .build());
         }
 
         @Override
-        public void createTable(Table table, PrincipalPrivilegeSet privilegeSet)
+        public void createTable(Table table, PrincipalPrivileges privileges)
         {
             // hack to work around the metastore not being configured for S3
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
-            super.createTable(tableBuilder.build(), privilegeSet);
+            super.createTable(tableBuilder.build(), privileges);
         }
 
         @Override
@@ -479,7 +493,7 @@ public abstract class AbstractTestHiveClientS3
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+                replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
                 delegate.dropTable(databaseName, tableName, false);
 
                 // drop data
@@ -508,7 +522,8 @@ public abstract class AbstractTestHiveClientS3
             Table.Builder tableBuilder = Table.builder(table.get());
             tableBuilder.getStorageBuilder().setLocation(location);
 
-            replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+            // NOTE: this clears the permissions
+            replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
         }
 
         private List<String> listAllDataPaths(String schemaName, String tableName)

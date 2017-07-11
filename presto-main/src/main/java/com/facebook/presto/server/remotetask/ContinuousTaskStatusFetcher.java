@@ -16,6 +16,7 @@ package com.facebook.presto.server.remotetask;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,7 +30,6 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,6 +47,7 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class ContinuousTaskStatusFetcher
@@ -81,6 +82,7 @@ class ContinuousTaskStatusFetcher
             Executor executor,
             HttpClient httpClient,
             Duration minErrorDuration,
+            Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats)
     {
@@ -96,7 +98,7 @@ class ContinuousTaskStatusFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
-        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), minErrorDuration, errorScheduledExecutor, "getting task status");
+        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), minErrorDuration, maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
     }
 
@@ -231,7 +233,10 @@ class ContinuousTaskStatusFetcher
         });
 
         if (taskMismatch.get()) {
-            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, REMOTE_TASK_MISMATCH_ERROR));
+            // This will also set the task status to FAILED state directly.
+            // Additionally, this will issue a DELETE for the task to the worker.
+            // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
+            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
     }
 
@@ -243,11 +248,6 @@ class ContinuousTaskStatusFetcher
     public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
         taskStatus.addStateChangeListener(stateChangeListener);
-    }
-
-    public CompletableFuture<TaskStatus> getStateChange(TaskStatus taskStatus)
-    {
-        return this.taskStatus.getStateChange(taskStatus);
     }
 
     private void updateStats(long currentRequestStartNanos)

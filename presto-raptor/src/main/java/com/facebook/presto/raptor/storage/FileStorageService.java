@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -38,11 +39,14 @@ import static java.util.Objects.requireNonNull;
 public class FileStorageService
         implements StorageService
 {
+    private static final Logger log = Logger.get(FileStorageService.class);
+
     private static final Pattern HEX_DIRECTORY = Pattern.compile("[0-9a-f]{2}");
     private static final String FILE_EXTENSION = ".orc";
 
     private final File baseStorageDir;
     private final File baseStagingDir;
+    private final File baseQuarantineDir;
 
     @Inject
     public FileStorageService(StorageManagerConfig config)
@@ -55,6 +59,7 @@ public class FileStorageService
         File baseDataDir = requireNonNull(dataDirectory, "dataDirectory is null");
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
+        this.baseQuarantineDir = new File(baseDataDir, "quarantine");
     }
 
     @Override
@@ -62,9 +67,10 @@ public class FileStorageService
     public void start()
             throws IOException
     {
-        deleteDirectory(baseStagingDir);
+        deleteStagingFilesAsync();
         createParents(new File(baseStagingDir, "."));
         createParents(new File(baseStorageDir, "."));
+        createParents(new File(baseQuarantineDir, "."));
     }
 
     @Override
@@ -91,6 +97,13 @@ public class FileStorageService
     {
         String name = getFileSystemPath(new File("/"), shardUuid).getName();
         return new File(baseStagingDir, name);
+    }
+
+    @Override
+    public File getQuarantineFile(UUID shardUuid)
+    {
+        String name = getFileSystemPath(new File("/"), shardUuid).getName();
+        return new File(baseQuarantineDir, name);
     }
 
     @Override
@@ -138,6 +151,23 @@ public class FileStorageService
                 .resolve(uuid.substring(2, 4))
                 .resolve(uuid + FILE_EXTENSION)
                 .toFile();
+    }
+
+    private void deleteStagingFilesAsync()
+    {
+        List<File> files = listFiles(baseStagingDir, null);
+        if (!files.isEmpty()) {
+            new Thread(() -> {
+                for (File file : files) {
+                    try {
+                        Files.deleteIfExists(file.toPath());
+                    }
+                    catch (IOException e) {
+                        log.warn(e, "Failed to delete file: %s", file.getAbsolutePath());
+                    }
+                }
+            }, "background-staging-delete").start();
+        }
     }
 
     private static void deleteDirectory(File dir)

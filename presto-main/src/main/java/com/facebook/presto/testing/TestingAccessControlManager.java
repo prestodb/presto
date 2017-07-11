@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionId;
@@ -77,7 +78,7 @@ public class TestingAccessControlManager
     public TestingAccessControlManager(TransactionManager transactionManager)
     {
         super(transactionManager);
-        setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.of());
+        setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)

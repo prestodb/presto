@@ -38,7 +38,7 @@ public class BenchmarkSuite
         Session optimizeHashSession = Session.builder(localQueryRunner.getDefaultSession())
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
                 .build();
-        return ImmutableList.<AbstractBenchmark>of(
+        return ImmutableList.of(
                 // hand built benchmarks
                 new CountAggregationBenchmark(localQueryRunner),
                 new DoubleSumAggregationBenchmark(localQueryRunner),

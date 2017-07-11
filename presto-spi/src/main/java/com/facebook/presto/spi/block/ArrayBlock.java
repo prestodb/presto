@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.spi.block;
 
-import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.function.BiConsumer;
+
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlock
@@ -23,35 +25,86 @@ public class ArrayBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlock.class).instanceSize();
 
+    private final int arrayOffset;
+    private final int positionCount;
+    private final boolean[] valueIsNull;
     private final Block values;
-    private final Slice offsets;
-    private final int offsetBase;
-    private final Slice valueIsNull;
+    private final int[] offsets;
 
-    public ArrayBlock(Block values, Slice offsets, int offsetBase, Slice valueIsNull)
+    private long sizeInBytes;
+    private final long retainedSizeInBytes;
+
+    public ArrayBlock(int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
     {
+        this(0, positionCount, valueIsNull, offsets, values);
+    }
+
+    ArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
+    {
+        if (arrayOffset < 0) {
+            throw new IllegalArgumentException("arrayOffset is negative");
+        }
+        this.arrayOffset = arrayOffset;
+
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
+        this.positionCount = positionCount;
+
+        requireNonNull(valueIsNull, "valueIsNull is null");
+        if (valueIsNull.length - arrayOffset < positionCount) {
+            throw new IllegalArgumentException("isNull length is less than positionCount");
+        }
+        this.valueIsNull = valueIsNull;
+
+        requireNonNull(offsets, "offsets is null");
+        if (offsets.length - arrayOffset < positionCount + 1) {
+            throw new IllegalArgumentException("offsets length is less than positionCount");
+        }
+        this.offsets = offsets;
+
         this.values = requireNonNull(values);
-        this.offsets = requireNonNull(offsets);
-        this.offsetBase = offsetBase;
-        this.valueIsNull = requireNonNull(valueIsNull);
+
+        sizeInBytes = -1;
+        retainedSizeInBytes = INSTANCE_SIZE + values.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(valueIsNull);
     }
 
     @Override
     public int getPositionCount()
     {
-        return valueIsNull.length();
+        return positionCount;
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return getValues().getSizeInBytes() + offsets.length() + valueIsNull.length();
+        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
+        if (sizeInBytes < 0) {
+            calculateSize();
+        }
+        return sizeInBytes;
+    }
+
+    private void calculateSize()
+    {
+        int valueStart = offsets[arrayOffset];
+        int valueEnd = offsets[arrayOffset + positionCount];
+        sizeInBytes = values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) this.positionCount);
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + values.getRetainedSizeInBytes() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();
+        return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(values, values.getRetainedSizeInBytes());
+        consumer.accept(offsets, sizeOf(offsets));
+        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -61,7 +114,7 @@ public class ArrayBlock
     }
 
     @Override
-    protected Slice getOffsets()
+    protected int[] getOffsets()
     {
         return offsets;
     }
@@ -69,11 +122,11 @@ public class ArrayBlock
     @Override
     protected int getOffsetBase()
     {
-        return offsetBase;
+        return arrayOffset;
     }
 
     @Override
-    protected Slice getValueIsNull()
+    protected boolean[] getValueIsNull()
     {
         return valueIsNull;
     }

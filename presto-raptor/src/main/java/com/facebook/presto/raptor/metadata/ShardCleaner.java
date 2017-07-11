@@ -217,7 +217,7 @@ public class ShardCleaner
         if (coordinator) {
             startTransactionCleanup();
             if (backupStore.isPresent()) {
-                startBackupCleanup();
+                scheduleBackupCleanup();
             }
         }
 
@@ -225,7 +225,7 @@ public class ShardCleaner
         // since there is a race condition between shards getting created
         // on a worker and being committed (referenced) in the database.
         if (backupStore.isPresent()) {
-            startLocalCleanup();
+            scheduleLocalCleanup();
         }
     }
 
@@ -244,36 +244,58 @@ public class ShardCleaner
         }, 0, transactionCleanerInterval.toMillis(), MILLISECONDS);
     }
 
-    private void startBackupCleanup()
+    private void scheduleBackupCleanup()
     {
-        scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                cleanBackupShards();
-            }
-            catch (Throwable t) {
-                log.error(t, "Error cleaning backup shards");
-                backupJobErrors.update(1);
-            }
-        }, 0, backupCleanerInterval.toMillis(), MILLISECONDS);
+        scheduler.scheduleWithFixedDelay(this::runBackupCleanup, 0, backupCleanerInterval.toMillis(), MILLISECONDS);
     }
 
-    private void startLocalCleanup()
+    private void scheduleLocalCleanup()
     {
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 // jitter to avoid overloading database
                 long interval = this.localCleanerInterval.roundTo(SECONDS);
                 SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
-                cleanLocalShards();
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            catch (Throwable t) {
-                log.error(t, "Error cleaning local shards");
-                localJobErrors.update(1);
-            }
+            runLocalCleanup();
         }, 0, localCleanerInterval.toMillis(), MILLISECONDS);
+    }
+
+    private synchronized void runBackupCleanup()
+    {
+        try {
+            cleanBackupShards();
+        }
+        catch (Throwable t) {
+            log.error(t, "Error cleaning backup shards");
+            backupJobErrors.update(1);
+        }
+    }
+
+    private synchronized void runLocalCleanup()
+    {
+        try {
+            cleanLocalShards();
+        }
+        catch (Throwable t) {
+            log.error(t, "Error cleaning local shards");
+            localJobErrors.update(1);
+        }
+    }
+
+    @Managed
+    public void startBackupCleanup()
+    {
+        scheduler.submit(this::runBackupCleanup);
+    }
+
+    @Managed
+    public void startLocalCleanup()
+    {
+        scheduler.submit(this::runLocalCleanup);
     }
 
     @VisibleForTesting

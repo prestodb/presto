@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups.db;
 
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
+import com.facebook.presto.resourceGroups.db.H2DaoProvider;
 import com.facebook.presto.resourceGroups.db.ResourceGroupsDao;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.google.inject.Binder;

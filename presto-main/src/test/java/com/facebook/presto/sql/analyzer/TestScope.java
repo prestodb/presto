@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -29,60 +30,54 @@ public class TestScope
     @Test
     public void test()
     {
-        Scope root = Scope.builder().build();
+        Scope root = Scope.create();
 
-        Field outerColumn1 = Field.newQualified(QualifiedName.of("outer", "column1"), Optional.of("c1"), BIGINT, false);
-        Field outerColumn2 = Field.newQualified(QualifiedName.of("outer", "column2"), Optional.of("c2"), BIGINT, false);
-        Scope outer = Scope.builder().withParent(root).withRelationType(new RelationType(outerColumn1, outerColumn2)).markQueryBoundary().build();
+        Field outerColumn1 = Field.newQualified(QualifiedName.of("outer", "column1"), Optional.of("c1"), BIGINT, false, Optional.empty(), false);
+        Field outerColumn2 = Field.newQualified(QualifiedName.of("outer", "column2"), Optional.of("c2"), BIGINT, false, Optional.empty(), false);
+        Scope outer = Scope.builder().withParent(root).withRelationType(RelationId.anonymous(), new RelationType(outerColumn1, outerColumn2)).build();
 
-        Field inner1Column2 = Field.newQualified(QualifiedName.of("inner1", "column2"), Optional.of("c2"), BIGINT, false);
-        Field inner1Column3 = Field.newQualified(QualifiedName.of("inner1", "column3"), Optional.of("c3"), BIGINT, false);
-        Scope inner1 = Scope.builder().withParent(outer).withRelationType(new RelationType(inner1Column2, inner1Column3)).markQueryBoundary().build();
+        Field innerColumn2 = Field.newQualified(QualifiedName.of("inner", "column2"), Optional.of("c2"), BIGINT, false, Optional.empty(), false);
+        Field innerColumn3 = Field.newQualified(QualifiedName.of("inner", "column3"), Optional.of("c3"), BIGINT, false, Optional.empty(), false);
+        Scope inner = Scope.builder().withOuterQueryParent(outer).withRelationType(RelationId.anonymous(), new RelationType(innerColumn2, innerColumn3)).build();
 
-        Field inner2Column4 = Field.newQualified(QualifiedName.of("inner2", "column4"), Optional.of("c4"), BIGINT, false);
-        Scope inner2 = Scope.builder().withParent(inner1).withRelationType(new RelationType(inner2Column4)).build();
-
-        QualifiedNameReference c1 = name("c1");
-        QualifiedNameReference c2 = name("c2");
-        QualifiedNameReference c3 = name("c3");
-        QualifiedNameReference c4 = name("c4");
+        Expression c1 = name("c1");
+        Expression c2 = name("c2");
+        Expression c3 = name("c3");
+        Expression c4 = name("c4");
 
         assertFalse(root.tryResolveField(c1).isPresent());
 
         assertTrue(outer.tryResolveField(c1).isPresent());
         assertEquals(outer.tryResolveField(c1).get().getField(), outerColumn1);
         assertEquals(outer.tryResolveField(c1).get().isLocal(), true);
+        assertEquals(outer.tryResolveField(c1).get().getHierarchyFieldIndex(), 0);
         assertTrue(outer.tryResolveField(c2).isPresent());
         assertEquals(outer.tryResolveField(c2).get().getField(), outerColumn2);
         assertEquals(outer.tryResolveField(c2).get().isLocal(), true);
+        assertEquals(outer.tryResolveField(c2).get().getHierarchyFieldIndex(), 1);
         assertFalse(outer.tryResolveField(c3).isPresent());
         assertFalse(outer.tryResolveField(c4).isPresent());
 
-        assertTrue(inner1.tryResolveField(c1).isPresent());
-        assertEquals(inner1.tryResolveField(c1).get().getField(), outerColumn1);
-        assertEquals(inner1.tryResolveField(c1).get().isLocal(), false);
-        assertTrue(inner1.tryResolveField(c2).isPresent());
-        assertEquals(inner1.tryResolveField(c2).get().getField(), inner1Column2);
-        assertEquals(inner1.tryResolveField(c2).get().isLocal(), true);
-        assertTrue(inner1.tryResolveField(c2).isPresent());
-        assertEquals(inner1.tryResolveField(c3).get().getField(), inner1Column3);
-        assertEquals(inner1.tryResolveField(c3).get().isLocal(), true);
-        assertFalse(inner1.tryResolveField(c4).isPresent());
+        assertTrue(inner.tryResolveField(c1).isPresent());
+        assertEquals(inner.tryResolveField(c1).get().getField(), outerColumn1);
+        assertEquals(inner.tryResolveField(c1).get().isLocal(), false);
+        assertEquals(inner.tryResolveField(c1).get().getHierarchyFieldIndex(), 2);
+        assertEquals(inner.tryResolveField(c1).get().getRelationFieldIndex(), 0);
+        assertTrue(inner.tryResolveField(c2).isPresent());
+        assertEquals(inner.tryResolveField(c2).get().getField(), innerColumn2);
+        assertEquals(inner.tryResolveField(c2).get().isLocal(), true);
+        assertEquals(inner.tryResolveField(c2).get().getHierarchyFieldIndex(), 0);
+        assertTrue(inner.tryResolveField(c2).isPresent());
+        assertEquals(inner.tryResolveField(c3).get().getField(), innerColumn3);
+        assertEquals(inner.tryResolveField(c3).get().isLocal(), true);
+        assertEquals(inner.tryResolveField(c3).get().getHierarchyFieldIndex(), 1);
+        assertFalse(inner.tryResolveField(c4).isPresent());
 
-        assertTrue(inner2.tryResolveField(c1).isPresent());
-        assertEquals(inner2.tryResolveField(c1).get().getField(), outerColumn1);
-        assertEquals(inner2.tryResolveField(c1).get().isLocal(), false);
-        assertTrue(inner2.tryResolveField(c2).isPresent());
-        assertEquals(inner2.tryResolveField(c2).get().getField(), outerColumn2);
-        assertEquals(inner2.tryResolveField(c2).get().isLocal(), false);
-        assertFalse(inner2.tryResolveField(c3).isPresent());
-        assertTrue(inner2.tryResolveField(c4).isPresent());
-        assertEquals(inner2.tryResolveField(c4).get().getField(), inner2Column4);
-        assertEquals(inner2.tryResolveField(c4).get().isLocal(), true);
+        assertEquals(inner.getOuterQueryParent(), Optional.of(outer));
     }
 
-    private QualifiedNameReference name(String first, String... parts)
+    private static Expression name(String first, String... parts)
     {
-        return new QualifiedNameReference(QualifiedName.of(first, parts));
+        return DereferenceExpression.from(QualifiedName.of(first, parts));
     }
 }

@@ -19,18 +19,29 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 
+import javax.inject.Inject;
+
 import java.util.List;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static java.util.Objects.requireNonNull;
 
 public class PagesIndexPageSorter
         implements PageSorter
 {
+    private final PagesIndex.Factory pagesIndexFactory;
+
+    @Inject
+    public PagesIndexPageSorter(PagesIndex.Factory pagesIndexFactory)
+    {
+        this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
+    }
+
     @Override
     public long[] sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
     {
-        PagesIndex pagesIndex = new PagesIndex(types, expectedPositions);
+        PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(types, expectedPositions);
         pages.forEach(pagesIndex::addPage);
         pagesIndex.sort(sortChannels, sortOrders);
 

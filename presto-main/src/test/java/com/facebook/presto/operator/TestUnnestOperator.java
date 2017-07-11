@@ -15,10 +15,10 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
@@ -57,7 +57,7 @@ public class TestUnnestOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -84,7 +84,7 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT)
                 .row(1L, 2L, 4L, 5L)
@@ -120,7 +120,7 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT))
                 .row(1L, ImmutableList.of(2L, 4L), ImmutableList.of(4L, 8L), ImmutableList.of(5L, 10L))
@@ -150,7 +150,7 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), true);
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), true);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
                 .row(1L, 2L, 4L, 5L, 1L)
@@ -177,7 +177,7 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE, BIGINT, DOUBLE)
                 .row(1L, NEGATIVE_INFINITY, 1L, NEGATIVE_INFINITY)

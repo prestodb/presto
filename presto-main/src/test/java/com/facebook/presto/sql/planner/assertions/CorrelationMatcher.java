@@ -11,17 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class CorrelationMatcher
@@ -29,28 +34,50 @@ public class CorrelationMatcher
 {
     private final List<String> correlation;
 
-    public CorrelationMatcher(List<String> correlation)
+    CorrelationMatcher(List<String> correlation)
     {
         this.correlation = requireNonNull(correlation, "correlation is null");
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean shapeMatches(PlanNode node)
+    {
+        return node instanceof ApplyNode || node instanceof LateralJoinNode;
+    }
+
+    @Override
+    public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    {
+        checkState(
+                shapeMatches(node),
+                "Plan testing framework error: shapeMatches returned false in detailMatches in %s",
+                this.getClass().getName());
+
+        List<Symbol> actualCorrelation = getCorrelation(node);
+        if (this.correlation.size() != actualCorrelation.size()) {
+            return NO_MATCH;
+        }
+
+        int i = 0;
+        for (String alias : this.correlation) {
+            if (!symbolAliases.get(alias).equals(actualCorrelation.get(i++).toSymbolReference())) {
+                return NO_MATCH;
+            }
+        }
+        return match();
+    }
+
+    private List<Symbol> getCorrelation(PlanNode node)
     {
         if (node instanceof ApplyNode) {
-            ApplyNode applyNode = (ApplyNode) node;
-
-            if (correlation.size() != applyNode.getCorrelation().size()) {
-                return false;
-            }
-
-            int i = 0;
-            for (String alias : correlation) {
-                expressionAliases.put(alias, applyNode.getCorrelation().get(i++).toSymbolReference());
-            }
-            return true;
+            return ((ApplyNode) node).getCorrelation();
         }
-        return false;
+        else if (node instanceof LateralJoinNode) {
+            return ((LateralJoinNode) node).getCorrelation();
+        }
+        else {
+            throw new IllegalStateException("Unexpected plan node: " + node);
+        }
     }
 
     @Override

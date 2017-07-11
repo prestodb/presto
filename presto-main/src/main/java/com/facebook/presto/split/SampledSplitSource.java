@@ -15,14 +15,16 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class SampledSplitSource
@@ -45,12 +47,18 @@ public class SampledSplitSource
     }
 
     @Override
-    public CompletableFuture<List<Split>> getNextBatch(int maxSize)
+    public ConnectorTransactionHandle getTransactionHandle()
     {
-        return splitSource.getNextBatch(maxSize)
-                .thenApply(splits -> splits.stream()
-                        .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
-                        .collect(toImmutableList()));
+        return splitSource.getTransactionHandle();
+    }
+
+    @Override
+    public ListenableFuture<List<Split>> getNextBatch(int maxSize)
+    {
+        ListenableFuture<List<Split>> batch = splitSource.getNextBatch(maxSize);
+        return Futures.transform(batch, splits -> splits.stream()
+                .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
+                .collect(toImmutableList()));
     }
 
     @Override

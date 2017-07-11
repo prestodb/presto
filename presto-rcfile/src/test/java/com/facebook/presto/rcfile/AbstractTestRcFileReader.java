@@ -73,6 +73,13 @@ public abstract class AbstractTestRcFileReader
     }
 
     @Test
+    public void testNoData()
+            throws Exception
+    {
+        tester.testRoundTrip(VARCHAR, ImmutableList.of());
+    }
+
+    @Test
     public void testBooleanSequence()
             throws Exception
     {
@@ -170,7 +177,7 @@ public abstract class AbstractTestRcFileReader
         // this results in rounding errors inside of structural types
         tester.testRoundTrip(
                 REAL,
-                doubleSequence(-500.12f, 1f, 3_000).stream()
+                doubleSequence(-500.12f, 1.0f, 3_000).stream()
                     .map(Double::floatValue)
                     .collect(toList()));
     }

@@ -14,20 +14,17 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.util.EmbeddedKafka;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static com.facebook.presto.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 import static com.facebook.presto.kafka.util.EmbeddedKafka.createEmbeddedKafka;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 @Test
 public class TestKafkaDistributed
-        extends AbstractTestDistributedQueries
+        extends AbstractTestQueries
 {
     private final EmbeddedKafka embeddedKafka;
 
@@ -40,123 +37,13 @@ public class TestKafkaDistributed
     public TestKafkaDistributed(EmbeddedKafka embeddedKafka)
             throws Exception
     {
-        super(createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
+        super(() -> createKafkaQueryRunner(embeddedKafka, TpchTable.getTables()));
         this.embeddedKafka = embeddedKafka;
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedKafka);
-    }
-
-    //
-    // Kafka connector does not support table creation.
-    //
-
-    @Override
-    public void testCreateTable()
-            throws Exception
-    {
-    }
-
-    @Override
-    public void testCreateTableAsSelect()
-            throws Exception
-    {
-    }
-
-    @Override
-    public void testSymbolAliasing()
-            throws Exception
-    {
-    }
-
-    //
-    // Kafka connector does not support views.
-    //
-
-    @Override
-    public void testView()
-            throws Exception
-    {
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView()
-            throws Exception
-    {
-        // Kafka connector currently does not support views
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView2()
-            throws Exception
-    {
-        // Kafka connector currently does not support views
-    }
-
-    @Override
-    public void testViewMetadata()
-            throws Exception
-    {
-    }
-
-    @Test
-    public void testViewCaseSensitivity()
-            throws Exception
-    {
-        // Kafka connector currently does not support views
-    }
-
-    //
-    // Kafka connector does not insert.
-    //
-
-    @Override
-    public void testInsert()
-            throws Exception
-    {
-    }
-
-    //
-    // Kafka connector does not delete.
-    //
-
-    @Override
-    public void testDelete()
-            throws Exception
-    {
-    }
-
-    //
-    // Kafka connector does not table rename.
-    //
-
-    @Override
-    public void testRenameTable()
-            throws Exception
-    {
-    }
-
-    //
-    // Kafka connector does not rename column.
-    //
-
-    @Override
-    public void testRenameColumn()
-            throws Exception
-    {
-    }
-
-    //
-    // Kafka connector does not add column.
-    //
-
-    @Override
-    public void testAddColumn()
-            throws Exception
-    {
+        embeddedKafka.close();
     }
 }

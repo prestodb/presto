@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertEquals;
@@ -183,7 +183,7 @@ public class TestLocalExchange
     @Test
     public void testRandom()
     {
-        LocalExchange exchange = new LocalExchange(FIXED_RANDOM_DISTRIBUTION, 2, TYPES, ImmutableList.of(), Optional.empty());
+        LocalExchange exchange = new LocalExchange(FIXED_ARBITRARY_DISTRIBUTION, 2, TYPES, ImmutableList.of(), Optional.empty());
         assertEquals(exchange.getBufferCount(), 2);
         assertExchangeTotalBufferedBytes(exchange, 0);
 

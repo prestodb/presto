@@ -137,6 +137,11 @@ public class RowPagesBuilder
         return types;
     }
 
+    public List<Type> getTypesWithoutHash()
+    {
+        return types;
+    }
+
     public Optional<Integer> getHashChannel()
     {
         if (hashEnabled) {

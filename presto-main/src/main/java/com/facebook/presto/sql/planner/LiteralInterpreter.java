@@ -75,6 +75,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
@@ -139,13 +140,13 @@ public final class LiteralInterpreter
             // if you remove this, you will need to update the TupleDomainOrcPredicate
             // When changing this, don't forget about similar code for REAL below
             if (value.isNaN()) {
-                return new FunctionCall(QualifiedName.of("nan"), ImmutableList.<Expression>of());
+                return new FunctionCall(QualifiedName.of("nan"), ImmutableList.of());
             }
             else if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.<Expression>of()));
+                return ArithmeticUnaryExpression.negative(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()));
             }
             else if (value.equals(Double.POSITIVE_INFINITY)) {
-                return new FunctionCall(QualifiedName.of("infinity"), ImmutableList.<Expression>of());
+                return new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of());
             }
             else {
                 return new DoubleLiteral(object.toString());
@@ -193,7 +194,7 @@ public final class LiteralInterpreter
         }
 
         if (object instanceof Block) {
-            SliceOutput output = new DynamicSliceOutput(((Block) object).getSizeInBytes());
+            SliceOutput output = new DynamicSliceOutput(toIntExact(((Block) object).getSizeInBytes()));
             BlockSerdeUtil.writeBlock(output, (Block) object);
             object = output.slice();
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
@@ -283,7 +284,7 @@ public final class LiteralInterpreter
             if (JSON.equals(type)) {
                 ScalarFunctionImplementation operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature()));
                 try {
-                    return ExpressionInterpreter.invoke(session, operator, ImmutableList.<Object>of(utf8Slice(node.getValue())));
+                    return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
                 }
                 catch (Throwable throwable) {
                     throw Throwables.propagate(throwable);
@@ -299,7 +300,7 @@ public final class LiteralInterpreter
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
             }
             try {
-                return ExpressionInterpreter.invoke(session, operator, ImmutableList.<Object>of(utf8Slice(node.getValue())));
+                return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);

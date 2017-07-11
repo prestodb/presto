@@ -23,6 +23,9 @@ to the source submitting the query. The source name can be set as follows:
 
   * JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
 
+Example
+-------
+
 There are three rules that define which queries go into which queues:
 
   * The first rule makes ``bob`` an admin.

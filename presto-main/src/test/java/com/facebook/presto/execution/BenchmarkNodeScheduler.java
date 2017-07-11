@@ -100,7 +100,7 @@ public class BenchmarkNodeScheduler
         Iterator<Split> splits = data.getSplits().iterator();
         Set<Split> batch = new HashSet<>();
         while (splits.hasNext() || !batch.isEmpty()) {
-            Multimap<Node, Split> assignments = data.getNodeSelector().computeAssignments(batch, remoteTasks);
+            Multimap<Node, Split> assignments = data.getNodeSelector().computeAssignments(batch, remoteTasks).getAssignments();
             for (Node node : assignments.keySet()) {
                 MockRemoteTaskFactory.MockRemoteTask remoteTask = data.getTaskMap().get(node);
                 remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
@@ -186,7 +186,7 @@ public class BenchmarkNodeScheduler
                             .setMaxSplitsPerNode(MAX_SPLITS_PER_NODE)
                             .setIncludeCoordinator(false)
                             .setNetworkTopology(topologyName)
-                            .setMaxPendingSplitsPerNodePerStage(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
+                            .setMaxPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
         private NetworkTopology getNetworkTopology()

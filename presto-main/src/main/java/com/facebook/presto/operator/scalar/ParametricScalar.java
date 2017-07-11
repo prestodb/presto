@@ -75,7 +75,14 @@ public class ParametricScalar
             ScalarImplementation implementation = implementations.getExactImplementations().get(boundSignature);
             Optional<MethodHandleAndConstructor> methodHandleAndConstructor = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry);
             checkCondition(methodHandleAndConstructor.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, String.format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
-            return new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), implementation.getNullFlags(), methodHandleAndConstructor.get().getMethodHandle(), methodHandleAndConstructor.get().getConstructor(), isDeterministic());
+            return new ScalarFunctionImplementation(
+                    implementation.isNullable(),
+                    implementation.getNullableArguments(),
+                    implementation.getNullFlags(),
+                    implementation.getLambdaInterface(),
+                    methodHandleAndConstructor.get().getMethodHandle(),
+                    methodHandleAndConstructor.get().getConstructor(),
+                    isDeterministic());
         }
 
         ScalarFunctionImplementation selectedImplementation = null;
@@ -83,7 +90,14 @@ public class ParametricScalar
             Optional<MethodHandleAndConstructor> methodHandle = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry);
             if (methodHandle.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
-                selectedImplementation = new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), implementation.getNullFlags(), methodHandle.get().getMethodHandle(), methodHandle.get().getConstructor(), isDeterministic());
+                selectedImplementation = new ScalarFunctionImplementation(
+                        implementation.isNullable(),
+                        implementation.getNullableArguments(),
+                        implementation.getNullFlags(),
+                        implementation.getLambdaInterface(),
+                        methodHandle.get().getMethodHandle(),
+                        methodHandle.get().getConstructor(),
+                        isDeterministic());
             }
         }
         if (selectedImplementation != null) {
@@ -94,7 +108,14 @@ public class ParametricScalar
             Optional<MethodHandleAndConstructor> methodHandle = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry);
             if (methodHandle.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
-                selectedImplementation = new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), implementation.getNullFlags(), methodHandle.get().getMethodHandle(), methodHandle.get().getConstructor(), isDeterministic());
+                selectedImplementation = new ScalarFunctionImplementation(
+                        implementation.isNullable(),
+                        implementation.getNullableArguments(),
+                        implementation.getNullFlags(),
+                        implementation.getLambdaInterface(),
+                        methodHandle.get().getMethodHandle(),
+                        methodHandle.get().getConstructor(),
+                        isDeterministic());
             }
         }
         if (selectedImplementation != null) {

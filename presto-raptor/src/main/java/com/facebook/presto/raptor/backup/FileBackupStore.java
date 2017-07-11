@@ -59,10 +59,16 @@ public class FileBackupStore
     public void backupShard(UUID uuid, File source)
     {
         File backupFile = getBackupFile(uuid);
-        createDirectories(backupFile.getParentFile());
 
         try {
-            copyFile(source, backupFile);
+            try {
+                // Optimistically assume the file can be created
+                copyFile(source, backupFile);
+            }
+            catch (FileNotFoundException e) {
+                createDirectories(backupFile.getParentFile());
+                copyFile(source, backupFile);
+            }
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to create backup shard file", e);

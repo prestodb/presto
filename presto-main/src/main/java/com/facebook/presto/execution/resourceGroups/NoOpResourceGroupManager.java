@@ -14,8 +14,10 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.server.ResourceGroupStateInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.sql.tree.Statement;
 
 import java.util.concurrent.Executor;
@@ -34,6 +36,12 @@ public final class NoOpResourceGroupManager
 
     @Override
     public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ResourceGroupStateInfo getResourceGroupStateInfo(ResourceGroupId id)
     {
         throw new UnsupportedOperationException();
     }

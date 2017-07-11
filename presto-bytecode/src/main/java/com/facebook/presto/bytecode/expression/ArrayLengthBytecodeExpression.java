@@ -52,6 +52,6 @@ class ArrayLengthBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<BytecodeNode>of();
+        return ImmutableList.of();
     }
 }

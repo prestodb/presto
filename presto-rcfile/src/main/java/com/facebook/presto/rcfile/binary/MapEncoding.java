@@ -13,13 +13,18 @@
  */
 package com.facebook.presto.rcfile.binary;
 
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
+import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
+import static java.lang.Math.toIntExact;
 
 public class MapEncoding
         extends BlockEncoding
@@ -35,10 +40,53 @@ public class MapEncoding
     }
 
     @Override
+    public void encodeValue(Block block, int position, SliceOutput output)
+    {
+        Block map = block.getObject(position, Block.class);
+
+        // write entry count
+        writeVInt(output, map.getPositionCount() / 2);
+
+        // write null bits
+        int nullByte = 0b0101_0101;
+        int bits = 0;
+        for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
+            if (map.isNull(elementIndex)) {
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Map must never contain null keys");
+            }
+
+            if (bits == 8) {
+                output.writeByte(nullByte);
+                nullByte = 0b0101_0101;
+                bits = 0;
+            }
+
+            if (!map.isNull(elementIndex + 1)) {
+                nullByte |= (1 << bits + 1);
+            }
+            bits += 2;
+        }
+        output.writeByte(nullByte);
+
+        // write values
+        for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
+            if (map.isNull(elementIndex)) {
+                // skip null keys
+                continue;
+            }
+
+            keyReader.encodeValueInto(map, elementIndex, output);
+            if (!map.isNull(elementIndex + 1)) {
+                valueReader.encodeValueInto(map, elementIndex + 1, output);
+            }
+        }
+    }
+
+    @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         // entries in list
-        int entries = Ints.checkedCast(readVInt(slice, offset));
+        int entries = toIntExact(readVInt(slice, offset));
         offset += decodeVIntSize(slice.getByte(offset));
 
         // null bytes

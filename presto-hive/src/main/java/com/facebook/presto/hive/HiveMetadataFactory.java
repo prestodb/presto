@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
@@ -35,10 +36,11 @@ public class HiveMetadataFactory
     private final String connectorId;
     private final boolean allowCorruptWritesForTesting;
     private final boolean respectTableFormat;
-    private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
     private final boolean skipDeletionForAlter;
+    private final boolean writesToNonManagedTablesEnabled;
     private final HiveStorageFormat defaultStorageFormat;
+    private final long perTransactionCacheMaximumSize;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -76,9 +78,10 @@ public class HiveMetadataFactory
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.isRespectTableFormat(),
                 hiveClientConfig.isSkipDeletionForAlter(),
-                hiveClientConfig.isBucketExecutionEnabled(),
                 hiveClientConfig.isBucketWritingEnabled(),
+                hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getHiveStorageFormat(),
+                hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 typeManager,
                 locationService,
                 tableParameterCodec,
@@ -98,9 +101,10 @@ public class HiveMetadataFactory
             boolean allowCorruptWritesForTesting,
             boolean respectTableFormat,
             boolean skipDeletionForAlter,
-            boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
+            boolean writesToNonManagedTablesEnabled,
             HiveStorageFormat defaultStorageFormat,
+            long perTransactionCacheMaximumSize,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -114,9 +118,10 @@ public class HiveMetadataFactory
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.respectTableFormat = respectTableFormat;
         this.skipDeletionForAlter = skipDeletionForAlter;
-        this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
+        this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
+        this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -141,26 +146,29 @@ public class HiveMetadataFactory
 
     public HiveMetadata create()
     {
+        SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
+                hdfsEnvironment,
+                CachingHiveMetastore.memoizeMetastore(this.metastore, perTransactionCacheMaximumSize), // per-transaction cache
+                renameExecution,
+                skipDeletionForAlter);
+
         return new HiveMetadata(
                 connectorId,
-                new SemiTransactionalHiveMetastore(
-                        hdfsEnvironment,
-                        CachingHiveMetastore.memoizeMetastore(metastore), // per-transaction cache
-                        renameExecution,
-                        skipDeletionForAlter),
+                metastore,
                 hdfsEnvironment,
                 partitionManager,
                 timeZone,
                 allowCorruptWritesForTesting,
                 respectTableFormat,
-                bucketExecutionEnabled,
                 bucketWritingEnabled,
+                writesToNonManagedTablesEnabled,
                 defaultStorageFormat,
                 typeManager,
                 locationService,
                 tableParameterCodec,
                 partitionUpdateCodec,
                 typeTranslator,
-                prestoVersion);
+                prestoVersion,
+                new MetastoreHiveStatisticsProvider(typeManager, metastore));
     }
 }

@@ -13,13 +13,21 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
+import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
+import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -38,15 +46,22 @@ public final class HiveTestUtils
             new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
+    static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
 
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
 
     public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
     {
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment))
-                .add(new DwrfPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment))
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats))
+                .add(new DwrfPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
+                .add(new ParquetPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment))
                 .build();
     }
 
@@ -55,9 +70,15 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
                 .add(new ParquetRecordCursorProvider(hiveClientConfig, testHdfsEnvironment))
-                .add(new ColumnarTextHiveRecordCursorProvider(testHdfsEnvironment))
-                .add(new ColumnarBinaryHiveRecordCursorProvider(testHdfsEnvironment))
                 .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
+                .build();
+    }
+
+    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveClientConfig hiveClientConfig)
+    {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        return ImmutableSet.<HiveFileWriterFactory>builder()
+                .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
                 .build();
     }
 
@@ -72,6 +93,19 @@ public final class HiveTestUtils
 
     public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config)
     {
-        return new HdfsEnvironment(new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config)), config, new NoHdfsAuthentication());
+        return createTestHdfsEnvironment(config, new HiveS3Config());
+    }
+
+    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig hiveConfig, HiveS3Config s3Config)
+    {
+        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveConfig, s3Config));
+        return new HdfsEnvironment(hdfsConfig, hiveConfig, new NoHdfsAuthentication());
+    }
+
+    public static MapType mapType(Type keyType, Type valueType)
+    {
+        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature())));
     }
 }

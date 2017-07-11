@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -25,13 +24,14 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public final class OuterLookupSource
         implements LookupSource
 {
-    public static Supplier<LookupSource> createOuterLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier)
+    public static TrackingLookupSourceSupplier createOuterLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier)
     {
         return new OuterLookupSourceSupplier(lookupSourceSupplier);
     }
@@ -82,6 +82,12 @@ public final class OuterLookupSource
     }
 
     @Override
+    public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        return lookupSource.isJoinPositionEligible(currentJoinPosition, probePosition, allProbeChannelsPage);
+    }
+
+    @Override
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         lookupSource.appendTo(position, pageBuilder, outputChannelOffset);
@@ -89,9 +95,9 @@ public final class OuterLookupSource
     }
 
     @Override
-    public OuterPositionIterator getOuterPositionIterator()
+    public void close()
     {
-        return outerPositionTracker.getOuterPositionIterator();
+        lookupSource.close();
     }
 
     @ThreadSafe
@@ -128,7 +134,7 @@ public final class OuterLookupSource
 
     @ThreadSafe
     private static class OuterLookupSourceSupplier
-            implements Supplier<LookupSource>
+            implements TrackingLookupSourceSupplier
     {
         private final Supplier<LookupSource> lookupSourceSupplier;
         private final OuterPositionTracker outerPositionTracker;
@@ -140,9 +146,14 @@ public final class OuterLookupSource
         }
 
         @Override
-        public LookupSource get()
+        public LookupSource getLookupSource()
         {
             return new OuterLookupSource(lookupSourceSupplier.get(), outerPositionTracker);
+        }
+
+        public OuterPositionIterator getOuterPositionIterator()
+        {
+            return outerPositionTracker.getOuterPositionIterator();
         }
     }
 
@@ -169,7 +180,7 @@ public final class OuterLookupSource
         public synchronized void positionVisited(long position)
         {
             verify(!finished);
-            visitedPositions[Ints.checkedCast(position)] = true;
+            visitedPositions[toIntExact(position)] = true;
         }
 
         public synchronized OuterPositionIterator getOuterPositionIterator()

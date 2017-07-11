@@ -55,7 +55,7 @@ class ReturnBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<BytecodeNode>of(instance);
+        return ImmutableList.of(instance);
     }
 
     private static OpCode returnOpCode(ParameterizedType componentType)

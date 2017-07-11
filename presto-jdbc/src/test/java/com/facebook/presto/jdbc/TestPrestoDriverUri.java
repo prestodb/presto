@@ -17,87 +17,189 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Properties;
 
+import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
+import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.fail;
 
 public class TestPrestoDriverUri
 {
-    private static final String SERVER = "127.0.0.1:60429";
-
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Invalid path segments in URL: .*")
-    public void testBadUrlExtraPathSegments()
-            throws Exception
+    @Test
+    public void testInvalidUrls()
     {
-        String url = format("jdbc:presto://%s/hive/default/bad_string", SERVER);
-        new PrestoDriverUri(url);
+        // missing port
+        assertInvalid("jdbc:presto://localhost/", "No port number specified:");
+
+        // extra path segments
+        assertInvalid("jdbc:presto://localhost:8080/hive/default/abc", "Invalid path segments in URL:");
+
+        // extra slash
+        assertInvalid("jdbc:presto://localhost:8080//", "Catalog name is empty:");
+
+        // has schema but is missing catalog
+        assertInvalid("jdbc:presto://localhost:8080//default", "Catalog name is empty:");
+
+        // has catalog but schema is missing
+        assertInvalid("jdbc:presto://localhost:8080/a//", "Schema name is empty:");
+
+        // unrecognized property
+        assertInvalid("jdbc:presto://localhost:8080/hive/default?ShoeSize=13", "Unrecognized connection property 'ShoeSize'");
+
+        // empty property
+        assertInvalid("jdbc:presto://localhost:8080/hive/default?password=", "Connection property 'password' value is empty");
+
+        // property in url multiple times
+        assertInvalid("presto://localhost:8080/blackhole?password=a&password=b", "Connection property 'password' is in URL multiple times");
+
+        // property in both url and arguments
+        assertInvalid("presto://localhost:8080/blackhole?user=test123", "Connection property 'user' is both in the URL and an argument");
+
+        // setting both socks and http proxy
+        assertInvalid("presto://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property 'socksProxy' is not allowed");
+        assertInvalid("presto://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Connection property 'socksProxy' is not allowed");
+
+        // invalid ssl flag
+        assertInvalid("jdbc:presto://localhost:8080?SSL=0", "Connection property 'SSL' value is invalid: 0");
+        assertInvalid("jdbc:presto://localhost:8080?SSL=1", "Connection property 'SSL' value is invalid: 1");
+        assertInvalid("jdbc:presto://localhost:8080?SSL=2", "Connection property 'SSL' value is invalid: 2");
+        assertInvalid("jdbc:presto://localhost:8080?SSL=abc", "Connection property 'SSL' value is invalid: abc");
+
+        // ssl trust store password without path
+        assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
+
+        // trust store path without ssl
+        assertInvalid("jdbc:presto://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+
+        // trust store password without ssl
+        assertInvalid("jdbc:presto://localhost:8080?SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
+
+        // kerberos config without service name
+        assertInvalid("jdbc:presto://localhost:8080?KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
-    public void testBadUrlMissingCatalog()
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
+    public void testRequireUser()
             throws Exception
     {
-        String url = format("jdbc:presto://%s//default", SERVER);
-        new PrestoDriverUri(url);
-    }
-
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Catalog name is empty: .*")
-    public void testBadUrlEndsInSlashes()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s//", SERVER);
-        new PrestoDriverUri(url);
-    }
-
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Schema name is empty: .*")
-    public void testBadUrlMissingSchema()
-            throws Exception
-    {
-        String url = format("jdbc:presto://%s/a//", SERVER);
-        new PrestoDriverUri(url);
+        new PrestoDriverUri("jdbc:presto://localhost:8080", new Properties());
     }
 
     @Test
-    public void testUrlWithSsl()
+    void testUriWithSocksProxy()
             throws SQLException
     {
-        PrestoDriverUri parameters = new PrestoDriverUri("presto://some-ssl-server:443/blackhole");
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?socksProxy=localhost:1234");
+        assertUriPortScheme(parameters, 8080, "http");
 
-        URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), 443);
-        assertEquals(uri.getScheme(), "https");
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SOCKS_PROXY.getKey()), "localhost:1234");
     }
 
     @Test
-    public void testUriWithSecureMissing()
+    void testUriWithHttpProxy()
             throws SQLException
     {
-        PrestoDriverUri parameters = new PrestoDriverUri("presto://localhost:8080/blackhole");
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?httpProxy=localhost:5678");
+        assertUriPortScheme(parameters, 8080, "http");
 
-        URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), 8080);
-        assertEquals(uri.getScheme(), "http");
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(HTTP_PROXY.getKey()), "localhost:5678");
     }
 
     @Test
-    public void testUriWithSecureTrue()
+    public void testUriWithoutSsl()
             throws SQLException
     {
-        PrestoDriverUri parameters = new PrestoDriverUri("presto://localhost:8080/blackhole?secure=true");
-
-        URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), 8080);
-        assertEquals(uri.getScheme(), "https");
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole");
+        assertUriPortScheme(parameters, 8080, "http");
     }
 
     @Test
-    public void testUriWithSecureFalse()
+    public void testUriWithSslPortDoesNotUseSsl()
             throws SQLException
     {
-        PrestoDriverUri parameters = new PrestoDriverUri("presto://localhost:8080/blackhole?secure=false");
+        PrestoDriverUri parameters = createDriverUri("presto://somelocalhost:443/blackhole");
+        assertUriPortScheme(parameters, 443, "http");
+    }
 
+    @Test
+    public void testUriWithSslDisabled()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=false");
+        assertUriPortScheme(parameters, 8080, "http");
+    }
+
+    @Test
+    public void testUriWithSslEnabled()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertNull(properties.getProperty(SSL_TRUST_STORE_PATH.getKey()));
+        assertNull(properties.getProperty(SSL_TRUST_STORE_PASSWORD.getKey()));
+    }
+
+    @Test
+    public void testUriWithSslEnabledPathOnly()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SSL_TRUST_STORE_PATH.getKey()), "truststore.jks");
+        assertNull(properties.getProperty(SSL_TRUST_STORE_PASSWORD.getKey()));
+    }
+
+    @Test
+    public void testUriWithSslEnabledPassword()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks&SSLTrustStorePassword=password");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SSL_TRUST_STORE_PATH.getKey()), "truststore.jks");
+        assertEquals(properties.getProperty(SSL_TRUST_STORE_PASSWORD.getKey()), "password");
+    }
+
+    private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)
+    {
         URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), 8080);
-        assertEquals(uri.getScheme(), "http");
+        assertEquals(uri.getPort(), port);
+        assertEquals(uri.getScheme(), scheme);
+    }
+
+    private static PrestoDriverUri createDriverUri(String url)
+            throws SQLException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
+
+        return new PrestoDriverUri(url, properties);
+    }
+
+    private static void assertInvalid(String url, String prefix)
+    {
+        try {
+            createDriverUri(url);
+            fail("expected exception");
+        }
+        catch (SQLException e) {
+            assertNotNull(e.getMessage());
+            if (!e.getMessage().startsWith(prefix)) {
+                fail(format("expected:<%s> to start with <%s>", e.getMessage(), prefix));
+            }
+        }
     }
 }

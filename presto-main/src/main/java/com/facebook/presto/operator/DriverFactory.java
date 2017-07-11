@@ -21,14 +21,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class DriverFactory
         implements Closeable
 {
+    private final int pipelineId;
     private final boolean inputDriver;
     private final boolean outputDriver;
     private final List<OperatorFactory> operatorFactories;
@@ -36,8 +37,9 @@ public class DriverFactory
     private final OptionalInt driverInstances;
     private boolean closed;
 
-    public DriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
+    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
+        this.pipelineId = pipelineId;
         this.inputDriver = inputDriver;
         this.outputDriver = outputDriver;
         this.operatorFactories = ImmutableList.copyOf(requireNonNull(operatorFactories, "operatorFactories is null"));
@@ -51,6 +53,11 @@ public class DriverFactory
                 .collect(toImmutableList());
         checkArgument(sourceIds.size() <= 1, "Expected at most one source operator in driver facotry, but found %s", sourceIds);
         this.sourceId = sourceIds.isEmpty() ? Optional.empty() : Optional.of(sourceIds.get(0));
+    }
+
+    public int getPipelineId()
+    {
+        return pipelineId;
     }
 
     public boolean isInputDriver()

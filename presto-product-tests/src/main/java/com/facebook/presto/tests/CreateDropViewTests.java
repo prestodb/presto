@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.tests.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requires;
+import com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.orc;
 
-import com.google.common.primitives.Ints;
-
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class DiskRange
@@ -65,7 +64,7 @@ public final class DiskRange
         requireNonNull(otherDiskRange, "otherDiskRange is null");
         long start = Math.min(this.offset, otherDiskRange.getOffset());
         long end = Math.max(getEnd(), otherDiskRange.getEnd());
-        return new DiskRange(start, Ints.checkedCast(end - start));
+        return new DiskRange(start, toIntExact(end - start));
     }
 
     @Override

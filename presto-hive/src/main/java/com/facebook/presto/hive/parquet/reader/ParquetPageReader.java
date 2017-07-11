@@ -17,7 +17,6 @@ import com.facebook.presto.hive.parquet.ParquetDataPage;
 import com.facebook.presto.hive.parquet.ParquetDataPageV1;
 import com.facebook.presto.hive.parquet.ParquetDataPageV2;
 import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
-import parquet.Ints;
 import parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
@@ -25,6 +24,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static com.facebook.presto.hive.parquet.ParquetCompressionUtils.decompress;
+import static java.lang.Math.toIntExact;
 
 class ParquetPageReader
 {
@@ -75,10 +75,9 @@ class ParquetPageReader
                 if (!dataPageV2.isCompressed()) {
                     return dataPageV2;
                 }
-                int uncompressedSize = Ints.checkedCast(
-                        dataPageV2.getUncompressedSize()
-                                - dataPageV2.getDefinitionLevels().length()
-                                - dataPageV2.getRepetitionLevels().length());
+                int uncompressedSize = toIntExact(dataPageV2.getUncompressedSize()
+                        - dataPageV2.getDefinitionLevels().length()
+                        - dataPageV2.getRepetitionLevels().length());
                 return new ParquetDataPageV2(
                         dataPageV2.getRowCount(),
                         dataPageV2.getNullCount(),

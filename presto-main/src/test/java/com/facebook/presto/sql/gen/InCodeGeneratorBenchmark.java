@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -39,6 +39,8 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -52,7 +54,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.Signatures.IN;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 @State(Scope.Thread)
@@ -61,7 +63,7 @@ import static org.openjdk.jmh.annotations.Mode.AverageTime;
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(AverageTime)
-@SuppressWarnings("FieldMayBeFinal")
+@SuppressWarnings({"FieldMayBeFinal", "FieldCanBeLocal"})
 public class InCodeGeneratorBenchmark
 {
     @Param({"1", "5", "10", "25", "50", "75", "100", "150", "200", "250", "300", "350", "400", "450", "500", "750", "1000", "10000"})
@@ -128,16 +130,13 @@ public class InCodeGeneratorBenchmark
                 BOOLEAN,
                 arguments);
 
-        processor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(filter, ImmutableList.of(project)).get();
+        processor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
     }
 
     @Benchmark
-    public Page benchmark()
+    public List<Page> benchmark()
     {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(prestoType));
-        int count = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
-        checkState(count == inputPage.getPositionCount());
-        return pageBuilder.build();
+        return ImmutableList.copyOf(processor.process(SESSION, inputPage));
     }
 
     public static void main(String[] args)

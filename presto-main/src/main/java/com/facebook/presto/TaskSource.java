@@ -66,7 +66,7 @@ public class TaskSource
         if (isNewer(source)) {
             // assure the new source is properly formed
             // we know that either the new source one has new splits and/or it is marking the source as closed
-            checkArgument(!noMoreSplits || source.isNoMoreSplits(), "Source %s has new splits, but no more splits already set", planNodeId);
+            checkArgument(!noMoreSplits || splits.containsAll(source.getSplits()), "Source %s has new splits, but no more splits already set", planNodeId);
 
             Set<ScheduledSplit> newSplits = ImmutableSet.<ScheduledSplit>builder()
                     .addAll(splits)

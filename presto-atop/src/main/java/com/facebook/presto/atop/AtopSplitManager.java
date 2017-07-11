@@ -33,7 +33,6 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.atop.Types.checkType;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
@@ -56,13 +55,13 @@ public class AtopSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
-        AtopTableLayoutHandle handle = checkType(layoutHandle, AtopTableLayoutHandle.class, "layoutHandle");
+        AtopTableLayoutHandle handle = (AtopTableLayoutHandle) layoutHandle;
 
         AtopTableHandle table = handle.getTableHandle();
 
         List<ConnectorSplit> splits = new ArrayList<>();
         ZonedDateTime end = ZonedDateTime.now(timeZone);
-        for (Node node : nodeManager.getAllNodes()) {
+        for (Node node : nodeManager.getWorkerNodes()) {
             ZonedDateTime start = end.minusDays(maxHistoryDays - 1).withHour(0).withMinute(0).withSecond(0).withNano(0);
             while (start.isBefore(end)) {
                 ZonedDateTime splitEnd = start.withHour(23).withMinute(59).withSecond(59).withNano(0);

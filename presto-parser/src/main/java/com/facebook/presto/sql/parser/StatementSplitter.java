@@ -73,7 +73,7 @@ public class StatementSplitter
 
     public static String squeezeStatement(String sql)
     {
-        TokenSource tokens = getLexer(sql, ImmutableSet.<String>of());
+        TokenSource tokens = getLexer(sql, ImmutableSet.of());
         StringBuilder sb = new StringBuilder();
         while (true) {
             Token token = tokens.nextToken();
@@ -92,7 +92,7 @@ public class StatementSplitter
 
     public static boolean isEmptyStatement(String sql)
     {
-        TokenSource tokens = getLexer(sql, ImmutableSet.<String>of());
+        TokenSource tokens = getLexer(sql, ImmutableSet.of());
         while (true) {
             Token token = tokens.nextToken();
             if (token.getType() == Token.EOF) {

@@ -15,10 +15,12 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
+import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.testng.Assert.assertTrue;
+import static org.testng.AssertJUnit.assertFalse;
 
 public class TestExpressionVerifier
 {
@@ -29,23 +31,63 @@ public class TestExpressionVerifier
     {
         Expression actual = expression("NOT(orderkey = 3 AND custkey = 3 AND orderkey < 10)");
 
-        ExpressionVerifier verifier = new ExpressionVerifier(new ExpressionAliases());
+        SymbolAliases symbolAliases = SymbolAliases.builder()
+                .put("X", new SymbolReference("orderkey"))
+                .put("Y", new SymbolReference("custkey"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
         assertTrue(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)")));
         assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")));
-        assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)")));
+        assertFalse(verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)")));
+    }
+
+    @Test
+    public void testCast()
+            throws Exception
+    {
+        SymbolAliases aliases = SymbolAliases.builder()
+                .put("X", new SymbolReference("orderkey"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(aliases);
+        assertTrue(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS varchar)")));
+        assertFalse(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS bigint)")));
+        assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
+    }
+
+    @Test
+    public void testBetween()
+            throws Exception
+    {
+        SymbolAliases symbolAliases = SymbolAliases.builder()
+                .put("X", new SymbolReference("orderkey"))
+                .put("Y", new SymbolReference("custkey"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+        // Complete match
+        assertTrue(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        // Different value
+        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("Y BETWEEN 1 AND 2")));
+        assertFalse(verifier.process(expression("custkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        // Different min or max
+        assertFalse(verifier.process(expression("orderkey BETWEEN 2 AND 4"), expression("X BETWEEN 1 AND 2")));
+        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN '1' AND '2'")));
+        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7")));
     }
 
     private Expression expression(String sql)
     {
-        return rewriteQualifiedNamesToSymbolReferences(parser.createExpression(sql));
+        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql));
     }
 
     private static void assertThrows(Runnable runnable)
     {
         try {
             runnable.run();
-            throw new AssertionError("Method din't throw an exception as it was expected");
+            throw new AssertionError("Method didn't throw exception as expected");
         }
         catch (Exception expected) {
         }

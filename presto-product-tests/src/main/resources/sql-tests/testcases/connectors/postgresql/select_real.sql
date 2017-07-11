@@ -1,4 +1,4 @@
--- database: presto; groups: postgresql_connector; tables: postgres.real_table_psql
+-- database: presto; groups: postgresql_connector; tables: postgres.public.real_table_psql
 --!
 select * from postgresql.public.real_table_psql
 --!

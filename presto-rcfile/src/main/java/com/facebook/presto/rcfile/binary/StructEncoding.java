@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.rcfile.binary;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.List;
 
@@ -29,6 +31,31 @@ public class StructEncoding
     {
         super(type);
         this.structFields = ImmutableList.copyOf(structFields);
+    }
+
+    @Override
+    public void encodeValue(Block block, int position, SliceOutput output)
+    {
+        Block row = block.getObject(position, Block.class);
+
+        // write values
+        for (int batchStart = 0; batchStart < row.getPositionCount(); batchStart += 8) {
+            int batchEnd = Math.min(batchStart + 8, structFields.size());
+
+            int nullByte = 0;
+            for (int fieldId = batchStart; fieldId < batchEnd; fieldId++) {
+                if (!row.isNull(fieldId)) {
+                    nullByte |= (1 << (fieldId % 8));
+                }
+            }
+            output.writeByte(nullByte);
+            for (int fieldId = batchStart; fieldId < batchEnd; fieldId++) {
+                if (!row.isNull(fieldId)) {
+                    BinaryColumnEncoding field = structFields.get(fieldId);
+                    field.encodeValueInto(row, fieldId, output);
+                }
+            }
+        }
     }
 
     @Override

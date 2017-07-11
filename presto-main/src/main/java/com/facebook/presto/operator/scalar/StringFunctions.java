@@ -25,8 +25,8 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.CodePointsType;
+import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.InvalidCodePointException;
@@ -55,6 +55,7 @@ import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 /**
@@ -78,6 +79,16 @@ public final class StringFunctions
         }
     }
 
+    @Description("returns Unicode code point of a single character string")
+    @ScalarFunction("codepoint")
+    @SqlType(StandardTypes.INTEGER)
+    public static long codepoint(@SqlType("varchar(1)") Slice slice)
+    {
+        checkCondition(countCodePoints(slice) == 1, INVALID_FUNCTION_ARGUMENT, "Input string must be a single character string");
+
+        return getCodePointAt(slice, 0);
+    }
+
     @Description("count of code points of the given string")
     @ScalarFunction
     @LiteralParameters("x")
@@ -87,10 +98,19 @@ public final class StringFunctions
         return countCodePoints(slice);
     }
 
+    @Description("count of code points of the given string")
+    @ScalarFunction("length")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BIGINT)
+    public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    {
+        return x;
+    }
+
     @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType("varchar(x)")
     public static Slice replace(@SqlType("varchar(x)") Slice str, @SqlType("varchar(y)") Slice search)
     {
         return replace(str, search, Slices.EMPTY_SLICE);
@@ -98,9 +118,10 @@ public final class StringFunctions
 
     @Description("greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
-    @LiteralParameters({"x", "y"})
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice replace(@SqlType("varchar(x)") Slice str, @SqlType("varchar(y)") Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
+    @LiteralParameters({"x", "y", "z", "u"})
+    @Constraint(variable = "u", expression = "min(2147483647, x + z * (x + 1))")
+    @SqlType("varchar(u)")
+    public static Slice replace(@SqlType("varchar(x)") Slice str, @SqlType("varchar(y)") Slice search, @SqlType("varchar(z)") Slice replace)
     {
         // Empty search?
         if (search.length() == 0) {
@@ -173,8 +194,9 @@ public final class StringFunctions
 
     @Description("returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("strpos")
+    @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
-    public static long stringPosition(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)
+    public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
     {
         if (substring.length() == 0) {
             return 1;
@@ -223,6 +245,15 @@ public final class StringFunctions
         int indexEnd = utf8.length();
 
         return utf8.slice(indexStart, indexEnd - indexStart);
+    }
+
+    @Description("suffix starting at given index")
+    @ScalarFunction("substr")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    {
+        return substr(utf8, start);
     }
 
     @Description("substring of given length starting at an index")
@@ -274,18 +305,27 @@ public final class StringFunctions
         return utf8.slice(indexStart, indexEnd - indexStart);
     }
 
-    @ScalarFunction
+    @Description("substring of given length starting at an index")
+    @ScalarFunction("substr")
     @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    {
+        return substr(utf8, start, length);
+    }
+
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
     @SqlType("array(varchar(x))")
-    public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
+    public static Block split(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice delimiter)
     {
         return split(string, delimiter, string.length() + 1);
     }
 
     @ScalarFunction
-    @LiteralParameters("x")
+    @LiteralParameters({"x", "y"})
     @SqlType("array(varchar(x))")
-    public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
+    public static Block split(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
@@ -322,14 +362,14 @@ public final class StringFunctions
     @SqlNullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
-    @LiteralParameters("x")
+    @LiteralParameters({"x", "y"})
     @SqlType("varchar(x)")
-    public static Slice splitPart(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
+    public static Slice splitPart(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
     {
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
         // Empty delimiter? Then every character will be a split
         if (delimiter.length() == 0) {
-            int startCodePoint = Ints.checkedCast(index);
+            int startCodePoint = toIntExact(index);
 
             int indexStart = offsetOfCodePoint(string, startCodePoint - 1);
             if (indexStart < 0) {
@@ -438,6 +478,15 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice);
     }
 
+    @Description("removes whitespace from the beginning of a string")
+    @ScalarFunction("ltrim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice)
+    {
+        return SliceUtf8.leftTrim(slice);
+    }
+
     @Description("removes whitespace from the end of a string")
     @ScalarFunction("rtrim")
     @LiteralParameters("x")
@@ -445,6 +494,15 @@ public final class StringFunctions
     public static Slice rightTrim(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.rightTrim(slice);
+    }
+
+    @Description("removes whitespace from the end of a string")
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charRightTrim(@SqlType("char(x)") Slice slice)
+    {
+        return rightTrim(slice);
     }
 
     @Description("removes whitespace from the beginning and end of a string")
@@ -456,6 +514,15 @@ public final class StringFunctions
         return SliceUtf8.trim(slice);
     }
 
+    @Description("removes whitespace from the beginning and end of a string")
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charTrim(@SqlType("char(x)") Slice slice)
+    {
+        return trim(slice);
+    }
+
     @Description("remove the longest string containing only given characters from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
@@ -463,6 +530,15 @@ public final class StringFunctions
     public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return SliceUtf8.leftTrim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the beginning of a string")
+    @ScalarFunction("ltrim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return leftTrim(slice, codePointsToTrim);
     }
 
     @Description("remove the longest string containing only given characters from the end of a string")
@@ -474,6 +550,15 @@ public final class StringFunctions
         return SliceUtf8.rightTrim(slice, codePointsToTrim);
     }
 
+    @Description("remove the longest string containing only given characters from the end of a string")
+    @ScalarFunction("rtrim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return rightTrim(slice, codePointsToTrim);
+    }
+
     @Description("remove the longest string containing only given characters from the beginning and end of a string")
     @ScalarFunction("trim")
     @LiteralParameters("x")
@@ -481,6 +566,15 @@ public final class StringFunctions
     public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return SliceUtf8.trim(slice, codePointsToTrim);
+    }
+
+    @Description("remove the longest string containing only given characters from the beginning and end of a string")
+    @ScalarFunction("trim")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return trim(slice, codePointsToTrim);
     }
 
     @ScalarOperator(OperatorType.CAST)
@@ -516,7 +610,7 @@ public final class StringFunctions
         for (int position = 0; position < slice.length(); ) {
             int codePoint = tryGetCodePointAt(slice, position);
             if (codePoint < 0) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding in characters to trim: " + slice.toStringUtf8());
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding in characters: " + slice.toStringUtf8());
             }
             position += lengthOfCodePoint(codePoint);
             codePoints++;
@@ -533,6 +627,15 @@ public final class StringFunctions
         return toLowerCase(slice);
     }
 
+    @Description("converts the string to lower case")
+    @ScalarFunction("lower")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charLower(@SqlType("char(x)") Slice slice)
+    {
+        return lower(slice);
+    }
+
     @Description("converts the string to upper case")
     @ScalarFunction
     @LiteralParameters("x")
@@ -540,6 +643,15 @@ public final class StringFunctions
     public static Slice upper(@SqlType("varchar(x)") Slice slice)
     {
         return toUpperCase(slice);
+    }
+
+    @Description("converts the string to upper case")
+    @ScalarFunction("upper")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charUpper(@SqlType("char(x)") Slice slice)
+    {
+        return upper(slice);
     }
 
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
@@ -614,10 +726,62 @@ public final class StringFunctions
         return pad(text, targetLength, padString, text.length());
     }
 
+    @Description("computes Levenshtein distance between two strings")
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long levenshteinDistance(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    {
+        int[] leftCodePoints = castToCodePoints(left);
+        int[] rightCodePoints = castToCodePoints(right);
+
+        if (leftCodePoints.length < rightCodePoints.length) {
+            int[] tempCodePoints = leftCodePoints;
+            leftCodePoints = rightCodePoints;
+            rightCodePoints = tempCodePoints;
+        }
+
+        if (rightCodePoints.length == 0) {
+            return leftCodePoints.length;
+        }
+
+        checkCondition(
+                (leftCodePoints.length * (rightCodePoints.length - 1)) <= 1_000_000,
+                INVALID_FUNCTION_ARGUMENT,
+                "The combined inputs for Levenshtein distance are too large");
+
+        int[] distances = new int[rightCodePoints.length];
+        for (int i = 0; i < rightCodePoints.length; i++) {
+            distances[i] = i + 1;
+        }
+
+        for (int i = 0; i < leftCodePoints.length; i++) {
+            int leftUpDistance = distances[0];
+            if (leftCodePoints[i] == rightCodePoints[0]) {
+                distances[0] = i;
+            }
+            else {
+                distances[0] = Math.min(i, distances[0]) + 1;
+            }
+            for (int j = 1; j < rightCodePoints.length; j++) {
+                int leftUpDistanceNext = distances[j];
+                if (leftCodePoints[i] == rightCodePoints[j]) {
+                    distances[j] = leftUpDistance;
+                }
+                else {
+                    distances[j] = Math.min(distances[j - 1], Math.min(leftUpDistance, distances[j])) + 1;
+                }
+                leftUpDistance = leftUpDistanceNext;
+            }
+        }
+
+        return distances[rightCodePoints.length - 1];
+    }
+
     @Description("transforms the string to normalized form")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
-    @SqlType(VarcharType.VARCHAR_MAX_LENGTH)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice normalize(@SqlType("varchar(x)") Slice slice, @SqlType("varchar(y)") Slice form)
     {
         Normalizer.Form targetForm;
@@ -640,8 +804,9 @@ public final class StringFunctions
 
     @Description("decodes the UTF-8 encoded string")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARCHAR) Slice replacementCharacter)
+    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType("varchar(x)") Slice replacementCharacter)
     {
         int count = countCodePoints(replacementCharacter);
         if (count > 1) {
@@ -676,8 +841,9 @@ public final class StringFunctions
 
     @Description("encodes the string to UTF-8")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice toUtf8(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice toUtf8(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
     }

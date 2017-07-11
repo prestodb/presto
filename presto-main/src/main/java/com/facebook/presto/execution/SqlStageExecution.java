@@ -16,6 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
+import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
@@ -42,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -50,15 +51,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.concurrent.MoreFutures.firstCompletedFuture;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 @ThreadSafe
 public final class SqlStageExecution
@@ -67,6 +68,7 @@ public final class SqlStageExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
+    private final FailureDetector failureDetector;
 
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
@@ -90,25 +92,30 @@ public final class SqlStageExecution
             Session session,
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
-            ExecutorService executor)
+            ExecutorService executor,
+            FailureDetector failureDetector,
+            SplitSchedulerStats schedulerStats)
     {
         this(new StageStateMachine(
                         requireNonNull(stageId, "stageId is null"),
                         requireNonNull(location, "location is null"),
                         requireNonNull(session, "session is null"),
                         requireNonNull(fragment, "fragment is null"),
-                        requireNonNull(executor, "executor is null")),
+                        requireNonNull(executor, "executor is null"),
+                        requireNonNull(schedulerStats, "schedulerStats is null")),
                 remoteTaskFactory,
                 nodeTaskMap,
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                failureDetector);
     }
 
-    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo)
+    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, FailureDetector failureDetector)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
+        this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : stateMachine.getFragment().getRemoteSourceNodes()) {
@@ -273,20 +280,6 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
-    public synchronized CompletableFuture<?> getTaskStateChange()
-    {
-        List<RemoteTask> allTasks = getAllTasks();
-        if (allTasks.isEmpty()) {
-            return completedFuture(null);
-        }
-
-        List<CompletableFuture<TaskStatus>> stateChangeFutures = allTasks.stream()
-                .map(task -> task.getStateChange(task.getTaskStatus()))
-                .collect(toImmutableList());
-
-        return firstCompletedFuture(stateChangeFutures, true);
-    }
-
     public synchronized RemoteTask scheduleTask(Node node, int partition)
     {
         requireNonNull(node, "node is null");
@@ -403,6 +396,7 @@ public final class SqlStageExecution
             if (taskState == TaskState.FAILED) {
                 RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
+                        .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         .orElse(new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 stateMachine.transitionToFailed(failure);
@@ -431,6 +425,26 @@ public final class SqlStageExecution
             long deltaMemoryInBytes = currentMemory - previousMemory;
             previousMemory = currentMemory;
             stateMachine.updateMemoryUsage(deltaMemoryInBytes);
+        }
+
+        private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
+        {
+            if (executionFailureInfo.getRemoteHost() != null &&
+                    failureDetector.getState(executionFailureInfo.getRemoteHost()) == GONE) {
+                return new ExecutionFailureInfo(
+                        executionFailureInfo.getType(),
+                        executionFailureInfo.getMessage(),
+                        executionFailureInfo.getCause(),
+                        executionFailureInfo.getSuppressed(),
+                        executionFailureInfo.getStack(),
+                        executionFailureInfo.getErrorLocation(),
+                        REMOTE_HOST_GONE.toErrorCode(),
+                        executionFailureInfo.getRemoteHost()
+                );
+            }
+            else {
+                return executionFailureInfo;
+            }
         }
     }
 }

@@ -14,11 +14,13 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -49,12 +51,43 @@ public class TimestampEncoding
 
     private final Type type;
     private final Slice nullSequence;
+    private final StringBuilder buffer = new StringBuilder();
 
     public TimestampEncoding(Type type, Slice nullSequence, DateTimeZone hiveStorageTimeZone)
     {
         this.type = type;
         this.nullSequence = nullSequence;
         this.dateTimeFormatter = HIVE_TIMESTAMP_PARSER.withZone(hiveStorageTimeZone);
+    }
+
+    @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                long millis = type.getLong(block, position);
+                buffer.setLength(0);
+                dateTimeFormatter.printTo(buffer, millis);
+                for (int index = 0; index < buffer.length(); index++) {
+                    output.writeByte(buffer.charAt(index));
+                }
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    {
+        long millis = type.getLong(block, position);
+        buffer.setLength(0);
+        dateTimeFormatter.printTo(buffer, millis);
+        for (int index = 0; index < buffer.length(); index++) {
+            output.writeByte(buffer.charAt(index));
+        }
     }
 
     @Override

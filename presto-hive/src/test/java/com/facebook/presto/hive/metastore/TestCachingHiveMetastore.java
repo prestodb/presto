@@ -41,7 +41,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestCachingHiveMetastore
 {
     private MockHiveMetastoreClient mockClient;
-    private ExtendedHiveMetastore metastore;
+    private CachingHiveMetastore metastore;
     private ThriftHiveMetastoreStats stats;
 
     @BeforeMethod
@@ -56,7 +56,8 @@ public class TestCachingHiveMetastore
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES));
+                new Duration(1, TimeUnit.MINUTES),
+                1000);
         stats = thriftHiveMetastore.getStats();
     }
 

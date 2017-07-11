@@ -23,13 +23,31 @@ public interface ConnectorPageSink
     CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
+     * Get the total memory that needs to be reserved in the system memory pool.
+     * This memory should include any buffers, etc. that are used for reading data.
+     *
+     * @return the system memory used so far in table read
+     */
+    default long getSystemMemoryUsage()
+    {
+        return 0;
+    }
+
+    /**
      * Returns a future that will be completed when the page sink can accept
      * more pages.  If the page sink can accept more pages immediately,
      * this method should return {@code NOT_BLOCKED}.
      */
     CompletableFuture<?> appendPage(Page page);
 
-    Collection<Slice> finish();
+    /**
+     * Notifies the connector that no more pages will be appended and returns
+     * connector-specific information that will be sent to the coordinator to
+     * complete the write operation. This method may be called immediately
+     * after the previous call to {@link #appendPage} (even if the returned
+     * future is not complete).
+     */
+    CompletableFuture<Collection<Slice>> finish();
 
     void abort();
 }

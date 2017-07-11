@@ -24,8 +24,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
+import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -48,6 +50,9 @@ public final class OutputBuffers
         if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
             type = BROADCAST;
         }
+        else if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+            type = ARBITRARY;
+        }
         else {
             type = PARTITIONED;
         }
@@ -58,6 +63,7 @@ public final class OutputBuffers
     {
         PARTITIONED,
         BROADCAST,
+        ARBITRARY,
     }
 
     private final BufferType type;
@@ -106,7 +112,7 @@ public final class OutputBuffers
     public void checkValidTransition(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
-        checkArgument(type == newOutputBuffers.getType(), "newOutputBuffers has a different type");
+        checkState(type == newOutputBuffers.getType(), "newOutputBuffers has a different type");
 
         if (noMoreBufferIds) {
             checkArgument(this.equals(newOutputBuffers), "Expected buffer to not change after no more buffers is set");
@@ -154,6 +160,7 @@ public final class OutputBuffers
     public String toString()
     {
         return toStringHelper(this)
+                .add("type", type)
                 .add("version", version)
                 .add("noMoreBufferIds", noMoreBufferIds)
                 .add("bufferIds", buffers)

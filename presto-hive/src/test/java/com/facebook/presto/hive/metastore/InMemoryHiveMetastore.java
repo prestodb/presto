@@ -25,13 +25,13 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -39,6 +39,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
 import java.net.URI;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,13 +53,16 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
@@ -75,6 +79,10 @@ public class InMemoryHiveMetastore
     private final Map<SchemaTableName, Table> views = new HashMap<>();
     @GuardedBy("this")
     private final Map<PartitionName, Partition> partitions = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<SchemaTableName, Map<String, ColumnStatisticsObj>> columnStatistics = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<PartitionName, Map<String, ColumnStatisticsObj>> partitionColumnStatistics = new HashMap<>();
     @GuardedBy("this")
     private final Map<String, Set<String>> roleGrants = new HashMap<>();
     @GuardedBy("this")
@@ -162,22 +170,28 @@ public class InMemoryHiveMetastore
     @Override
     public synchronized void createTable(Table table)
     {
+        TableType tableType = TableType.valueOf(table.getTableType());
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);
+
+        if (tableType == VIRTUAL_VIEW) {
+            checkArgument(table.getSd().getLocation() == null, "Storage location for view must be null");
+        }
+        else {
+            File directory = new File(new Path(table.getSd().getLocation()).toUri());
+            checkArgument(directory.exists(), "Table directory does not exist");
+            if (tableType == MANAGED_TABLE) {
+                checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
+            }
+        }
+
         SchemaTableName schemaTableName = new SchemaTableName(table.getDbName(), table.getTableName());
         Table tableCopy = table.deepCopy();
-        if (tableCopy.getSd() == null) {
-            tableCopy.setSd(new StorageDescriptor());
-        }
-        else if (tableCopy.getSd().getLocation() != null) {
-            File directory = new File(new Path(tableCopy.getSd().getLocation()).toUri());
-            checkArgument(directory.exists(), "Table directory does not exist");
-            checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
-        }
 
         if (relations.putIfAbsent(schemaTableName, tableCopy) != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
 
-        if (tableCopy.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+        if (tableType == VIRTUAL_VIEW) {
             views.put(schemaTableName, tableCopy);
         }
 
@@ -216,7 +230,7 @@ public class InMemoryHiveMetastore
         partitions.keySet().removeIf(partitionName -> partitionName.matches(databaseName, tableName));
 
         // remove data
-        if (deleteData) {
+        if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
             for (String location : locations) {
                 if (location != null) {
                     File directory = new File(new Path(location).toUri());
@@ -423,6 +437,58 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public synchronized Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        if (!columnStatistics.containsKey(schemaTableName)) {
+            return Optional.empty();
+        }
+
+        Map<String, ColumnStatisticsObj> columnStatisticsMap = columnStatistics.get(schemaTableName);
+        return Optional.of(columnNames.stream()
+                .filter(columnStatisticsMap::containsKey)
+                .map(columnStatisticsMap::get)
+                .collect(toImmutableSet()));
+    }
+
+    public synchronized void setColumnStatistics(String databaseName, String tableName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    {
+        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        columnStatistics.computeIfAbsent(schemaTableName, key -> new HashMap<>()).put(columnName, columnStatisticsObj);
+    }
+
+    @Override
+    public synchronized Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        ImmutableMap.Builder<String, Set<ColumnStatisticsObj>> result = ImmutableMap.builder();
+        for (String partitionName : partitionNames) {
+            PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
+            if (!partitionColumnStatistics.containsKey(partitionKey)) {
+                continue;
+            }
+
+            Map<String, ColumnStatisticsObj> columnStatistics = partitionColumnStatistics.get(partitionKey);
+            result.put(
+                    partitionName,
+                    columnNames.stream()
+                            .filter(columnStatistics::containsKey)
+                            .map(columnStatistics::get)
+                            .collect(toImmutableSet()));
+        }
+        return Optional.of(result.build());
+    }
+
+    public synchronized void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    {
+        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
+        PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
+        partitionColumnStatistics
+                .computeIfAbsent(partitionKey, key -> new HashMap<>())
+                .put(columnName, columnStatisticsObj);
+    }
+
+    @Override
     public synchronized Set<String> getRoles(String user)
     {
         return roleGrants.getOrDefault(user, ImmutableSet.of(PUBLIC_ROLE_NAME));
@@ -470,11 +536,6 @@ public class InMemoryHiveMetastore
             Set<HivePrivilegeInfo> privileges)
     {
         tablePrivileges.put(new PrincipalTableKey(principalName, principalType, tableName, databaseName), ImmutableSet.copyOf(privileges));
-    }
-
-    @Override
-    public void flushCache()
-    {
     }
 
     @Override

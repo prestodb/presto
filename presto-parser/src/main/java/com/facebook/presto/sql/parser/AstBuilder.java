@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
+import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -44,6 +46,7 @@ import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
+import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -63,7 +66,9 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -77,7 +82,9 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -88,10 +95,11 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -113,9 +121,11 @@ import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
@@ -157,6 +167,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -219,13 +230,21 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(SqlBaseParser.CreateTableAsSelectContext context)
     {
-        return new CreateTableAsSelect(getLocation(context), getQualifiedName(context.qualifiedName()), (Query) visit(context.query()), context.EXISTS() != null, processTableProperties(context.tableProperties()), context.NO() == null);
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+        return new CreateTableAsSelect(getLocation(context), getQualifiedName(context.qualifiedName()), (Query) visit(context.query()), context.EXISTS() != null, processTableProperties(context.tableProperties()), context.NO() == null, comment);
     }
 
     @Override
     public Node visitCreateTable(SqlBaseParser.CreateTableContext context)
     {
-        return new CreateTable(getLocation(context), getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class), context.EXISTS() != null, processTableProperties(context.tableProperties()));
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+        return new CreateTable(getLocation(context), getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class), context.EXISTS() != null, processTableProperties(context.tableProperties()), comment);
     }
 
     private Map<String, Expression> processTableProperties(TablePropertiesContext tablePropertiesContext)
@@ -388,6 +407,13 @@ class AstBuilder
     }
 
     @Override
+    public Node visitDescribeOutput(SqlBaseParser.DescribeOutputContext context)
+    {
+        String name = context.identifier().getText();
+        return new DescribeOutput(getLocation(context), name);
+    }
+
+    @Override
     public Node visitDescribeInput(SqlBaseParser.DescribeInputContext context)
     {
         String name = context.identifier().getText();
@@ -426,6 +452,11 @@ class AstBuilder
     {
         QueryBody term = (QueryBody) visit(context.queryTerm());
 
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        }
+
         if (term instanceof QuerySpecification) {
             // When we have a simple query specification
             // followed by order by limit, fold the order by and limit
@@ -436,7 +467,7 @@ class AstBuilder
 
             return new Query(
                     getLocation(context),
-                    Optional.<With>empty(),
+                    Optional.empty(),
                     new QuerySpecification(
                             getLocation(context),
                             query.getSelect(),
@@ -444,17 +475,17 @@ class AstBuilder
                             query.getWhere(),
                             query.getGroupBy(),
                             query.getHaving(),
-                            visit(context.sortItem(), SortItem.class),
+                            orderBy,
                             getTextIfPresent(context.limit)),
-                    ImmutableList.of(),
-                    Optional.<String>empty());
+                    Optional.empty(),
+                    Optional.empty());
         }
 
         return new Query(
                 getLocation(context),
-                Optional.<With>empty(),
+                Optional.empty(),
                 term,
-                visit(context.sortItem(), SortItem.class),
+                orderBy,
                 getTextIfPresent(context.limit));
     }
 
@@ -471,7 +502,7 @@ class AstBuilder
             Relation relation = iterator.next();
 
             while (iterator.hasNext()) {
-                relation = new Join(getLocation(context), Join.Type.IMPLICIT, relation, iterator.next(), Optional.<JoinCriteria>empty());
+                relation = new Join(getLocation(context), Join.Type.IMPLICIT, relation, iterator.next(), Optional.empty());
             }
 
             from = Optional.of(relation);
@@ -484,7 +515,7 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -585,7 +616,7 @@ class AstBuilder
     @Override
     public Node visitExplain(SqlBaseParser.ExplainContext context)
     {
-        return new Explain(getLocation(context), context.ANALYZE() != null, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
+        return new Explain(getLocation(context), context.ANALYZE() != null, context.VERBOSE() != null, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
     }
 
     @Override
@@ -609,6 +640,8 @@ class AstBuilder
                 return new ExplainType(getLocation(context), ExplainType.Type.LOGICAL);
             case SqlBaseLexer.DISTRIBUTED:
                 return new ExplainType(getLocation(context), ExplainType.Type.DISTRIBUTED);
+            case SqlBaseLexer.VALIDATE:
+                return new ExplainType(getLocation(context), ExplainType.Type.VALIDATE);
         }
 
         throw new IllegalArgumentException("Unsupported EXPLAIN type: " + context.value.getText());
@@ -647,6 +680,20 @@ class AstBuilder
     public Node visitShowColumns(SqlBaseParser.ShowColumnsContext context)
     {
         return new ShowColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitShowStats(SqlBaseParser.ShowStatsContext context)
+    {
+        return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedName(context.qualifiedName())));
+    }
+
+    @Override
+    public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
+    {
+        QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
+        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty());
+        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
     }
 
     @Override
@@ -734,6 +781,21 @@ class AstBuilder
                 context.grantee.getText());
     }
 
+    @Override
+    public Node visitShowGrants(SqlBaseParser.ShowGrantsContext context)
+    {
+        Optional<QualifiedName> tableName = Optional.empty();
+
+        if (context.qualifiedName() != null) {
+            tableName = Optional.of(getQualifiedName(context.qualifiedName()));
+        }
+
+        return new ShowGrants(
+                getLocation(context),
+                context.TABLE() != null,
+                tableName);
+    }
+
     // ***************** boolean expressions ******************
 
     @Override
@@ -762,7 +824,7 @@ class AstBuilder
 
         if (context.CROSS() != null) {
             right = (Relation) visit(context.right);
-            return new Join(getLocation(context), Join.Type.CROSS, left, right, Optional.<JoinCriteria>empty());
+            return new Join(getLocation(context), Join.Type.CROSS, left, right, Optional.empty());
         }
 
         JoinCriteria criteria;
@@ -852,6 +914,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitLateral(SqlBaseParser.LateralContext context)
+    {
+        return new Lateral(getLocation(context), (Query) visit(context.query()));
+    }
+
+    @Override
     public Node visitParenthesizedRelation(SqlBaseParser.ParenthesizedRelationContext context)
     {
         return visit(context.relation());
@@ -884,7 +952,7 @@ class AstBuilder
     {
         Expression expression = new ComparisonExpression(
                 getLocation(context),
-                ComparisonExpression.Type.IS_DISTINCT_FROM,
+                ComparisonExpressionType.IS_DISTINCT_FROM,
                 (Expression) visit(context.value),
                 (Expression) visit(context.right));
 
@@ -973,7 +1041,18 @@ class AstBuilder
     @Override
     public Node visitExists(SqlBaseParser.ExistsContext context)
     {
-        return new ExistsPredicate(getLocation(context), (Query) visit(context.query()));
+        return new ExistsPredicate(getLocation(context), new SubqueryExpression(getLocation(context), (Query) visit(context.query())));
+    }
+
+    @Override
+    public Node visitQuantifiedComparison(SqlBaseParser.QuantifiedComparisonContext context)
+    {
+        return new QuantifiedComparisonExpression(
+                getLocation(context.comparisonOperator()),
+                getComparisonOperator(((TerminalNode) context.comparisonOperator().getChild(0)).getSymbol()),
+                getComparisonQuantifier(((TerminalNode) context.comparisonQuantifier().getChild(0)).getSymbol()),
+                (Expression) visit(context.value),
+                new SubqueryExpression(getLocation(context.query()), (Query) visit(context.query())));
     }
 
     // ************** value expressions **************
@@ -1031,7 +1110,7 @@ class AstBuilder
     @Override
     public Node visitTimeZoneString(SqlBaseParser.TimeZoneStringContext context)
     {
-        return new StringLiteral(getLocation(context), unquote(context.STRING().getText()));
+        return visit(context.string());
     }
 
     // ********************* primary expressions **********************
@@ -1082,7 +1161,7 @@ class AstBuilder
             field = Extract.Field.valueOf(fieldString.toUpperCase());
         }
         catch (IllegalArgumentException e) {
-            throw new ParsingException(format("Invalid EXTRACT field: %s", fieldString), null, context.getStart().getLine(), context.getStart().getCharPositionInLine());
+            throw parseError("Invalid EXTRACT field: " + fieldString, context);
         }
         return new Extract(getLocation(context), (Expression) visit(context.valueExpression()), field);
     }
@@ -1129,7 +1208,7 @@ class AstBuilder
     @Override
     public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context)
     {
-        return new QualifiedNameReference(getLocation(context), QualifiedName.of(context.getText()));
+        return new Identifier(getLocation(context), context.getText());
     }
 
     @Override
@@ -1160,6 +1239,7 @@ class AstBuilder
     @Override
     public Node visitFunctionCall(SqlBaseParser.FunctionCallContext context)
     {
+        Optional<Expression> filter = visitIfPresent(context.filter(), Expression.class);
         Optional<Window> window = visitIfPresent(context.over(), Window.class);
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
@@ -1205,11 +1285,28 @@ class AstBuilder
 
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
         }
+        if (name.toString().equalsIgnoreCase("$internal$bind")) {
+            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
+            check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
+            check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
+
+            int numValues = context.expression().size() - 1;
+            List<Expression> arguments = context.expression().stream()
+                    .map(this::visit)
+                    .map(Expression.class::cast)
+                    .collect(toImmutableList());
+
+            return new BindExpression(
+                    getLocation(context),
+                    arguments.subList(0, numValues),
+                    arguments.get(numValues));
+        }
 
         return new FunctionCall(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 window,
+                filter,
                 distinct,
                 visit(context.expression(), Expression.class));
     }
@@ -1217,29 +1314,45 @@ class AstBuilder
     @Override
     public Node visitLambda(SqlBaseParser.LambdaContext context)
     {
-        List<String> arguments = context.identifier().stream()
+        List<LambdaArgumentDeclaration> arguments = context.identifier().stream()
                 .map(SqlBaseParser.IdentifierContext::getText)
+                .map(LambdaArgumentDeclaration::new)
                 .collect(toList());
 
         Expression body = (Expression) visit(context.expression());
 
-        return new LambdaExpression(arguments, body);
+        return new LambdaExpression(getLocation(context), arguments, body);
+    }
+
+    @Override
+    public Node visitFilter(SqlBaseParser.FilterContext context)
+    {
+        return visit(context.booleanExpression());
     }
 
     @Override
     public Node visitOver(SqlBaseParser.OverContext context)
     {
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        }
+
         return new Window(
                 getLocation(context),
                 visit(context.partition, Expression.class),
-                visit(context.sortItem(), SortItem.class),
+                orderBy,
                 visitIfPresent(context.windowFrame(), WindowFrame.class));
     }
 
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
-        return new ColumnDefinition(getLocation(context), context.identifier().getText(), getType(context.type()));
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+        return new ColumnDefinition(getLocation(context), context.identifier().getText(), getType(context.type()), comment);
     }
 
     @Override
@@ -1294,6 +1407,16 @@ class AstBuilder
         return new FrameBound(getLocation(context), FrameBound.Type.CURRENT_ROW);
     }
 
+    @Override
+    public Node visitGroupingOperation(SqlBaseParser.GroupingOperationContext context)
+    {
+        List<QualifiedName> arguments = context.qualifiedName().stream()
+                .map(AstBuilder::getQualifiedName)
+                .collect(toList());
+
+        return new GroupingOperation(Optional.of(getLocation(context)), arguments);
+    }
+
     // ************** literals **************
 
     @Override
@@ -1303,9 +1426,15 @@ class AstBuilder
     }
 
     @Override
-    public Node visitStringLiteral(SqlBaseParser.StringLiteralContext context)
+    public Node visitBasicStringLiteral(SqlBaseParser.BasicStringLiteralContext context)
     {
         return new StringLiteral(getLocation(context), unquote(context.STRING().getText()));
+    }
+
+    @Override
+    public Node visitUnicodeStringLiteral(SqlBaseParser.UnicodeStringLiteralContext context)
+    {
+        return new StringLiteral(getLocation(context), decodeUnicodeLiteral(context));
     }
 
     @Override
@@ -1318,7 +1447,7 @@ class AstBuilder
     @Override
     public Node visitTypeConstructor(SqlBaseParser.TypeConstructorContext context)
     {
-        String value = unquote(context.STRING().getText());
+        String value = ((StringLiteral) visit(context.string())).getValue();
 
         if (context.DOUBLE_PRECISION() != null) {
             // TODO: Temporary hack that should be removed with new planner.
@@ -1365,7 +1494,7 @@ class AstBuilder
     {
         return new IntervalLiteral(
                 getLocation(context),
-                unquote(context.STRING().getText()),
+                ((StringLiteral) visit(context.string())).getValue(),
                 Optional.ofNullable(context.sign)
                         .map(AstBuilder::getIntervalSign)
                         .orElse(IntervalLiteral.Sign.POSITIVE),
@@ -1420,6 +1549,93 @@ class AstBuilder
         throw new UnsupportedOperationException("not yet implemented");
     }
 
+    private enum UnicodeDecodeState
+    {
+        EMPTY,
+        ESCAPED,
+        UNICODE_SEQUENCE
+    }
+
+    private static String decodeUnicodeLiteral(SqlBaseParser.UnicodeStringLiteralContext context)
+    {
+        char escape;
+        if (context.UESCAPE() != null) {
+            String escapeString = unquote(context.STRING().getText());
+            check(!escapeString.isEmpty(), "Empty Unicode escape character", context);
+            check(escapeString.length() == 1, "Invalid Unicode escape character: " + escapeString, context);
+            escape = escapeString.charAt(0);
+            check(isValidUnicodeEscape(escape), "Invalid Unicode escape character: " + escapeString, context);
+        }
+        else {
+            escape = '\\';
+        }
+
+        String rawContent = unquote(context.UNICODE_STRING().getText().substring(2));
+        StringBuilder unicodeStringBuilder = new StringBuilder();
+        StringBuilder escapedCharacterBuilder = new StringBuilder();
+        int charactersNeeded = 0;
+        UnicodeDecodeState state = UnicodeDecodeState.EMPTY;
+        for (int i = 0; i < rawContent.length(); i++) {
+            char ch = rawContent.charAt(i);
+            switch (state) {
+                case EMPTY:
+                    if (ch == escape) {
+                        state = UnicodeDecodeState.ESCAPED;
+                    }
+                    else {
+                        unicodeStringBuilder.append(ch);
+                    }
+                    break;
+                case ESCAPED:
+                    if (ch == escape) {
+                        unicodeStringBuilder.append(escape);
+                        state = UnicodeDecodeState.EMPTY;
+                    }
+                    else if (ch == '+') {
+                        state = UnicodeDecodeState.UNICODE_SEQUENCE;
+                        charactersNeeded = 6;
+                    }
+                    else if (isHexDigit(ch)) {
+                        state = UnicodeDecodeState.UNICODE_SEQUENCE;
+                        charactersNeeded = 4;
+                        escapedCharacterBuilder.append(ch);
+                    }
+                    else {
+                        throw parseError("Invalid hexadecimal digit: " + ch, context);
+                    }
+                    break;
+                case UNICODE_SEQUENCE:
+                    check(isHexDigit(ch), "Incomplete escape sequence: " + escapedCharacterBuilder.toString(), context);
+                    escapedCharacterBuilder.append(ch);
+                    if (charactersNeeded == escapedCharacterBuilder.length()) {
+                        String currentEscapedCode = escapedCharacterBuilder.toString();
+                        escapedCharacterBuilder.setLength(0);
+                        int codePoint = Integer.parseInt(currentEscapedCode, 16);
+                        check(Character.isValidCodePoint(codePoint), "Invalid escaped character: " + currentEscapedCode, context);
+                        if (Character.isSupplementaryCodePoint(codePoint)) {
+                            unicodeStringBuilder.appendCodePoint(codePoint);
+                        }
+                        else {
+                            char currentCodePoint = (char) codePoint;
+                            check(!Character.isSurrogate(currentCodePoint), format("Invalid escaped character: %s. Escaped character is a surrogate. Use '\\+123456' instead.", currentEscapedCode), context);
+                            unicodeStringBuilder.append(currentCodePoint);
+                        }
+                        state = UnicodeDecodeState.EMPTY;
+                        charactersNeeded = -1;
+                    }
+                    else {
+                        check(charactersNeeded > escapedCharacterBuilder.length(), "Unexpected escape sequence length: " + escapedCharacterBuilder.length(), context);
+                    }
+                    break;
+                default:
+                    throw new UnsupportedOperationException();
+            }
+        }
+
+        check(state == UnicodeDecodeState.EMPTY, "Incomplete escape sequence: " + escapedCharacterBuilder.toString(), context);
+        return unicodeStringBuilder.toString();
+    }
+
     private <T> Optional<T> visitIfPresent(ParserRuleContext context, Class<T> clazz)
     {
         return Optional.ofNullable(context)
@@ -1467,6 +1683,18 @@ class AstBuilder
         return setQuantifier != null && setQuantifier.DISTINCT() != null;
     }
 
+    private static boolean isHexDigit(char c)
+    {
+        return ((c >= '0') && (c <= '9')) ||
+                ((c >= 'A') && (c <= 'F')) ||
+                ((c >= 'a') && (c <= 'f'));
+    }
+
+    private static boolean isValidUnicodeEscape(char c)
+    {
+        return c < 0x7F && c > 0x20 && !isHexDigit(c) && c != '"' && c != '+' && c != '\'';
+    }
+
     private static Optional<String> getTextIfPresent(ParserRuleContext context)
     {
         return Optional.ofNullable(context)
@@ -1509,21 +1737,21 @@ class AstBuilder
         throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
     }
 
-    private static ComparisonExpression.Type getComparisonOperator(Token symbol)
+    private static ComparisonExpressionType getComparisonOperator(Token symbol)
     {
         switch (symbol.getType()) {
             case SqlBaseLexer.EQ:
-                return ComparisonExpression.Type.EQUAL;
+                return ComparisonExpressionType.EQUAL;
             case SqlBaseLexer.NEQ:
-                return ComparisonExpression.Type.NOT_EQUAL;
+                return ComparisonExpressionType.NOT_EQUAL;
             case SqlBaseLexer.LT:
-                return ComparisonExpression.Type.LESS_THAN;
+                return ComparisonExpressionType.LESS_THAN;
             case SqlBaseLexer.LTE:
-                return ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
+                return ComparisonExpressionType.LESS_THAN_OR_EQUAL;
             case SqlBaseLexer.GT:
-                return ComparisonExpression.Type.GREATER_THAN;
+                return ComparisonExpressionType.GREATER_THAN;
             case SqlBaseLexer.GTE:
-                return ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
+                return ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
         }
 
         throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
@@ -1663,6 +1891,20 @@ class AstBuilder
         throw new IllegalArgumentException("Unsupported ordering: " + token.getText());
     }
 
+    private static QuantifiedComparisonExpression.Quantifier getComparisonQuantifier(Token symbol)
+    {
+        switch (symbol.getType()) {
+            case SqlBaseLexer.ALL:
+                return QuantifiedComparisonExpression.Quantifier.ALL;
+            case SqlBaseLexer.ANY:
+                return QuantifiedComparisonExpression.Quantifier.ANY;
+            case SqlBaseLexer.SOME:
+                return QuantifiedComparisonExpression.Quantifier.SOME;
+        }
+
+        throw new IllegalArgumentException("Unsupported quantifier: " + symbol.getText());
+    }
+
     private static String getType(SqlBaseParser.TypeContext type)
     {
         if (type.baseType() != null) {
@@ -1721,7 +1963,7 @@ class AstBuilder
     private static void check(boolean condition, String message, ParserRuleContext context)
     {
         if (!condition) {
-            throw new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine());
+            throw parseError(message, context);
         }
     }
 
@@ -1741,5 +1983,10 @@ class AstBuilder
     {
         requireNonNull(token, "token is null");
         return new NodeLocation(token.getLine(), token.getCharPositionInLine());
+    }
+
+    private static ParsingException parseError(String message, ParserRuleContext context)
+    {
+        return new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine());
     }
 }

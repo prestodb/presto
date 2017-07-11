@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
@@ -33,9 +34,10 @@ public class ClientSession
     private final URI server;
     private final String user;
     private final String source;
+    private final String clientInfo;
     private final String catalog;
     private final String schema;
-    private final String timeZoneId;
+    private final TimeZoneKey timeZone;
     private final Locale locale;
     private final Map<String, String> properties;
     private final Map<String, String> preparedStatements;
@@ -49,9 +51,10 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientInfo(),
                 catalog,
                 schema,
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
@@ -66,9 +69,10 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 properties,
                 session.getPreparedStatements(),
@@ -83,9 +87,10 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 session.getProperties(),
                 preparedStatements,
@@ -100,9 +105,10 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
@@ -117,9 +123,10 @@ public class ClientSession
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientInfo(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getTimeZoneId(),
+                session.getTimeZone().getId(),
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
@@ -128,20 +135,46 @@ public class ClientSession
                 session.getClientRequestTimeout());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, String transactionId, boolean debug, Duration clientRequestTimeout)
+    public ClientSession(
+            URI server,
+            String user,
+            String source,
+            String clientInfo,
+            String catalog,
+            String schema,
+            String timeZoneId,
+            Locale locale,
+            Map<String, String> properties,
+            String transactionId,
+            boolean debug,
+            Duration clientRequestTimeout)
     {
-        this(server, user, source, catalog, schema, timeZoneId, locale, properties, emptyMap(), transactionId, debug, clientRequestTimeout);
+        this(server, user, source, clientInfo, catalog, schema, timeZoneId, locale, properties, emptyMap(), transactionId, debug, clientRequestTimeout);
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, Map<String, String> preparedStatements, String transactionId, boolean debug, Duration clientRequestTimeout)
+    public ClientSession(
+            URI server,
+            String user,
+            String source,
+            String clientInfo,
+            String catalog,
+            String schema,
+            String timeZoneId,
+            Locale locale,
+            Map<String, String> properties,
+            Map<String, String> preparedStatements,
+            String transactionId,
+            boolean debug,
+            Duration clientRequestTimeout)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
         this.source = source;
+        this.clientInfo = clientInfo;
         this.catalog = catalog;
         this.schema = schema;
         this.locale = locale;
-        this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
+        this.timeZone = TimeZoneKey.getTimeZoneKey(timeZoneId);
         this.transactionId = transactionId;
         this.debug = debug;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
@@ -173,6 +206,11 @@ public class ClientSession
         return source;
     }
 
+    public String getClientInfo()
+    {
+        return clientInfo;
+    }
+
     public String getCatalog()
     {
         return catalog;
@@ -183,9 +221,9 @@ public class ClientSession
         return schema;
     }
 
-    public String getTimeZoneId()
+    public TimeZoneKey getTimeZone()
     {
-        return timeZoneId;
+        return timeZone;
     }
 
     public Locale getLocale()
@@ -224,9 +262,10 @@ public class ClientSession
         return toStringHelper(this)
                 .add("server", server)
                 .add("user", user)
+                .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
                 .add("schema", schema)
-                .add("timeZone", timeZoneId)
+                .add("timeZone", timeZone)
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)

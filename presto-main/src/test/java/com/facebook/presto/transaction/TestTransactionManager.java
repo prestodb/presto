@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -42,6 +43,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -90,7 +92,7 @@ public class TestTransactionManager
             assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            transactionManager.asyncCommit(transactionId).join();
+            getFutureValue(transactionManager.asyncCommit(transactionId));
 
             assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
         }
@@ -121,7 +123,7 @@ public class TestTransactionManager
             assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            transactionManager.asyncAbort(transactionId).join();
+            getFutureValue(transactionManager.asyncAbort(transactionId));
 
             assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
         }
@@ -164,7 +166,7 @@ public class TestTransactionManager
             }
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-            transactionManager.asyncAbort(transactionId).join();
+            getFutureValue(transactionManager.asyncAbort(transactionId));
 
             assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
         }
@@ -214,7 +216,7 @@ public class TestTransactionManager
                 connectorId,
                 connector,
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl()),
                 systemId,
                 new SystemConnector(
                         systemId,

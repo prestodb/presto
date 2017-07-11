@@ -65,6 +65,11 @@ Date and Time Functions
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp.
 
+.. function:: from_unixtime(unixtime, string) -> timestamp with time zone
+
+    Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
+    using ``string`` for the time zone.
+
 .. function:: from_unixtime(unixtime, hours, minutes) -> timestamp with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
@@ -151,6 +156,32 @@ Unit              Description
 
     Returns ``timestamp2 - timestamp1`` expressed in terms of ``unit``.
 
+Duration Function
+-----------------
+
+The ``parse_duration`` function supports the following units:
+
+======= =============
+Unit    Description
+======= =============
+``ns``  Nanoseconds
+``us``  Microseconds
+``ms``  Milliseconds
+``s``   Seconds
+``m``   Minutes
+``h``   Hours
+``d``   Days
+======= =============
+
+.. function:: parse_duration(string) -> interval
+
+    Parses ``string`` of format ``value unit`` into an interval, where
+    ``value`` is fractional number of ``unit`` values::
+
+        SELECT parse_duration('42.8ms'); -- 0 00:00:00.043
+        SELECT parse_duration('3.81 d'); -- 3 19:26:24.000
+        SELECT parse_duration('5m');     -- 0 00:05:00.000
+
 MySQL Date Functions
 --------------------
 
@@ -163,11 +194,11 @@ Specifier Description
 ========= ===========
 ``%a``    Abbreviated weekday name (``Sun`` .. ``Sat``)
 ``%b``    Abbreviated month name (``Jan`` .. ``Dec``)
-``%c``    Month, numeric (``0`` .. ``12``)
+``%c``    Month, numeric (``1`` .. ``12``) [#z]_
 ``%D``    Day of the month with English suffix (``0th``, ``1st``, ``2nd``, ``3rd``, ...)
-``%d``    Day of the month, numeric (``00`` .. ``31``)
-``%e``    Day of the month, numeric (``0`` .. ``31``)
-``%f``    Fraction of second (6 digits for printing: ``000000`` .. ``999000``; 1 - 9 digits for parsing: ``0`` .. ``999999999`` [#f]_)
+``%d``    Day of the month, numeric (``01`` .. ``31``) [#z]_
+``%e``    Day of the month, numeric (``1`` .. ``31``) [#z]_
+``%f``    Fraction of second (6 digits for printing: ``000000`` .. ``999000``; 1 - 9 digits for parsing: ``0`` .. ``999999999``) [#f]_
 ``%H``    Hour (``00`` .. ``23``)
 ``%h``    Hour (``01`` .. ``12``)
 ``%I``    Hour (``01`` .. ``12``)
@@ -176,7 +207,7 @@ Specifier Description
 ``%k``    Hour (``0`` .. ``23``)
 ``%l``    Hour (``1`` .. ``12``)
 ``%M``    Month name (``January`` .. ``December``)
-``%m``    Month, numeric (``00`` .. ``12``)
+``%m``    Month, numeric (``01`` .. ``12``) [#z]_
 ``%p``    ``AM`` or ``PM``
 ``%r``    Time, 12-hour (``hh:mm:ss`` followed by ``AM`` or ``PM``)
 ``%S``    Seconds (``00`` .. ``59``)
@@ -187,7 +218,7 @@ Specifier Description
 ``%V``    Week (``01`` .. ``53``), where Sunday is the first day of the week; used with ``%X``
 ``%v``    Week (``01`` .. ``53``), where Monday is the first day of the week; used with ``%x``
 ``%W``    Weekday name (``Sunday`` .. ``Saturday``)
-``%w``    Day of the week (``0`` .. ``6``), where Sunday is the first day of the week
+``%w``    Day of the week (``0`` .. ``6``), where Sunday is the first day of the week [#w]_
 ``%X``    Year for the week where Sunday is the first day of the week, numeric, four digits; used with ``%V``
 ``%x``    Year for the week, where Monday is the first day of the week, numeric, four digits; used with ``%v``
 ``%Y``    Year, numeric, four digits
@@ -198,6 +229,8 @@ Specifier Description
 
 .. [#f] Timestamp is truncated to milliseconds.
 .. [#y] When parsing, two-digit year format assumes range ``1970`` .. ``2069``, so "70" will result in year ``1970`` but "69" will produce ``2069``.
+.. [#w] This specifier is not supported yet. Consider using :func:`day_of_week` (it uses ``1-7`` instead of ``0-6``).
+.. [#z] This specifier does not support ``0`` as a month or day.
 
 .. warning:: The following specifiers are not currently supported: ``%D %U %u %V %w %X``
 

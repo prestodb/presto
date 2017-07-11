@@ -2,19 +2,28 @@ language: java
 
 env:
   global:
-    - MAVEN_OPTS="-Xmx256M"
+    - MAVEN_OPTS="-Xmx512M -XX:+ExitOnOutOfMemoryError"
     - MAVEN_SKIP_CHECKS_AND_DOCS="-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
+    - MAVEN_FAST_INSTALL="-DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1"
+    - ARTIFACTS_UPLOAD_PATH_BRANCH=travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
+    - ARTIFACTS_UPLOAD_PATH_PR=travis_build_artifacts_pr/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
+    - TEST_FLAGS=""
   matrix:
-    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql,!presto-accumulo
-    - TEST_MODULES=presto-tests
-    - TEST_MODULES=presto-accumulo
-    - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
-    - PRODUCT_TESTS=true
-    - INTEGRATION_TESTS=true
+    - MAVEN_CHECKS=true
+    - TEST_SPECIFIC_MODULES=presto-tests
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
+    - TEST_SPECIFIC_MODULES=presto-raptor
+    - TEST_SPECIFIC_MODULES=presto-accumulo
+    - TEST_SPECIFIC_MODULES=presto-cassandra
+    - TEST_SPECIFIC_MODULES=presto-hive
+    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-docs,!presto-server,!presto-server-rpm
+    - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
+    - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
+    - HIVE_TESTS=true
 
 sudo: required
 dist: trusty
-
+group: deprecated-2017Q2
 addons:
   apt:
     packages:
@@ -27,34 +36,77 @@ cache:
 services:
   - docker
 
-before_install:
-  # This is needed until Travis #4629 is fixed (https://github.com/travis-ci/travis-ci/issues/4629)
-  - sed -i.bak -e 's|https://nexus.codehaus.org/snapshots/|https://oss.sonatype.org/content/repositories/codehaus-snapshots/|g' ~/.m2/settings.xml
+install:
+  - ./mvnw -v
+  - |
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl $TEST_SPECIFIC_MODULES -am
+    fi
+  - |
+    if [[ -v TEST_OTHER_MODULES ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
+    fi
+  - |
+    if [[ -v HIVE_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+    fi
 
-install: ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl '!presto-docs,!presto-server-rpm'
+before_script:
+  - |
+    export ARTIFACTS_UPLOAD_PATH=${ARTIFACTS_UPLOAD_PATH_BRANCH}
+    if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
+      export ARTIFACTS_UPLOAD_PATH=${ARTIFACTS_UPLOAD_PATH_PR}
+    fi
 
 script:
   - |
-    test ! -v TEST_MODULES ||
-      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_MODULES
+    if [[ -v MAVEN_CHECKS ]]; then
+      ./mvnw install -DskipTests -B -T C1
+    fi
   - |
-    test ! -v PRODUCT_TESTS ||
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES $TEST_FLAGS
+    fi
+  - |
+    if [[ -v TEST_OTHER_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_OTHER_MODULES
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        multinode -x quarantine,big_query,storage_formats,profile_specific_tests
+        multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds
+    fi
   - |
-    test ! -v PRODUCT_TESTS ||
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
+    fi
   - |
-    test ! -v INTEGRATION_TESTS ||
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-ldap -g ldap -x simba_jdbc
+    fi
+# SQL server image sporadically hangs during the startup
+# TODO: Uncomment it once issue is fixed
+# https://github.com/Microsoft/mssql-docker/issues/76
+#  - |
+#    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+#      presto-product-tests/bin/run_on_docker.sh \
+#        singlenode-sqlserver -g sqlserver
+#    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        multinode-tls -g smoke,cli,group-by,join,tls
+    fi
+  - |
+    if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_on_docker.sh
-  - |
-    test ! -v INTEGRATION_TESTS ||
-      ./mvnw install -DskipTests -B
-  - |
-    # Build presto-server-rpm for later artifact upload
-    test ! -v DEPLOY_S3_ACCESS_KEY || test ! -v PRODUCT_TESTS ||
-       ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl presto-server-rpm
+    fi
 
 before_cache:
   # Make the cache stable between builds by removing build output
@@ -79,12 +131,35 @@ before_deploy:
 deploy:
   on:
     all_branches: true
-    condition: -v DEPLOY_S3_ACCESS_KEY && -v PRODUCT_TESTS
+    condition: -v DEPLOY_S3_ACCESS_KEY && -v MAVEN_CHECKS
   provider: s3
   access_key_id: ${DEPLOY_S3_ACCESS_KEY}
   secret_access_key: ${DEPLOY_S3_SECRET_KEY}
   bucket: ${DEPLOY_S3_BUCKET}
   skip_cleanup: true
   local-dir: /tmp/artifacts
-  upload-dir: travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_JOB_NUMBER}
+  upload-dir: ${ARTIFACTS_UPLOAD_PATH}
   acl: public_read
+
+after_script:
+- |
+  if [[ -v DEPLOY_S3_ACCESS_KEY ]]; then
+    sudo pip install awscli
+    export AWS_ACCESS_KEY_ID=${DEPLOY_S3_ACCESS_KEY}
+    export AWS_SECRET_ACCESS_KEY=${DEPLOY_S3_SECRET_KEY}
+
+    JOB_ARTIFACTS_URL_PREFIX=s3://${DEPLOY_S3_BUCKET}/${ARTIFACTS_UPLOAD_PATH}/travis_jobs/${TRAVIS_JOB_NUMBER}-run
+    JOB_RUN_ATTEMPTS=$( aws s3 ls ${JOB_ARTIFACTS_URL_PREFIX} | wc -l | tr -d '[:space:]' )
+    JOB_STATUS=$( [ "$TRAVIS_TEST_RESULT" == "0" ] && echo SUCCESS || echo FAILURE )
+
+    mkdir -p /tmp/job_artifacts/
+    rsync -av -m \
+      --include='**/' \
+      --include='**/surefire-reports/**.xml' \
+      --include='**/surefire-reports/emailable-report.html' \
+      --exclude='*' \
+      . /tmp/job_artifacts/
+    wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/job_artifacts/log.txt
+
+    aws s3 sync /tmp/job_artifacts ${JOB_ARTIFACTS_URL_PREFIX}_$((JOB_RUN_ATTEMPTS + 1))-${JOB_STATUS}
+  fi

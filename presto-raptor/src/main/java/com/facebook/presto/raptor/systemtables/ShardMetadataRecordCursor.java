@@ -45,10 +45,10 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,6 +60,7 @@ public class ShardMetadataRecordCursor
         implements RecordCursor
 {
     private static final String SHARD_UUID = "shard_uuid";
+    private static final String XXHASH64 = "xxhash64";
     private static final String SCHEMA_NAME = "table_schema";
     private static final String TABLE_NAME = "table_name";
     private static final String MIN_TIMESTAMP = "min_timestamp";
@@ -76,6 +77,7 @@ public class ShardMetadataRecordCursor
                     new ColumnMetadata("uncompressed_size", BIGINT),
                     new ColumnMetadata("compressed_size", BIGINT),
                     new ColumnMetadata("row_count", BIGINT),
+                    new ColumnMetadata(XXHASH64, createVarcharType(16)),
                     new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP),
                     new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP)));
 
@@ -108,16 +110,15 @@ public class ShardMetadataRecordCursor
         this.resultSet = getNextResultSet();
     }
 
-    private static String constructSqlTemplate(List<String> columnNames, String indexTableName)
+    private static String constructSqlTemplate(List<String> columnNames, long tableId)
     {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT\n");
-        sql.append(Joiner.on(",\n").join(columnNames));
-        sql.append("\nFROM ").append(indexTableName).append(" x\n");
-        sql.append("JOIN shards ON (x.shard_id = shards.shard_id)\n");
-        sql.append("JOIN tables ON (shards.table_id = tables.table_id)\n");
-
-        return sql.toString();
+        return format("SELECT %s\nFROM %s x\n" +
+                        "JOIN shards ON (x.shard_id = shards.shard_id AND shards.table_id = %s)\n" +
+                        "JOIN tables ON (tables.table_id = %s)\n",
+                Joiner.on(", ").join(columnNames),
+                shardIndexTable(tableId),
+                tableId,
+                tableId);
     }
 
     private static List<String> createQualifiedColumnNames()
@@ -130,6 +131,7 @@ public class ShardMetadataRecordCursor
                 .add("shards" + "." + COLUMNS.get(4).getName())
                 .add("shards" + "." + COLUMNS.get(5).getName())
                 .add("shards" + "." + COLUMNS.get(6).getName())
+                .add("shards" + "." + COLUMNS.get(7).getName())
                 .add("min_timestamp")
                 .add("max_timestamp")
                 .build();
@@ -179,7 +181,10 @@ public class ShardMetadataRecordCursor
                     return false;
                 }
             }
-            completedBytes += resultSetValues.extractValues(resultSet, ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)));
+            completedBytes += resultSetValues.extractValues(
+                    resultSet,
+                    ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
+                    ImmutableSet.of(getColumnIndex(SHARD_METADATA, XXHASH64)));
             return true;
         }
         catch (SQLException | DBIException e) {
@@ -269,7 +274,7 @@ public class ShardMetadataRecordCursor
             connection = dbi.open().getConnection();
             statement = PreparedStatementBuilder.create(
                     connection,
-                    constructSqlTemplate(columnNames, shardIndexTable(tableId)),
+                    constructSqlTemplate(columnNames, tableId),
                     columnNames,
                     TYPES,
                     ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
@@ -362,6 +367,6 @@ public class ShardMetadataRecordCursor
 
     private static String getStringValue(Object value)
     {
-        return checkType(value, Slice.class, "value").toStringUtf8();
+        return ((Slice) value).toStringUtf8();
     }
 }

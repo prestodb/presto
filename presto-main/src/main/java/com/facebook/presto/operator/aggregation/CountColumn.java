@@ -39,8 +39,8 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class CountColumn
         extends SqlAggregationFunction
@@ -77,8 +77,8 @@ public class CountColumn
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(CountColumn.class.getClassLoader());
 
-        AccumulatorStateSerializer<LongState> stateSerializer = new StateCompiler().generateStateSerializer(LongState.class, classLoader);
-        AccumulatorStateFactory<LongState> stateFactory = new StateCompiler().generateStateFactory(LongState.class, classLoader);
+        AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class, classLoader);
+        AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(type);
@@ -94,7 +94,7 @@ public class CountColumn
                 stateFactory,
                 BIGINT);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, factory);
     }
 

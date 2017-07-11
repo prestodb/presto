@@ -66,12 +66,13 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
+import static com.facebook.presto.raptor.util.DatabaseUtil.isSyntaxOrAccessError;
+import static com.facebook.presto.raptor.util.DatabaseUtil.isTransactionCacheFullError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
@@ -82,7 +83,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.Iterables.partition;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.multiplyExact;
@@ -102,6 +103,7 @@ public class DatabaseShardManager
     private static final Logger log = Logger.get(DatabaseShardManager.class);
 
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
+    private static final int MAX_ADD_COLUMN_ATTEMPTS = 100;
 
     private final IDBI dbi;
     private final DaoSupplier<ShardDao> shardDaoSupplier;
@@ -162,12 +164,10 @@ public class DatabaseShardManager
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.startupGracePeriod = requireNonNull(startupGracePeriod, "startupGracePeriod is null");
         this.startTime = ticker.read();
-
-        createTablesWithRetry(dbi);
     }
 
     @Override
-    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed)
+    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed, OptionalLong temporalColumnId)
     {
         StringJoiner tableColumns = new StringJoiner(",\n  ", "  ", ",\n").setEmptyValue("");
 
@@ -179,8 +179,19 @@ public class DatabaseShardManager
             }
         }
 
+        StringJoiner coveringIndexColumns = new StringJoiner(", ");
+
+        // Add the max temporal column first to accelerate queries that usually scan recent data
+        temporalColumnId.ifPresent(id -> coveringIndexColumns.add(maxColumn(id)));
+        temporalColumnId.ifPresent(id -> coveringIndexColumns.add(minColumn(id)));
+
         String sql;
         if (bucketed) {
+            coveringIndexColumns
+                    .add("bucket_number")
+                    .add("shard_id")
+                    .add("shard_uuid");
+
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
                     "  shard_id BIGINT NOT NULL,\n" +
@@ -189,17 +200,26 @@ public class DatabaseShardManager
                     tableColumns +
                     "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
                     "  UNIQUE (shard_id),\n" +
-                    "  UNIQUE (shard_uuid)\n" +
+                    "  UNIQUE (shard_uuid),\n" +
+                    "  UNIQUE (" + coveringIndexColumns + ")\n" +
                     ")";
         }
         else {
+            coveringIndexColumns
+                    .add("node_ids")
+                    .add("shard_id")
+                    .add("shard_uuid");
+
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
-                    "  shard_id BIGINT NOT NULL PRIMARY KEY,\n" +
+                    "  shard_id BIGINT NOT NULL,\n" +
                     "  shard_uuid BINARY(16) NOT NULL,\n" +
                     "  node_ids VARBINARY(128) NOT NULL,\n" +
                     tableColumns +
-                    "  UNIQUE (shard_uuid)\n" +
+                    "  PRIMARY KEY (node_ids, shard_uuid),\n" +
+                    "  UNIQUE (shard_id),\n" +
+                    "  UNIQUE (shard_uuid),\n" +
+                    "  UNIQUE (" + coveringIndexColumns + ")\n" +
                     ")";
         }
 
@@ -253,11 +273,21 @@ public class DatabaseShardManager
                 minColumn(column.getColumnId()), columnType,
                 maxColumn(column.getColumnId()), columnType);
 
-        try (Handle handle = dbi.open()) {
-            handle.execute(sql);
-        }
-        catch (DBIException e) {
-            throw metadataError(e);
+        int attempts = 0;
+        while (true) {
+            attempts++;
+            try (Handle handle = dbi.open()) {
+                handle.execute(sql);
+            }
+            catch (DBIException e) {
+                if (isSyntaxOrAccessError(e)) {
+                    // exit when column already exists
+                    return;
+                }
+                if (attempts >= MAX_ADD_COLUMN_ATTEMPTS) {
+                    throw metadataError(e);
+                }
+            }
         }
     }
 
@@ -290,6 +320,10 @@ public class DatabaseShardManager
 
         runCommit(transactionId, (handle) -> {
             lockTable(handle, tableId);
+
+            if (!updateTime.isPresent() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {
+                throw new PrestoException(TRANSACTION_CONFLICT, "Maintenance is blocked for table");
+            }
 
             ShardStats newStats = shardStats(newShards);
             long rowCount = newStats.getRowCount();
@@ -332,7 +366,14 @@ public class DatabaseShardManager
                 return;
             }
             catch (DBIException e) {
-                propagateIfInstanceOf(e.getCause(), PrestoException.class);
+                if (isTransactionCacheFullError(e)) {
+                    throw metadataError(e, "Transaction too large");
+                }
+
+                if (e.getCause() != null) {
+                    throwIfInstanceOf(e.getCause(), PrestoException.class);
+                }
+
                 if (attempt == maxAttempts) {
                     throw metadataError(e);
                 }
@@ -486,6 +527,12 @@ public class DatabaseShardManager
     }
 
     @Override
+    public ShardMetadata getShard(UUID shardUuid)
+    {
+        return dao.getShard(shardUuid);
+    }
+
+    @Override
     public Set<ShardMetadata> getNodeShards(String nodeIdentifier)
     {
         return dao.getNodeShards(nodeIdentifier, null);
@@ -595,6 +642,30 @@ public class DatabaseShardManager
     }
 
     @Override
+    public void updateBucketAssignment(long distributionId, int bucketNumber, String nodeId)
+    {
+        dao.updateBucketNode(distributionId, bucketNumber, getOrCreateNodeId(nodeId));
+    }
+
+    @Override
+    public List<Distribution> getDistributions()
+    {
+        return dao.listActiveDistributions();
+    }
+
+    @Override
+    public long getDistributionSizeInBytes(long distributionId)
+    {
+        return dao.getDistributionSizeBytes(distributionId);
+    }
+
+    @Override
+    public List<BucketNode> getBucketNodes(long distibutionId)
+    {
+        return dao.getBucketNodes(distibutionId);
+    }
+
+    @Override
     public Set<UUID> getExistingShardUuids(long tableId, Set<UUID> shardUuids)
     {
         try (Handle handle = dbi.open()) {
@@ -619,6 +690,11 @@ public class DatabaseShardManager
         }
     }
 
+    private List<BucketNode> getBuckets(long distributionId)
+    {
+        return dao.getBucketNodes(distributionId);
+    }
+
     private Map<Integer, String> loadBucketAssignments(long distributionId)
     {
         Set<String> nodeIds = getNodeIdentifiers();
@@ -626,7 +702,7 @@ public class DatabaseShardManager
 
         ImmutableMap.Builder<Integer, String> assignments = ImmutableMap.builder();
 
-        for (BucketNode bucketNode : dao.getBucketNodes(distributionId)) {
+        for (BucketNode bucketNode : getBuckets(distributionId)) {
             int bucket = bucketNode.getBucketNumber();
             String nodeId = bucketNode.getNodeIdentifier();
 
@@ -696,8 +772,8 @@ public class DatabaseShardManager
             throws SQLException
     {
         String sql = "" +
-                "INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size, bucket_number)\n" +
-                "VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)";
+                "INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size, xxhash64, bucket_number)\n" +
+                "VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement statement = connection.prepareStatement(sql, RETURN_GENERATED_KEYS)) {
             for (ShardInfo shard : shards) {
@@ -706,7 +782,8 @@ public class DatabaseShardManager
                 statement.setLong(3, shard.getRowCount());
                 statement.setLong(4, shard.getCompressedSize());
                 statement.setLong(5, shard.getUncompressedSize());
-                bindOptionalInt(statement, 6, shard.getBucketNumber());
+                statement.setLong(6, shard.getXxhash64());
+                bindOptionalInt(statement, 7, shard.getBucketNumber());
                 statement.addBatch();
             }
             statement.executeBatch();

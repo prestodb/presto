@@ -24,12 +24,11 @@ public class TestJdbcDistributedQueries
     public TestJdbcDistributedQueries()
             throws Exception
     {
-        super(createJdbcQueryRunner(TpchTable.getTables()));
+        super(() -> createJdbcQueryRunner(TpchTable.getTables()));
     }
 
     @Override
     public void testLargeIn()
-            throws Exception
     {
     }
 }

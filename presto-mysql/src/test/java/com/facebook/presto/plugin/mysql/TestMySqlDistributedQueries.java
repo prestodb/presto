@@ -37,12 +37,11 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.datatype.DataType.charDataType;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static com.google.common.base.Strings.repeat;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -63,30 +62,29 @@ public class TestMySqlDistributedQueries
     public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
             throws Exception
     {
-        super(createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
+        super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
         this.mysqlServer = mysqlServer;
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        closeAllRuntimeException(mysqlServer);
+        mysqlServer.close();
     }
 
     @Test
     public void testDropTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
 
         assertUpdate("DROP TABLE test_drop");
-        assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
     }
 
     @Test
     public void testViews()
-            throws Exception
+            throws SQLException
     {
         execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
 
@@ -97,7 +95,6 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testPrestoCreatedParameterizedVarchar()
-            throws Exception
     {
         DataTypeTest.create()
                 .addRoundTrip(stringDataType("varchar(10)", createVarcharType(255)), "text_a")
@@ -109,12 +106,11 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(stringDataType("varchar(16777216)", createUnboundedVarcharType()), "text_g")
                 .addRoundTrip(stringDataType("varchar(" + VarcharType.MAX_LENGTH + ")", createUnboundedVarcharType()), "text_h")
                 .addRoundTrip(stringDataType("varchar", createUnboundedVarcharType()), "unbounded")
-                .execute(queryRunner, prestoCreateAsSelect("presto_test_parameterized_varchar"));
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
     }
 
     @Test
     public void testMySqlCreatedParameterizedVarchar()
-            throws Exception
     {
         DataTypeTest.create()
                 .addRoundTrip(stringDataType("tinytext", createVarcharType(255)), "a")
@@ -123,12 +119,11 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(stringDataType("longtext", createUnboundedVarcharType()), "d")
                 .addRoundTrip(varcharDataType(32), "e")
                 .addRoundTrip(varcharDataType(20000), "f")
-                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 
     @Test
     public void testMySqlCreatedParameterizedVarcharUnicode()
-            throws Exception
     {
         String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
         DataTypeTest.create()
@@ -139,21 +134,19 @@ public class TestMySqlDistributedQueries
                 .addRoundTrip(varcharDataType(sampleUnicodeText.length(), CHARACTER_SET_UTF8), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(32, CHARACTER_SET_UTF8), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(20000, CHARACTER_SET_UTF8), sampleUnicodeText)
-                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar_unicode"));
     }
 
     @Test
     public void testPrestoCreatedParameterizedChar()
-            throws Exception
     {
-        mysqlCharTypeTest().execute(queryRunner, prestoCreateAsSelect("mysql_test_parameterized_char"));
+        mysqlCharTypeTest().execute(getQueryRunner(), prestoCreateAsSelect("mysql_test_parameterized_char"));
     }
 
     @Test
     public void testMySqlCreatedParameterizedChar()
-            throws Exception
     {
-        mysqlCharTypeTest().execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
+        mysqlCharTypeTest().execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
     }
 
     private DataTypeTest mysqlCharTypeTest()
@@ -170,18 +163,17 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testMySqlCreatedParameterizedCharUnicode()
-            throws Exception
     {
         DataTypeTest.create()
                 .addRoundTrip(charDataType(1, CHARACTER_SET_UTF8), "\u653b")
                 .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "\u653b\u6bbb")
                 .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "\u653b\u6bbb\u6a5f\u52d5\u968a")
-                .execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(queryRunner), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
@@ -192,23 +184,34 @@ public class TestMySqlDistributedQueries
 
     @Override
     public void testShowColumns()
-            throws Exception
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "")
-                .row("custkey", "bigint", "")
-                .row("orderstatus", "varchar(255)", "")
-                .row("totalprice", "double", "")
-                .row("orderdate", "date", "")
-                .row("orderpriority", "varchar(255)", "")
-                .row("clerk", "varchar(255)", "")
-                .row("shippriority", "integer", "")
-                .row("comment", "varchar(255)", "")
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(255)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(255)", "", "")
+                .row("clerk", "varchar(255)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(255)", "", "")
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Override
+    public void testDescribeOutput()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testDescribeOutputNamedAndUnnamed()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
     }
 
     private void execute(String sql)

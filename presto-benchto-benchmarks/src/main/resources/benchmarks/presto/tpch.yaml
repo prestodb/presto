@@ -1,0 +1,41 @@
+datasource: presto
+query-names: presto/tpch/${query}.sql
+runs: 6
+prewarm-runs: 2
+before-execution: sleep-4s, presto/session_set_reorder_joins.sql
+frequency: 7
+database: hive
+tpch_small: tpch_10gb_orc
+tpch_medium: tpch_100gb_orc
+tpch_large: tpch_1tb_orc
+prefix: ""
+variables:
+  1:
+    # queries too slow to run on 100gb without reordering
+    query: q2, q8, q9
+    schema: ${tpch_small}
+    reorder_joins: true, false
+  2:
+    # queries too slow to run on 100gb without reordering
+    query: q8, q9
+    schema: ${tpch_medium}
+    reorder_joins: true
+  3:
+    # queries too slow to run on 100gb without reordering
+    query: q2
+    schema: ${tpch_large}
+    reorder_joins: true
+  4:
+    # queries too slow to run on 1tb
+    query: q3, q4, q5, q7, q17, q18, q21
+    schema: ${tpch_medium}
+    reorder_joins: true, false
+  5:
+    query: q10, q11, q12, q13, q14, q15, q16, q19, q20, q22
+    schema: ${tpch_large}
+    reorder_joins: true, false
+  6:
+    # queries without joins
+    query: q1, q6
+    schema: ${tpch_large}
+    reorder_joins: false

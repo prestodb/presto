@@ -17,6 +17,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +40,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -51,12 +53,21 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestTypeRegistry
 {
-    private final TypeRegistry typeRegistry = new TypeRegistry();
+    private final TypeManager typeRegistry = new TypeRegistry();
+    private final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+
+    @Test
+    public void testNonexistentType()
+    {
+        TypeManager typeManager = new TypeRegistry();
+        assertNull(typeManager.getType(parseTypeSignature("not a real type")));
+    }
 
     @Test
     public void testIsTypeOnlyCoercion()
@@ -263,8 +274,6 @@ public class TestTypeRegistry
     @Test
     public void testCastOperatorsExistForCoercions()
     {
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-
         Set<Type> types = getStandardPrimitiveTypes();
         for (Type sourceType : types) {
             for (Type resultType : types) {
@@ -294,7 +303,7 @@ public class TestTypeRegistry
         return builder.build();
     }
 
-    private void assertCommonSuperType(Type firstType, Type secondType, Type expected)
+    private static void assertCommonSuperType(Type firstType, Type secondType, Type expected)
     {
         TypeRegistry typeManager = new TypeRegistry();
         assertEquals(typeManager.getCommonSuperType(firstType, secondType), Optional.ofNullable(expected));

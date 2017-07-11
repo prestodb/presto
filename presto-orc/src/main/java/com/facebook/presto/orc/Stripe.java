@@ -14,7 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,9 +27,9 @@ public class Stripe
     private final long rowCount;
     private final List<ColumnEncoding> columnEncodings;
     private final List<RowGroup> rowGroups;
-    private final StreamSources dictionaryStreamSources;
+    private final InputStreamSources dictionaryStreamSources;
 
-    public Stripe(long rowCount, List<ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, StreamSources dictionaryStreamSources)
+    public Stripe(long rowCount, List<ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, InputStreamSources dictionaryStreamSources)
     {
         this.rowCount = rowCount;
         this.columnEncodings = requireNonNull(columnEncodings, "columnEncodings is null");
@@ -52,7 +52,7 @@ public class Stripe
         return rowGroups;
     }
 
-    public StreamSources getDictionaryStreamSources()
+    public InputStreamSources getDictionaryStreamSources()
     {
         return dictionaryStreamSources;
     }

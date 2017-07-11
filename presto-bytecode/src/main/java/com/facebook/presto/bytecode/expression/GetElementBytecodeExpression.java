@@ -60,6 +60,6 @@ class GetElementBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<BytecodeNode>of(index);
+        return ImmutableList.of(index);
     }
 }

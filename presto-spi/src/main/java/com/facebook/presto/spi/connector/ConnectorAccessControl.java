@@ -17,6 +17,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 
+import java.util.Collections;
+import java.util.Set;
+
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -35,6 +38,8 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
 
 public interface ConnectorAccessControl
 {
@@ -69,6 +74,28 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
+     *
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterSchemas} method must handle filter all results for unauthorized users,
+     * since there are multiple way to list schemas.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
+    {
+        denyShowSchemas();
+    }
+
+    /**
+     * Filter the list of schemas to those visible to the identity.
+     */
+    default Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
+    {
+        return Collections.emptySet();
+    }
+
+    /**
      * Check if identity is allowed to create the specified table in this catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
@@ -96,6 +123,28 @@ public interface ConnectorAccessControl
     default void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
+     *
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterTables} method must filter all results for unauthorized users,
+     * since there are multiple ways to list tables.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+        denyShowTablesMetadata(schemaName);
+    }
+
+    /**
+     * Filter the list of tables and views to those visible to the identity.
+     */
+    default Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, Identity identity, Set<SchemaTableName> tableNames)
+    {
+        return Collections.emptySet();
     }
 
     /**
@@ -213,7 +262,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
+    default void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
         denyGrantTablePrivilege(privilege.toString(), tableName.toString());
     }
@@ -223,7 +272,7 @@ public interface ConnectorAccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
+    default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
     }

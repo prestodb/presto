@@ -20,26 +20,25 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class ProjectionPushDown
         implements PlanOptimizer
 {
@@ -94,7 +93,7 @@ public class ProjectionPushDown
 
             for (int i = 0; i < source.getSources().size(); i++) {
                 Map<Symbol, SymbolReference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
-                ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();      // assignments for the new ProjectNode
+                Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 
                 // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
                 Map<Symbol, Symbol> projectSymbolMapping = new HashMap<>();
@@ -121,7 +120,7 @@ public class ProjectionPushDown
             for (int i = 0; i < exchange.getSources().size(); i++) {
                 Map<Symbol, SymbolReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
 
-                Map<Symbol, Expression> projections = new LinkedHashMap<>(); // Use LinkedHashMap to make output symbol order deterministic
+                Assignments.Builder projections = Assignments.builder();
                 ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
 
                 // Need to retain the partition keys for the exchange
@@ -145,7 +144,7 @@ public class ProjectionPushDown
                     projections.put(symbol, translatedExpression);
                     inputs.add(symbol);
                 }
-                newSourceBuilder.add(new ProjectNode(idAllocator.getNextId(), exchange.getSources().get(i), projections));
+                newSourceBuilder.add(new ProjectNode(idAllocator.getNextId(), exchange.getSources().get(i), projections.build()));
                 inputsBuilder.add(inputs.build());
             }
 
@@ -165,7 +164,7 @@ public class ProjectionPushDown
                     exchange.getPartitioningScheme().getPartitioning(),
                     outputBuilder.build(),
                     exchange.getPartitioningScheme().getHashColumn(),
-                    exchange.getPartitioningScheme().isReplicateNulls(),
+                    exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                     exchange.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(
@@ -189,6 +188,6 @@ public class ProjectionPushDown
 
     private static Expression translateExpression(Expression inputExpression, Map<Symbol, SymbolReference> symbolMapping)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(symbolMapping), inputExpression);
+        return new ExpressionSymbolInliner(symbolMapping).rewrite(inputExpression);
     }
 }

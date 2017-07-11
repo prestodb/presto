@@ -76,7 +76,7 @@ public class TestJdbcRecordSet
                 new JdbcColumnHandle("test", "text", VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
-        recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.<JdbcColumnHandle>of());
+        recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 

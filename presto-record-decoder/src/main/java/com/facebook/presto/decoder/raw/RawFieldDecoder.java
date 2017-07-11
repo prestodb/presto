@@ -78,7 +78,7 @@ public class RawFieldDecoder
     @Override
     public Set<Class<?>> getJavaTypes()
     {
-        return ImmutableSet.<Class<?>>of(boolean.class, long.class, double.class, Slice.class);
+        return ImmutableSet.of(boolean.class, long.class, double.class, Slice.class);
     }
 
     @Override

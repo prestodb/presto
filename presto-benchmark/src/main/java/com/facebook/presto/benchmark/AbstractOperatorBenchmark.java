@@ -26,6 +26,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.transaction.TransactionId;
@@ -100,21 +101,28 @@ public abstract class AbstractOperatorBenchmark
 
     protected abstract List<Driver> createDrivers(TaskContext taskContext);
 
-    protected void execute(TaskContext taskContext)
+    protected Map<String, Long> execute(TaskContext taskContext)
     {
         List<Driver> drivers = createDrivers(taskContext);
 
+        long peakMemory = 0;
         boolean done = false;
         while (!done) {
             boolean processed = false;
             for (Driver driver : drivers) {
                 if (!driver.isFinished()) {
                     driver.process();
+                    long lastPeakMemory = peakMemory;
+                    peakMemory = (long) taskContext.getTaskStats().getMemoryReservation().getValue(BYTE);
+                    if (peakMemory <= lastPeakMemory) {
+                        peakMemory = lastPeakMemory;
+                    }
                     processed = true;
                 }
             }
             done = !processed;
         }
+        return ImmutableMap.of("peak_memory", peakMemory);
     }
 
     @Override
@@ -126,15 +134,16 @@ public abstract class AbstractOperatorBenchmark
         ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
+        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor, new DataSize(256, MEGABYTE), spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), executor),
                         session,
                         false,
                         false);
 
         CpuTimer cpuTimer = new CpuTimer();
-        execute(taskContext);
+        Map<String, Long> executionStats = execute(taskContext);
         CpuDuration executionTime = cpuTimer.elapsedTime();
 
         TaskStats taskStats = taskContext.getTaskStats();
@@ -147,6 +156,7 @@ public abstract class AbstractOperatorBenchmark
 
         return ImmutableMap.<String, Long>builder()
                 // legacy computed values
+                .putAll(executionStats)
                 .put("elapsed_millis", executionTime.getWall().toMillis())
                 .put("input_rows_per_second", (long) (inputRows / executionTime.getWall().getValue(SECONDS)))
                 .put("output_rows_per_second", (long) (outputRows / executionTime.getWall().getValue(SECONDS)))

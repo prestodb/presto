@@ -21,13 +21,11 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -35,18 +33,19 @@ import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.MoreFutures.allAsList;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -54,9 +53,10 @@ import static java.util.stream.Collectors.toList;
 public class RaptorPageSink
         implements ConnectorPageSink
 {
+    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
+
     private final long transactionId;
     private final StorageManager storageManager;
-    private final JsonCodec<ShardInfo> shardInfoCodec;
     private final PageSorter pageSorter;
     private final List<Long> columnIds;
     private final List<Type> columnTypes;
@@ -73,7 +73,6 @@ public class RaptorPageSink
     public RaptorPageSink(
             PageSorter pageSorter,
             StorageManager storageManager,
-            JsonCodec<ShardInfo> shardInfoCodec,
             long transactionId,
             List<Long> columnIds,
             List<Type> columnTypes,
@@ -89,7 +88,6 @@ public class RaptorPageSink
         this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
-        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.maxBufferBytes = requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes();
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
@@ -97,12 +95,6 @@ public class RaptorPageSink
 
         this.bucketCount = bucketCount;
         this.bucketFields = bucketColumnIds.stream().mapToInt(columnIds::indexOf).toArray();
-
-        for (int field : bucketFields) {
-            if (!columnTypes.get(field).equals(BIGINT)) {
-                throw new PrestoException(NOT_SUPPORTED, "Bucketing is only supported for BIGINT columns");
-            }
-        }
 
         if (temporalColumnHandle.isPresent() && columnIds.contains(temporalColumnHandle.get().getColumnId())) {
             temporalColumnIndex = OptionalInt.of(columnIds.indexOf(temporalColumnHandle.get().getColumnId()));
@@ -130,19 +122,19 @@ public class RaptorPageSink
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
-        List<ShardInfo> shards = new ArrayList<>();
-        for (PageBuffer pageBuffer : pageWriter.getPageBuffers()) {
+        List<CompletableFuture<? extends List<Slice>>> futureSlices = pageWriter.getPageBuffers().stream().map(pageBuffer -> {
             pageBuffer.flush();
-            shards.addAll(pageBuffer.getStoragePageSink().commit());
-        }
+            CompletableFuture<List<ShardInfo>> futureShards = pageBuffer.getStoragePageSink().commit();
+            return futureShards.thenApply(shards -> shards.stream()
+                    .map(shard -> Slices.wrappedBuffer(SHARD_INFO_CODEC.toJsonBytes(shard)))
+                    .collect(toList()));
+        }).collect(toList());
 
-        ImmutableList.Builder<Slice> fragments = ImmutableList.builder();
-        for (ShardInfo shard : shards) {
-            fragments.add(Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(shard)));
-        }
-        return fragments.build();
+        return allAsList(futureSlices).thenApply(lists -> lists.stream()
+                .flatMap(Collection::stream)
+                .collect(toList()));
     }
 
     @Override
@@ -213,8 +205,12 @@ public class RaptorPageSink
             checkArgument(temporalColumnIndex.isPresent() == temporalColumnType.isPresent(),
                     "temporalColumnIndex and temporalColumnType must be both present or absent");
 
-            this.bucketFunction = bucketCount.isPresent() ? Optional.of(new RaptorBucketFunction(bucketCount.getAsInt())) : Optional.empty();
-            this.temporalFunction = temporalColumnType.map(type -> TemporalFunction.create(temporalColumnType.get()));
+            List<Type> bucketTypes = Arrays.stream(bucketFields)
+                    .mapToObj(columnTypes::get)
+                    .collect(toList());
+
+            this.bucketFunction = bucketCount.isPresent() ? Optional.of(new RaptorBucketFunction(bucketCount.getAsInt(), bucketTypes)) : Optional.empty();
+            this.temporalFunction = temporalColumnType.map(TemporalFunction::create);
         }
 
         @Override
@@ -337,11 +333,11 @@ public class RaptorPageSink
         static TemporalFunction create(Type temporalColumnType)
         {
             if (temporalColumnType.equals(DATE)) {
-                return (temporalBlock, position) -> Ints.checkedCast(DATE.getLong(temporalBlock, position));
+                return (temporalBlock, position) -> toIntExact(DATE.getLong(temporalBlock, position));
             }
 
             if (temporalColumnType.equals(TIMESTAMP)) {
-                return (temporalBlock, position) -> Ints.checkedCast(MILLISECONDS.toDays(temporalBlock.getLong(position, 0)));
+                return (temporalBlock, position) -> toIntExact(MILLISECONDS.toDays(temporalBlock.getLong(position, 0)));
             }
 
             throw new IllegalArgumentException("Wrong type for temporal column: " + temporalColumnType);

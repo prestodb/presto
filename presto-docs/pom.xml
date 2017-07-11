@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.155</version>
+        <version>0.181-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-docs</artifactId>
@@ -17,14 +17,14 @@
     </properties>
 
     <!--
-    Genarate HTML docs quickly while developing:
+    Generate HTML docs quickly while developing:
 
     brew install python
     pip install sphinx
 
-    make -C presto-docs clean html SPHINXBUILD=/usr/local/share/python/sphinx-build
+    make -C presto-docs clean html
 
-    Find them here: presto-docs/target/html
+    open presto-docs/target/html/index.html
     -->
 
     <build>
@@ -45,7 +45,81 @@
 
         <plugins>
             <plugin>
-                <groupId>kr.motd.maven</groupId>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>validate-reserved</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>com.facebook.presto.sql.ReservedIdentifiers</mainClass>
+                            <arguments>
+                                <argument>validateDocs</argument>
+                                <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-thrift-idl</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>com.facebook.swift.generator.swift2thrift.Main</mainClass>
+                            <arguments>
+                                <argument>com.facebook.presto.connector.thrift.api.PrestoThriftService</argument>
+                                <argument>-recursive</argument>
+                                <argument>-out</argument>
+                                <argument>${project.build.directory}/PrestoThriftService.thrift</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>validate-thrift-idl</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>diff</executable>
+                            <arguments>
+                                <argument>-b</argument>
+                                <argument>-c</argument>
+                                <argument>${project.basedir}/src/main/sphinx/include/PrestoThriftService.thrift</argument>
+                                <argument>${project.build.directory}/PrestoThriftService.thrift</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <includeProjectDependencies>false</includeProjectDependencies>
+                    <includePluginDependencies>true</includePluginDependencies>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.facebook.presto</groupId>
+                        <artifactId>presto-parser</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.facebook.presto</groupId>
+                        <artifactId>presto-thrift-connector-api</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.facebook.swift</groupId>
+                        <artifactId>swift2thrift-generator-cli</artifactId>
+                        <version>${dep.swift.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <plugin>
+                <groupId>io.airlift.maven.plugins</groupId>
                 <artifactId>sphinx-maven-plugin</artifactId>
                 <configuration>
                     <fork>true</fork>

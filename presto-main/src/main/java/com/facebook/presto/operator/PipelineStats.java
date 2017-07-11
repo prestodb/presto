@@ -27,6 +27,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -34,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class PipelineStats
 {
+    private final int pipelineId;
+
     private final DateTime firstStartTime;
     private final DateTime lastStartTime;
     private final DateTime lastEndTime;
@@ -46,6 +49,7 @@ public class PipelineStats
     private final int queuedPartitionedDrivers;
     private final int runningDrivers;
     private final int runningPartitionedDrivers;
+    private final int blockedDrivers;
     private final int completedDrivers;
 
     private final DataSize memoryReservation;
@@ -75,6 +79,8 @@ public class PipelineStats
 
     @JsonCreator
     public PipelineStats(
+            @JsonProperty("pipelineId") int pipelineId,
+
             @JsonProperty("firstStartTime") DateTime firstStartTime,
             @JsonProperty("lastStartTime") DateTime lastStartTime,
             @JsonProperty("lastEndTime") DateTime lastEndTime,
@@ -87,6 +93,7 @@ public class PipelineStats
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
@@ -114,6 +121,8 @@ public class PipelineStats
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
             @JsonProperty("drivers") List<DriverStats> drivers)
     {
+        this.pipelineId = pipelineId;
+
         this.firstStartTime = firstStartTime;
         this.lastStartTime = lastStartTime;
         this.lastEndTime = lastEndTime;
@@ -131,6 +140,8 @@ public class PipelineStats
         this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
+        this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
@@ -161,6 +172,12 @@ public class PipelineStats
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
         this.drivers = ImmutableList.copyOf(requireNonNull(drivers, "drivers is null"));
+    }
+
+    @JsonProperty
+    public int getPipelineId()
+    {
+        return pipelineId;
     }
 
     @Nullable
@@ -224,6 +241,12 @@ public class PipelineStats
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
+    }
+
+    @JsonProperty
+    public int getBlockedDrivers()
+    {
+        return blockedDrivers;
     }
 
     @JsonProperty
@@ -343,6 +366,7 @@ public class PipelineStats
     public PipelineStats summarize()
     {
         return new PipelineStats(
+                pipelineId,
                 firstStartTime,
                 lastStartTime,
                 lastEndTime,
@@ -353,6 +377,7 @@ public class PipelineStats
                 queuedPartitionedDrivers,
                 runningDrivers,
                 runningPartitionedDrivers,
+                blockedDrivers,
                 completedDrivers,
                 memoryReservation,
                 systemMemoryReservation,
@@ -370,7 +395,9 @@ public class PipelineStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
-                operatorSummaries,
-                ImmutableList.<DriverStats>of());
+                operatorSummaries.stream()
+                        .map(OperatorStats::summarize)
+                        .collect(Collectors.toList()),
+                ImmutableList.of());
     }
 }

@@ -11,15 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.hive.parquet.reader;
 
-import com.facebook.presto.hive.util.DecimalUtils;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import parquet.column.ColumnDescriptor;
-import parquet.io.api.Binary;
+
+import static com.facebook.presto.hive.util.DecimalUtils.getShortDecimalValue;
+import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public class ParquetShortDecimalColumnReader
         extends ParquetColumnReader
@@ -29,30 +32,40 @@ public class ParquetShortDecimalColumnReader
         super(descriptor);
     }
 
-    public BlockBuilder createBlockBuilder(Type type)
-    {
-        return type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
-    }
-
     @Override
-    public void readValues(BlockBuilder blockBuilder, int valueNumber, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        for (int i = 0; i < valueNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
-                Binary value = valuesReader.readBytes();
-                type.writeLong(blockBuilder, DecimalUtils.getShortDecimalValue(value.getBytes()));
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            long decimalValue;
+            if (columnDescriptor.getType().equals(INT32)) {
+                HiveDecimalWritable hiveDecimalWritable = new HiveDecimalWritable(HiveDecimal.create(valuesReader.readInteger()));
+                decimalValue = getShortDecimalValue(hiveDecimalWritable, ((DecimalType) type).getScale());
+            }
+            else if (columnDescriptor.getType().equals(INT64)) {
+                HiveDecimalWritable hiveDecimalWritable = new HiveDecimalWritable(HiveDecimal.create(valuesReader.readLong()));
+                decimalValue = getShortDecimalValue(hiveDecimalWritable, ((DecimalType) type).getScale());
             }
             else {
-                blockBuilder.appendNull();
+                decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());
             }
+            type.writeLong(blockBuilder, decimalValue);
+        }
+        else {
+            blockBuilder.appendNull();
         }
     }
 
     @Override
-    public void skipValues(int offsetNumber)
+    protected void skipValue()
     {
-        for (int i = 0; i < offsetNumber; i++) {
-            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            if (columnDescriptor.getType().equals(INT32)) {
+                valuesReader.readInteger();
+            }
+            else if (columnDescriptor.getType().equals(INT64)) {
+                valuesReader.readLong();
+            }
+            else {
                 valuesReader.readBytes();
             }
         }

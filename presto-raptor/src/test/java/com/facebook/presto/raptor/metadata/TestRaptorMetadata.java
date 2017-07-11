@@ -46,8 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteArrayDataOutput;
-import io.airlift.json.JsonCodec;
-import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.util.BooleanMapper;
@@ -68,6 +66,7 @@ import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPE
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.ORGANIZED_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
@@ -77,7 +76,6 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.io.ByteStreams.newDataOutput;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
@@ -90,8 +88,6 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestRaptorMetadata
 {
-    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
-    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
     private static final SchemaTableName DEFAULT_TEST_LINEITEMS = new SchemaTableName("test", "lineitems");
     private static final ConnectorSession SESSION = new TestingConnectorSession(
@@ -117,7 +113,7 @@ public class TestRaptorMetadata
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -214,6 +210,41 @@ public class TestRaptorMetadata
 
         // verify temporal column
         assertEquals(metadataDao.getTemporalColumnId(tableId), Long.valueOf(4));
+
+        // verify no organization
+        assertFalse(metadataDao.getTableInformation(tableId).isOrganized());
+
+        metadata.dropTable(SESSION, tableHandle);
+    }
+
+    @Test
+    public void testTablePropertiesWithOrganization()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+
+        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
+                ORDERING_PROPERTY, ImmutableList.of("orderdate", "custkey"),
+                ORGANIZED_PROPERTY, true));
+        metadata.createTable(SESSION, ordersTable);
+
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+        assertEquals(raptorTableHandle.getTableId(), 1);
+
+        long tableId = raptorTableHandle.getTableId();
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
+
+        // verify sort columns
+        List<TableColumn> sortColumns = metadataDao.listSortColumns(tableId);
+        assertTableColumnsEqual(sortColumns, ImmutableList.of(
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", DATE, 4, OptionalInt.empty(), OptionalInt.of(0), false),
+                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, OptionalInt.empty(), OptionalInt.of(1), false)));
+
+        // verify organization
+        assertTrue(metadataDao.getTableInformation(tableId).isOrganized());
+
         metadata.dropTable(SESSION, tableHandle);
     }
 
@@ -369,6 +400,24 @@ public class TestRaptorMetadata
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
         metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderkey")));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Table with temporal columns cannot be organized")
+    public void testInvalidTemporalOrganization()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(
+                TEMPORAL_COLUMN_PROPERTY, "orderdate",
+                ORGANIZED_PROPERTY, true)));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Table organization requires an ordering")
+    public void testInvalidOrderingOrganization()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORGANIZED_PROPERTY, true)));
     }
 
     @Test
@@ -610,7 +659,7 @@ public class TestRaptorMetadata
         assertNull(transactionSuccessful(transactionId));
 
         // commit insert
-        metadata.finishInsert(SESSION, insertHandle, ImmutableList.<Slice>of());
+        metadata.finishInsert(SESSION, insertHandle, ImmutableList.of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }
@@ -766,6 +815,7 @@ public class TestRaptorMetadata
             assertEquals(actualColumn.getName(), expectedColumn.getName());
             assertEquals(actualColumn.getType(), expectedColumn.getType());
         }
+        assertEquals(actual.getProperties(), expected.getProperties());
     }
 
     private static void assertTableColumnEqual(TableColumn actual, TableColumn expected)

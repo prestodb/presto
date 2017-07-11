@@ -104,8 +104,8 @@ public abstract class DefaultTraversalVisitor<R, C>
             process(node.getWith().get(), context);
         }
         process(node.getQueryBody(), context);
-        for (SortItem sortItem : node.getOrderBy()) {
-            process(sortItem, context);
+        if (node.getOrderBy().isPresent()) {
+            process(node.getOrderBy().get(), context);
         }
 
         return null;
@@ -174,6 +174,20 @@ public abstract class DefaultTraversalVisitor<R, C>
             process(node.getWindow().get(), context);
         }
 
+        if (node.getFilter().isPresent()) {
+            process(node.getFilter().get(), context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitGroupingOperation(GroupingOperation node, C context)
+    {
+        for (Expression columnArgument : node.getGroupingColumns()) {
+            process(columnArgument, context);
+        }
+
         return null;
     }
 
@@ -191,8 +205,8 @@ public abstract class DefaultTraversalVisitor<R, C>
             process(expression, context);
         }
 
-        for (SortItem sortItem : node.getOrderBy()) {
-            process(sortItem.getSortKey(), context);
+        if (node.getOrderBy().isPresent()) {
+            process(node.getOrderBy().get(), context);
         }
 
         if (node.getFrame().isPresent()) {
@@ -276,6 +290,17 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitBindExpression(BindExpression node, C context)
+    {
+        for (Expression value : node.getValues()) {
+            process(value, context);
+        }
+        process(node.getFunction(), context);
+
+        return null;
+    }
+
+    @Override
     protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
     {
         return process(node.getValue(), context);
@@ -339,6 +364,15 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitOrderBy(OrderBy node, C context)
+    {
+        for (SortItem sortItem : node.getSortItems()) {
+            process(sortItem, context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitSortItem(SortItem node, C context)
     {
         return process(node.getSortKey(), context);
@@ -360,8 +394,8 @@ public abstract class DefaultTraversalVisitor<R, C>
         if (node.getHaving().isPresent()) {
             process(node.getHaving().get(), context);
         }
-        for (SortItem sortItem : node.getOrderBy()) {
-            process(sortItem, context);
+        if (node.getOrderBy().isPresent()) {
+            process(node.getOrderBy().get(), context);
         }
         return null;
     }
@@ -554,5 +588,30 @@ public abstract class DefaultTraversalVisitor<R, C>
         }
 
         return null;
+    }
+
+    @Override
+    protected R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
+    {
+        process(node.getValue(), context);
+        process(node.getSubquery(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitExists(ExistsPredicate node, C context)
+    {
+        process(node.getSubquery(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitLateral(Lateral node, C context)
+    {
+        process(node.getQuery(), context);
+
+        return super.visitLateral(node, context);
     }
 }

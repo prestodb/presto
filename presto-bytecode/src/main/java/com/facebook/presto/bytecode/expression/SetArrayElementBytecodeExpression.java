@@ -69,6 +69,6 @@ class SetArrayElementBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<BytecodeNode>of(index, value);
+        return ImmutableList.of(index, value);
     }
 }

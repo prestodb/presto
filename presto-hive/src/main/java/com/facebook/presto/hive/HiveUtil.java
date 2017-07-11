@@ -28,8 +28,11 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.compress.lzo.LzoCodec;
+import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
@@ -69,6 +72,7 @@ import java.math.BigInteger;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -76,6 +80,8 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -86,12 +92,12 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
-import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpaces;
+import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -102,6 +108,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.Byte.parseByte;
 import static java.lang.Double.parseDouble;
@@ -114,6 +121,7 @@ import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
@@ -165,13 +173,23 @@ public final class HiveUtil
         setReadColumns(configuration, readHiveColumnIndexes);
 
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
-        JobConf jobConf = new JobConf(configuration);
+        JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
         // propagate serialization configuration to getRecordReader
         schema.stringPropertyNames().stream()
                 .filter(name -> name.startsWith("serialization."))
                 .forEach(name -> jobConf.set(name, schema.getProperty(name)));
+
+        // add Airlift LZO and LZOP to head of codecs list so as to not override existing entries
+        List<String> codecs = newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(jobConf.get("io.compression.codecs", "")));
+        if (!codecs.contains(LzoCodec.class.getName())) {
+            codecs.add(0, LzoCodec.class.getName());
+        }
+        if (!codecs.contains(LzopCodec.class.getName())) {
+            codecs.add(0, LzopCodec.class.getName());
+        }
+        jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
 
         try {
             return retry()
@@ -199,7 +217,7 @@ public final class HiveUtil
     {
         String inputFormatName = getInputFormatName(schema);
         try {
-            JobConf jobConf = new JobConf(configuration);
+            JobConf jobConf = toJobConf(configuration);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
@@ -677,7 +695,7 @@ public final class HiveUtil
     public static Slice varcharPartitionKey(String value, String name, Type columnType)
     {
         Slice partitionKey = Slices.utf8Slice(value);
-        VarcharType varcharType = checkType(columnType, VarcharType.class, "columnType");
+        VarcharType varcharType = (VarcharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > varcharType.getLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
@@ -686,8 +704,8 @@ public final class HiveUtil
 
     public static Slice charPartitionKey(String value, String name, Type columnType)
     {
-        Slice partitionKey = trimSpaces(Slices.utf8Slice(value));
-        CharType charType = checkType(columnType, CharType.class, "columnType");
+        Slice partitionKey = trimTrailingSpaces(Slices.utf8Slice(value));
+        CharType charType = (CharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
@@ -696,7 +714,7 @@ public final class HiveUtil
 
     public static SchemaTableName schemaTableName(ConnectorTableHandle tableHandle)
     {
-        return checkType(tableHandle, HiveTableHandle.class, "tableHandle").getSchemaTableName();
+        return ((HiveTableHandle) tableHandle).getSchemaTableName();
     }
 
     public static List<HiveColumnHandle> hiveColumnHandles(String connectorId, Table table)
@@ -709,8 +727,11 @@ public final class HiveUtil
         // add the partition keys last (like Hive does)
         columns.addAll(getPartitionKeyColumnHandles(connectorId, table));
 
-        // add hidden column
+        // add hidden columns
         columns.add(pathColumnHandle(connectorId));
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            columns.add(bucketColumnHandle(connectorId));
+        }
 
         return columns.build();
     }
@@ -724,7 +745,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR));
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
         }
@@ -742,15 +763,10 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY));
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();
-    }
-
-    public static Slice base64Decode(byte[] bytes)
-    {
-        return Slices.wrappedBuffer(Base64.getDecoder().decode(bytes));
     }
 
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
@@ -761,18 +777,9 @@ public final class HiveUtil
     }
 
     @Nullable
-    public static String annotateColumnComment(Optional<String> comment, boolean partitionKey)
+    public static String columnExtraInfo(boolean partitionKey)
     {
-        String normalizedComment = comment.orElse("").trim();
-        if (partitionKey) {
-            if (normalizedComment.isEmpty()) {
-                normalizedComment = "Partition Key";
-            }
-            else {
-                normalizedComment = "Partition Key: " + normalizedComment;
-            }
-        }
-        return normalizedComment.isEmpty() ? null : normalizedComment;
+        return partitionKey ? "partition key" : null;
     }
 
     public static List<String> toPartitionValues(String partitionName)
@@ -798,13 +805,16 @@ public final class HiveUtil
         return resultBuilder.build();
     }
 
-    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path)
+    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
         }
         if (isPathColumnHandle(columnHandle)) {
             return path.toString();
+        }
+        if (isBucketColumnHandle(columnHandle)) {
+            return String.valueOf(bucketNumber.getAsInt());
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }

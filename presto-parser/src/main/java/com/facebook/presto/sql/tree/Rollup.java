@@ -61,7 +61,7 @@ public final class Rollup
                 .addAll(IntStream.range(0, numColumns)
                         .mapToObj(i -> columns.subList(0, numColumns - i)
                                 .stream()
-                                .map(QualifiedNameReference::new)
+                                .map(DereferenceExpression::from)
                                 .map(Expression.class::cast)
                                 .collect(toSet()))
                         .collect(toList()))
@@ -73,6 +73,12 @@ public final class Rollup
     protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitRollup(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

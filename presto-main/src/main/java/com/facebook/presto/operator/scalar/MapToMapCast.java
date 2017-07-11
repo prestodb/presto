@@ -20,15 +20,12 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -36,7 +33,8 @@ import java.lang.invoke.MethodHandles;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarOperator(CAST)
 public final class MapToMapCast
@@ -56,6 +54,7 @@ public final class MapToMapCast
             @TypeParameter("FV") Type fromValueType,
             @TypeParameter("TK") Type toKeyType,
             @TypeParameter("TV") Type toValueType,
+            @TypeParameter("map(TK,TV)") Type toMapType,
             ConnectorSession session,
             @SqlType("map(FK,FV)") Block fromMap)
     {
@@ -85,16 +84,16 @@ public final class MapToMapCast
                 if (toKey == null) {
                     throw new PrestoException(StandardErrorCode.INVALID_CAST_ARGUMENT, "map key is null");
                 }
-                appendToBlockBuilder(toKeyType, toKey, keyBlockBuilder);
+                writeNativeValue(toKeyType, keyBlockBuilder, toKey);
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
         }
         Block keyBlock = keyBlockBuilder.build();
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(toKeyType, toValueType), new BlockBuilderStatus(), fromMap.getPositionCount());
+
+        BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             if (!typedSet.contains(keyBlock, i / 2)) {
                 typedSet.add(keyBlock, i / 2);
@@ -107,12 +106,10 @@ public final class MapToMapCast
                 Object fromValue = readNativeValue(fromValueType, fromMap, i + 1);
                 try {
                     Object toValue = valueCastFunction.invoke(fromValue);
-                    appendToBlockBuilder(toValueType, toValue, blockBuilder);
+                    writeNativeValue(toValueType, blockBuilder, toValue);
                 }
                 catch (Throwable t) {
-                    Throwables.propagateIfInstanceOf(t, Error.class);
-                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
+                    throw internalError(t);
                 }
             }
             else {
@@ -120,6 +117,8 @@ public final class MapToMapCast
                 throw new PrestoException(StandardErrorCode.INVALID_CAST_ARGUMENT, "duplicate keys");
             }
         }
-        return blockBuilder.build();
+
+        mapBlockBuilder.closeEntry();
+        return (Block) toMapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 }

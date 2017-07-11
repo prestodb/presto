@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -39,6 +40,7 @@ import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class CountConstantOptimizer
         implements PlanOptimizer
 {
@@ -60,19 +62,20 @@ public class CountConstantOptimizer
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
-            Map<Symbol, FunctionCall> aggregations = new LinkedHashMap<>(node.getAggregations());
-            Map<Symbol, Signature> functions = new LinkedHashMap<>(node.getFunctions());
+            Map<Symbol, Aggregation> aggregations = new LinkedHashMap<>(node.getAggregations());
 
             PlanNode source = context.rewrite(node.getSource());
             if (source instanceof ProjectNode) {
                 ProjectNode projectNode = (ProjectNode) source;
-                for (Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                     Symbol symbol = entry.getKey();
-                    FunctionCall functionCall = entry.getValue();
-                    Signature signature = node.getFunctions().get(symbol);
-                    if (isCountConstant(projectNode, functionCall, signature)) {
-                        aggregations.put(symbol, new FunctionCall(functionCall.getName(), functionCall.isDistinct(), ImmutableList.<Expression>of()));
-                        functions.put(symbol, new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)));
+                    Aggregation aggregation = entry.getValue();
+                    FunctionCall functionCall = aggregation.getCall();
+                    if (isCountConstant(projectNode, functionCall, aggregation.getSignature())) {
+                        aggregations.put(symbol, new Aggregation(
+                                new FunctionCall(functionCall.getName(), functionCall.getWindow(), functionCall.getFilter(), functionCall.isDistinct(), ImmutableList.of()),
+                                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
+                                aggregation.getMask()));
                     }
                 }
             }
@@ -81,8 +84,6 @@ public class CountConstantOptimizer
                     node.getId(),
                     source,
                     aggregations,
-                    functions,
-                    node.getMasks(),
                     node.getGroupingSets(),
                     node.getStep(),
                     node.getHashSymbol(),

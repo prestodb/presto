@@ -16,6 +16,8 @@ package com.facebook.presto.accumulo;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
+import com.facebook.presto.accumulo.index.ColumnCardinalityCache;
+import com.facebook.presto.accumulo.index.IndexLookup;
 import com.facebook.presto.accumulo.io.AccumuloPageSinkProvider;
 import com.facebook.presto.accumulo.io.AccumuloRecordSetProvider;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
@@ -27,7 +29,6 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -42,6 +43,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.PatternLayout;
 
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -96,6 +98,8 @@ public class AccumuloModule
         binder.bind(AccumuloTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(ZooKeeperMetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloTableManager.class).in(Scopes.SINGLETON);
+        binder.bind(IndexLookup.class).in(Scopes.SINGLETON);
+        binder.bind(ColumnCardinalityCache.class).in(Scopes.SINGLETON);
         binder.bind(Connector.class).toProvider(ConnectorProvider.class);
 
         configBinder(binder).bindConfig(AccumuloConfig.class);

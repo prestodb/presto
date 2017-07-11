@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.metadata.BooleanStatistics;
-import com.facebook.presto.orc.metadata.ColumnStatistics;
-import com.facebook.presto.orc.metadata.HiveBloomFilter;
-import com.facebook.presto.orc.metadata.RangeStatistics;
+import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.statistics.RangeStatistics;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -210,10 +210,10 @@ public class TupleDomainOrcPredicate<C>
                 return Domain.create(ValueSet.of(BOOLEAN, false), hasNullValue);
             }
         }
-        else if (isShortDecimal(type)) {
+        else if (isShortDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescale(value, (DecimalType) type).unscaledValue().longValue());
         }
-        else if (isLongDecimal(type)) {
+        else if (isLongDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
         }
         else if (isCharType(type) && columnStatistics.getStringStatistics() != null) {

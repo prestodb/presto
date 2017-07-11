@@ -148,7 +148,7 @@ public class TestTableWriterOperator
                 TEST_SESSION);
 
         return factory.createOperator(createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext());
     }
 
@@ -179,6 +179,7 @@ public class TestTableWriterOperator
             implements ConnectorPageSink
     {
         private CompletableFuture<?> future = new CompletableFuture<>();
+        private CompletableFuture<Collection<Slice>> finishFuture = new CompletableFuture<>();
 
         @Override
         public CompletableFuture<?> appendPage(Page page)
@@ -188,9 +189,10 @@ public class TestTableWriterOperator
         }
 
         @Override
-        public Collection<Slice> finish()
+        public CompletableFuture<Collection<Slice>> finish()
         {
-            return ImmutableList.of();
+            finishFuture = new CompletableFuture<>();
+            return finishFuture;
         }
 
         @Override
@@ -201,6 +203,7 @@ public class TestTableWriterOperator
         public void complete()
         {
             future.complete(null);
+            finishFuture.complete(ImmutableList.of());
         }
     }
 }

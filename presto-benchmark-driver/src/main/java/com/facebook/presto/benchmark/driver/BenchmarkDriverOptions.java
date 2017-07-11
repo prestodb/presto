@@ -90,6 +90,7 @@ public class BenchmarkDriverOptions
                 parseServer(server),
                 user,
                 "presto-benchmark",
+                null,
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),
@@ -109,7 +110,7 @@ public class BenchmarkDriverOptions
 
         HostAndPort host = HostAndPort.fromString(server);
         try {
-            return new URI("http", null, host.getHostText(), host.getPortOrDefault(80), null, null, null);
+            return new URI("http", null, host.getHost(), host.getPortOrDefault(80), null, null, null);
         }
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);

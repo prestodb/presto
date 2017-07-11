@@ -15,15 +15,14 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
@@ -34,7 +33,7 @@ import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -49,9 +48,9 @@ public class StructStreamReader
     private int nextBatchSize;
 
     @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream presentStream;
+    private BooleanInputStream presentStream;
 
     private boolean rowGroupOpen;
 
@@ -121,15 +120,15 @@ public class StructStreamReader
         }
 
         // Build offsets for array block (null valued have no positions)
-        int[] offsets = new int[nextBatchSize];
-        offsets[0] = (nullVector[0] ? 0 : typeParameters.size());
-        for (int i = 1; i < nextBatchSize; i++) {
-            offsets[i] = offsets[i - 1] + (nullVector[i] ? 0 : typeParameters.size());
+        int[] offsets = new int[nextBatchSize + 1];
+        for (int i = 1; i < offsets.length; i++) {
+            int length = nullVector[i - 1] ? 0 : typeParameters.size();
+            offsets[i] = offsets[i - 1] + length;
         }
 
         // Struct is represented as an array block holding an interleaved block
         InterleavedBlock interleavedBlock = new InterleavedBlock(blocks);
-        ArrayBlock arrayBlock = new ArrayBlock(interleavedBlock, Slices.wrappedIntArray(offsets), 0, Slices.wrappedBooleanArray(nullVector));
+        ArrayBlock arrayBlock = new ArrayBlock(nextBatchSize, nullVector, offsets, interleavedBlock);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -146,10 +145,10 @@ public class StructStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanStream.class);
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -164,10 +163,10 @@ public class StructStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

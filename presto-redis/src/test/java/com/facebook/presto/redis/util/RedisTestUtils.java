@@ -20,7 +20,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
 import com.google.common.base.Joiner;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
@@ -39,7 +38,7 @@ public final class RedisTestUtils
     public static void installRedisPlugin(EmbeddedRedis embeddedRedis, QueryRunner queryRunner, Map<SchemaTableName, RedisTableDescription> tableDescriptions)
     {
         RedisPlugin redisPlugin = new RedisPlugin();
-        redisPlugin.setTableDescriptionSupplier(Suppliers.ofInstance(tableDescriptions));
+        redisPlugin.setTableDescriptionSupplier(() -> tableDescriptions);
         queryRunner.installPlugin(redisPlugin);
 
         Map<String, String> redisConfig = ImmutableMap.of(

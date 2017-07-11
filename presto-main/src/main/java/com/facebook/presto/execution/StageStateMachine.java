@@ -15,7 +15,10 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.Failures;
@@ -27,10 +30,13 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -60,6 +66,7 @@ public class StageStateMachine
     private final URI location;
     private final PlanFragment fragment;
     private final Session session;
+    private final SplitSchedulerStats scheduledStats;
 
     private final StateMachine<StageState> stageState;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
@@ -72,12 +79,19 @@ public class StageStateMachine
     private final AtomicLong peakMemory = new AtomicLong();
     private final AtomicLong currentMemory = new AtomicLong();
 
-    public StageStateMachine(StageId stageId, URI location, Session session, PlanFragment fragment, ExecutorService executor)
+    public StageStateMachine(
+            StageId stageId,
+            URI location,
+            Session session,
+            PlanFragment fragment,
+            ExecutorService executor,
+            SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
         this.location = requireNonNull(location, "location is null");
         this.session = requireNonNull(session, "session is null");
         this.fragment = requireNonNull(fragment, "fragment is null");
+        this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
         stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
         stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
@@ -200,6 +214,7 @@ public class StageStateMachine
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int runningDrivers = 0;
+        int blockedDrivers = 0;
         int completedDrivers = 0;
 
         long cumulativeMemory = 0;
@@ -217,12 +232,14 @@ public class StageStateMachine
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
 
+        long bufferedDataSize = 0;
         long outputDataSize = 0;
         long outputPositions = 0;
 
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        Map<String, OperatorStats> operatorToStats = new HashMap<>();
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
@@ -237,6 +254,7 @@ public class StageStateMachine
             totalDrivers += taskStats.getTotalDrivers();
             queuedDrivers += taskStats.getQueuedDrivers();
             runningDrivers += taskStats.getRunningDrivers();
+            blockedDrivers += taskStats.getBlockedDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeMemory += taskStats.getCumulativeMemory();
@@ -257,8 +275,16 @@ public class StageStateMachine
             processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
+            bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+
+            for (PipelineStats pipeline : taskStats.getPipelines()) {
+                for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
+                    String id = pipeline.getPipelineId() + "." + operatorStats.getOperatorId();
+                    operatorToStats.compute(id, (k, v) -> v == null ? operatorStats : v.add(operatorStats));
+                }
+            }
         }
 
         StageStats stageStats = new StageStats(
@@ -274,6 +300,7 @@ public class StageStateMachine
                 totalDrivers,
                 queuedDrivers,
                 runningDrivers,
+                blockedDrivers,
                 completedDrivers,
 
                 cumulativeMemory,
@@ -290,8 +317,10 @@ public class StageStateMachine
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
+                succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
-                outputPositions);
+                outputPositions,
+                ImmutableList.copyOf(operatorToStats.values()));
 
         ExecutionFailureInfo failureInfo = null;
         if (state == FAILED) {
@@ -310,7 +339,9 @@ public class StageStateMachine
 
     public void recordGetSplitTime(long startNanos)
     {
-        getSplitDistribution.add(System.nanoTime() - startNanos);
+        long elapsedNanos = System.nanoTime() - startNanos;
+        getSplitDistribution.add(elapsedNanos);
+        scheduledStats.getGetSplitTime().add(elapsedNanos, TimeUnit.NANOSECONDS);
     }
 
     public void recordScheduleTaskTime(long startNanos)

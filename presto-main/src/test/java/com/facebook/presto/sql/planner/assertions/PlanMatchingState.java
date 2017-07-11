@@ -17,31 +17,32 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A PlanMatchingState is a list of patterns representing a potential match
+ * for the sources of a PlanMatchNode. There is a 1:1 correspondence between
+ * the elements of the patterns and the sources.
+ *
+ * Example:
+ * During the matching process, a PlanMatchingState with patterns [pattern1, pattern2]
+ * is generated while visiting a PlanNode with sources [sourceA, sourceB].
+ * The matching process will attempt the following matches:
+ * [pattern1 : sourceA, pattern2 : sourceB]
+ */
 final class PlanMatchingState
 {
     private final List<PlanMatchPattern> patterns;
-    private final ExpressionAliases expressionAliases;
 
-    PlanMatchingState(List<PlanMatchPattern> patterns, ExpressionAliases expressionAliases)
+    PlanMatchingState(List<PlanMatchPattern> patterns)
     {
-        requireNonNull(expressionAliases, "expressionAliases is null");
         requireNonNull(patterns, "matchers is null");
-        this.expressionAliases = new ExpressionAliases(expressionAliases);
         this.patterns = ImmutableList.copyOf(patterns);
     }
 
     boolean isTerminated()
     {
         return patterns.isEmpty() || patterns.stream().allMatch(PlanMatchPattern::isTerminated);
-    }
-
-    PlanMatchingContext createContext(int matcherId)
-    {
-        checkArgument(matcherId < patterns.size(), "mactcherId out of scope");
-        return new PlanMatchingContext(expressionAliases, patterns.get(matcherId));
     }
 
     List<PlanMatchPattern> getPatterns()

@@ -44,6 +44,7 @@ public final class SessionRepresentation
     private final Locale locale;
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
+    private final Optional<String> clientInfo;
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> catalogProperties;
@@ -63,6 +64,7 @@ public final class SessionRepresentation
             @JsonProperty("locale") Locale locale,
             @JsonProperty("remoteUserAddress") Optional<String> remoteUserAddress,
             @JsonProperty("userAgent") Optional<String> userAgent,
+            @JsonProperty("clientInfo") Optional<String> clientInfo,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
@@ -80,6 +82,7 @@ public final class SessionRepresentation
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
@@ -164,6 +167,12 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
+    }
+
+    @JsonProperty
     public long getStartTime()
     {
         return startTime;
@@ -201,6 +210,7 @@ public final class SessionRepresentation
                 locale,
                 remoteUserAddress,
                 userAgent,
+                clientInfo,
                 startTime,
                 systemProperties,
                 catalogProperties,

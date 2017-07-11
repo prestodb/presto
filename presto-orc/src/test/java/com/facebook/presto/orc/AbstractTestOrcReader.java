@@ -26,9 +26,6 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Range;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveCharObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
-import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -46,50 +43,26 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Lists.newArrayList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaShortObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestOrcReader
 {
     private static final int CHAR_LENGTH = 10;
-
-    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_2 =
-            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(2, 1));
-    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_4 =
-            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(4, 2));
-    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_8 =
-            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(8, 4));
-    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_17 =
-            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(17, 8));
-    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_18 =
-            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(18, 8));
-    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_38 =
-            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 16));
-    private static final JavaHiveCharObjectInspector CHAR_INSPECTOR =
-            new JavaHiveCharObjectInspector(getCharTypeInfo(CHAR_LENGTH));
 
     private static final DecimalType DECIMAL_TYPE_PRECISION_2 = DecimalType.createDecimalType(2, 1);
     private static final DecimalType DECIMAL_TYPE_PRECISION_4 = DecimalType.createDecimalType(4, 2);
@@ -116,7 +89,7 @@ public abstract class AbstractTestOrcReader
     public void testBooleanSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000), BOOLEAN);
+        tester.testRoundTrip(BOOLEAN, newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)));
     }
 
     @Test
@@ -180,146 +153,163 @@ public abstract class AbstractTestOrcReader
                 .map(Number::longValue)
                 .collect(toList());
         tester.testRoundTrip(
-                javaByteObjectInspector,
+                TINYINT,
                 writeValues.stream()
-                        .map(value -> (long) value.byteValue()) // truncate values to byte range
-                        .collect(toList()),
-                BIGINT);
+                        .map(Long::byteValue) // truncate values to byte range
+                        .collect(toList()));
 
         tester.testRoundTrip(
-                javaShortObjectInspector,
+                SMALLINT,
                 writeValues.stream()
-                        .map(value -> (long) value.shortValue()) // truncate values to short range
-                        .collect(toList()),
-                BIGINT);
-
-        tester.testRoundTrip(javaIntObjectInspector, writeValues, BIGINT);
-        tester.testRoundTrip(javaLongObjectInspector, writeValues, BIGINT);
+                        .map(Long::shortValue) // truncate values to short range
+                        .collect(toList()));
 
         tester.testRoundTrip(
-                javaDateObjectInspector,
+                INTEGER,
+                writeValues.stream()
+                        .map(Long::intValue) // truncate values to int range
+                        .collect(toList()));
+
+        tester.testRoundTrip(BIGINT, writeValues);
+
+        tester.testRoundTrip(
+                DATE,
                 writeValues.stream()
                         .map(Long::intValue)
                         .map(SqlDate::new)
-                        .collect(toList()),
-                DATE);
+                        .collect(toList()));
 
         tester.testRoundTrip(
-                javaTimestampObjectInspector,
+                TIMESTAMP,
                 writeValues.stream()
                         .map(timestamp -> new SqlTimestamp(timestamp, UTC_KEY))
-                        .collect(toList()),
-                TIMESTAMP);
+                        .collect(toList()));
     }
 
     @Test
     public void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), REAL);
+        tester.testRoundTrip(REAL, floatSequence(0.0f, 0.1f, 30_000));
     }
 
     @Test
     public void testFloatNaNInfinity()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY), REAL);
-        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(-1000.0f, Float.NEGATIVE_INFINITY, 1.23f), REAL);
-        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(0.0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), REAL);
+        tester.testRoundTrip(REAL, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY));
+        tester.testRoundTrip(REAL, ImmutableList.of(-1000.0f, Float.NEGATIVE_INFINITY, 1.23f));
+        tester.testRoundTrip(REAL, ImmutableList.of(0.0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
 
-        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, -0.0f, 1.0f), REAL);
-        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, -1.0f, Float.POSITIVE_INFINITY), REAL);
-        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, 1.0f), REAL);
-        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), REAL);
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, -0.0f, 1.0f));
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, -1.0f, Float.POSITIVE_INFINITY));
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, 1.0f));
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
     }
 
     @Test
     public void testDoubleSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000), DOUBLE);
+        tester.testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000));
     }
 
     @Test
     public void testDecimalSequence()
             throws Exception
     {
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_2, decimalSequence("0", "1", 30, 2, 1), DECIMAL_TYPE_PRECISION_2);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_4, decimalSequence("0", "1", 30_00, 4, 2), DECIMAL_TYPE_PRECISION_4);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_8, decimalSequence("0", "100", 30_000, 8, 4), DECIMAL_TYPE_PRECISION_8);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_17, decimalSequence("0", "1000000", 30_000, 17, 8), DECIMAL_TYPE_PRECISION_17);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_18, decimalSequence("0", "1000000", 30_000, 18, 8), DECIMAL_TYPE_PRECISION_18);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_38, decimalSequence("0", "100000000000000", 30_000, 38, 16), DECIMAL_TYPE_PRECISION_38);
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_2, decimalSequence("-30", "1", 60, 2, 1));
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_4, decimalSequence("-3000", "1", 60_00, 4, 2));
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_8, decimalSequence("-3000000", "100", 60_000, 8, 4));
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_17, decimalSequence("-30000000000", "1000000", 60_000, 17, 8));
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_18, decimalSequence("-30000000000", "1000000", 60_000, 18, 8));
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_38, decimalSequence("-3000000000000000000", "100000000000000", 60_000, 38, 16));
     }
 
     @Test
     public void testDoubleNaNInfinity()
             throws Exception
     {
-        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(1000.0, -1.0, Double.POSITIVE_INFINITY), DOUBLE);
-        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(-1000.0, Double.NEGATIVE_INFINITY, 1.0), DOUBLE);
-        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), DOUBLE);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(1000.0, -1.0, Double.POSITIVE_INFINITY));
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(-1000.0, Double.NEGATIVE_INFINITY, 1.0));
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
 
-        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, -1.0, 1.0), DOUBLE);
-        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, -1.0, Double.POSITIVE_INFINITY), DOUBLE);
-        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, 1.0), DOUBLE);
-        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), DOUBLE);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, 1.0));
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, Double.POSITIVE_INFINITY));
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, 1.0));
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
     }
 
     @Test
     public void testStringUnicode()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000), VARCHAR);
+        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000)));
     }
 
     @Test
     public void testStringDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString), VARCHAR);
+        tester.testRoundTrip(
+                VARCHAR,
+                intsBetween(0, 30_000).stream()
+                        .map(Object::toString)
+                        .collect(toList()));
     }
 
     @Test
     public void testStringDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000), VARCHAR);
+        tester.testRoundTrip(
+                VARCHAR,
+                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                        .map(Object::toString)
+                        .collect(toList()));
     }
 
     @Test
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123")), VARCHAR);
+        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))));
     }
 
     @Test
     public void testEmptyStringSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000), VARCHAR);
+        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(""), 30_000)));
     }
 
     @Test
     public void testCharDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(CHAR_INSPECTOR, transform(intsBetween(0, 30_000), this::toCharValue), CHAR);
+        tester.testRoundTrip(
+                CHAR,
+                intsBetween(0, 30_000).stream()
+                        .map(this::toCharValue)
+                        .collect(toList()));
     }
 
     @Test
     public void testCharDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(CHAR_INSPECTOR, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), this::toCharValue)), 30_000), CHAR);
+        tester.testRoundTrip(
+                CHAR,
+                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                        .map(this::toCharValue)
+                        .collect(toList()));
     }
 
     @Test
     public void testEmptyCharSequence()
             throws Exception
     {
-        tester.testRoundTrip(CHAR_INSPECTOR, limit(cycle("          "), 30_000), CHAR);
+        tester.testRoundTrip(CHAR, newArrayList(limit(cycle("          "), 30_000)));
     }
 
     private String toCharValue(Object value)
@@ -332,13 +322,13 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(
-                javaByteArrayObjectInspector,
+                VARBINARY,
                 intsBetween(0, 30_000).stream()
                         .map(Object::toString)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)
-                        .collect(toList()),
-                VARBINARY);
+                        .collect(toList())
+        );
     }
 
     @Test
@@ -346,45 +336,53 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(
-                javaByteArrayObjectInspector,
-                ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                VARBINARY, ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
                         .map(Object::toString)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)
-                        .collect(toList()),
-                VARBINARY);
+                        .collect(toList())
+        );
     }
 
     @Test
     public void testEmptyBinarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaByteArrayObjectInspector, nCopies(30_000, new SqlVarbinary(new byte[0])), VARBINARY);
+        tester.testRoundTrip(VARBINARY, nCopies(30_000, new SqlVarbinary(new byte[0])));
     }
 
     @Test
     public void testDwrfInvalidCheckpointsForRowGroupDictionary()
             throws Exception
     {
-        Iterable<Integer> values = limit(cycle(concat(
+        List<Integer> values = newArrayList(limit(
+                cycle(concat(
                         ImmutableList.of(1), nCopies(9999, 123),
                         ImmutableList.of(2), nCopies(9999, 123),
                         ImmutableList.of(3), nCopies(9999, 123),
                         nCopies(1_000_000, null))),
-                200_000);
+                200_000));
 
-        tester.assertRoundTrip(javaIntObjectInspector, transform(values, value -> value == null ? null : (long) value), BIGINT);
+        tester.assertRoundTrip(INTEGER, values);
 
-        Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
-        tester.assertRoundTrip(javaStringObjectInspector, stringValue, VARCHAR);
+        tester.assertRoundTrip(
+                VARCHAR,
+                newArrayList(values).stream()
+                        .map(value -> value == null ? null : String.valueOf(value))
+                        .collect(toList())
+        );
     }
 
     @Test
     public void testDwrfInvalidCheckpointsForStripeDictionary()
             throws Exception
     {
-        Iterable<String> values = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 200_000);
-        tester.testRoundTrip(javaStringObjectInspector, values, VARCHAR);
+        tester.testRoundTrip(
+                VARCHAR,
+                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 200_000)).stream()
+                        .map(Object::toString)
+                        .collect(toList())
+        );
     }
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)

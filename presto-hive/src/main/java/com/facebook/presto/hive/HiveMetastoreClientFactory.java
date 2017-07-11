@@ -17,13 +17,13 @@ import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.facebook.presto.hive.thrift.Transport;
 import com.google.common.net.HostAndPort;
-import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetastoreClientFactory
@@ -35,7 +35,7 @@ public class HiveMetastoreClientFactory
     public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout, HiveMetastoreAuthentication metastoreAuthentication)
     {
         this.socksProxy = socksProxy;
-        this.timeoutMillis = Ints.checkedCast(timeout.toMillis());
+        this.timeoutMillis = toIntExact(timeout.toMillis());
         this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
     }
 

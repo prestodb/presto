@@ -22,7 +22,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TpchIndexSpec
 {
-    public static final TpchIndexSpec NO_INDEXES = new TpchIndexSpec(ImmutableSetMultimap.<TpchScaledTable, Set<String>>of());
+    public static final TpchIndexSpec NO_INDEXES = new TpchIndexSpec(ImmutableSetMultimap.of());
 
     private final SetMultimap<TpchScaledTable, Set<String>> spec;
 

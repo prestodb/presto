@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 
 public class Field
 {
@@ -256,7 +257,7 @@ public class Field
                 retval = equals(block1.getObject(i, Block.class), block2.getObject(i, Block.class));
             }
             else {
-                retval = block1.compareTo(i, 0, block1.getLength(i), block2, i, 0, block2.getLength(i)) == 0;
+                retval = block1.compareTo(i, 0, block1.getSliceLength(i), block2, i, 0, block2.getSliceLength(i)) == 0;
             }
         }
         return retval;
@@ -424,7 +425,7 @@ public class Field
         }
         else if (type.equals(DATE)) {
             if (value instanceof Long) {
-                return new Date((Long) value);
+                return new Date(DAYS.toMillis((Long) value));
             }
 
             if (value instanceof Calendar) {

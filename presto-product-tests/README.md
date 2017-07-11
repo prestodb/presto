@@ -29,13 +29,25 @@ broken.
     wget -qO- https://get.docker.com/ | sh
     ```
 
-* [`docker-compose >= 1.60`](https://docs.docker.com/compose/install/)
+* [`docker-compose >= 1.8.1`](https://docs.docker.com/compose/install/)
 
     ```
     pip install docker-compose
     ```
 
-### OS X (10.8 "Mountain Lion" or newer)
+### OS X using Docker for Mac (macOS 10.10.3 Yosemite or newer) [PREFERRED WAY]
+
+* Install Docker for Mac: https://docs.docker.com/docker-for-mac/
+
+* Add entries in `/etc/hosts` for all services running in docker containers:
+`hadoop-master`, `mysql`, `postgres`, `cassandra`, `presto-master`.
+They should point to your external IP address (shown by `ifconfig` on your Mac (not inside docker)).
+
+* The default memory setting of 2GB might not be sufficient for some profiles like `singlenode-ldap`.
+You may need 4-8 GB or even more to run certain tests. You can increase Docker memory by going to
+Docker Preferences -> Advanced -> Memory.
+
+### OS X using Docker Toolbox (macOS 10.8 "Mountain Lion" or newer) [NOT RECOMMENDED]
 
 * [`VirtualBox >= 5.0`](https://www.virtualbox.org/wiki/Downloads)
 
@@ -56,7 +68,7 @@ Terminal" icon located in ~/Applications/Docker. Note that all commands listed
 in subsequent parts of this tutorial must be run within such a pre-configured
 shell.
 
-#### Setting up a Linux VM for Docker
+#### Setting up a Linux VM for Docker Toolbox
 
 The `docker-toolbox` installation creates a VirtualBox VM called `default`.
 To run product-tests on the `default` VM, it must be re-configured to use
@@ -127,16 +139,17 @@ groups run the following command:
 presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
 ```
 
-where [profile](#profile) is one of either:
+where profile is one of either:
+#### Profiles
 - **multinode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. For multinode the default configuration is
  1 coordinator and 1 worker.
-- **[singlenode](#singlenode)** - pseudo-distributed Hadoop installation running on a
+- **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
 - **singlenode-hdfs-impersonation** - HDFS impersonation enabled on top of the
- environment in [singlenode](#singlenode) profile. Presto impersonates the user
+ environment in singlenode profile. Presto impersonates the user
  who is running the query when accessing HDFS.
 - **singlenode-kerberos-hdfs-impersonation** - pseudo-distributed kerberized
  Hadoop installation running on a single Docker container and a single node
@@ -147,6 +160,16 @@ where [profile](#profile) is one of either:
  installation running on a single Docker container and a single node
  installation of kerberized Presto also running on a single Docker container.
  This profile runs Kerberos without impersonation.
+- **singlenode-ldap** - Three single node Docker containers, one running an
+ OpenLDAP server, one running with SSL/TLS certificates installed on top of a
+ single node Presto installation, and one with a pseudo-distributed Hadoop
+ installation.
+- **singlenode-sqlserver** - pseudo-distributed Hadoop installation running on
+ a single Docker container, a single node installation of Presto
+ also running on a single Docker container and one running SQL Server server.
+ While running tests on ``singlenode-sqlserver`` make sure to exclude
+ `mysql_connector` and `postgresql_connector` tests i.e.
+ `-x mysql_connector, postgresql_connector`.
 
 Please keep in mind that if you run tests on Hive of version not greater than 1.0.1, you should exclude test from `post_hive_1_0_1` group by passing the following flag to tempto: `-x post_hive_1_0_1`.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
@@ -198,6 +221,8 @@ groups.
 | Authorization         | ``authorization``         | ``singlenode-kerberos-hdfs-impersonation``                                       |
 | HDFS impersonation    | ``hdfs_impersonation``    | ``singlenode-hdfs-impersonation``, ``singlenode-kerberos-hdfs-impersonation``    |
 | No HDFS impersonation | ``hdfs_no_impersonation`` | ``singlenode``, ``singlenode-kerberos-hdfs-no_impersonation``                    |
+| LDAP                  | ``ldap``                  | ``singlenode-ldap``                                                              |
+| SQL Server            | ``sqlserver``             | ``singlenode-sqlserver``                                                         |
 
 Below is a list of commands that explain how to run these profile specific tests
 and also the entire test suite:
@@ -219,12 +244,26 @@ and also the entire test suite:
     ```
     presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_no_impersonation
     ```
+* Run **LDAP** tests:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap
+    ```
+* Run **SQL Server** tests:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh singlenode-sqlserver -g sqlserver
+    ```
+
 * Run the **entire test suite** excluding all profile specific tests, where &lt;profile> can
 be any one of the available profiles:
 
     ```
     presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
     ```
+
+Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
+By running SQL Server product tests you accept the license [ACCEPT_EULA](https://go.microsoft.com/fwlink/?LinkId=746388)
 
 ### Running from IntelliJ
 
@@ -272,6 +311,7 @@ setup outlined below:
     presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
     presto-product-tests/conf/docker/singlenode/compose.sh up -d mysql
     presto-product-tests/conf/docker/singlenode/compose.sh up -d postgres
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d cassandra
     ```
     
     Tip: To display container logs run:
@@ -280,7 +320,7 @@ setup outlined below:
     presto-product-tests/conf/docker/singlenode/compose.sh logs
     ```
     
-3. Add an IP-to-host mapping for the `hadoop-master`, `mysql` and `postgres` hosts in `/etc/hosts`.
+3. Add an IP-to-host mapping for the `hadoop-master`, `mysql`, `postgres` and `cassandra` hosts in `/etc/hosts`.
 The format of `/etc/hosts` entries is `<ip> <host>`:
 
     - On GNU/Linux add the following mapping: `<container ip> hadoop-master`.
@@ -289,28 +329,35 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
         ```
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
+    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively).
+    To check IPs for those containers run:
 
-    Similarly add mappings for MySQL and Postgres containers (`mysql` and `postgres` hostnames respectively). To check IPs for those containers run:
-
-        ```
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+    ```
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
+    ```
 
     Alternatively you can use below script to obtain hosts ip mapping
 
-        ```
-        presto-product-tests/bin/hosts.sh singlenode
-        ```
+    ```
+    presto-product-tests/bin/hosts.sh singlenode
+    ```
 
     Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
 
-    - On OS X add the following mapping: `<docker machine ip> hadoop-master mysql postgres`.
-    Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
-    the `hadoop-master`, `mysql` and `postgres` hostnames. To obtain the IP of the Linux VM run:
+    - On OS X:
+        - Docker for Mac:
+        Add the following mapping to `/etc/hosts`: `<IP-of-your-Mac> hadoop-master mysql postgres cassandra`.
 
-        ```
-        docker-machine ip <machine>
-        ```
+        - Docker Toolbox:
+        Add the following mapping to `/etc/hosts`: `<docker machine ip> hadoop-master mysql postgres cassandra`.
+        Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
+        the `hadoop-master`, `mysql`, `postgres` and `cassandra` hostnames. To obtain the IP of the Linux VM run:
+
+            ```
+            docker-machine ip <machine>
+            ```
     
 4. [Create a run configuration in IntelliJ](https://www.jetbrains.com/help/idea/2016.1/creating-and-editing-run-debug-configurations.html)
 with the following parameters:
@@ -320,12 +367,21 @@ with the following parameters:
     - Working directory: `presto-product-tests/conf/presto`
     - VM options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -DHADOOP_USER_NAME=hive -Duser.timezone=UTC`
 
-5. Start the Presto server with the newly created run configuration.
+5. MAKE SURE PRESTO CONFIGURATION IS ALIGNED WITH THE ONE IN `presto-product-tests/conf/presto`!
 
-6. In IntelliJ, right click on a test method name or test class to run
+    If you use custom configuration, make sure to configure the Hive catalog such that it uses a socks proxy running inside the container.
+    To do so, please make sure your Hive properties file under `etc/catalog/` has the below entry:
+    ```
+    hive.metastore.thrift.client.socks-proxy=hadoop-master:1180
+    ```
+    Also, `hadoop-master` must point to a correct IP (as described in step 3 of this section).
+
+6. Start the Presto server with the newly created run configuration.
+
+7. In IntelliJ, right click on a test method name or test class to run
 or debug the respective test(s).
 
-7. Remember to stop the Hadoop container once debugging is done with the
+8. Remember to stop the Hadoop container once debugging is done with the
 following command:
 
     ```
@@ -339,7 +395,7 @@ Some of the product tests are implemented in a
 manner. Such tests can not be run directly from IntelliJ and the following
 steps explain how to debug convention based tests:
 
-1. Follow steps [1-5] from the [Debugging Java based tests](#debugging-java-based-tests)
+1. Follow steps [1-6] from the [Debugging Java based tests](#debugging-java-based-tests)
 section.
 
 2. Run a convention based test with the following JVM debug flags:
@@ -377,7 +433,7 @@ running the debugger.
 
 Use the `docker-compose` (probably using a [wrapper](#use-the-docker-compose-wrappers))
 and `docker` utilities to control and troubleshoot containers.
-In the following examples ``<profile>`` is [profile](#profile).
+In the following examples ``<profile>`` is [profiles](#profiles).
 
 1. Use the following command to view output from running containers:
 
@@ -421,3 +477,15 @@ You can override the default socks proxy port (1180) used by dockerized Hive dep
 `HIVE_PROXY_PORT` environment variable, e.g. `export HIVE_PROXY_PORT=1180`. This will run all of the dockerized tests using the custom port for the socks proxy.
 When you change the default socks proxy port (1180) and want to use Hive provided by product tests from outside docker (e.g. access it from Presto running in your IDE), you have to modify the property `hive.metastore.thrift.client.socks-proxy=hadoop-master:1180` in your `hive.properties` file accordingly.
 Presto inside docker (used while starting tests using `run_on_docker.sh`) will still use default port (1180) though.
+
+### Malformed reply from SOCKS server
+
+If you see an error similar to
+```
+Failed on local exception: java.net.SocketException: Malformed reply from SOCKS server; Host Details : local host is [...]
+```
+Make sure your `/etc/hosts` points to proper IP address (see [Debugging Java based tests](#debugging-java-based-tests), step 3).
+Also it's worth confirming that your Hive properties file accounts for the socks proxy used in Hive container (steps 4-5 of [Debugging Java based tests](#debugging-java-based-tests)).
+
+If `/etc/hosts` entries have changed since the time when Docker containers were provisioned it's worth removing them and re-provisioning.
+To do so, use `docker rm` on each container used in product tests.

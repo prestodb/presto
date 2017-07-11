@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -30,6 +31,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.mongodb.MongoCredential.createCredential;
 
+@DefunctConfig("mongodb.connection-per-host")
 public class MongoClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -46,6 +48,7 @@ public class MongoClientConfig
     private int connectionTimeout = 10_000;
     private int socketTimeout = 0;
     private boolean socketKeepAlive = false;
+    private boolean sslEnabled = false;
 
     // query configurations
     private int cursorBatchSize = 0; // use driver default
@@ -102,7 +105,7 @@ public class MongoClientConfig
         return this;
     }
 
-    public MongoClientConfig setCredentils(String... credentials)
+    public MongoClientConfig setCredentials(String... credentials)
     {
         this.credentials = buildCredentials(Arrays.asList(credentials));
         return this;
@@ -159,7 +162,7 @@ public class MongoClientConfig
         return connectionsPerHost;
     }
 
-    @Config("mongodb.connection-per-host")
+    @Config("mongodb.connections-per-host")
     public MongoClientConfig setConnectionsPerHost(int connectionsPerHost)
     {
         this.connectionsPerHost = connectionsPerHost;
@@ -274,6 +277,18 @@ public class MongoClientConfig
     public MongoClientConfig setImplicitRowFieldPrefix(String implicitRowFieldPrefix)
     {
         this.implicitRowFieldPrefix = implicitRowFieldPrefix;
+        return this;
+    }
+
+    public boolean getSslEnabled()
+    {
+        return this.sslEnabled;
+    }
+
+    @Config("mongodb.ssl.enabled")
+    public MongoClientConfig setSslEnabled(boolean sslEnabled)
+    {
+        this.sslEnabled = sslEnabled;
         return this;
     }
 }

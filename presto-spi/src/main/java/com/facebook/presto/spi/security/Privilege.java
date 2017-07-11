@@ -15,5 +15,5 @@ package com.facebook.presto.spi.security;
 
 public enum Privilege
 {
-    SELECT, DELETE, INSERT
+    SELECT, DELETE, INSERT, UPDATE
 }

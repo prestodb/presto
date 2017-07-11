@@ -16,7 +16,7 @@ package com.facebook.presto.rcfile;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -237,12 +237,9 @@ public class TestRcFileReaderManual
 
         RcFileReader reader = new RcFileReader(
                 new SliceRcFileDataSource(data),
-                ImmutableList.of(SMALLINT),
                 new BinaryRcFileEncoding(),
-                ImmutableSet.of(0),
-                codecName -> {
-                    throw new UnsupportedOperationException();
-                },
+                ImmutableMap.of(0, SMALLINT),
+                new BogusRcFileCodecFactory(),
                 offset,
                 length,
                 new DataSize(1, MEGABYTE));
@@ -331,6 +328,22 @@ public class TestRcFileReaderManual
         @Override
         public void close()
         {
+        }
+    }
+
+    private static class BogusRcFileCodecFactory
+            implements RcFileCodecFactory
+    {
+        @Override
+        public RcFileCompressor createCompressor(String codecName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RcFileDecompressor createDecompressor(String codecName)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

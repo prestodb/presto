@@ -26,9 +26,9 @@ import static java.util.Collections.singletonList;
 public final class VarcharType
         extends AbstractVariableWidthType
 {
-    public static final int MAX_LENGTH = Integer.MAX_VALUE;
-    public static final VarcharType VARCHAR = new VarcharType(MAX_LENGTH);
-    public static final String VARCHAR_MAX_LENGTH = "varchar(2147483647)";
+    public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;
+    public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
+    public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
 
     public static VarcharType createUnboundedVarcharType()
     {
@@ -37,6 +37,10 @@ public final class VarcharType
 
     public static VarcharType createVarcharType(int length)
     {
+        if (length > MAX_LENGTH || length < 0) {
+            // Use createUnboundedVarcharType for unbounded VARCHAR.
+            throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        }
         return new VarcharType(length);
     }
 
@@ -61,9 +65,23 @@ public final class VarcharType
         this.length = length;
     }
 
+    @Deprecated
     public int getLength()
     {
         return length;
+    }
+
+    public int getLengthSafe()
+    {
+        if (isUnbounded()) {
+            throw new IllegalStateException("Cannot get size of unbounded VARCHAR.");
+        }
+        return length;
+    }
+
+    public boolean isUnbounded()
+    {
+        return length == UNBOUNDED_LENGTH;
     }
 
     @Override
@@ -85,14 +103,14 @@ public final class VarcharType
             return null;
         }
 
-        return block.getSlice(position, 0, block.getLength(position)).toStringUtf8();
+        return block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         if (leftLength != rightLength) {
             return false;
         }
@@ -102,14 +120,14 @@ public final class VarcharType
     @Override
     public long hash(Block block, int position)
     {
-        return block.hash(position, 0, block.getLength(position));
+        return block.hash(position, 0, block.getSliceLength(position));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 
@@ -120,7 +138,7 @@ public final class VarcharType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -128,7 +146,7 @@ public final class VarcharType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)
@@ -172,7 +190,7 @@ public final class VarcharType
     @Override
     public String getDisplayName()
     {
-        if (length == MAX_LENGTH) {
+        if (length == UNBOUNDED_LENGTH) {
             return getTypeSignature().getBase();
         }
 

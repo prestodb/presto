@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
@@ -35,7 +36,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPagesIndexPageSorter
 {
-    private static final PagesIndexPageSorter sorter = new PagesIndexPageSorter();
+    private static final PagesIndexPageSorter sorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
 
     @Test
     public void testPageSorter()

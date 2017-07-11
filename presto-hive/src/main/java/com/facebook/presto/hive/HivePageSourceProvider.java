@@ -35,12 +35,13 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.extractRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -77,10 +78,10 @@ public class HivePageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         List<HiveColumnHandle> hiveColumns = columns.stream()
-                .map(HiveColumnHandle::toHiveColumnHandle)
+                .map(HiveColumnHandle.class::cast)
                 .collect(toList());
 
-        HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
+        HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getPath());
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -90,14 +91,17 @@ public class HivePageSourceProvider
                 hdfsEnvironment.getConfiguration(path),
                 session,
                 path,
+                hiveSplit.getBucketNumber(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
+                hiveSplit.getFileSize(),
                 hiveSplit.getSchema(),
                 hiveSplit.getEffectivePredicate(),
                 hiveColumns,
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
-                typeManager);
+                typeManager,
+                hiveSplit.getColumnCoercions());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -111,17 +115,20 @@ public class HivePageSourceProvider
             Configuration configuration,
             ConnectorSession session,
             Path path,
+            OptionalInt bucketNumber,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> hiveColumns,
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Map<Integer, HiveType> columnCoercions)
     {
-        List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(partitionKeys, hiveColumns, path);
-        List<HiveColumnHandle> regularColumns = ColumnMapping.extractRegularColumns(columnMappings);
+        List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(partitionKeys, hiveColumns, columnCoercions, path, bucketNumber);
+        List<ColumnMapping> regularColumnMappings = ColumnMapping.extractRegularColumnMappings(columnMappings);
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -130,8 +137,9 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
-                    regularColumns,
+                    extractRegularColumnHandles(regularColumnMappings, true),
                     effectivePredicate,
                     hiveStorageTimeZone
             );
@@ -146,6 +154,9 @@ public class HivePageSourceProvider
         }
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
+            // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
+            boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
+
             Optional<RecordCursor> cursor = provider.createRecordCursor(
                     clientId,
                     configuration,
@@ -153,18 +164,26 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
-                    regularColumns,
+                    extractRegularColumnHandles(regularColumnMappings, doCoercion),
                     effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager);
 
             if (cursor.isPresent()) {
+                RecordCursor delegate = cursor.get();
+
+                // Need to wrap RcText and RcBinary into a wrapper, which will do the coercion for mismatch columns
+                if (doCoercion) {
+                    delegate = new HiveCoercionRecordCursor(regularColumnMappings, typeManager, delegate);
+                }
+
                 HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(
                         columnMappings,
                         hiveStorageTimeZone,
                         typeManager,
-                        cursor.get());
+                        delegate);
                 List<Type> columnTypes = hiveColumns.stream()
                         .map(input -> typeManager.getType(input.getTypeSignature()))
                         .collect(toList());
@@ -181,8 +200,9 @@ public class HivePageSourceProvider
         private final HiveColumnHandle hiveColumnHandle;
         private final String prefilledValue;
         private final int index;
+        private final Optional<HiveType> coercionFrom;
 
-        private ColumnMapping(HiveColumnHandle hiveColumnHandle, String prefilledValue, int index)
+        private ColumnMapping(HiveColumnHandle hiveColumnHandle, String prefilledValue, int index, Optional<HiveType> coercionFrom)
         {
             requireNonNull(hiveColumnHandle, "hiveColumnHandle is null");
             if (isPrefilled(hiveColumnHandle)) {
@@ -196,6 +216,7 @@ public class HivePageSourceProvider
             this.hiveColumnHandle = hiveColumnHandle;
             this.prefilledValue = prefilledValue;
             this.index = index;
+            this.coercionFrom = requireNonNull(coercionFrom, "coercionFrom is null while coercion is needed");
         }
 
         public boolean isPrefilled()
@@ -219,12 +240,22 @@ public class HivePageSourceProvider
             return index;
         }
 
+        public Optional<HiveType> getCoercionFrom()
+        {
+            return coercionFrom;
+        }
+
         private static boolean isPrefilled(HiveColumnHandle hiveColumnHandle)
         {
             return hiveColumnHandle.getColumnType() != REGULAR;
         }
 
-        public static List<ColumnMapping> buildColumnMappings(List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns, Path path)
+        public static List<ColumnMapping> buildColumnMappings(
+                List<HivePartitionKey> partitionKeys,
+                List<HiveColumnHandle> columns,
+                Map<Integer, HiveType> columnCoercions,
+                Path path,
+                OptionalInt bucketNumber)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
             int regularIndex = 0;
@@ -242,18 +273,39 @@ public class HivePageSourceProvider
 
                     // prepare the prefilled value
                     HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
-                    prefilledValue = getPrefilledColumnValue(column, partitionKey, path);
+                    prefilledValue = getPrefilledColumnValue(column, partitionKey, path, bucketNumber);
                 }
-                columnMappings.add(new ColumnMapping(column, prefilledValue, currentIndex));
+
+                Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
+
+                columnMappings.add(new ColumnMapping(column, prefilledValue, currentIndex, coercionFrom));
             }
             return columnMappings.build();
         }
 
-        public static List<HiveColumnHandle> extractRegularColumns(List<ColumnMapping> columnMappings)
+        public static List<ColumnMapping> extractRegularColumnMappings(List<ColumnMapping> columnMappings)
         {
             return columnMappings.stream()
                     .filter(columnMapping -> !columnMapping.isPrefilled())
-                    .map(ColumnMapping::getHiveColumnHandle)
+                    .collect(toList());
+        }
+
+        public static List<HiveColumnHandle> extractRegularColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion)
+        {
+            return regularColumnMappings.stream()
+                    .map(columnMapping -> {
+                        HiveColumnHandle columnHandle = columnMapping.getHiveColumnHandle();
+                        if (!doCoercion || !columnMapping.getCoercionFrom().isPresent()) {
+                            return columnHandle;
+                        }
+                        return new HiveColumnHandle(columnHandle.getClientId(),
+                                columnHandle.getName(),
+                                columnMapping.getCoercionFrom().get(),
+                                columnMapping.getCoercionFrom().get().getTypeSignature(),
+                                columnHandle.getHiveColumnIndex(),
+                                columnHandle.getColumnType(),
+                                Optional.empty());
+                    })
                     .collect(toList());
         }
     }

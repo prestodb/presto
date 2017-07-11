@@ -14,16 +14,15 @@
 package com.facebook.presto.hive.authentication;
 
 import com.facebook.presto.hive.ForHiveMetastore;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
+import javax.inject.Inject;
 import javax.security.sasl.Sasl;
 
 import java.io.IOException;
@@ -41,9 +40,9 @@ public class KerberosHiveMetastoreAuthentication
     private final HadoopAuthentication authentication;
 
     @Inject
-    public KerberosHiveMetastoreAuthentication(HiveClientConfig hiveClientConfig, @ForHiveMetastore HadoopAuthentication authentication)
+    public KerberosHiveMetastoreAuthentication(MetastoreKerberosConfig config, @ForHiveMetastore HadoopAuthentication authentication)
     {
-        this(hiveClientConfig.getHiveMetastoreServicePrincipal(), authentication);
+        this(config.getHiveMetastoreServicePrincipal(), authentication);
     }
 
     public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication)

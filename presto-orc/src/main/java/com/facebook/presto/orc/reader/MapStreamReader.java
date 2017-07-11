@@ -16,17 +16,14 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.LongStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
-import com.facebook.presto.spi.block.ArrayBlock;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlock;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
-import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.joda.time.DateTimeZone;
 
@@ -39,8 +36,9 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class MapStreamReader
@@ -55,14 +53,14 @@ public class MapStreamReader
     private int nextBatchSize;
 
     @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream presentStream;
+    private BooleanInputStream presentStream;
 
     @Nonnull
-    private StreamSource<LongStream> lengthStreamSource = missingStreamSource(LongStream.class);
+    private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
-    private LongStream lengthStream;
+    private LongInputStream lengthStream;
 
     private boolean rowGroupOpen;
 
@@ -96,37 +94,42 @@ public class MapStreamReader
             }
             if (readOffset > 0) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException("Value is not null but data stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
                 long entrySkipSize = lengthStream.sum(readOffset);
-                keyStreamReader.prepareNextRead(Ints.checkedCast(entrySkipSize));
-                valueStreamReader.prepareNextRead(Ints.checkedCast(entrySkipSize));
+                keyStreamReader.prepareNextRead(toIntExact(entrySkipSize));
+                valueStreamReader.prepareNextRead(toIntExact(entrySkipSize));
             }
         }
 
-        int[] lengths = new int[nextBatchSize];
+        // The length vector could be reused, but this simplifies the code below by
+        // taking advantage of null entries being initialized to zero.  The vector
+        // could be reinitialized for each loop, but that is likely just as expensive
+        // as allocating a new array
+        int[] lengthVector = new int[nextBatchSize];
         boolean[] nullVector = new boolean[nextBatchSize];
         if (presentStream == null) {
             if (lengthStream == null) {
-                throw new OrcCorruptionException("Value is not null but data stream is not present");
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, lengths);
+            lengthStream.nextIntVector(nextBatchSize, lengthVector);
         }
         else {
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException("Value is not null but data stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, lengths, nullVector);
+                lengthStream.nextIntVector(nextBatchSize, lengthVector, nullVector);
             }
         }
 
-        Type keyType = type.getTypeParameters().get(0);
-        Type valueType = type.getTypeParameters().get(1);
+        MapType mapType = (MapType) type;
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
 
         int entryCount = 0;
-        for (int length : lengths) {
+        for (int length : lengthVector) {
             entryCount += length;
         }
 
@@ -143,25 +146,25 @@ public class MapStreamReader
             values = valueType.createBlockBuilder(new BlockBuilderStatus(), 1).build();
         }
 
-        InterleavedBlock keyValueBlock = createKeyValueBlock(keys, values, lengths);
+        Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, lengthVector);
 
         // convert lengths into offsets into the keyValueBlock (e.g., two positions per entry)
-        lengths[0] = lengths[0] * 2;
-        for (int i = 1; i < lengths.length; i++) {
-            lengths[i] = lengths[i - 1] + (lengths[i] * 2);
+        int[] offsets = new int[nextBatchSize + 1];
+        for (int i = 1; i < offsets.length; i++) {
+            int length = lengthVector[i - 1];
+            offsets[i] = offsets[i - 1] + length;
         }
-        ArrayBlock arrayBlock = new ArrayBlock(keyValueBlock, Slices.wrappedIntArray(lengths), 0, Slices.wrappedBooleanArray(nullVector));
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return arrayBlock;
+        return mapType.createBlockFromKeyValue(nullVector, offsets, keyValueBlock[0], keyValueBlock[1]);
     }
 
-    private static InterleavedBlock createKeyValueBlock(Block keys, Block values, int[] lengths)
+    private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)
     {
         if (!hasNull(keys)) {
-            return new InterleavedBlock(new Block[] {keys, values});
+            return new Block[] {keys, values};
         }
 
         //
@@ -171,7 +174,7 @@ public class MapStreamReader
         IntArrayList nonNullPositions = new IntArrayList(keys.getPositionCount());
 
         int position = 0;
-        for (int mapIndex = 0; mapIndex < lengths.length; mapIndex++) {
+        for (int mapIndex = 0; mapIndex < positionCount; mapIndex++) {
             int length = lengths[mapIndex];
             for (int entryIndex = 0; entryIndex < length; entryIndex++) {
                 if (keys.isNull(position)) {
@@ -187,7 +190,7 @@ public class MapStreamReader
 
         Block newKeys = keys.copyPositions(nonNullPositions);
         Block newValues = values.copyPositions(nonNullPositions);
-        return new InterleavedBlock(new Block[] {newKeys, newValues});
+        return new Block[] {newKeys, newValues};
     }
 
     private static boolean hasNull(Block keys)
@@ -210,11 +213,11 @@ public class MapStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanStream.class);
-        lengthStreamSource = missingStreamSource(LongStream.class);
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        lengthStreamSource = missingStreamSource(LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -229,11 +232,11 @@ public class MapStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        lengthStreamSource = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        lengthStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

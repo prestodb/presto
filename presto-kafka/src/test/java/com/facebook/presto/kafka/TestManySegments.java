@@ -35,7 +35,7 @@ import java.util.UUID;
 import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
 import static com.facebook.presto.kafka.util.TestUtils.createEmptyTopicDescription;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestManySegments

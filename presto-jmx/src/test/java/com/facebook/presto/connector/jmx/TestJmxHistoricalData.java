@@ -36,14 +36,14 @@ public class TestJmxHistoricalData
         List<Integer> secondColumn = ImmutableList.of(1);
 
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns), ImmutableList.of());
-        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.<Object>of(42, "ala"));
+        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns), ImmutableList.of(ImmutableList.<Object>of(42, "ala")));
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, secondColumn), ImmutableList.of(ImmutableList.<Object>of("ala")));
         assertEquals(jmxHistoricalData.getRows(NOT_EXISTING_TABLE_NAME, bothColumns), ImmutableList.of());
 
-        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.<Object>of(42, "ala"));
-        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.<Object>of(42, "ala"));
-        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.<Object>of(42, "ala"));
+        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
+        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
+        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns).size(), MAX_ENTRIES);
     }
 
@@ -56,8 +56,8 @@ public class TestJmxHistoricalData
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of());
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(), columns), ImmutableList.of());
 
-        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.<Object>of(42));
-        jmxHistoricalData.addRow(TABLE_NAME.toUpperCase(), ImmutableList.<Object>of(44));
+        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42));
+        jmxHistoricalData.addRow(TABLE_NAME.toUpperCase(), ImmutableList.of(44));
 
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of(
                 ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));

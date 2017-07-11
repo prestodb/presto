@@ -14,25 +14,20 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -54,15 +49,14 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -85,17 +79,10 @@ public class BenchmarkArraySort
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE * NUM_TYPES)
-    public Object arraySort(BenchmarkData data)
+    public List<Page> arraySort(BenchmarkData data)
             throws Throwable
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -105,7 +92,6 @@ public class BenchmarkArraySort
         @Param({"array_sort", "old_array_sort"})
         private String name = "array_sort";
 
-        private PageBuilder pageBuilder;
         private Page page;
         private PageProcessor pageProcessor;
 
@@ -113,7 +99,7 @@ public class BenchmarkArraySort
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkArraySort.class).getFunctions());
+            metadata.addFunctions(extractFunctions(BenchmarkArraySort.class));
             ExpressionCompiler compiler = new ExpressionCompiler(metadata);
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
@@ -121,13 +107,12 @@ public class BenchmarkArraySort
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
                 Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature());
-                projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(new InputReferenceExpression(i, arrayType))));
+                projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(field(i, arrayType))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 
@@ -161,11 +146,6 @@ public class BenchmarkArraySort
         {
             return page;
         }
-
-        public PageBuilder getPageBuilder()
-        {
-            return pageBuilder;
-        }
     }
 
     public static void main(String[] args)
@@ -192,14 +172,9 @@ public class BenchmarkArraySort
             positions.set(i, i);
         }
 
-        Collections.sort(positions, new Comparator<Integer>()
-        {
-            @Override
-            public int compare(Integer p1, Integer p2)
-            {
-                //TODO: This could be quite slow, it should use parametric equals
-                return VARCHAR.compareTo(block, p1, block, p2);
-            }
+        positions.sort((p1, p2) -> {
+            //TODO: This could be quite slow, it should use parametric equals
+            return VARCHAR.compareTo(block, p1, block, p2);
         });
 
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());

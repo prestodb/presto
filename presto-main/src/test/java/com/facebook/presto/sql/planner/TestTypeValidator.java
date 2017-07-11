@@ -23,6 +23,8 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -36,6 +38,8 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -106,7 +110,7 @@ public class TestTypeValidator
     {
         Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
         Expression expression2 = new Cast(columnC.toSymbolReference(), StandardTypes.BIGINT);
-        Map<Symbol, Expression> assignments = ImmutableMap.<Symbol, Expression>builder()
+        Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
                 .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
                 .build();
@@ -180,23 +184,21 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> functions = ImmutableMap.of(
-                aggregationSymbol, new Signature(
-                        "sum",
-                        FunctionKind.AGGREGATE,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        DOUBLE.getTypeSignature(),
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> aggregations = ImmutableMap.of(aggregationSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())));
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                aggregations,
-                functions,
-                ImmutableMap.of(),
+                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        new Signature(
+                                "sum",
+                                FunctionKind.AGGREGATE,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                DOUBLE.getTypeSignature(),
+                                ImmutableList.of(DOUBLE.getTypeSignature()),
+                                false),
+                        Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
                 Optional.empty(),
@@ -210,7 +212,7 @@ public class TestTypeValidator
             throws Exception
     {
         Expression expression = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
-        Map<Symbol, Expression> assignments = ImmutableMap.<Symbol, Expression>builder()
+        Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
                 .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
                 .build();
@@ -225,7 +227,7 @@ public class TestTypeValidator
     {
         Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.INTEGER);
         Expression expression2 = new Cast(columnA.toSymbolReference(), StandardTypes.INTEGER);
-        Map<Symbol, Expression> assignments = ImmutableMap.<Symbol, Expression>builder()
+        Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
                 .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)
                 .build();
@@ -242,23 +244,21 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> functions = ImmutableMap.of(
-                aggregationSymbol, new Signature(
-                        "sum",
-                        FunctionKind.AGGREGATE,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        DOUBLE.getTypeSignature(),
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> aggregations = ImmutableMap.of(aggregationSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference()))); // should be columnC
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                aggregations,
-                functions,
-                ImmutableMap.of(),
+                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
+                        new Signature(
+                                "sum",
+                                FunctionKind.AGGREGATE,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                DOUBLE.getTypeSignature(),
+                                ImmutableList.of(DOUBLE.getTypeSignature()),
+                                false),
+                        Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
                 Optional.empty(),
@@ -272,23 +272,21 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> functions = ImmutableMap.of(
-                aggregationSymbol, new Signature(
-                        "sum",
-                        FunctionKind.AGGREGATE,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        BIGINT.getTypeSignature(), // should be DOUBLE
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> aggregations = ImmutableMap.of(aggregationSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())));
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                aggregations,
-                functions,
-                ImmutableMap.of(),
+                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        new Signature(
+                                "sum",
+                                FunctionKind.AGGREGATE,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                BIGINT.getTypeSignature(), // should be DOUBLE
+                                ImmutableList.of(DOUBLE.getTypeSignature()),
+                                false),
+                        Optional.empty())),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
                 Optional.empty(),

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
@@ -64,6 +65,11 @@ public class ResourceGroupIdTemplate
             }
         }
         return id;
+    }
+
+    public List<ResourceGroupNameTemplate> getSegments()
+    {
+        return ImmutableList.copyOf(segments);
     }
 
     @Override

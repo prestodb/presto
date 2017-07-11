@@ -37,6 +37,7 @@ import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static com.facebook.presto.sql.tree.ExplainType.Type.VALIDATE;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -79,7 +80,7 @@ final class ExplainRewrite
         {
             if (node.isAnalyze()) {
                 Statement statement = (Statement) process(node.getStatement(), context);
-                return new Explain(statement, node.isAnalyze(), node.getOptions());
+                return new Explain(statement, node.isAnalyze(), node.isVerbose(), node.getOptions());
             }
 
             ExplainType.Type planType = LOGICAL;
@@ -100,25 +101,34 @@ final class ExplainRewrite
                 }
             }
 
-            String plan = getQueryPlan(node, planType, planFormat);
-
-            return singleValueQuery("Query Plan", plan);
+            return getQueryPlan(node, planType, planFormat);
         }
 
-        private String getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
+        private Node getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
                 throws IllegalArgumentException
         {
             Statement wrappedStatement = node.getStatement();
             Statement statement = unwrapExecuteStatement(wrappedStatement, parser, session);
             List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
             validateParameters(statement, parameters);
+
+            if (planType == VALIDATE) {
+                queryExplainer.get().analyze(session, statement, parameters);
+                return singleValueQuery("Valid", true);
+            }
+
+            String plan;
             switch (planFormat) {
                 case GRAPHVIZ:
-                    return queryExplainer.get().getGraphvizPlan(session, statement, planType, parameters);
+                    plan = queryExplainer.get().getGraphvizPlan(session, statement, planType, parameters);
+                    break;
                 case TEXT:
-                    return queryExplainer.get().getPlan(session, statement, planType, parameters);
+                    plan = queryExplainer.get().getPlan(session, statement, planType, parameters);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
             }
-            throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
+            return singleValueQuery("Query Plan", plan);
         }
 
         @Override

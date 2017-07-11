@@ -14,7 +14,7 @@
 package com.facebook.presto.accumulo.model;
 
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -22,7 +22,6 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.GregorianCalendar;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -83,7 +82,7 @@ public class TestRow
         Row expected = new Row();
         expected.addField(new Field(AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c")), new ArrayType(VARCHAR)));
         expected.addField(true, BOOLEAN);
-        expected.addField(new Field(new Date(TimeUnit.MILLISECONDS.toDays(new GregorianCalendar(1999, 0, 1).getTime().getTime())), DATE));
+        expected.addField(new Field(new Date(new GregorianCalendar(1999, 0, 1).getTime().getTime()), DATE));
         expected.addField(123.45678, DOUBLE);
         expected.addField(new Field(123.45678f, REAL));
         expected.addField(12345678, INTEGER);

@@ -31,7 +31,8 @@ INTEGER
 -------
 
     A 32-bit signed two's complement integer with a minimum value of
-    ``-2^31`` and a maximum value of ``2^31 - 1``.
+    ``-2^31`` and a maximum value of ``2^31 - 1``.  The name INT is
+    also available for this type.
 
 BIGINT
 ------
@@ -55,7 +56,7 @@ DECIMAL
 -------
 
     A fixed precision decimal number. Precision up to 38 digits is supported
-    but performance is best up to 17 digits.
+    but performance is best up to 18 digits.
 
     DECIMAL type takes two literal parameters:
 
@@ -79,7 +80,11 @@ VARCHAR
 CHAR
 ----
 
-    Fixed length character data. Char type without length specified has default length of 1.
+    Fixed length character data. A CHAR type without length specified has a default length of 1.
+    A ``CHAR(x)`` value always has ``x`` characters. For instance, casting ``dog`` to ``CHAR(7)``
+    adds 4 implicit trailing spaces. Leading and trailing spaces are included in comparisons of
+    CHAR values. As a result, two character values with different lengths (``CHAR(x)`` and
+    ``CHAR(y)`` where ``x != y``) will never be equal.
 
     Example type definitions: ``char``, ``char(20)``
 

@@ -15,23 +15,42 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.ExpressionUtils.normalize;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionUtils
 {
+    @Test
+    public void testAnd()
+            throws Exception
+    {
+        Expression a = name("a");
+        Expression b = name("b");
+        Expression c = name("c");
+        Expression d = name("d");
+        Expression e = name("e");
+
+        assertEquals(
+                ExpressionUtils.and(a, b, c, d, e),
+                and(and(and(a, b), and(c, d)), e));
+
+        assertEquals(
+                ExpressionUtils.combineConjuncts(a, b, a, c, d, c, e),
+                and(and(and(a, b), and(c, d)), e));
+    }
+
     @Test
     public void testNormalize()
             throws Exception
@@ -59,8 +78,13 @@ public class TestExpressionUtils
         assertEquals(normalize(expression), normalized);
     }
 
-    private static QualifiedNameReference name(String name)
+    private static Identifier name(String name)
     {
-        return new QualifiedNameReference(QualifiedName.of(name));
+        return new Identifier(name);
+    }
+
+    private LogicalBinaryExpression and(Expression left, Expression right)
+    {
+        return new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND, left, right);
     }
 }

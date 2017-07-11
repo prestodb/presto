@@ -14,19 +14,16 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.redis.util.EmbeddedRedis;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 @Test
 public class TestRedisDistributed
-        extends AbstractTestDistributedQueries
+        extends AbstractTestQueries
 {
     private final EmbeddedRedis embeddedRedis;
 
@@ -39,117 +36,13 @@ public class TestRedisDistributed
     public TestRedisDistributed(EmbeddedRedis embeddedRedis)
             throws Exception
     {
-        super(RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "string", TpchTable.getTables()));
+        super(() -> RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "string", TpchTable.getTables()));
         this.embeddedRedis = embeddedRedis;
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws IOException
     {
-        closeAllRuntimeException(queryRunner, embeddedRedis);
-    }
-
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
-
-    //
-    // Redis connector does not support table creation.
-    //
-
-    @Override
-    public void testCreateTable()
-    {
-    }
-
-    @Override
-    public void testCreateTableAsSelect()
-    {
-    }
-
-    @Override
-    public void testSymbolAliasing()
-    {
-    }
-
-    //
-    // Redis connector does not insert.
-    //
-
-    @Override
-    public void testInsert()
-    {
-    }
-
-    //
-    // Redis connector does not delete.
-    //
-
-    @Override
-    public void testDelete()
-    {
-    }
-
-    //
-    // Redis connector does not table rename.
-    //
-
-    @Override
-    public void testRenameTable()
-    {
-    }
-
-    //
-    // Redis connector does not add/rename table column.
-    //
-
-    @Override
-    public void testAddColumn()
-    {
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-    }
-
-    //
-    // Redis connector does not drop table.
-    //
-
-    @Override
-    public void testDropTableIfExists()
-    {
-    }
-
-    //
-    // Redis doesn't support date type yet
-    //
-
-    @Override
-    public void testShowColumns()
-    {
-    }
-
-    @Override
-    public void testGroupingSetMixedExpressionAndColumn()
-    {
-    }
-
-    @Override
-    public void testGroupingSetMixedExpressionAndOrdinal()
-    {
-    }
-
-    //
-    // Redis connector always return a single split for the test data set
-    // TODO fix test to have multiple splits
-    //
-    @Override
-    public void testTableSampleSystem()
-    {
+        embeddedRedis.close();
     }
 }

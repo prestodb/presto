@@ -14,10 +14,14 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestFixedWidthBlock
         extends AbstractTestBlock
@@ -43,6 +47,28 @@ public class TestFixedWidthBlock
         }
     }
 
+    @Test
+    public void testLazyBlockBuilderInitialization()
+            throws Exception
+    {
+        for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
+            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            BlockBuilder emptyBlockBuilder = new FixedWidthBlockBuilder(fixedSize, new BlockBuilderStatus(), 0);
+
+            BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, new BlockBuilderStatus(), expectedValues.length);
+            assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+            assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+
+            writeValues(expectedValues, blockBuilder);
+            assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
+            assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+
+            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+            assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+            assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        }
+    }
+
     private void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
@@ -53,6 +79,12 @@ public class TestFixedWidthBlock
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues, int fixedSize)
     {
         FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, expectedValues.length);
+        writeValues(expectedValues, blockBuilder);
+        return blockBuilder;
+    }
+
+    private static void writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -61,7 +93,6 @@ public class TestFixedWidthBlock
                 blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
             }
         }
-        return blockBuilder;
     }
 
     private static Slice[] createExpectedValues(int positionCount, int fixedSize)

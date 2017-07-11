@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -48,7 +49,22 @@ public class TestArrayBlockBuilder
         assertEquals(pageBuilderStatus.isFull(), true);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Expected entry size to be .*")
+    //TODO we should systematically test Block::getRetainedSizeInBytes()
+    @Test
+    public void testRetainedSizeInBytes()
+    {
+        int expectedEntries = 1000;
+        BlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), expectedEntries);
+        long initialRetainedSize = arrayBlockBuilder.getRetainedSizeInBytes();
+        for (int i = 0; i < expectedEntries; i++) {
+            BlockBuilder arrayElementBuilder = arrayBlockBuilder.beginBlockEntry();
+            BIGINT.writeLong(arrayElementBuilder, i);
+            arrayBlockBuilder.closeEntry();
+        }
+        assertTrue(arrayBlockBuilder.getRetainedSizeInBytes() >= (expectedEntries * Long.BYTES + ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize() + initialRetainedSize));
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Expected current entry to be closed but was opened")
     public void testConcurrentWriting()
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), EXPECTED_ENTRY_COUNT);

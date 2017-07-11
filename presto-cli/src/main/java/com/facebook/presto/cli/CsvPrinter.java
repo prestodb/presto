@@ -59,7 +59,7 @@ public class CsvPrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.<List<?>>of(), true);
+        printRows(ImmutableList.of(), true);
         writer.flush();
         checkError();
     }

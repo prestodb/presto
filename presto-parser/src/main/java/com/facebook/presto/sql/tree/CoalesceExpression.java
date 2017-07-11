@@ -63,6 +63,12 @@ public class CoalesceExpression
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return operands;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

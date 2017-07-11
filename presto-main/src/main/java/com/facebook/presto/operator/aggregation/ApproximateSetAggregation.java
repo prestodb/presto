@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.LiteralParameters;
@@ -31,7 +32,7 @@ import io.airlift.stats.cardinality.HyperLogLog;
 public final class ApproximateSetAggregation
 {
     private static final int NUMBER_OF_BUCKETS = 4096;
-    private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = new StateCompiler().generateStateSerializer(HyperLogLogState.class);
+    private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = StateCompiler.generateStateSerializer(HyperLogLogState.class);
 
     private ApproximateSetAggregation() {}
 
@@ -41,7 +42,7 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -51,7 +52,7 @@ public final class ApproximateSetAggregation
 
     @InputFunction
     @LiteralParameters("x")
-    public static void input(HyperLogLogState state, @SqlType("varchar(x)") Slice value)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType("varchar(x)") Slice value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -60,7 +61,7 @@ public final class ApproximateSetAggregation
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -68,7 +69,7 @@ public final class ApproximateSetAggregation
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state)
+    private static HyperLogLog getOrCreateHyperLogLog(@AggregationState HyperLogLogState state)
     {
         HyperLogLog hll = state.getHyperLogLog();
         if (hll == null) {
@@ -80,7 +81,7 @@ public final class ApproximateSetAggregation
     }
 
     @CombineFunction
-    public static void combineState(HyperLogLogState state, HyperLogLogState otherState)
+    public static void combineState(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
     {
         HyperLogLog input = otherState.getHyperLogLog();
 
@@ -97,7 +98,7 @@ public final class ApproximateSetAggregation
     }
 
     @OutputFunction(StandardTypes.HYPER_LOG_LOG)
-    public static void evaluateFinal(HyperLogLogState state, BlockBuilder out)
+    public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
         SERIALIZER.serialize(state, out);
     }

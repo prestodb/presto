@@ -48,7 +48,7 @@ public final class ArrayIntersectFunction
         pageBuilder = new PageBuilder(ImmutableList.of(elementType));
     }
 
-    private static IntComparator IntBlockCompare(Type type, Block block)
+    private static IntComparator intBlockCompare(Type type, Block block)
     {
         return new AbstractIntComparator()
         {
@@ -105,8 +105,8 @@ public final class ArrayIntersectFunction
         for (int i = 0; i < rightPositionCount; i++) {
             rightPositions[i] = i;
         }
-        IntArrays.quickSort(leftPositions, 0, leftPositionCount, IntBlockCompare(type, leftArray));
-        IntArrays.quickSort(rightPositions, 0, rightPositionCount, IntBlockCompare(type, rightArray));
+        IntArrays.quickSort(leftPositions, 0, leftPositionCount, intBlockCompare(type, leftArray));
+        IntArrays.quickSort(rightPositions, 0, rightPositionCount, intBlockCompare(type, rightArray));
 
         BlockBuilder resultBlockBuilder = pageBuilder.getBlockBuilder(0);
 

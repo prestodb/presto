@@ -57,6 +57,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestWindowOperator
@@ -64,7 +65,7 @@ public class TestWindowOperator
     private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty());
 
     private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME)
+            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME)
     );
 
     private static final List<WindowFunctionDefinition> FIRST_VALUE = ImmutableList.of(
@@ -95,7 +96,7 @@ public class TestWindowOperator
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -220,7 +221,7 @@ public class TestWindowOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -595,6 +596,39 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
+    @Test
+    public void testFindEndPosition()
+    {
+        assertFindEndPosition("0", 1);
+        assertFindEndPosition("11", 2);
+        assertFindEndPosition("1111111111", 10);
+
+        assertFindEndPosition("01", 1);
+        assertFindEndPosition("011", 1);
+        assertFindEndPosition("0111", 1);
+        assertFindEndPosition("0111111111", 1);
+
+        assertFindEndPosition("012", 1);
+        assertFindEndPosition("01234", 1);
+        assertFindEndPosition("0123456789", 1);
+
+        assertFindEndPosition("001", 2);
+        assertFindEndPosition("0001", 3);
+        assertFindEndPosition("0000000001", 9);
+
+        assertFindEndPosition("00100", 2);
+        assertFindEndPosition("000111", 3);
+        assertFindEndPosition("0001111", 3);
+        assertFindEndPosition("0000111", 4);
+        assertFindEndPosition("000000000000001111111111", 14);
+    }
+
+    private static void assertFindEndPosition(String values, int expected)
+    {
+        char[] array = values.toCharArray();
+        assertEquals(WindowOperator.findEndPosition(0, array.length, (first, second) -> array[first] == array[second]), expected);
+    }
+
     private static WindowOperatorFactory createFactoryUnbounded(
             List<? extends Type> sourceTypes,
             List<Integer> outputChannels,
@@ -635,6 +669,7 @@ public class TestWindowOperator
                 sortChannels,
                 sortOrder,
                 preSortedChannelPrefix,
-                10);
+                10,
+                new PagesIndex.TestingFactory());
     }
 }

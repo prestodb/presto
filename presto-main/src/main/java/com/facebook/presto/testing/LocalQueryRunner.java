@@ -17,9 +17,9 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
@@ -29,6 +29,8 @@ import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
@@ -38,6 +40,7 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PrepareTask;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -49,6 +52,7 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -69,33 +73,32 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunctions;
-import com.facebook.presto.operator.GenericPageProcessor;
+import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageSourceOperator;
-import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.operator.ProjectionFunctions;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.operator.project.InterpretedPageProjection;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.BinarySpillerFactory;
+import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -105,7 +108,9 @@ import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
+import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -116,12 +121,14 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizers;
-import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
@@ -138,11 +145,11 @@ import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -153,6 +160,8 @@ import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -160,7 +169,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -203,8 +211,8 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
+    private final CostCalculator costCalculator;
     private final TestingAccessControlManager accessControl;
-    private final TestingEventListenerManager eventListener;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final PageSourceManager pageSourceManager;
@@ -225,7 +233,12 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, new FeaturesConfig(), false);
+        this(
+                defaultSession,
+                new FeaturesConfig()
+                        .setOptimizeMixedDistinctAggregations(true)
+                        .setIterativeOptimizerEnabled(true),
+                false);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
@@ -246,8 +259,8 @@ public class LocalQueryRunner
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
-        this.pageSorter = new PagesIndexPageSorter();
-        this.pageIndexerFactory = new GroupByHashPageIndexerFactory();
+        this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
+        this.pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler());
         this.indexManager = new IndexManager();
         NodeScheduler nodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
@@ -263,18 +276,18 @@ public class LocalQueryRunner
                 executor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
-        this.splitManager = new SplitManager();
+        this.splitManager = new SplitManager(new QueryManagerConfig());
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
                 blockEncodingSerde,
-                new SessionPropertyManager(),
+                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), featuresConfig)),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
+        this.costCalculator = new CoefficientBasedCostCalculator(metadata);
         this.accessControl = new TestingAccessControlManager(transactionManager);
-        this.eventListener = new TestingEventListenerManager();
         this.pageSourceManager = new PageSourceManager();
 
         this.expressionCompiler = new ExpressionCompiler(metadata);
@@ -299,7 +312,7 @@ public class LocalQueryRunner
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
-                new CatalogSystemTable(transactionManager),
+                new CatalogSystemTable(metadata, accessControl),
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),
@@ -324,6 +337,7 @@ public class LocalQueryRunner
                 defaultSession.getLocale(),
                 defaultSession.getRemoteUserAddress(),
                 defaultSession.getUserAgent(),
+                defaultSession.getClientInfo(),
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),
@@ -333,7 +347,7 @@ public class LocalQueryRunner
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
-                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, accessControl, new FeaturesConfig()))
+                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, new FeaturesConfig()))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
@@ -347,7 +361,8 @@ public class LocalQueryRunner
                 .put(Rollback.class, new RollbackTask())
                 .build();
 
-        this.spillerFactory = new BinarySpillerFactory(blockEncodingSerde, featuresConfig);
+        SpillerStats spillerStats = new SpillerStats();
+        this.spillerFactory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
@@ -371,11 +386,6 @@ public class LocalQueryRunner
         return 1;
     }
 
-    public NodeManager getNodeManager()
-    {
-        return new ConnectorAwareNodeManager(nodeManager, "testenv", new ConnectorId("test"));
-    }
-
     public TypeRegistry getTypeManager()
     {
         return typeRegistry;
@@ -394,6 +404,12 @@ public class LocalQueryRunner
     }
 
     @Override
+    public CostCalculator getCostCalculator()
+    {
+        return costCalculator;
+    }
+
+    @Override
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
@@ -408,6 +424,11 @@ public class LocalQueryRunner
     public Session getDefaultSession()
     {
         return defaultSession;
+    }
+
+    public ExpressionCompiler getExpressionCompiler()
+    {
+        return expressionCompiler;
     }
 
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
@@ -504,7 +525,7 @@ public class LocalQueryRunner
             TaskContext taskContext = createTaskContext(executor, session);
 
             List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
-            drivers.stream().map(closer::register);
+            drivers.forEach(closer::register);
 
             boolean done = false;
             while (!done) {
@@ -545,10 +566,10 @@ public class LocalQueryRunner
         Plan plan = createPlan(session, sql);
 
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session));
         }
 
-        SubPlan subplan = new PlanFragmenter().createSubPlans(session, metadata, plan);
+        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -556,6 +577,7 @@ public class LocalQueryRunner
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 sqlParser,
+                costCalculator,
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -567,7 +589,11 @@ public class LocalQueryRunner
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
                 new TaskManagerConfig().setTaskConcurrency(4),
-                spillerFactory);
+                spillerFactory,
+                blockEncodingSerde,
+                new PagesIndex.TestingFactory(),
+                new JoinCompiler(),
+                new LookupJoinOperators(new JoinProbeCompiler()));
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
@@ -604,7 +630,7 @@ public class LocalQueryRunner
                     checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
                 }
                 else {
-                    DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                    DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
                     Driver driver = driverFactory.createDriver(driverContext);
                     drivers.add(driver);
                 }
@@ -616,7 +642,7 @@ public class LocalQueryRunner
             DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
             checkState(driverFactory != null);
             for (ScheduledSplit split : source.getSplits()) {
-                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
                 Driver driver = driverFactory.createDriver(driverContext);
                 driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
                 drivers.add(driver);
@@ -637,23 +663,32 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage)
     {
+        return createPlan(session, sql, stage, true);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
+    {
         Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql), sqlParser, session);
 
         assertFormattedSql(sqlParser, statement);
 
+        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage);
+    }
+
+    public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
+    {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, true);
-        return createPlan(session, sql, featuresConfig, planOptimizers.get(), stage);
+        return new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer())).get();
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, List<PlanOptimizer> optimizers)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
     {
-        return createPlan(session, sql, featuresConfig, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return createPlan(session, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
     {
         Statement wrapped = sqlParser.createStatement(sql);
         Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);
@@ -673,10 +708,11 @@ public class LocalQueryRunner
                 metadata,
                 accessControl,
                 sqlParser,
+                costCalculator,
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, costCalculator);
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);
@@ -746,15 +782,36 @@ public class LocalQueryRunner
 
     public OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> columnTypes)
     {
-        ImmutableList.Builder<ProjectionFunction> projectionFunctions = ImmutableList.builder();
-        for (int i = 0; i < columnTypes.size(); i++) {
-            projectionFunctions.add(ProjectionFunctions.singleColumn(columnTypes.get(i), i));
+        ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Integer> symbolToInputMapping = ImmutableMap.builder();
+        ImmutableList.Builder<PageProjection> projections = ImmutableList.builder();
+        for (int channel = 0; channel < columnTypes.size(); channel++) {
+            Symbol symbol = new Symbol("h" + channel);
+            symbolTypes.put(symbol, columnTypes.get(channel));
+            symbolToInputMapping.put(symbol, channel);
+            projections.add(new InterpretedPageProjection(
+                    new SymbolReference(symbol.getName()),
+                    ImmutableMap.of(symbol, columnTypes.get(channel)),
+                    ImmutableMap.of(symbol, channel),
+                    metadata,
+                    sqlParser,
+                    defaultSession));
         }
-        projectionFunctions.add(new HashProjectionFunction(columnTypes));
+
+        Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(ImmutableList.copyOf(symbolTypes.build().keySet()));
+        verify(hashExpression.isPresent());
+        projections.add(new InterpretedPageProjection(
+                hashExpression.get(),
+                symbolTypes.build(),
+                symbolToInputMapping.build(),
+                metadata,
+                sqlParser,
+                defaultSession));
+
         return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 operatorId,
                 planNodeId,
-                () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projectionFunctions.build()),
+                () -> new PageProcessor(Optional.empty(), projections.build()),
                 ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
     }
 
@@ -785,47 +842,6 @@ public class LocalQueryRunner
 
         if (node instanceof TableScanNode) {
             builder.add((TableScanNode) node);
-        }
-    }
-
-    private static class HashProjectionFunction
-            implements ProjectionFunction
-    {
-        private final List<Type> columnTypes;
-
-        public HashProjectionFunction(List<Type> columnTypes)
-        {
-            this.columnTypes = columnTypes;
-        }
-
-        @Override
-        public Type getType()
-        {
-            return BIGINT;
-        }
-
-        @Override
-        public void project(int position, Block[] blocks, BlockBuilder output)
-        {
-            BIGINT.writeLong(output, TypeUtils.getHashPosition(columnTypes, blocks, position));
-        }
-
-        @Override
-        public void project(RecordCursor cursor, BlockBuilder output)
-        {
-            throw new UnsupportedOperationException("Operation not supported");
-        }
-
-        @Override
-        public Set<Integer> getInputChannels()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            throw new UnsupportedOperationException();
         }
     }
 }

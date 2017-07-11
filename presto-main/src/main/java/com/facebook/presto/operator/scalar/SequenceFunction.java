@@ -23,17 +23,19 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.DateTimeOperators;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffTimestamp;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 public final class SequenceFunction
 {
+    private static final long MAX_RESULT_ENTRIES = 10_000;
     private static final Slice MONTH = Slices.utf8Slice("month");
 
     private SequenceFunction() {}
@@ -80,7 +82,8 @@ public final class SequenceFunction
         checkCondition(step > 0 ? end >= start : end <= start, INVALID_FUNCTION_ARGUMENT,
                 "sequence end value should be greater than or equal to start value if step is greater than zero otherwise end should be less than start");
 
-        int length = Ints.checkedCast(DateTimeFunctions.diffTimestamp(session, MONTH, start, end) / step + 1);
+        int length = toIntExact(diffTimestamp(session, MONTH, start, end) / step + 1);
+        checkCondition(length <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "result of sequence function must not have more than 10000 entries");
 
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
 
@@ -99,7 +102,8 @@ public final class SequenceFunction
         checkCondition(step > 0 ? stop >= start : stop < start, INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
 
-        int length = Ints.checkedCast((stop - start) / step + 1L);
+        int length = toIntExact((stop - start) / step + 1L);
+        checkCondition(length <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "result of sequence function must not have more than 10000 entries");
 
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), length);
         for (long i = 0, value = start; i < length; ++i, value += step) {

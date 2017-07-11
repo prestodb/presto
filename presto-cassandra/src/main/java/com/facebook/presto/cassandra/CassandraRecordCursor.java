@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 
 public class CassandraRecordCursor
         implements RecordCursor
@@ -33,14 +34,10 @@ public class CassandraRecordCursor
     private long atLeastCount;
     private long count;
 
-    public CassandraRecordCursor(
-            CassandraSession cassandraSession,
-            String schema,
-            List<FullCassandraType> fullCassandraTypes,
-            String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
     {
         this.fullCassandraTypes = fullCassandraTypes;
-        rs = cassandraSession.executeQuery(schema, cql);
+        rs = cassandraSession.execute(cql);
         currentRow = null;
         atLeastCount = rs.getAvailableWithoutFetching();
     }
@@ -106,6 +103,8 @@ public class CassandraRecordCursor
                 return currentRow.getLong(i);
             case TIMESTAMP:
                 return currentRow.getTimestamp(i).getTime();
+            case FLOAT:
+                return floatToRawIntBits(currentRow.getFloat(i));
             default:
                 throw new IllegalStateException("Cannot retrieve long for " + getCassandraType(i));
         }

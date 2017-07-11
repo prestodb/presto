@@ -62,6 +62,12 @@ public class GroupBy
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return groupingElements;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,7 +30,7 @@ public class QuerySpecification
     private final Optional<Expression> where;
     private final Optional<GroupBy> groupBy;
     private final Optional<Expression> having;
-    private final List<SortItem> orderBy;
+    private final Optional<OrderBy> orderBy;
     private final Optional<String> limit;
 
     public QuerySpecification(
@@ -37,7 +39,7 @@ public class QuerySpecification
             Optional<Expression> where,
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
-            List<SortItem> orderBy,
+            Optional<OrderBy> orderBy,
             Optional<String> limit)
     {
         this(Optional.empty(), select, from, where, groupBy, having, orderBy, limit);
@@ -50,7 +52,7 @@ public class QuerySpecification
             Optional<Expression> where,
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
-            List<SortItem> orderBy,
+            Optional<OrderBy> orderBy,
             Optional<String> limit)
     {
         this(Optional.of(location), select, from, where, groupBy, having, orderBy, limit);
@@ -63,7 +65,7 @@ public class QuerySpecification
             Optional<Expression> where,
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
-            List<SortItem> orderBy,
+            Optional<OrderBy> orderBy,
             Optional<String> limit)
     {
         super(location);
@@ -109,7 +111,7 @@ public class QuerySpecification
         return having;
     }
 
-    public List<SortItem> getOrderBy()
+    public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
     }
@@ -123,6 +125,19 @@ public class QuerySpecification
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitQuerySpecification(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(select);
+        from.ifPresent(nodes::add);
+        where.ifPresent(nodes::add);
+        groupBy.ifPresent(nodes::add);
+        having.ifPresent(nodes::add);
+        orderBy.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override

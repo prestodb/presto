@@ -46,7 +46,7 @@ public class SliceArrayBlockEncoding
         for (int position = 0; position < positionCount; position++) {
             int length = 0;
             if (!sliceArrayBlock.isNull(position)) {
-                length = sliceArrayBlock.getLength(position);
+                length = sliceArrayBlock.getSliceLength(position);
             }
             sliceOutput.appendInt(length);
         }

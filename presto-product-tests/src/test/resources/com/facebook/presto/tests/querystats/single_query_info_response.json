@@ -50,7 +50,8 @@
     "processedInputDataSize": "0B",
     "processedInputPositions": 0,
     "outputDataSize": "0B",
-    "outputPositions": 0
+    "outputPositions": 0,
+    "operatorSummaries": []
   },
   "setSessionProperties": {},
   "resetSessionProperties": [],

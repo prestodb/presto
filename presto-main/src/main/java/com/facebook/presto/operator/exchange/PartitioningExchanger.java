@@ -29,7 +29,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class PartitioningExchanger

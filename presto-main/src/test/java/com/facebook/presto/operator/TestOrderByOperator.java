@@ -53,7 +53,7 @@ public class TestOrderByOperator
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
     }
 
@@ -82,7 +82,8 @@ public class TestOrderByOperator
                 ImmutableList.of(1),
                 10,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                new PagesIndex.TestingFactory());
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE)
                 .row(-0.1)
@@ -113,7 +114,8 @@ public class TestOrderByOperator
                 ImmutableList.of(0, 1),
                 10,
                 ImmutableList.of(0, 1),
-                ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST),
+                new PagesIndex.TestingFactory());
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("a", 4L)
@@ -144,7 +146,8 @@ public class TestOrderByOperator
                 ImmutableList.of(0),
                 10,
                 ImmutableList.of(0),
-                ImmutableList.of(DESC_NULLS_LAST));
+                ImmutableList.of(DESC_NULLS_LAST),
+                new PagesIndex.TestingFactory());
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(4L)
@@ -169,7 +172,7 @@ public class TestOrderByOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(true, true)
+                .addPipelineContext(0, true, true)
                 .addDriverContext();
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
@@ -179,7 +182,8 @@ public class TestOrderByOperator
                 ImmutableList.of(1),
                 10,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                new PagesIndex.TestingFactory());
 
         toPages(operatorFactory, driverContext, input);
     }

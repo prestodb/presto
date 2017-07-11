@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +56,7 @@ public class TpchIndexProvider
             List<ColumnHandle> lookupSchema,
             List<ColumnHandle> outputSchema)
     {
-        TpchIndexHandle tpchIndexHandle = checkType(indexHandle, TpchIndexHandle.class, "indexHandle");
+        TpchIndexHandle tpchIndexHandle = (TpchIndexHandle) indexHandle;
 
         Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues()).get();
         checkArgument(lookupSchema.stream().noneMatch(handle -> fixedValues.keySet().contains(handle)),
@@ -109,7 +108,7 @@ public class TpchIndexProvider
     static List<String> handleToNames(List<ColumnHandle> columnHandles)
     {
         return columnHandles.stream()
-                .map(handle -> checkType(handle, TpchColumnHandle.class, "column"))
+                .map(TpchColumnHandle.class::cast)
                 .map(TpchColumnHandle::getColumnName)
                 .collect(toList());
     }

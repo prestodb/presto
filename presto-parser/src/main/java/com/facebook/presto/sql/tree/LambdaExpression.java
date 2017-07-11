@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,27 +24,27 @@ import static java.util.Objects.requireNonNull;
 public class LambdaExpression
         extends Expression
 {
-    private final List<String> arguments;
+    private final List<LambdaArgumentDeclaration> arguments;
     private final Expression body;
 
-    public LambdaExpression(List<String> arguments, Expression body)
+    public LambdaExpression(List<LambdaArgumentDeclaration> arguments, Expression body)
     {
         this(Optional.empty(), arguments, body);
     }
 
-    public LambdaExpression(NodeLocation location, List<String> arguments, Expression body)
+    public LambdaExpression(NodeLocation location, List<LambdaArgumentDeclaration> arguments, Expression body)
     {
         this(Optional.of(location), arguments, body);
     }
 
-    private LambdaExpression(Optional<NodeLocation> location, List<String> arguments, Expression body)
+    private LambdaExpression(Optional<NodeLocation> location, List<LambdaArgumentDeclaration> arguments, Expression body)
     {
         super(location);
         this.arguments = requireNonNull(arguments, "arguments is null");
         this.body = requireNonNull(body, "body is null");
     }
 
-    public List<String> getArguments()
+    public List<LambdaArgumentDeclaration> getArguments()
     {
         return arguments;
     }
@@ -56,6 +58,15 @@ public class LambdaExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitLambdaExpression(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.addAll(arguments);
+        nodes.add(body);
+        return nodes.build();
     }
 
     @Override

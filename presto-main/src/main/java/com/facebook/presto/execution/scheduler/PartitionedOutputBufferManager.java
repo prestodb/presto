@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -23,9 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PartitionedOutputBufferManager
@@ -33,7 +34,7 @@ public class PartitionedOutputBufferManager
 {
     private final Map<OutputBufferId, Integer> outputBuffers;
 
-    public PartitionedOutputBufferManager(int partitionCount, Consumer<OutputBuffers> outputBufferTarget)
+    public PartitionedOutputBufferManager(PartitioningHandle partitioningHandle, int partitionCount, Consumer<OutputBuffers> outputBufferTarget)
     {
         checkArgument(partitionCount >= 1, "partitionCount must be at least 1");
 
@@ -42,7 +43,7 @@ public class PartitionedOutputBufferManager
             partitions.put(new OutputBufferId(partition), partition);
         }
 
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED)
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(requireNonNull(partitioningHandle, "partitioningHandle is null"))
                 .withBuffers(partitions.build())
                 .withNoMoreBufferIds();
         outputBufferTarget.accept(outputBuffers);

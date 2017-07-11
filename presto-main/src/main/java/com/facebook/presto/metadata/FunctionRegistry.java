@@ -24,8 +24,11 @@ import com.facebook.presto.operator.aggregation.ApproximateRealPercentileArrayAg
 import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
 import com.facebook.presto.operator.aggregation.ArrayAggregationFunction;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
+import com.facebook.presto.operator.aggregation.BitwiseAndAggregation;
+import com.facebook.presto.operator.aggregation.BitwiseOrAggregation;
 import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
 import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
+import com.facebook.presto.operator.aggregation.CentralMomentsAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DoubleCorrelationAggregation;
@@ -35,6 +38,10 @@ import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.IntervalDayToSecondAverageAggregation;
+import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregation;
+import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
+import com.facebook.presto.operator.aggregation.IntervalYearToMonthSumAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.RealAverageAggregation;
@@ -46,12 +53,13 @@ import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
 import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
-import com.facebook.presto.operator.scalar.ArrayConcatFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
 import com.facebook.presto.operator.scalar.ArrayDistinctFunction;
 import com.facebook.presto.operator.scalar.ArrayElementAtFunction;
 import com.facebook.presto.operator.scalar.ArrayEqualOperator;
+import com.facebook.presto.operator.scalar.ArrayExceptFunction;
+import com.facebook.presto.operator.scalar.ArrayFilterFunction;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ArrayGreaterThanOperator;
 import com.facebook.presto.operator.scalar.ArrayGreaterThanOrEqualOperator;
@@ -69,27 +77,32 @@ import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
 import com.facebook.presto.operator.scalar.ArraySliceFunction;
 import com.facebook.presto.operator.scalar.ArraySortFunction;
 import com.facebook.presto.operator.scalar.ArrayUnionFunction;
+import com.facebook.presto.operator.scalar.ArraysOverlapFunction;
 import com.facebook.presto.operator.scalar.BitwiseFunctions;
 import com.facebook.presto.operator.scalar.CharacterStringCasts;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
+import com.facebook.presto.operator.scalar.EmptyMapConstructor;
 import com.facebook.presto.operator.scalar.FailureFunction;
+import com.facebook.presto.operator.scalar.GroupingOperationFunction;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpCasts;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonOperators;
+import com.facebook.presto.operator.scalar.ListLiteralCast;
 import com.facebook.presto.operator.scalar.MapCardinalityFunction;
-import com.facebook.presto.operator.scalar.MapConcatFunction;
 import com.facebook.presto.operator.scalar.MapDistinctFromOperator;
 import com.facebook.presto.operator.scalar.MapEqualOperator;
 import com.facebook.presto.operator.scalar.MapKeys;
 import com.facebook.presto.operator.scalar.MapNotEqualOperator;
+import com.facebook.presto.operator.scalar.MapSubscriptOperator;
 import com.facebook.presto.operator.scalar.MapToMapCast;
 import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
+import com.facebook.presto.operator.scalar.RepeatFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.SequenceFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
@@ -118,6 +131,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -139,6 +153,7 @@ import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
@@ -152,7 +167,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
@@ -195,42 +209,50 @@ import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
 import static com.facebook.presto.operator.aggregation.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinNAggregationFunction.MIN_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MultimapAggregationFunction.MULTIMAP_AGG;
+import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
+import static com.facebook.presto.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
+import static com.facebook.presto.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
 import static com.facebook.presto.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
-import static com.facebook.presto.operator.scalar.ConcatFunction.CONCAT;
+import static com.facebook.presto.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
+import static com.facebook.presto.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static com.facebook.presto.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static com.facebook.presto.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static com.facebook.presto.operator.scalar.Least.LEAST;
+import static com.facebook.presto.operator.scalar.MapConcatFunction.MAP_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
+import static com.facebook.presto.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
 import static com.facebook.presto.operator.scalar.MapHashCodeOperator.MAP_HASH_CODE;
-import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
-import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_CEILING_FUNCTIONS;
-import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_FLOOR_FUNCTION;
+import static com.facebook.presto.operator.scalar.MapTransformKeyFunction.MAP_TRANSFORM_KEY_FUNCTION;
+import static com.facebook.presto.operator.scalar.MapTransformValueFunction.MAP_TRANSFORM_VALUE_FUNCTION;
 import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
-import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_ROUND_FUNCTIONS;
-import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_TRUNCATE_FUNCTION;
 import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
 import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static com.facebook.presto.operator.scalar.RowDistinctFromOperator.ROW_DISTINCT_FROM;
 import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
+import static com.facebook.presto.operator.scalar.RowGreaterThanOperator.ROW_GREATER_THAN;
+import static com.facebook.presto.operator.scalar.RowGreaterThanOrEqualOperator.ROW_GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
+import static com.facebook.presto.operator.scalar.RowLessThanOperator.ROW_LESS_THAN;
+import static com.facebook.presto.operator.scalar.RowLessThanOrEqualOperator.ROW_LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
+import static com.facebook.presto.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
@@ -240,6 +262,8 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -271,16 +295,23 @@ import static com.facebook.presto.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATOR;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalSaturatedFloorCasts.DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static com.facebook.presto.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -292,7 +323,7 @@ public class FunctionRegistry
     private static final String OPERATOR_PREFIX = "$operator$";
 
     // hack: java classes for types that can be used with magic literals
-    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
+    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -327,7 +358,7 @@ public class FunctionRegistry
                             throws Exception
                     {
                         // TODO the function map should be updated, so that this cast can be removed
-                        SqlScalarFunction scalarFunction = checkType(key.getFunction(), SqlScalarFunction.class, "function");
+                        SqlScalarFunction scalarFunction = (SqlScalarFunction) key.getFunction();
                         return scalarFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
                 });
@@ -340,7 +371,7 @@ public class FunctionRegistry
                     public InternalAggregationFunction load(SpecializedFunctionKey key)
                             throws Exception
                     {
-                        SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
+                        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) key.getFunction();
                         return aggregationFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
                 });
@@ -354,11 +385,11 @@ public class FunctionRegistry
                             throws Exception
                     {
                         if (key.getFunction() instanceof SqlAggregationFunction) {
-                            SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
+                            SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) key.getFunction();
                             return supplier(aggregationFunction.getSignature(), specializedAggregationCache.getUnchecked(key));
                         }
                         else {
-                            SqlWindowFunction windowFunction = checkType(key.getFunction(), SqlWindowFunction.class, "function");
+                            SqlWindowFunction windowFunction = (SqlWindowFunction) key.getFunction();
                             return windowFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                         }
                     }
@@ -378,6 +409,7 @@ public class FunctionRegistry
                 .window(LeadFunction.class)
                 .aggregate(CountAggregation.class)
                 .aggregate(VarianceAggregation.class)
+                .aggregate(CentralMomentsAggregation.class)
                 .aggregate(ApproximateLongPercentileAggregations.class)
                 .aggregate(ApproximateLongPercentileArrayAggregations.class)
                 .aggregate(ApproximateDoublePercentileAggregations.class)
@@ -390,8 +422,12 @@ public class FunctionRegistry
                 .aggregate(DoubleSumAggregation.class)
                 .aggregate(RealSumAggregation.class)
                 .aggregate(LongSumAggregation.class)
+                .aggregate(IntervalDayToSecondSumAggregation.class)
+                .aggregate(IntervalYearToMonthSumAggregation.class)
                 .aggregate(AverageAggregations.class)
                 .aggregate(RealAverageAggregation.class)
+                .aggregate(IntervalDayToSecondAverageAggregation.class)
+                .aggregate(IntervalYearToMonthAverageAggregation.class)
                 .aggregate(GeometricMeanAggregations.class)
                 .aggregate(RealGeometricMeanAggregations.class)
                 .aggregate(ApproximateCountDistinctAggregations.class)
@@ -405,6 +441,9 @@ public class FunctionRegistry
                 .aggregate(RealRegressionAggregation.class)
                 .aggregate(DoubleCorrelationAggregation.class)
                 .aggregate(RealCorrelationAggregation.class)
+                .aggregate(BitwiseOrAggregation.class)
+                .aggregate(BitwiseAndAggregation.class)
+                .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(StringFunctions.class)
                 .scalars(VarbinaryFunctions.class)
@@ -412,6 +451,12 @@ public class FunctionRegistry
                 .scalars(MathFunctions.class)
                 .scalar(MathFunctions.Abs.class)
                 .scalar(MathFunctions.Sign.class)
+                .scalar(MathFunctions.Round.class)
+                .scalar(MathFunctions.RoundN.class)
+                .scalar(MathFunctions.Truncate.class)
+                .scalar(MathFunctions.TruncateN.class)
+                .scalar(MathFunctions.Ceiling.class)
+                .scalar(MathFunctions.Floor.class)
                 .scalars(BitwiseFunctions.class)
                 .scalars(DateTimeFunctions.class)
                 .scalars(JsonFunctions.class)
@@ -441,6 +486,7 @@ public class FunctionRegistry
                 .scalars(ArrayFunctions.class)
                 .scalar(ArrayCardinalityFunction.class)
                 .scalar(ArrayContains.class)
+                .scalar(ArrayFilterFunction.class)
                 .scalar(ArrayPositionFunction.class)
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
@@ -463,13 +509,14 @@ public class FunctionRegistry
                 .scalar(ArrayMinFunction.class)
                 .scalar(ArrayMaxFunction.class)
                 .scalar(ArrayDistinctFunction.class)
-                .scalar(ArrayConcatFunction.class)
                 .scalar(ArrayNotEqualOperator.class)
                 .scalar(ArrayEqualOperator.class)
                 .scalar(ArrayHashCodeOperator.class)
                 .scalar(ArrayIntersectFunction.class)
+                .scalar(ArraysOverlapFunction.class)
                 .scalar(ArrayDistinctFromOperator.class)
                 .scalar(ArrayUnionFunction.class)
+                .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
@@ -477,18 +524,24 @@ public class FunctionRegistry
                 .scalar(MapKeys.class)
                 .scalar(MapValues.class)
                 .scalar(MapCardinalityFunction.class)
-                .scalar(MapConcatFunction.class)
                 .scalar(MapToMapCast.class)
+                .scalars(EmptyMapConstructor.class)
                 .scalar(TypeOfFunction.class)
+                .scalars(ListLiteralCast.class)
+                .scalars(GroupingOperationFunction.class)
+                .function(ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_TO_ARRAY_CAST)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_HASH_CODE)
                 .function(MAP_ELEMENT_AT)
+                .function(MAP_CONCAT_FUNCTION)
                 .function(ARRAY_FLATTEN_FUNCTION)
+                .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY)
-                .functions(MAP_CONSTRUCTOR, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP)
+                .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript(), featuresConfig.isNewMapBlock()))
+                .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP)
                 .functions(MAP_AGG, MULTIMAP_AGG, MAP_UNION)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
@@ -497,7 +550,11 @@ public class FunctionRegistry
                 .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)
                 .functions(DECIMAL_LESS_THAN_OPERATOR, DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR)
                 .functions(DECIMAL_GREATER_THAN_OPERATOR, DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR)
-                .functions(DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST)
+                .function(DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST)
+                .functions(DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST, BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
+                .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
+                .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
+                .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(DECIMAL_DISTINCT_FROM_OPERATOR)
                 .function(HISTOGRAM)
@@ -508,18 +565,16 @@ public class FunctionRegistry
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
                 .function(COUNT_COLUMN)
-                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
-                .function(CONCAT)
+                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
+                .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(DECIMAL_AVERAGE_AGGREGATION)
                 .function(DECIMAL_SUM_AGGREGATION)
-                .functions(DECIMAL_CEILING_FUNCTIONS)
-                .function(DECIMAL_FLOOR_FUNCTION)
                 .function(DECIMAL_MOD_FUNCTION)
-                .functions(DECIMAL_ROUND_FUNCTIONS)
-                .function(DECIMAL_TRUNCATE_FUNCTION)
+                .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
+                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST);
 
         builder.function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg()));
@@ -534,6 +589,10 @@ public class FunctionRegistry
         }
 
         addFunctions(builder.getFunctions());
+
+        if (typeManager instanceof TypeRegistry) {
+            ((TypeRegistry) typeManager).setFunctionRegistry(this);
+        }
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
@@ -558,16 +617,14 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
-    public Signature resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes)
+    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         Collection<SqlFunction> allCandidates = functions.get(name);
         List<SqlFunction> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
-
-        Optional<Signature> match = matchFunctionExact(exactCandidates, resolvedTypes);
+        Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
             return match.get();
         }
@@ -576,12 +633,12 @@ public class FunctionRegistry
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        match = matchFunctionExact(genericCandidates, resolvedTypes);
+        match = matchFunctionExact(genericCandidates, parameterTypes);
         if (match.isPresent()) {
             return match.get();
         }
 
-        match = matchFunctionWithCoercion(allCandidates, resolvedTypes);
+        match = matchFunctionWithCoercion(allCandidates, parameterTypes);
         if (match.isPresent()) {
             return match.get();
         }
@@ -610,7 +667,7 @@ public class FunctionRegistry
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0));
+            Type parameterType = typeManager.getType(parameterTypes.get(0).getTypeSignature());
             requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
             return getMagicLiteralFunctionSignature(type);
@@ -619,17 +676,17 @@ public class FunctionRegistry
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 
-    private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<Type> actualParameters)
+    private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, false);
     }
 
-    private Optional<Signature> matchFunctionWithCoercion(Collection<SqlFunction> candidates, List<Type> actualParameters)
+    private Optional<Signature> matchFunctionWithCoercion(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, true);
     }
 
-    private Optional<Signature> matchFunction(Collection<SqlFunction> candidates, List<Type> parameters, boolean coercionAllowed)
+    private Optional<Signature> matchFunction(Collection<SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -656,7 +713,7 @@ public class FunctionRegistry
         throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
     }
 
-    private List<ApplicableFunction> identifyApplicableFunctions(Collection<SqlFunction> candidates, List<Type> actualParameters, boolean allowCoercion)
+    private List<ApplicableFunction> identifyApplicableFunctions(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
     {
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
         for (SqlFunction function : candidates) {
@@ -670,29 +727,47 @@ public class FunctionRegistry
         return applicableFunctions.build();
     }
 
-    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> applicableFunctions, List<Type> parameters)
+    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> applicableFunctions, List<TypeSignatureProvider> parameters)
     {
+        checkArgument(!applicableFunctions.isEmpty());
+
         List<ApplicableFunction> mostSpecificFunctions = selectMostSpecificFunctions(applicableFunctions);
-        if (mostSpecificFunctions.size() > 1 && someParameterIsUnknown(parameters)) {
-            // if there is more than one function, look for functions that only cast the unknown arguments
-            List<ApplicableFunction> unknownOnlyCastFunctions = getUnknownOnlyCastFunctions(applicableFunctions, parameters);
-            if (!unknownOnlyCastFunctions.isEmpty()) {
-                mostSpecificFunctions = unknownOnlyCastFunctions;
-            }
+        if (mostSpecificFunctions.size() <= 1) {
+            return mostSpecificFunctions;
+        }
+
+        Optional<List<Type>> optionalParameterTypes = toTypes(parameters, typeManager);
+        if (!optionalParameterTypes.isPresent()) {
+            // give up and return all remaining matches
+            return mostSpecificFunctions;
+        }
+
+        List<Type> parameterTypes = optionalParameterTypes.get();
+        if (!someParameterIsUnknown(parameterTypes)) {
+            // give up and return all remaining matches
+            return mostSpecificFunctions;
+        }
+
+        // look for functions that only cast the unknown arguments
+        List<ApplicableFunction> unknownOnlyCastFunctions = getUnknownOnlyCastFunctions(applicableFunctions, parameterTypes);
+        if (!unknownOnlyCastFunctions.isEmpty()) {
+            mostSpecificFunctions = unknownOnlyCastFunctions;
             if (mostSpecificFunctions.size() == 1) {
                 return mostSpecificFunctions;
             }
-            // If the return type for all the selected function is the same, and the parameters are not declared as nullable
-            // all the functions are semantically the same. We can return just any of those.
-            if (returnTypeIsTheSame(mostSpecificFunctions) && allReturnNullOnGivenInputTypes(mostSpecificFunctions, parameters)) {
-                // make it deterministic
-                ApplicableFunction selectedFunction = Ordering.usingToString()
-                        .reverse()
-                        .sortedCopy(mostSpecificFunctions)
-                        .get(0);
-                return ImmutableList.of(selectedFunction);
-            }
         }
+
+        // If the return type for all the selected function is the same, and the parameters are not declared as nullable
+        // all the functions are semantically the same. We can return just any of those.
+        if (returnTypeIsTheSame(mostSpecificFunctions) && allReturnNullOnGivenInputTypes(mostSpecificFunctions, parameterTypes)) {
+            // make it deterministic
+            ApplicableFunction selectedFunction = Ordering.usingToString()
+                    .reverse()
+                    .sortedCopy(mostSpecificFunctions)
+                    .get(0);
+            return ImmutableList.of(selectedFunction);
+        }
+
         return mostSpecificFunctions;
     }
 
@@ -721,7 +796,7 @@ public class FunctionRegistry
         return representatives;
     }
 
-    private boolean someParameterIsUnknown(List<Type> parameters)
+    private static boolean someParameterIsUnknown(List<Type> parameters)
     {
         return parameters.stream().anyMatch(type -> type.equals(UNKNOWN));
     }
@@ -838,20 +913,21 @@ public class FunctionRegistry
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
-        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
+        List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
         for (SqlFunction candidate : candidates) {
             Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, candidate.getSignature(), false)
-                    .bindVariables(argumentTypes, returnType);
+                    .bindVariables(argumentTypeSignatureProviders, returnType);
             if (boundVariables.isPresent()) {
-                return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypes.size());
+                return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypeSignatureProviders.size());
             }
         }
 
         // TODO: hack because there could be "type only" coercions (which aren't necessarily included as implicit casts),
         // so do a second pass allowing "type only" coercions
+        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
         for (SqlFunction candidate : candidates) {
             SignatureBinder binder = new SignatureBinder(typeManager, candidate.getSignature(), true);
-            Optional<BoundVariables> boundVariables = binder.bindVariables(argumentTypes, returnType);
+            Optional<BoundVariables> boundVariables = binder.bindVariables(argumentTypeSignatureProviders, returnType);
             if (!boundVariables.isPresent()) {
                 continue;
             }
@@ -939,7 +1015,7 @@ public class FunctionRegistry
             throws OperatorNotFoundException
     {
         try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), Lists.transform(argumentTypes, Type::getTypeSignature));
+            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes));
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1032,12 +1108,24 @@ public class FunctionRegistry
         return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
     }
 
+    public static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
+    {
+        ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
+        for (TypeSignatureProvider typeSignatureProvider : typeSignatureProviders) {
+            if (typeSignatureProvider.hasDependency()) {
+                return Optional.empty();
+            }
+            resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeSignature()));
+        }
+        return Optional.of(resultBuilder.build());
+    }
+
     /**
      * One method is more specific than another if invocation handled by the first method could be passed on to the other one
      */
-    public boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
+    private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
-        List<Type> resolvedTypes = resolveTypes(left.getBoundSignature().getArgumentTypes(), typeManager);
+        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
         Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, right.getDeclaredSignature(), true)
                 .bindVariables(resolvedTypes);
         return boundVariables.isPresent();

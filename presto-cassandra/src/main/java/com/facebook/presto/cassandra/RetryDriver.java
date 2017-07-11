@@ -46,7 +46,7 @@ public class RetryDriver
 
     private RetryDriver()
     {
-        this(DEFAULT_RETRY_ATTEMPTS, DEFAULT_SLEEP_TIME, DEFAULT_MAX_RETRY_TIME, ImmutableList.<Class<? extends Exception>>of());
+        this(DEFAULT_RETRY_ATTEMPTS, DEFAULT_SLEEP_TIME, DEFAULT_MAX_RETRY_TIME, ImmutableList.of());
     }
 
     public static RetryDriver retry()

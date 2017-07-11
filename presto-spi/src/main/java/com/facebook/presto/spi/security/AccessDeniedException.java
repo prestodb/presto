@@ -38,6 +38,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal, userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCatalogAccess(String catalogName)
+    {
+        denyCatalogAccess(catalogName, null);
+    }
+
+    public static void denyCatalogAccess(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot access catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateSchema(String schemaName)
     {
         denyCreateSchema(schemaName, null);
@@ -68,6 +78,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowSchemas()
+    {
+        denyShowSchemas(null);
+    }
+
+    public static void denyShowSchemas(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show schemas%s", formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateTable(String tableName)
     {
         denyCreateTable(tableName, null);
@@ -96,6 +116,16 @@ public class AccessDeniedException
     public static void denyRenameTable(String tableName, String newTableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot rename table from %s to %s%s", tableName, newTableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyShowTablesMetadata(String schemaName)
+    {
+        denyShowTablesMetadata(schemaName, null);
+    }
+
+    public static void denyShowTablesMetadata(String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show metadata of tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyAddColumn(String tableName)

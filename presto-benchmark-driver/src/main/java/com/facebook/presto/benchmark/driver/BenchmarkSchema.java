@@ -26,7 +26,7 @@ public class BenchmarkSchema
 
     public BenchmarkSchema(String name)
     {
-        this(name, ImmutableMap.<String, String>of());
+        this(name, ImmutableMap.of());
     }
 
     public BenchmarkSchema(String name, Map<String, String> tags)

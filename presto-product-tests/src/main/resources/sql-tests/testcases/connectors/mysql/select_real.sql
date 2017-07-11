@@ -1,4 +1,4 @@
--- database: presto; groups: mysql_connector; tables: mysql.real_table_mysql
+-- database: presto; groups: mysql_connector; tables: mysql.test.real_table_mysql
 --!
 select * from mysql.test.real_table_mysql
 --!

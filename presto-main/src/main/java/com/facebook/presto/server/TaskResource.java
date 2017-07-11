@@ -21,10 +21,13 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
@@ -54,7 +57,6 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -68,6 +70,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static java.util.Objects.requireNonNull;
@@ -156,14 +159,14 @@ public class TaskResource
         }
 
         Duration waitTime = randomizeWaitTime(maxWait);
-        CompletableFuture<TaskInfo> futureTaskInfo = addTimeout(
+        ListenableFuture<TaskInfo> futureTaskInfo = addTimeout(
                 taskManager.getTaskInfo(taskId, currentState),
                 () -> taskManager.getTaskInfo(taskId),
                 waitTime,
                 timeoutExecutor);
 
         if (shouldSummarize(uriInfo)) {
-            futureTaskInfo = futureTaskInfo.thenApply(TaskInfo::summarize);
+            futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize);
         }
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
@@ -190,14 +193,14 @@ public class TaskResource
         }
 
         Duration waitTime = randomizeWaitTime(maxWait);
-        CompletableFuture<TaskStatus> futureTaskStatus = addTimeout(
+        ListenableFuture<TaskStatus> futureTaskStatus = addTimeout(
                 taskManager.getTaskStatus(taskId, currentState),
                 () -> taskManager.getTaskStatus(taskId),
                 waitTime,
                 timeoutExecutor);
 
-        // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
+        // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
+        Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
     }
@@ -210,11 +213,19 @@ public class TaskResource
             @Context UriInfo uriInfo)
     {
         requireNonNull(taskId, "taskId is null");
+        TaskInfo taskInfo;
 
         if (abort) {
-            return taskManager.abortTask(taskId);
+            taskInfo = taskManager.abortTask(taskId);
         }
-        return taskManager.cancelTask(taskId);
+        else {
+            taskInfo = taskManager.cancelTask(taskId);
+        }
+
+        if (shouldSummarize(uriInfo)) {
+            taskInfo = taskInfo.summarize();
+        }
+        return taskInfo;
     }
 
     @GET
@@ -231,7 +242,7 @@ public class TaskResource
         requireNonNull(bufferId, "bufferId is null");
 
         long start = System.nanoTime();
-        CompletableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
+        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
@@ -239,16 +250,16 @@ public class TaskResource
                 waitTime,
                 timeoutExecutor);
 
-        CompletableFuture<Response> responseFuture = bufferResultFuture.thenApply(result -> {
-            List<Page> pages = result.getPages();
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, result -> {
+            List<SerializedPage> serializedPages = result.getSerializedPages();
 
             GenericEntity<?> entity = null;
             Status status;
-            if (pages.isEmpty()) {
+            if (serializedPages.isEmpty()) {
                 status = Status.NO_CONTENT;
             }
             else {
-                entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
+                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Page>>() {}.getType());
                 status = Status.OK;
             }
 
@@ -261,8 +272,8 @@ public class TaskResource
                     .build();
         });
 
-        // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
+        // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
+        Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
                 .withTimeout(timeout,
                         Response.status(Status.NO_CONTENT)
@@ -272,7 +283,7 @@ public class TaskResource
                                 .header(PRESTO_BUFFER_COMPLETE, false)
                                 .build());
 
-        responseFuture.whenComplete((response, exception) -> readFromOutputBufferTime.add(Duration.nanosSince(start)));
+        responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
         asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 

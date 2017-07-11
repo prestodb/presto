@@ -16,13 +16,18 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 public interface Block
 {
     /**
      * Gets the length of the value at the {@code position}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int getLength(int position);
+    default int getSliceLength(int position)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Gets a byte at {@code offset} in the value at {@code position}.
@@ -158,13 +163,28 @@ public interface Block
     /**
      * Returns the logical size of this block in memory.
      */
-    int getSizeInBytes();
+    long getSizeInBytes();
+
+    /**
+     * Returns the logical size of {@code block.getRegion(position, length)} in memory.
+     */
+    long getRegionSizeInBytes(int position, int length);
 
     /**
      * Returns the retained size of this block in memory.
      * This method is called from the inner most execution loop and must be fast.
      */
-    int getRetainedSizeInBytes();
+    long getRetainedSizeInBytes();
+
+    /**
+     * {@code consumer} visits each of the internal data container and accepts the size for it.
+     * This method can be helpful in cases such as memory counting for internal data structure.
+     * Also, the method should be non-recursive, only visit the elements at the top level,
+     * and specifically should not call retainedBytesForEachPart on nested blocks
+     * {@code consumer} should be called at least once with the current block and
+     * must include the instance size of the current block
+     */
+    void retainedBytesForEachPart(BiConsumer<Object, Long> consumer);
 
     /**
      * Get the encoding for this block.

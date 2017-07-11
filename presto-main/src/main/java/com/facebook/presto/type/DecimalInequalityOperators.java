@@ -11,31 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.metadata.SqlScalarFunctionBuilder;
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.math.BigInteger;
-import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.SqlScalarFunctionBuilder.concat;
 import static com.facebook.presto.metadata.SqlScalarFunctionBuilder.constant;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
@@ -46,15 +36,16 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
-import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.util.Reflection.methodHandle;
-import static java.lang.Integer.max;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 
 public class DecimalInequalityOperators
 {
+    private static final TypeSignature DECIMAL_SIGNATURE = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
+
     private static final MethodHandle IS_RESULT_EQUAL = methodHandle(DecimalInequalityOperators.class, "getResultEqual", int.class);
     private static final MethodHandle IS_RESULT_NOT_EQUAL = methodHandle(DecimalInequalityOperators.class, "isResultNotEqual", int.class);
     private static final MethodHandle IS_RESULT_LESS_THAN = methodHandle(DecimalInequalityOperators.class, "isResultLessThan", int.class);
@@ -69,9 +60,7 @@ public class DecimalInequalityOperators
     public static final SqlScalarFunction DECIMAL_GREATER_THAN_OPERATOR = binaryOperator(GREATER_THAN, IS_RESULT_GREATER_THAN);
     public static final SqlScalarFunction DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR = binaryOperator(GREATER_THAN_OR_EQUAL, IS_RESULT_GREATER_THAN_OR_EQUAL);
     public static final SqlScalarFunction DECIMAL_BETWEEN_OPERATOR = betweenOperator();
-    public static final SqlScalarFunction DECIMAL_DISTINCT_FROM_OPERATOR = binaryOperatorNullable(IS_DISTINCT_FROM, IS_RESULT_NOT_EQUAL);
-
-    private static final int MAX_PRECISION_OF_JAVA_LONG = 18;
+    public static final SqlScalarFunction DECIMAL_DISTINCT_FROM_OPERATOR = distinctOperator();
 
     private DecimalInequalityOperators() {}
 
@@ -113,12 +102,10 @@ public class DecimalInequalityOperators
 
     private static SqlScalarFunctionBuilder makeBinaryOperatorFunctionBuilder(OperatorType operatorType)
     {
-        TypeSignature decimalASignature = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
-        TypeSignature decimalBSignature = parseTypeSignature("decimal(b_precision, b_scale)", ImmutableSet.of("b_precision", "b_scale"));
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(operatorType)
-                .argumentTypes(decimalASignature, decimalBSignature)
+                .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(parseTypeSignature(BOOLEAN))
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
@@ -129,198 +116,57 @@ public class DecimalInequalityOperators
     {
         return makeBinaryOperatorFunctionBuilder(operatorType)
                 .implementation(b -> b
-                        .methods("opShortShortShortRescale")
-                        .withPredicate(DecimalInequalityOperators::rescaledValuesFitJavaLong)
-                        .withExtraParameters(concat(DecimalInequalityOperators::shortRescaleExtraParameters, constant(getResultMethodHandle)))
-                )
-                .implementation(b -> b
-                        .methods("opShortShortLongRescale", "opShortLong", "opLongShort", "opLongLong")
-                        .withExtraParameters(concat(DecimalInequalityOperators::longRescaleExtraParameters, constant(getResultMethodHandle)))
+                        .methods("opShortShort", "opLongLong")
+                        .withExtraParameters(constant(getResultMethodHandle))
                 )
                 .build();
     }
 
-    private static SqlScalarFunction binaryOperatorNullable(OperatorType operatorType, MethodHandle getResultMethodHandle)
+    @UsedByGeneratedCode
+    public static boolean opShortShort(long a, long b, MethodHandle getResultMethodHandle)
     {
-        return makeBinaryOperatorFunctionBuilder(operatorType)
+        return invokeGetResult(getResultMethodHandle, Long.compare(a, b));
+    }
+
+    @UsedByGeneratedCode
+    public static boolean opLongLong(Slice left, Slice right, MethodHandle getResultMethodHandle)
+    {
+        return invokeGetResult(getResultMethodHandle, compare(left, right));
+    }
+
+    private static SqlScalarFunction distinctOperator()
+    {
+        return makeBinaryOperatorFunctionBuilder(IS_DISTINCT_FROM)
                 .nullableArguments(true, true)
                 .nullFlags(true, true)
                 .implementation(b -> b
-                        .methods("opShortShortShortRescaleNullable")
-                        .withPredicate(DecimalInequalityOperators::rescaledValuesFitJavaLong)
-                        .withExtraParameters(concat(DecimalInequalityOperators::shortRescaleExtraParameters, constant(getResultMethodHandle)))
-                )
-                .implementation(b -> b
-                        .methods("opShortShortLongRescaleNullable", "opShortLongNullable", "opLongShortNullable", "opLongLongNullable")
-                        .withExtraParameters(concat(DecimalInequalityOperators::longRescaleExtraParameters, constant(getResultMethodHandle)))
+                        .methods("distinctShortShort", "distinctLongLong")
                 )
                 .build();
     }
 
-    private static boolean rescaledValuesFitJavaLong(SpecializeContext context)
-    {
-        long aPrecision = context.getLiteral("a_precision");
-        long aScale = context.getLiteral("a_scale");
-        long bPrecision = context.getLiteral("b_precision");
-        long bScale = context.getLiteral("b_scale");
-        long aRescaleFactor = rescaleFactor(aScale, bScale);
-        long bRescaleFactor = rescaleFactor(bScale, aScale);
-        return aPrecision + aRescaleFactor <= MAX_PRECISION_OF_JAVA_LONG &&
-                bPrecision + bRescaleFactor <= MAX_PRECISION_OF_JAVA_LONG;
-    }
-
-    private static List<Object> shortRescaleExtraParameters(SpecializeContext context)
-    {
-        long aScale = context.getLiteral("a_scale");
-        long bScale = context.getLiteral("b_scale");
-        long aRescale = longTenToNth(rescaleFactor(aScale, bScale));
-        long bRescale = longTenToNth(rescaleFactor(bScale, aScale));
-        return ImmutableList.of(aRescale, bRescale);
-    }
-
-    private static List<Object> longRescaleExtraParameters(SpecializeContext context)
-    {
-        long aScale = context.getLiteral("a_scale");
-        long bScale = context.getLiteral("b_scale");
-        BigInteger aRescale = bigIntegerTenToNth(rescaleFactor(aScale, bScale));
-        BigInteger bRescale = bigIntegerTenToNth(rescaleFactor(bScale, aScale));
-        return ImmutableList.of(aRescale, bRescale);
-    }
-
-    private static int rescaleFactor(long fromScale, long toScale)
-    {
-        return max(0, (int) (toScale - fromScale));
-    }
-
     @UsedByGeneratedCode
-    public static boolean opShortShortShortRescale(long a, long b, long aRescale, long bRescale, MethodHandle getResultMethodHandle)
+    public static boolean distinctShortShort(long left, boolean leftNull, long right, boolean rightNull)
     {
-        return invokeGetResult(getResultMethodHandle, Long.compare(a * aRescale, b * bRescale));
-    }
-
-    @UsedByGeneratedCode
-    public static boolean opShortShortShortRescaleNullable(
-            long a,
-            boolean aNull,
-            long b,
-            boolean bNull,
-            long aRescale, long bRescale, MethodHandle getResultMethodHandle)
-    {
-        if (aNull != bNull) {
+        if (leftNull != rightNull) {
             return true;
         }
-        if (aNull) {
+        if (leftNull) {
             return false;
         }
-        return opShortShortShortRescale(a, b, aRescale, bRescale, getResultMethodHandle);
+        return opShortShort(left, right, IS_RESULT_NOT_EQUAL);
     }
 
     @UsedByGeneratedCode
-    public static boolean opShortShortLongRescale(long a, long b, BigInteger aRescale, BigInteger bRescale, MethodHandle getResultMethodHandle)
+    public static boolean distinctLongLong(Slice left, boolean leftNull, Slice right, boolean rightNull)
     {
-        BigInteger left = BigInteger.valueOf(a).multiply(aRescale);
-        BigInteger right = BigInteger.valueOf(b).multiply(bRescale);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
-    }
-
-    @UsedByGeneratedCode
-    public static boolean opShortShortLongRescaleNullable(
-            long a,
-            boolean aNull,
-            long b,
-            boolean bNull,
-            BigInteger aRescale,
-            BigInteger bRescale,
-            MethodHandle getResultMethodHandle)
-    {
-        if (aNull != bNull) {
+        if (leftNull != rightNull) {
             return true;
         }
-        if (aNull && bNull) {
+        if (leftNull) {
             return false;
         }
-        return opShortShortLongRescale(a, b, aRescale, bRescale, getResultMethodHandle);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean opShortLong(long a, Slice b, BigInteger aRescale, BigInteger bRescale, MethodHandle getResultMethodHandle)
-    {
-        BigInteger left = BigInteger.valueOf(a).multiply(aRescale);
-        BigInteger right = Decimals.decodeUnscaledValue(b).multiply(bRescale);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
-    }
-
-    @UsedByGeneratedCode
-    public static boolean opShortLongNullable(
-            long a,
-            boolean aNull,
-            Slice b,
-            boolean bNull,
-            BigInteger aRescale,
-            BigInteger bRescale,
-            MethodHandle getResultMethodHandle)
-    {
-        if (aNull != bNull) {
-            return true;
-        }
-        if (aNull && bNull) {
-            return false;
-        }
-        return opShortLong(a, b, aRescale, bRescale, getResultMethodHandle);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean opLongShort(Slice a, long b, BigInteger aRescale, BigInteger bRescale, MethodHandle getResultMethodHandle)
-    {
-        BigInteger left = Decimals.decodeUnscaledValue(a).multiply(aRescale);
-        BigInteger right = BigInteger.valueOf(b).multiply(bRescale);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
-    }
-
-    @UsedByGeneratedCode
-    public static boolean opLongShortNullable(
-            Slice a,
-            boolean aNull,
-            long b,
-            boolean bNull,
-            BigInteger aRescale,
-            BigInteger bRescale,
-            MethodHandle getResultMethodHandle)
-    {
-        if (aNull != bNull) {
-            return true;
-        }
-        if (aNull && bNull) {
-            return false;
-        }
-        return opLongShort(a, b, aRescale, bRescale, getResultMethodHandle);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean opLongLong(Slice a, Slice b, BigInteger aRescale, BigInteger bRescale, MethodHandle getResultMethodHandle)
-    {
-        BigInteger left = Decimals.decodeUnscaledValue(a).multiply(aRescale);
-        BigInteger right = Decimals.decodeUnscaledValue(b).multiply(bRescale);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
-    }
-
-    @UsedByGeneratedCode
-    public static boolean opLongLongNullable(
-            Slice a,
-            boolean aNull,
-            Slice b,
-            boolean bNull,
-            BigInteger aRescale,
-            BigInteger bRescale,
-            MethodHandle getResultMethodHandle)
-    {
-        if (aNull != bNull) {
-            return true;
-        }
-        if (aNull && bNull) {
-            return false;
-        }
-        return opLongLong(a, b, aRescale, bRescale, getResultMethodHandle);
+        return opLongLong(left, right, IS_RESULT_NOT_EQUAL);
     }
 
     private static boolean invokeGetResult(MethodHandle getResultMethodHandle, int comparisonResult)
@@ -329,128 +175,37 @@ public class DecimalInequalityOperators
             return (boolean) getResultMethodHandle.invokeExact(comparisonResult);
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
+            throwIfInstanceOf(t, Error.class);
+            throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
     private static SqlScalarFunction betweenOperator()
     {
-        TypeSignature valueSignature = parseTypeSignature("decimal(value_precision, value_scale)", ImmutableSet.of("value_precision", "value_scale"));
-        TypeSignature lowSignature = parseTypeSignature("decimal(low_precision, low_scale)", ImmutableSet.of("low_precision", "low_scale"));
-        TypeSignature highSignature = parseTypeSignature("decimal(high_precision, high_scale)", ImmutableSet.of("high_precision", "high_scale"));
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(BETWEEN)
-                .argumentTypes(valueSignature, lowSignature, highSignature)
+                .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(parseTypeSignature(BOOLEAN))
                 .build();
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)
                 .implementation(b -> b
-                        .methods("betweenShortShortShort", "betweenShortShortLong",
-                                "betweenShortLongShort", "betweenShortLongLong",
-                                "betweenLongShortShort", "betweenLongShortLong",
-                                "betweenLongLongShort", "betweenLongLongLong")
-                        .withExtraParameters(DecimalInequalityOperators::bindMethodsExtraParameters)
+                        .methods("betweenShortShortShort", "betweenLongLongLong")
                 )
                 .build();
     }
 
-    private static List<Object> bindMethodsExtraParameters(SpecializeContext context)
+    @UsedByGeneratedCode
+    public static boolean betweenShortShortShort(long value, long low, long high)
     {
-        long valuePrecision = context.getLiteral("value_precision");
-        long valueScale = context.getLiteral("value_scale");
-        long lowPrecision = context.getLiteral("low_precision");
-        long lowScale = context.getLiteral("low_scale");
-        long highPrecision = context.getLiteral("high_precision");
-        long highScale = context.getLiteral("high_scale");
-
-        MethodHandle lowerBoundTestMethodHandle = DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR.specialize(
-                new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "a_precision", lowPrecision,
-                                "a_scale", lowScale,
-                                "b_precision", valuePrecision,
-                                "b_scale", valueScale
-                        )
-                ),
-                2,
-                context.getTypeManager(),
-                context.getFunctionRegistry()
-        ).getMethodHandle();
-        MethodHandle upperBoundTestMethodHandle = DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR.specialize(
-                new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "a_precision", highPrecision,
-                                "a_scale", highScale,
-                                "b_precision", valuePrecision,
-                                "b_scale", valueScale
-                        )
-                ),
-                2,
-                context.getTypeManager(),
-                context.getFunctionRegistry()
-        ).getMethodHandle();
-        return ImmutableList.of(lowerBoundTestMethodHandle, upperBoundTestMethodHandle);
+        return low <= value && value <= high;
     }
 
     @UsedByGeneratedCode
-    public static boolean betweenShortShortShort(long value, long low, long high, MethodHandle lowerBoundTestMethodHandle, MethodHandle upperBoundTestMethodHandle)
-            throws Throwable
+    public static boolean betweenLongLongLong(Slice value, Slice low, Slice high)
     {
-        return (boolean) lowerBoundTestMethodHandle.invokeExact(low, value) && (boolean) upperBoundTestMethodHandle.invokeExact(high, value);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean betweenShortShortLong(long value, long low, Slice high, MethodHandle lowerBoundTestMethodHandle, MethodHandle upperBoundTestMethodHandle)
-            throws Throwable
-    {
-        return (boolean) lowerBoundTestMethodHandle.invokeExact(low, value) && (boolean) upperBoundTestMethodHandle.invokeExact(high, value);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean betweenShortLongShort(long value, Slice low, long high, MethodHandle lowerBoundTestMethodHandle, MethodHandle upperBoundTestMethodHandle)
-            throws Throwable
-    {
-        return (boolean) lowerBoundTestMethodHandle.invokeExact(low, value) && (boolean) upperBoundTestMethodHandle.invokeExact(high, value);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean betweenShortLongLong(long value, Slice low, Slice high, MethodHandle lowerBoundTestMethodHandle, MethodHandle upperBoundTestMethodHandle)
-            throws Throwable
-    {
-        return (boolean) lowerBoundTestMethodHandle.invokeExact(low, value) && (boolean) upperBoundTestMethodHandle.invokeExact(high, value);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean betweenLongShortShort(Slice value, long low, long high, MethodHandle lowerBoundTestMethodHandle, MethodHandle upperBoundTestMethodHandle)
-            throws Throwable
-    {
-        return (boolean) lowerBoundTestMethodHandle.invokeExact(low, value) && (boolean) upperBoundTestMethodHandle.invokeExact(high, value);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean betweenLongShortLong(Slice value, long low, Slice high, MethodHandle lowerBoundTestMethodHandle, MethodHandle upperBoundTestMethodHandle)
-            throws Throwable
-    {
-        return (boolean) lowerBoundTestMethodHandle.invokeExact(low, value) && (boolean) upperBoundTestMethodHandle.invokeExact(high, value);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean betweenLongLongShort(Slice value, Slice low, long high, MethodHandle lowerBoundTestMethodHandle, MethodHandle upperBoundTestMethodHandle)
-            throws Throwable
-    {
-        return (boolean) lowerBoundTestMethodHandle.invokeExact(low, value) && (boolean) upperBoundTestMethodHandle.invokeExact(high, value);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean betweenLongLongLong(Slice value, Slice low, Slice high, MethodHandle lowerBoundTestMethodHandle, MethodHandle upperBoundTestMethodHandle)
-            throws Throwable
-    {
-        return (boolean) lowerBoundTestMethodHandle.invokeExact(low, value) && (boolean) upperBoundTestMethodHandle.invokeExact(high, value);
+        return compare(low, value) <= 0 && compare(value, high) <= 0;
     }
 }

@@ -16,8 +16,8 @@ package com.facebook.presto.execution;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public enum StageState
 {

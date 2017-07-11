@@ -26,6 +26,10 @@ General Aggregate Functions
 
     Returns the average (arithmetic mean) of all input values.
 
+.. function:: avg(time interval type) -> time interval type
+
+    Returns the average interval length of all input values.
+
 .. function:: bool_and(boolean) -> boolean
 
     Returns ``TRUE`` if every input value is ``TRUE``, otherwise ``FALSE``.
@@ -65,8 +69,8 @@ General Aggregate Functions
 
 .. function:: max_by(x, y, n) -> array<[same as x]>
 
-    Returns ``n`` values of ``x`` associated with the ``n`` largest of all input values of ``y``,
-    in non-ascending order of ``y``.
+    Returns ``n`` values of ``x`` associated with the ``n`` largest of all input values of ``y``
+    in descending order of ``y``.
 
 .. function:: min_by(x, y) -> [same as x]
 
@@ -74,8 +78,8 @@ General Aggregate Functions
 
 .. function:: min_by(x, y, n) -> array<[same as x]>
 
-    Returns ``n`` values of ``x`` associated with the ``n`` smallest of all input values of ``y``,
-    in non-descending order of ``y``.
+    Returns ``n`` values of ``x`` associated with the ``n`` smallest of all input values of ``y``
+    in ascending order of ``y``.
 
 .. function:: max(x) -> [same as input]
 
@@ -96,6 +100,17 @@ General Aggregate Functions
 .. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.
+
+Bitwise Aggregate Functions
+---------------------------
+
+.. function:: bitwise_and_agg(x) -> bigint
+
+    Returns the bitwise AND of all input values in 2's complement representation.
+
+.. function:: bitwise_or_agg(x) -> bigint
+
+    Returns the bitwise OR of all input values in 2's complement representation.
 
 Map Aggregate Functions
 -----------------------
@@ -217,6 +232,15 @@ Statistical Aggregate Functions
 
     Returns the sample covariance of input values.
 
+.. function:: kurtosis(x) -> double
+
+    Returns the excess kurtosis of all input values. Unbiased estimate using
+    the following expression:
+
+    .. code-block:: none
+
+        kurtosis(x) = n(n+1)/((n-1)(n-2)(n-3))sum[(x_i-mean)^4]/stddev(x)^4-3(n-1)^2/((n-2)(n-3))
+
 .. function:: regr_intercept(y, x) -> double
 
     Returns linear regression intercept of input values. ``y`` is the dependent
@@ -226,6 +250,10 @@ Statistical Aggregate Functions
 
     Returns linear regression slope of input values. ``y`` is the dependent
     value. ``x`` is the independent value.
+
+.. function:: skewness(x) -> double
+
+    Returns the skewness of all input values.
 
 .. function:: stddev(x) -> double
 

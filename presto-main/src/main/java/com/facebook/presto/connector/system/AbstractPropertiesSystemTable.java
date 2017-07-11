@@ -25,7 +25,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.util.Types;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -74,7 +73,7 @@ abstract class AbstractPropertiesSystemTable
     @Override
     public final RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        TransactionId transactionId = Types.checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transactionHandle").getTransactionId();
+        TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
 
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
         Map<ConnectorId, Map<String, PropertyMetadata<?>>> connectorProperties = propertySupplier.get();

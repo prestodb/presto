@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.ToIntFunction;
 
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
@@ -50,7 +49,7 @@ public class RaptorNodePartitioningProvider
     @Override
     public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning)
     {
-        RaptorPartitioningHandle handle = checkType(partitioning, RaptorPartitioningHandle.class, "distributionHandle");
+        RaptorPartitioningHandle handle = (RaptorPartitioningHandle) partitioning;
 
         Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
 
@@ -68,12 +67,12 @@ public class RaptorNodePartitioningProvider
     @Override
     public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning)
     {
-        return value -> checkType(value, RaptorSplit.class, "value").getBucketNumber().getAsInt();
+        return value -> ((RaptorSplit) value).getBucketNumber().getAsInt();
     }
 
     @Override
     public BucketFunction getBucketFunction(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
     {
-        return new RaptorBucketFunction(bucketCount);
+        return new RaptorBucketFunction(bucketCount, partitionChannelTypes);
     }
 }

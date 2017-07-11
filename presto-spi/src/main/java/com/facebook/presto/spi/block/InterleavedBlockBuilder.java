@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,10 +34,10 @@ public class InterleavedBlockBuilder
 
     private int positionCount;
     private int currentBlockIndex;
-    private int sizeInBytes;
-    private int startSize;
-    private int retainedSizeInBytes;
-    private int startRetainedSize;
+    private long sizeInBytes;
+    private long startSize;
+    private long retainedSizeInBytes;
+    private long startRetainedSize;
 
     public InterleavedBlockBuilder(List<Type> types, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -109,15 +110,22 @@ public class InterleavedBlockBuilder
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return sizeInBytes;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(blockBuilders, retainedSizeInBytes - INSTANCE_SIZE);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     private void recordStartSizesIfNecessary(BlockBuilder blockBuilder)
@@ -253,20 +261,13 @@ public class InterleavedBlockBuilder
     }
 
     @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
-        this.positionCount = 0;
-
-        this.sizeInBytes = 0;
-        this.retainedSizeInBytes = INSTANCE_SIZE;
-        for (BlockBuilder blockBuilder : blockBuilders) {
-            blockBuilder.reset(blockBuilderStatus);
-            this.sizeInBytes += blockBuilder.getSizeInBytes();
-            this.retainedSizeInBytes += blockBuilder.getRetainedSizeInBytes();
+        BlockBuilder[] newBlockBuilders = new BlockBuilder[blockBuilders.length];
+        for (int i = 0; i < blockBuilders.length; i++) {
+            newBlockBuilders[i] = blockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
         }
-
-        this.startSize = -1;
-        this.startRetainedSize = -1;
+        return new InterleavedBlockBuilder(newBlockBuilders);
     }
 
     @Override

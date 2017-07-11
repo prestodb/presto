@@ -17,8 +17,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
@@ -36,7 +36,7 @@ import static org.testng.Assert.assertEquals;
 public class TestArrayMaxNAggregation
         extends AbstractTestAggregationFunction
 {
-    public Block createLongArraysBlock(Long[] values)
+    public static Block createLongArraysBlock(Long[] values)
     {
         ArrayType arrayType = new ArrayType(BIGINT);
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), values.length);
@@ -53,7 +53,7 @@ public class TestArrayMaxNAggregation
         return blockBuilder.build();
     }
 
-    public Block createLongArraySequenceBlock(int start, int length)
+    public static Block createLongArraySequenceBlock(int start, int length)
     {
         return createLongArraysBlock(LongStream.range(start, length).boxed().toArray(Long[]::new));
     }

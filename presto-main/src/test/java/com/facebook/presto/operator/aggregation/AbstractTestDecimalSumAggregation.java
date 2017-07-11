@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
@@ -41,7 +40,7 @@ public abstract class AbstractTestDecimalSumAggregation
 
     protected abstract void writeDecimalToBlock(BigDecimal decimal, BlockBuilder blockBuilder);
 
-    private BigDecimal getBigDecimalForCounter(int i)
+    private static BigDecimal getBigDecimalForCounter(int i)
     {
         String iAsString = String.valueOf(Math.abs(i));
         return new BigDecimal(String.valueOf(i) + "." + iAsString + iAsString).setScale(2, ROUND_DOWN);

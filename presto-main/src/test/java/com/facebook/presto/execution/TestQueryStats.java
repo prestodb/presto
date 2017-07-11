@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -47,12 +48,14 @@ public class TestQueryStats
             12,
             13,
             15,
+            30,
             16,
 
             17.0,
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
 
+            true,
             new Duration(20, NANOSECONDS),
             new Duration(21, NANOSECONDS),
             new Duration(22, NANOSECONDS),
@@ -67,7 +70,8 @@ public class TestQueryStats
             27,
 
             new DataSize(28, BYTE),
-            29);
+            29,
+            ImmutableList.of());
 
     @Test
     public void testJson()
@@ -103,6 +107,7 @@ public class TestQueryStats
         assertEquals(actual.getTotalDrivers(), 12);
         assertEquals(actual.getQueuedDrivers(), 13);
         assertEquals(actual.getRunningDrivers(), 15);
+        assertEquals(actual.getBlockedDrivers(), 30);
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeMemory(), 17.0);

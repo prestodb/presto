@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.util.List;
 
@@ -31,6 +30,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public final class WindowPartition
 {
@@ -71,6 +71,11 @@ public final class WindowPartition
         updatePeerGroup();
     }
 
+    public int getPartitionStart()
+    {
+        return partitionStart;
+    }
+
     public int getPartitionEnd()
     {
         return partitionEnd;
@@ -104,8 +109,8 @@ public final class WindowPartition
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
-                    range.start,
-                    range.end);
+                    range.getStart(),
+                    range.getEnd());
             channel++;
         }
 
@@ -149,6 +154,11 @@ public final class WindowPartition
         int rowPosition = currentPosition - partitionStart;
         int endPosition = partitionEnd - partitionStart - 1;
 
+        // handle empty frame
+        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
+            return new Range(-1, -1);
+        }
+
         int frameStart;
         int frameEnd;
 
@@ -184,12 +194,6 @@ public final class WindowPartition
         }
         else {
             frameEnd = rowPosition;
-        }
-
-        // handle empty frame
-        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
-            frameStart = -1;
-            frameEnd = -1;
         }
 
         return new Range(frameStart, frameEnd);
@@ -234,7 +238,7 @@ public final class WindowPartition
         if (value > rowPosition) {
             return 0;
         }
-        return Ints.checkedCast(rowPosition - value);
+        return toIntExact(rowPosition - value);
     }
 
     private static int following(int rowPosition, int endPosition, long value)
@@ -242,7 +246,7 @@ public final class WindowPartition
         if (value > (endPosition - rowPosition)) {
             return endPosition;
         }
-        return Ints.checkedCast(rowPosition + value);
+        return toIntExact(rowPosition + value);
     }
 
     private long getStartValue(FrameInfo frameInfo)

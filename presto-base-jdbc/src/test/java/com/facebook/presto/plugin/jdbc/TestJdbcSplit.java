@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,7 +24,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestJdbcSplit
 {
-    private final JdbcSplit split = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", "connectionUrl", ImmutableMap.<String, String>of(), TupleDomain.<ColumnHandle>all());
+    private final JdbcSplit split = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", "connectionUrl", ImmutableMap.of(), TupleDomain.all());
 
     @Test
     public void testAddresses()
@@ -34,7 +33,7 @@ public class TestJdbcSplit
         assertEquals(split.getAddresses(), ImmutableList.of());
         assertEquals(split.isRemotelyAccessible(), true);
 
-        JdbcSplit jdbcSplit = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", "connectionUrl", ImmutableMap.<String, String>of(), TupleDomain.<ColumnHandle>all());
+        JdbcSplit jdbcSplit = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", "connectionUrl", ImmutableMap.of(), TupleDomain.all());
         assertEquals(jdbcSplit.getAddresses(), ImmutableList.of());
     }
 

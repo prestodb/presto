@@ -40,7 +40,7 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         return fixedSize;
     }
@@ -138,7 +138,7 @@ public abstract class AbstractFixedWidthBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        writeBytesTo(position, 0, getLength(position), blockBuilder);
+        writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
     }
 
     @Override
@@ -162,6 +162,16 @@ public abstract class AbstractFixedWidthBlock
     {
         checkReadablePosition(position);
         return isEntryNull(position);
+    }
+
+    @Override
+    public long getRegionSizeInBytes(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+        return (fixedSize + Byte.BYTES) * (long) length;
     }
 
     private int valueOffset(int position)

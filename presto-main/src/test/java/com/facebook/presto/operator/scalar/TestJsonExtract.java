@@ -60,7 +60,7 @@ public class TestJsonExtract
 
         assertQuotedPathToken("-1.1");
         assertQuotedPathToken("!@#$%^&*()[]{}/?'");
-        assertQuotedPathToken("ab\\u0001c");
+        assertQuotedPathToken("ab\u0001c");
         assertQuotedPathToken("ab\0c");
         assertQuotedPathToken("ab\t\n\rc");
         assertQuotedPathToken(".");
@@ -68,7 +68,11 @@ public class TestJsonExtract
         assertQuotedPathToken("]");
         assertQuotedPathToken("[");
         assertQuotedPathToken("'");
-        assertQuotedPathToken("!@#$%^&*(){}[]<>?/\\|.,`~\r\n\t \0");
+        assertQuotedPathToken("!@#$%^&*(){}[]<>?/|.,`~\r\n\t \0");
+        assertQuotedPathToken("a\\\\b\\\"", "a\\b\"");
+
+        // backslash not followed by valid escape
+        assertInvalidPath("$[\"a\\ \"]");
 
         // colon in subscript must be quoted
         assertInvalidPath("$[foo:bar]");
@@ -96,16 +100,25 @@ public class TestJsonExtract
 
     private static void assertQuotedPathToken(String fieldName)
     {
-        assertPathTokenQuoting(fieldName);
+        assertQuotedPathToken(fieldName, fieldName);
+    }
+
+    private static void assertQuotedPathToken(String fieldName, String expectedTokenizedField)
+    {
+        assertPathTokenQuoting(fieldName, expectedTokenizedField);
         // without quoting we should get an error
         assertInvalidPath("$." + fieldName);
     }
 
     private static void assertPathTokenQuoting(String fieldName)
     {
-        assertTrue(fieldName.indexOf('"') < 0);
-        assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(fieldName));
-        assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", fieldName, "bar"));
+        assertPathTokenQuoting(fieldName, fieldName);
+    }
+
+    private static void assertPathTokenQuoting(String fieldName, String expectedTokenizedField)
+    {
+        assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(expectedTokenizedField));
+        assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", expectedTokenizedField, "bar"));
     }
 
     public static void assertInvalidPath(String path)

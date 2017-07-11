@@ -30,9 +30,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 
+import javax.inject.Inject;
 import javax.management.JMException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
@@ -45,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -64,17 +62,12 @@ public class JmxMetadata
     public static final String NODE_COLUMN_NAME = "node";
     public static final String TIMESTAMP_COLUMN_NAME = "timestamp";
 
-    private final String connectorId;
     private final MBeanServer mbeanServer;
     private final JmxHistoricalData jmxHistoricalData;
 
     @Inject
-    public JmxMetadata(
-            @Named(JmxConnector.CONNECTOR_ID_PARAMETER) String connectorId,
-            MBeanServer mbeanServer,
-            JmxHistoricalData jmxHistoricalData)
+    public JmxMetadata(MBeanServer mbeanServer, JmxHistoricalData jmxHistoricalData)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxStatsHolder is null");
     }
@@ -110,9 +103,9 @@ public class JmxMetadata
             return null;
         }
         ImmutableList.Builder<JmxColumnHandle> builder = ImmutableList.builder();
-        builder.add(new JmxColumnHandle(connectorId, TIMESTAMP_COLUMN_NAME, TIMESTAMP));
+        builder.add(new JmxColumnHandle(TIMESTAMP_COLUMN_NAME, TIMESTAMP));
         builder.addAll(handle.getColumnHandles());
-        return new JmxTableHandle(connectorId, handle.getObjectName(), builder.build(), false);
+        return new JmxTableHandle(handle.getObjectName(), builder.build(), false);
     }
 
     private JmxTableHandle getJmxTableHandle(SchemaTableName tableName)
@@ -128,17 +121,17 @@ public class JmxMetadata
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName.get());
 
             ImmutableList.Builder<JmxColumnHandle> columns = ImmutableList.builder();
-            columns.add(new JmxColumnHandle(connectorId, NODE_COLUMN_NAME, createUnboundedVarcharType()));
+            columns.add(new JmxColumnHandle(NODE_COLUMN_NAME, createUnboundedVarcharType()));
 
             // Since this method is being called on all nodes in the cluster, we must ensure (by sorting)
             // that attributes are in the same order on all of them.
             Arrays.stream(mbeanInfo.getAttributes())
                     .filter(MBeanAttributeInfo::isReadable)
-                    .map(attribute -> new JmxColumnHandle(connectorId, attribute.getName(), getColumnType(attribute)))
+                    .map(attribute -> new JmxColumnHandle(attribute.getName(), getColumnType(attribute)))
                     .sorted((column1, column2) -> column1.getColumnName().compareTo(column2.getColumnName()))
                     .forEach(columns::add);
 
-            return new JmxTableHandle(connectorId, objectName.get().toString(), columns.build(), true);
+            return new JmxTableHandle(objectName.get().toString(), columns.build(), true);
         }
         catch (JMException e) {
             return null;
@@ -148,7 +141,7 @@ public class JmxMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return checkType(tableHandle, JmxTableHandle.class, "tableHandle").getTableMetadata();
+        return ((JmxTableHandle) tableHandle).getTableMetadata();
     }
 
     @Override
@@ -180,15 +173,14 @@ public class JmxMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
+        JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
         return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> column.getColumnName().toLowerCase(ENGLISH)));
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, JmxTableHandle.class, "tableHandle");
-        return checkType(columnHandle, JmxColumnHandle.class, "columnHandle").getColumnMetadata();
+        return ((JmxColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
@@ -221,7 +213,7 @@ public class JmxMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        JmxTableHandle handle = checkType(table, JmxTableHandle.class, "table");
+        JmxTableHandle handle = (JmxTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new JmxTableLayoutHandle(handle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }

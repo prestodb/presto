@@ -18,13 +18,14 @@ import com.facebook.presto.client.IntervalDayTime;
 import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.SqlIntervalDayTime;
 import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.base.Function;
@@ -44,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -71,7 +73,6 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZo
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class TestingPrestoClient
@@ -111,7 +112,7 @@ public class TestingPrestoClient
         @Override
         public void setUpdateType(String type)
         {
-            updateType.set(Optional.of(requireNonNull("update type is null")));
+            updateType.set(Optional.of(type));
         }
 
         @Override
@@ -228,8 +229,17 @@ public class TestingPrestoClient
                     .map(element -> convertToRowValue(((ArrayType) type).getElementType(), element, timeZoneKey))
                     .collect(toList());
         }
+        else if (type instanceof MapType) {
+            return ((Map<Object, Object>) value).entrySet().stream()
+                    .collect(Collectors.toMap(
+                            e -> convertToRowValue(((MapType) type).getKeyType(), e.getKey(), timeZoneKey),
+                            e -> convertToRowValue(((MapType) type).getValueType(), e.getValue(), timeZoneKey)));
+        }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
+        }
+        else if (type.getTypeSignature().getBase().equals("ObjectId")) {
+            return value;
         }
         else {
             throw new AssertionError("unhandled type: " + type);

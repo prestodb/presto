@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -35,7 +36,7 @@ public class TestTaskManagerConfig
                 .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 2)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
                 .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
-                .setInfoUpdateInterval(new Duration(200, TimeUnit.MILLISECONDS))
+                .setInfoUpdateInterval(new Duration(3, TimeUnit.SECONDS))
                 .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
                 .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 2)
@@ -47,12 +48,14 @@ public class TestTaskManagerConfig
                 .setMaxPartialAggregationMemoryUsage(new DataSize(16, Unit.MEGABYTE))
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(new DataSize(32, Unit.MEGABYTE))
-                .setNewSinkBufferImplementation(false)
                 .setWriterCount(1)
-                .setTaskConcurrency(1)
+                .setTaskConcurrency(16)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
-                .setTaskNotificationThreads(5));
+                .setTaskNotificationThreads(5)
+                .setLevelAbsolutePriority(true)
+                .setLevelTimeMultiplier(new BigDecimal("2"))
+                .setLegacySchedulingBehavior(true));
     }
 
     @Test
@@ -74,12 +77,14 @@ public class TestTaskManagerConfig
                 .put("task.client.timeout", "10s")
                 .put("sink.max-buffer-size", "42MB")
                 .put("driver.max-page-partitioning-buffer-size", "40MB")
-                .put("sink.new-implementation", "true")
                 .put("task.writer-count", "4")
                 .put("task.concurrency", "8")
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
+                .put("task.level-absolute-priority", "false")
+                .put("task.level-time-multiplier", "2.1")
+                .put("task.legacy-scheduling-behavior", "false")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -98,12 +103,14 @@ public class TestTaskManagerConfig
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(new DataSize(40, Unit.MEGABYTE))
-                .setNewSinkBufferImplementation(true)
                 .setWriterCount(4)
                 .setTaskConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
-                .setTaskNotificationThreads(13);
+                .setTaskNotificationThreads(13)
+                .setLevelAbsolutePriority(false)
+                .setLevelTimeMultiplier(new BigDecimal("2.1"))
+                .setLegacySchedulingBehavior(false);
 
         assertFullMapping(properties, expected);
     }

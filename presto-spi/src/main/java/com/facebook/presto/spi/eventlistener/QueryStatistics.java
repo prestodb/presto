@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.eventlistener;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -31,8 +31,14 @@ public class QueryStatistics
     private final long totalBytes;
     private final long totalRows;
 
+    private final double cumulativeMemory;
+
     private final int completedSplits;
     private final boolean complete;
+
+    private final List<StageCpuDistribution> cpuTimeDistribution;
+
+    private final List<String> operatorSummaries;
 
     public QueryStatistics(
             Duration cpuTime,
@@ -43,8 +49,11 @@ public class QueryStatistics
             long peakMemoryBytes,
             long totalBytes,
             long totalRows,
+            double cumulativeMemory,
             int completedSplits,
-            boolean complete)
+            boolean complete,
+            List<StageCpuDistribution> cpuTimeDistribution,
+            List<String> operatorSummaries)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
@@ -54,8 +63,11 @@ public class QueryStatistics
         this.peakMemoryBytes = requireNonNull(peakMemoryBytes, "peakMemoryBytes is null");
         this.totalBytes = requireNonNull(totalBytes, "totalBytes is null");
         this.totalRows = requireNonNull(totalRows, "totalRows is null");
+        this.cumulativeMemory = cumulativeMemory;
         this.completedSplits = requireNonNull(completedSplits, "completedSplits is null");
         this.complete = complete;
+        this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
+        this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
     }
 
     public Duration getCpuTime()
@@ -98,6 +110,11 @@ public class QueryStatistics
         return totalRows;
     }
 
+    public double getCumulativeMemory()
+    {
+        return cumulativeMemory;
+    }
+
     public int getCompletedSplits()
     {
         return completedSplits;
@@ -106,5 +123,15 @@ public class QueryStatistics
     public boolean isComplete()
     {
         return complete;
+    }
+
+    public List<StageCpuDistribution> getCpuTimeDistribution()
+    {
+        return cpuTimeDistribution;
+    }
+
+    public List<String> getOperatorSummaries()
+    {
+        return operatorSummaries;
     }
 }

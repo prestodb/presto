@@ -24,7 +24,7 @@ final class BlockUtil
 
     private static final int DEFAULT_CAPACITY = 64;
     // See java.util.ArrayList for an explanation
-    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+    static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
     private BlockUtil()
     {
@@ -65,14 +65,15 @@ final class BlockUtil
 
     static int calculateBlockResetSize(int currentSize)
     {
-        return intSaturatedCast((long) Math.ceil(currentSize * BLOCK_RESET_SKEW));
-    }
+        long newSize = (long) Math.ceil(currentSize * BLOCK_RESET_SKEW);
 
-    static int intSaturatedCast(long value)
-    {
-        if (value > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
+        // verify new size is within reasonable bounds
+        if (newSize < DEFAULT_CAPACITY) {
+            newSize = DEFAULT_CAPACITY;
         }
-        return (int) value;
+        else if (newSize > MAX_ARRAY_SIZE) {
+            newSize = MAX_ARRAY_SIZE;
+        }
+        return (int) newSize;
     }
 }

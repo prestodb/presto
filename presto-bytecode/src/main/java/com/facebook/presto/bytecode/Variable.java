@@ -92,7 +92,7 @@ public class Variable
         @Override
         public List<BytecodeNode> getChildNodes()
         {
-            return ImmutableList.<BytecodeNode>of(value);
+            return ImmutableList.of(value);
         }
 
         @Override

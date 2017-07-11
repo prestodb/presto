@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -30,28 +31,28 @@ public final class AverageAggregations
     private AverageAggregations() {}
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
     }
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void input(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
     }
 
     @CombineFunction
-    public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
+    public static void combine(@AggregationState LongAndDoubleState state, @AggregationState LongAndDoubleState otherState)
     {
         state.setLong(state.getLong() + otherState.getLong());
         state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(LongAndDoubleState state, BlockBuilder out)
+    public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();
         if (count == 0) {

@@ -17,6 +17,7 @@ import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArraySt
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -38,25 +39,25 @@ public class ApproximateRealPercentileArrayAggregations
     private ApproximateRealPercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void input(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.input(state, floatToSortableInt(intBitsToFloat((int) value)), percentilesArrayBlock);
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.weightedInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, percentilesArrayBlock);
     }
 
     @CombineFunction
-    public static void combine(DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
+    public static void combine(@AggregationState DigestAndPercentileArrayState state, @AggregationState DigestAndPercentileArrayState otherState)
     {
         ApproximateLongPercentileArrayAggregations.combine(state, otherState);
     }
 
     @OutputFunction("array(real)")
-    public static void output(DigestAndPercentileArrayState state, BlockBuilder out)
+    public static void output(@AggregationState DigestAndPercentileArrayState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();
         List<Double> percentiles = state.getPercentiles();

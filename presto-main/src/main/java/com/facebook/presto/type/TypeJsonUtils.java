@@ -18,9 +18,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -149,7 +152,12 @@ public final class TypeJsonUtils
             type.writeBoolean(blockBuilder, parser.getBooleanValue());
         }
         else if (type.getJavaType() == long.class) {
-            type.writeLong(blockBuilder, parser.getLongValue());
+            if (type.equals(REAL)) {
+                type.writeLong(blockBuilder, floatToRawIntBits(parser.getFloatValue()));
+            }
+            else {
+                type.writeLong(blockBuilder, parser.getLongValue());
+            }
         }
         else if (type.getJavaType() == double.class) {
             type.writeDouble(blockBuilder, getDoubleValue(parser));
@@ -222,6 +230,7 @@ public final class TypeJsonUtils
                 baseType.equals(StandardTypes.INTEGER) ||
                 baseType.equals(StandardTypes.BIGINT) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
+                baseType.equals(StandardTypes.REAL) ||
                 baseType.equals(StandardTypes.VARCHAR) ||
                 baseType.equals(StandardTypes.DECIMAL) ||
                 baseType.equals(StandardTypes.JSON)) {
@@ -245,6 +254,7 @@ public final class TypeJsonUtils
                 baseType.equals(StandardTypes.INTEGER) ||
                 baseType.equals(StandardTypes.BIGINT) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
+                baseType.equals(StandardTypes.REAL) ||
                 baseType.equals(StandardTypes.DECIMAL) ||
                 baseType.equals(StandardTypes.VARCHAR);
     }

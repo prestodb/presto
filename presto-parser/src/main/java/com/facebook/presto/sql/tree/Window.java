@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,20 +26,20 @@ public class Window
         extends Node
 {
     private final List<Expression> partitionBy;
-    private final List<SortItem> orderBy;
+    private final Optional<OrderBy> orderBy;
     private final Optional<WindowFrame> frame;
 
-    public Window(List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    public Window(List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
     {
         this(Optional.empty(), partitionBy, orderBy, frame);
     }
 
-    public Window(NodeLocation location, List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    public Window(NodeLocation location, List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
     {
         this(Optional.of(location), partitionBy, orderBy, frame);
     }
 
-    private Window(Optional<NodeLocation> location, List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    private Window(Optional<NodeLocation> location, List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
     {
         super(location);
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
@@ -50,7 +52,7 @@ public class Window
         return partitionBy;
     }
 
-    public List<SortItem> getOrderBy()
+    public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
     }
@@ -64,6 +66,16 @@ public class Window
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitWindow(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.addAll(partitionBy);
+        orderBy.ifPresent(nodes::add);
+        frame.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override

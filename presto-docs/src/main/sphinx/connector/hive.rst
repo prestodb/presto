@@ -31,29 +31,26 @@ The following file types are supported for the Hive connector:
 
 * ORC
 * Parquet
+* Avro
 * RCFile
 * SequenceFile
+* JSON
 * Text
 
 Configuration
 -------------
 
-Presto includes Hive connectors for multiple versions of Hadoop:
-
-* ``hive-hadoop1``: Apache Hadoop 1.x
-* ``hive-hadoop2``: Apache Hadoop 2.x
-* ``hive-cdh4``: Cloudera CDH 4
-* ``hive-cdh5``: Cloudera CDH 5
+The Hive connector supports Apache Hadoop 2.x and derivative distributions
+including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
 
 Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive-cdh4`` connector as the ``hive`` catalog,
-replacing ``hive-cdh4`` with the proper connector for your version
-of Hadoop and ``example.net:9083`` with the correct host and port
+to mount the ``hive-hadoop2`` connector as the ``hive`` catalog,
+replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 
 .. code-block:: none
 
-    connector.name=hive-cdh4
+    connector.name=hive-hadoop2
     hive.metastore.uri=thrift://example.net:9083
 
 Multiple Hive Clusters
@@ -103,14 +100,8 @@ appropriate username:
 Accessing Hadoop clusters protected with Kerberos authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Kerberos authentication is currently supported for both HDFS and the Hive
-metastore.
-
-However there are still a few limitations:
-
-* Kerberos authentication is only supported for the ``hive-hadoop2`` and
-  ``hive-cdh5`` connectors.
-* Kerberos authentication by ticket cache is not yet supported.
+Kerberos authentication is supported for both HDFS and the Hive metastore.
+However, Kerberos authentication by ticket cache is not yet supported.
 
 The properties that apply to Hive connector security are listed in the
 `Hive Configuration Properties`_ table. Please see the
@@ -176,6 +167,8 @@ Property Name                                      Description                  
 
 ``security.config-file``                           Path of config file to use when ``hive.security=file``.
                                                    See :ref:`hive-file-based-authorization` for details.
+
+``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
 ================================================== ============================================================ ==========
 
 Amazon S3 Configuration
@@ -186,9 +179,7 @@ This is accomplished by having a table or database location that
 uses an S3 prefix rather than an HDFS prefix.
 
 Presto uses its own S3 filesystem for the URI prefixes
-``s3://``, ``s3n://`` and  ``s3a://``. It also uses the ``s3bfs://``
-prefix for the legacy S3 block file system (not supported for
-``hive-hadoop2`` or ``hive-cdh5``).
+``s3://``, ``s3n://`` and  ``s3a://``.
 
 S3 Configuration Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -205,7 +196,9 @@ Property Name                                Description
 
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead
-                                             of AWS.
+                                             of AWS. When using v4 signatures, it is recommended to
+                                             set this to the AWS region-specific endpoint
+                                             (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
 
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
                                              Example: ``S3SignerType`` for v2 signer type
@@ -220,6 +213,13 @@ Property Name                                Description
 ``hive.s3.ssl.enabled``                      Use HTTPS to communicate with the S3 API (defaults to ``true``).
 
 ``hive.s3.sse.enabled``                      Use S3 server-side encryption (defaults to ``false``).
+
+``hive.s3.sse.type``                         The type of key management for S3 server-side encryption.
+                                             Use ``S3`` for S3 managed or ``KMS`` for KMS-managed keys
+                                             (defaults to ``S3``).
+
+``hive.s3.sse.kms-key-id``                   The KMS Key ID to use for S3 server-side encryption with
+                                             KMS-managed keys. If not set, the default key is used.
 
 ``hive.s3.kms-key-id``                       If set, use S3 client-side encryption and use the AWS
                                              KMS to store encryption keys and use the value of
@@ -278,7 +278,7 @@ Property Name                         Description                               
 ===================================== =========================================================== ===============
 ``hive.s3.max-error-retries``         Maximum number of error retries, set on the S3 client.      ``10``
 
-``hive.s3.max-client-retries``        Maximum number of read attempts to retry.                   ``3``
+``hive.s3.max-client-retries``        Maximum number of read attempts to retry.                   ``5``
 
 ``hive.s3.max-backoff-time``          Use exponential backoff starting at 1 second up to          ``10 minutes``
                                       this maximum value when communicating with S3.
@@ -324,6 +324,23 @@ the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, 
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
 
+Schema Evolution
+----------------
+
+Hive allows the partitions in a table to have a different schema than the
+table. This occurs when the column types of a table are changed after
+partitions already exist (that use the original column types). The Hive
+connector supports this by allowing the same conversions as Hive:
+
+* ``varchar`` to and from ``tinyint``, ``smallint``, ``integer`` and ``bigint``
+* ``real`` to ``double``
+* Widening conversions for integers, such as ``tinyint`` to ``smallint``
+
+Any conversion failure will result in null, which is the same behavior
+as Hive. For example, converting the string ``'foo'`` to a number,
+or converting the string ``'1234'`` to a ``tinyint`` (which has a
+maximum value of ``127``).
+
 Examples
 --------
 
@@ -365,6 +382,25 @@ Drop a partition from the ``page_views`` table::
 Query the ``page_views`` table::
 
     SELECT * FROM hive.web.page_views
+
+Create an external Hive table named ``request_logs`` that points at
+existing data in S3::
+
+    CREATE TABLE hive.web.request_logs (
+      request_time timestamp,
+      url varchar,
+      ip varchar,
+      user_agent varchar
+    )
+    WITH (
+      format = 'TEXTFILE',
+      external_location = 's3://my-bucket/data/logs/'
+    )
+
+Drop the external table ``request_logs``. This only drops the metadata
+for the table. The referenced data directory is not deleted::
+
+    DROP TABLE hive.web.request_logs
 
 Drop a schema::
 

@@ -82,7 +82,7 @@ public final class Transport
 
     private static Socket createSocksSocket(HostAndPort proxy)
     {
-        SocketAddress address = InetSocketAddress.createUnresolved(proxy.getHostText(), proxy.getPort());
+        SocketAddress address = InetSocketAddress.createUnresolved(proxy.getHost(), proxy.getPort());
         return new Socket(new Proxy(Proxy.Type.SOCKS, address));
     }
 

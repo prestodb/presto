@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
@@ -36,11 +39,17 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -50,6 +59,8 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
 public class TestServer
@@ -71,6 +82,31 @@ public class TestServer
     {
         Closeables.closeQuietly(server);
         Closeables.closeQuietly(client);
+    }
+
+    @Test
+    public void testInvalidSessionError()
+            throws Exception
+    {
+        String invalidTimeZone = "this_is_an_invalid_time_zone";
+        Request request = preparePost().setHeader(PRESTO_USER, "user")
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .setHeader(PRESTO_TIME_ZONE, invalidTimeZone)
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        QueryError queryError = queryResults.getError();
+        assertNotNull(queryError);
+
+        TimeZoneNotSupportedException expected = new TimeZoneNotSupportedException(invalidTimeZone);
+        assertEquals(queryError.getErrorCode(), expected.getErrorCode().getCode());
+        assertEquals(queryError.getErrorName(), expected.getErrorCode().getName());
+        assertEquals(queryError.getErrorType(), expected.getErrorCode().getType().name());
+        assertEquals(queryError.getMessage(), expected.getMessage());
     }
 
     @Test
@@ -96,6 +132,7 @@ public class TestServer
                 .setHeader(PRESTO_SOURCE, "source")
                 .setHeader(PRESTO_CATALOG, "catalog")
                 .setHeader(PRESTO_SCHEMA, "schema")
+                .setHeader(PRESTO_CLIENT_INFO, "{\"clientVersion\":\"testVersion\"}")
                 .addHeader(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
                 .addHeader(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
                 .addHeader(PRESTO_PREPARED_STATEMENT, "foo=select * from bar")
@@ -112,6 +149,9 @@ public class TestServer
                 .put(DISTRIBUTED_JOIN, "true")
                 .put(HASH_PARTITION_COUNT, "43")
                 .build());
+
+        // verify client info in session
+        assertEquals(queryInfo.getSession().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
 
         // verify prepared statements
         assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.builder()
@@ -130,10 +170,59 @@ public class TestServer
                 data.addAll(queryResults.getData());
             }
         }
+        assertNull(queryResults.getError());
 
         // only the system catalog exists by default
         List<List<Object>> rows = data.build();
         assertEquals(rows, ImmutableList.of(ImmutableList.of("system")));
+    }
+
+    @Test
+    public void testTransactionSupport()
+            throws Exception
+    {
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_TRANSACTION_ID, "none")
+                .build();
+
+        JsonResponse<QueryResults> queryResults = client.execute(request, createFullJsonResponseHandler(jsonCodec(QueryResults.class)));
+        ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
+        while (true) {
+            if (queryResults.getValue().getData() != null) {
+                data.addAll(queryResults.getValue().getData());
+            }
+
+            if (queryResults.getValue().getNextUri() == null) {
+                break;
+            }
+            queryResults = client.execute(prepareGet().setUri(queryResults.getValue().getNextUri()).build(), createFullJsonResponseHandler(jsonCodec(QueryResults.class)));
+        }
+        assertNull(queryResults.getValue().getError());
+        assertNotNull(queryResults.getHeader(PRESTO_STARTED_TRANSACTION_ID));
+    }
+
+    @Test
+    public void testNoTransactionSupport()
+            throws Exception
+    {
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        }
+
+        assertNotNull(queryResults.getError());
+        assertEquals(queryResults.getError().getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode().getCode());
     }
 
     public URI uriFor(String path)

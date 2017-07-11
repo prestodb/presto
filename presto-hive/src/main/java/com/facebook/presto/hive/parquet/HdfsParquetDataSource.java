@@ -86,16 +86,15 @@ public class HdfsParquetDataSource
             throw e;
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("HDFS error reading from %s at position %s", name, position), e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading from %s at position %s", name, position), e);
         }
     }
 
-    public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length)
+    public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length, long fileSize)
     {
         try {
-            long size = fileSystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = fileSystem.open(path);
-            return new HdfsParquetDataSource(path, size, inputStream);
+            return new HdfsParquetDataSource(path, fileSize, inputStream);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

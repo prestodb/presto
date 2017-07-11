@@ -15,14 +15,12 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -44,9 +42,11 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -74,7 +74,6 @@ public class BenchmarkPageProcessor
     private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
 
     private Page inputPage;
-    private PageProcessor handCodedProcessor;
     private PageProcessor compiledProcessor;
 
     @Setup
@@ -82,26 +81,29 @@ public class BenchmarkPageProcessor
     {
         inputPage = createInputPage();
 
-        handCodedProcessor = new Tpch1FilterAndProject();
-
-        compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT)).get();
+        compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(Optional.of(FILTER), ImmutableList.of(PROJECT)).get();
     }
 
     @Benchmark
     public Page handCoded()
     {
-        return execute(inputPage, handCodedProcessor);
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE));
+        int count = Tpch1FilterAndProject.process(inputPage, 0, inputPage.getPositionCount(), pageBuilder);
+        checkState(count == inputPage.getPositionCount());
+        return pageBuilder.build();
     }
 
     @Benchmark
-    public Page compiled()
+    public List<Page> compiled()
     {
-        return execute(inputPage, compiledProcessor);
+        return ImmutableList.copyOf(compiledProcessor.process(null, inputPage));
     }
 
     public static void main(String[] args)
             throws RunnerException
     {
+        new BenchmarkPageProcessor().setup();
+
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkPageProcessor.class.getSimpleName() + ".*")
@@ -110,15 +112,7 @@ public class BenchmarkPageProcessor
         new Runner(options).run();
     }
 
-    public static Page execute(Page inputPage, PageProcessor processor)
-    {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE));
-        int count = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
-        checkState(count == inputPage.getPositionCount());
-        return pageBuilder.build();
-    }
-
-    public static Page createInputPage()
+    private static Page createInputPage()
     {
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
         LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
@@ -136,10 +130,8 @@ public class BenchmarkPageProcessor
     }
 
     private static final class Tpch1FilterAndProject
-            implements PageProcessor
     {
-        @Override
-        public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
+        public static int process(Page page, int start, int end, PageBuilder pageBuilder)
         {
             Block discountBlock = page.getBlock(DISCOUNT);
             int position = start;
@@ -155,18 +147,6 @@ public class BenchmarkPageProcessor
             }
 
             return position;
-        }
-
-        @Override
-        public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
-        {
-            throw new UnsupportedOperationException();
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
@@ -197,35 +177,35 @@ public class BenchmarkPageProcessor
     //    and quantity < 24;
     private static final RowExpression FILTER = call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
             BOOLEAN,
-            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
+            call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                     BOOLEAN,
                     field(SHIP_DATE, VARCHAR),
                     constant(MIN_SHIP_DATE, VARCHAR)),
             call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                     BOOLEAN,
-                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
+                    call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                             BOOLEAN,
                             field(SHIP_DATE, VARCHAR),
                             constant(MAX_SHIP_DATE, VARCHAR)),
                     call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                             BOOLEAN,
-                            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
+                            call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                     BOOLEAN,
                                     field(DISCOUNT, DOUBLE),
                                     constant(0.05, DOUBLE)),
                             call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                                     BOOLEAN,
-                                    call(new Signature(OperatorType.LESS_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
+                                    call(internalOperator(OperatorType.LESS_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                             BOOLEAN,
                                             field(DISCOUNT, DOUBLE),
                                             constant(0.07, DOUBLE)),
-                                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
+                                    call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                             BOOLEAN,
                                             field(QUANTITY, DOUBLE),
-                                            constant((long) 24, DOUBLE))))));
+                                            constant(24.0, DOUBLE))))));
 
     private static final RowExpression PROJECT = call(
-            new Signature(OperatorType.MULTIPLY.name(), SCALAR, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
+            internalOperator(OperatorType.MULTIPLY, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
             DOUBLE,
             field(EXTENDED_PRICE, DOUBLE),
             field(DISCOUNT, DOUBLE));

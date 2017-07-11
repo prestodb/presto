@@ -52,6 +52,7 @@ public class MongoClientModule
                 .connectTimeout(config.getConnectionTimeout())
                 .socketTimeout(config.getSocketTimeout())
                 .socketKeepAlive(config.getSocketKeepAlive())
+                .sslEnabled(config.getSslEnabled())
                 .maxWaitTime(config.getMaxWaitTime())
                 .minConnectionsPerHost(config.getMinConnectionsPerHost())
                 .readPreference(config.getReadPreference().getReadPreference())

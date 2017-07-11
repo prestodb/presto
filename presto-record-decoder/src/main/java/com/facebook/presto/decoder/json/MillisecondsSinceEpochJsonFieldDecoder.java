@@ -49,7 +49,7 @@ public class MillisecondsSinceEpochJsonFieldDecoder
     @Override
     public Set<Class<?>> getJavaTypes()
     {
-        return ImmutableSet.<Class<?>>of(long.class, Slice.class);
+        return ImmutableSet.of(long.class, Slice.class);
     }
 
     @Override

@@ -16,9 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
 import it.unimi.dsi.fastutil.doubles.DoubleHash;
@@ -35,6 +33,8 @@ import java.util.Set;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static java.lang.Math.toIntExact;
 
 public final class FastutilSetHelper
 {
@@ -103,8 +103,8 @@ public final class FastutilSetHelper
                 return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throwIfInstanceOf(t, Error.class);
+                throwIfInstanceOf(t, PrestoException.class);
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
@@ -116,8 +116,8 @@ public final class FastutilSetHelper
                 return (boolean) equalsHandle.invokeExact(a, b);
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throwIfInstanceOf(t, Error.class);
+                throwIfInstanceOf(t, PrestoException.class);
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
@@ -142,8 +142,8 @@ public final class FastutilSetHelper
                 return Long.hashCode((long) hashCodeHandle.invokeExact(value));
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throwIfInstanceOf(t, Error.class);
+                throwIfInstanceOf(t, PrestoException.class);
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
@@ -155,8 +155,8 @@ public final class FastutilSetHelper
                 return (boolean) equalsHandle.invokeExact(a, b);
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throwIfInstanceOf(t, Error.class);
+                throwIfInstanceOf(t, PrestoException.class);
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
@@ -182,11 +182,11 @@ public final class FastutilSetHelper
         public int hashCode(Object value)
         {
             try {
-                return Ints.checkedCast(Long.hashCode((long) hashCodeHandle.invokeExact(value)));
+                return toIntExact(Long.hashCode((long) hashCodeHandle.invokeExact(value)));
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throwIfInstanceOf(t, Error.class);
+                throwIfInstanceOf(t, PrestoException.class);
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
@@ -198,8 +198,8 @@ public final class FastutilSetHelper
                 return (boolean) equalsHandle.invokeExact(a, b);
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throwIfInstanceOf(t, Error.class);
+                throwIfInstanceOf(t, PrestoException.class);
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
             }
         }

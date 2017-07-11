@@ -27,7 +27,7 @@ public class LazyAccumulatorFactoryBinder
 
     public LazyAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
     {
-        binder = Suppliers.memoize(() -> new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader));
+        binder = Suppliers.memoize(() -> AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader));
     }
 
     @Override

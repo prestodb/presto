@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 
@@ -24,6 +23,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 
 public final class IsolatedClass
 {
@@ -58,13 +58,12 @@ public final class IsolatedClass
 
     private static byte[] getBytecode(Class<?> clazz)
     {
-        InputStream stream = clazz.getClassLoader().getResourceAsStream(clazz.getName().replace('.', '/') + ".class");
-        checkArgument(stream != null, "Could not obtain byte code for class %s", clazz.getName());
-        try {
+        try (InputStream stream = clazz.getClassLoader().getResourceAsStream(clazz.getName().replace('.', '/') + ".class")) {
+            checkArgument(stream != null, "Could not obtain byte code for class %s", clazz.getName());
             return ByteStreams.toByteArray(stream);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(format("Could not obtain byte code for class %s", clazz.getName()), e);
         }
     }
 }

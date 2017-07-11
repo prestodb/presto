@@ -20,7 +20,6 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
@@ -30,6 +29,7 @@ import io.airlift.json.JsonModule;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 

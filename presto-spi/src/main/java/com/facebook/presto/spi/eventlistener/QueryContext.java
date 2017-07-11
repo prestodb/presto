@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,10 +26,13 @@ public class QueryContext
     private final Optional<String> principal;
     private final Optional<String> remoteClientAddress;
     private final Optional<String> userAgent;
+    private final Optional<String> clientInfo;
     private final Optional<String> source;
 
     private final Optional<String> catalog;
     private final Optional<String> schema;
+
+    private final Optional<String> resourceGroupName;
 
     private final Map<String, String> sessionProperties;
 
@@ -43,9 +45,11 @@ public class QueryContext
             Optional<String> principal,
             Optional<String> remoteClientAddress,
             Optional<String> userAgent,
+            Optional<String> clientInfo,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
+            Optional<String> resourceGroupName,
             Map<String, String> sessionProperties,
             String serverAddress,
             String serverVersion,
@@ -55,9 +59,11 @@ public class QueryContext
         this.principal = requireNonNull(principal, "principal is null");
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.resourceGroupName = requireNonNull(resourceGroupName, "resourceGroupName is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
         this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
@@ -89,6 +95,12 @@ public class QueryContext
     }
 
     @JsonProperty
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
+    }
+
+    @JsonProperty
     public Optional<String> getSource()
     {
         return source;
@@ -104,6 +116,12 @@ public class QueryContext
     public Optional<String> getSchema()
     {
         return schema;
+    }
+
+    @JsonProperty
+    public Optional<String> getResourceGroupName()
+    {
+        return resourceGroupName;
     }
 
     @JsonProperty

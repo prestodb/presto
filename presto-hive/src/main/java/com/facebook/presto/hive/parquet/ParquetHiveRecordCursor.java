@@ -36,6 +36,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
+import parquet.column.ColumnDescriptor;
 import parquet.column.Dictionary;
 import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.ParquetInputSplit;
@@ -57,7 +58,6 @@ import parquet.schema.PrimitiveType;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +74,7 @@ import static com.facebook.presto.hive.HiveUtil.getDecimalType;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
+import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.getParquetTupleDomain;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
@@ -86,6 +87,7 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
@@ -122,6 +124,7 @@ public class ParquetHiveRecordCursor
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
@@ -161,9 +164,9 @@ public class ParquetHiveRecordCursor
                 path,
                 start,
                 length,
+                fileSize,
                 columns,
                 useParquetColumnNames,
-                typeManager,
                 predicatePushdownEnabled,
                 effectivePredicate
         );
@@ -319,16 +322,16 @@ public class ParquetHiveRecordCursor
             Path path,
             long start,
             long length,
+            long fileSize,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
-            TypeManager typeManager,
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
+            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length, fileSize);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -345,20 +348,19 @@ public class ParquetHiveRecordCursor
             MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
 
             LongArrayList offsets = new LongArrayList(blocks.size());
-            List<BlockMetaData> splitGroup = new ArrayList<>();
             for (BlockMetaData block : blocks) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (firstDataPage >= start && firstDataPage < start + length) {
                     if (predicatePushdownEnabled) {
-                        ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
-                        if (predicateMatches(parquetPredicate, block, dataSource, requestedSchema, effectivePredicate)) {
-                            splitGroup.add(block);
+                        TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(fileSchema, requestedSchema, effectivePredicate);
+                        ParquetPredicate parquetPredicate = buildParquetPredicate(requestedSchema, parquetTupleDomain, fileSchema);
+                        if (predicateMatches(parquetPredicate, block, dataSource, fileSchema, requestedSchema, parquetTupleDomain)) {
+                            offsets.add(block.getStartingPos());
                         }
                     }
                     else {
-                        splitGroup.add(block);
+                        offsets.add(block.getStartingPos());
                     }
-                    offsets.add(block.getStartingPos());
                 }
             }
 
@@ -373,7 +375,7 @@ public class ParquetHiveRecordCursor
             });
         }
         catch (Exception e) {
-            Throwables.propagateIfInstanceOf(e, PrestoException.class);
+            throwIfInstanceOf(e, PrestoException.class);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
                 throw Throwables.propagate(e);

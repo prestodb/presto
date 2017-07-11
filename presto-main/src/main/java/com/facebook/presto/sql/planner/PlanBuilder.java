@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -44,7 +45,7 @@ class PlanBuilder
 
     public TranslationMap copyTranslations()
     {
-        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis());
+        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis(), getTranslations().getLambdaDeclarationToSymbolMap());
         translations.copyMappingsFrom(getTranslations());
         return translations;
     }
@@ -93,7 +94,7 @@ class PlanBuilder
     {
         TranslationMap translations = copyTranslations();
 
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+        Assignments.Builder projections = Assignments.builder();
 
         // add an identity projection for underlying plan
         for (Symbol symbol : getRoot().getOutputSymbols()) {

@@ -18,27 +18,31 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestHiddenColumns
 {
     private LocalQueryRunner runner;
 
-    public TestHiddenColumns()
+    @BeforeClass
+    public void setUp()
+            throws Exception
     {
         runner = new LocalQueryRunner(TEST_SESSION);
-        runner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
+        runner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroy()
     {
         if (runner != null) {
             runner.close();
+            runner = null;
         }
     }
 
@@ -46,10 +50,10 @@ public class TestHiddenColumns
     public void testDescribeTable()
             throws Exception
     {
-        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR)
-                .row("regionkey", "bigint", "")
-                .row("name", "varchar(25)", "")
-                .row("comment", "varchar(152)", "")
+        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("regionkey", "bigint", "", "")
+                .row("name", "varchar(25)", "", "")
+                .row("comment", "varchar(152)", "", "")
                 .build();
         assertEquals(runner.execute("DESC REGION"), expected);
     }

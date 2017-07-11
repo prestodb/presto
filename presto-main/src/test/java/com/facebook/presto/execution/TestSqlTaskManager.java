@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -22,6 +21,7 @@ import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
+import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
@@ -29,6 +29,8 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spiller.LocalSpillManager;
+import com.facebook.presto.spiller.NodeSpillConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
@@ -50,6 +52,7 @@ import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -63,10 +66,12 @@ public class TestSqlTaskManager
 
     private final TaskExecutor taskExecutor;
     private final LocalMemoryManager localMemoryManager;
+    private final LocalSpillManager localSpillManager;
 
     public TestSqlTaskManager()
     {
         localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new ReservedSystemMemoryConfig());
+        localSpillManager = new LocalSpillManager(new NodeSpillConfig());
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
     }
@@ -87,7 +92,7 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.<TaskSource>of(),
+                    ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
@@ -98,7 +103,7 @@ public class TestSqlTaskManager
             taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)),
+                    ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                     createInitialEmptyOutputBuffers(PARTITIONED)
                             .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -128,14 +133,14 @@ public class TestSqlTaskManager
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
             assertEquals(results.isBufferComplete(), false);
-            assertEquals(results.getPages().size(), 1);
-            assertEquals(results.getPages().get(0).getPositionCount(), 1);
+            assertEquals(results.getSerializedPages().size(), 1);
+            assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
             for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
             }
             assertEquals(results.isBufferComplete(), true);
-            assertEquals(results.getPages().size(), 0);
+            assertEquals(results.getSerializedPages().size(), 0);
 
             // complete the task by calling abort on it
             TaskInfo info = sqlTaskManager.abortTaskResults(taskId, OUT);
@@ -157,7 +162,7 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.<TaskSource>of(),
+                    ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds());
@@ -187,7 +192,7 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.<TaskSource>of(),
+                    ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds());
@@ -246,7 +251,7 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.updateTask(TEST_SESSION,
                     taskId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.<TaskSource>of(),
+                    ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds());
@@ -273,11 +278,13 @@ public class TestSqlTaskManager
                 createTestingPlanner(),
                 new MockLocationFactory(),
                 taskExecutor,
-                new QueryMonitor(new ObjectMapperProvider().get(), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
+                new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
                 new NodeInfo("test"),
                 localMemoryManager,
                 config,
-                new NodeMemoryConfig());
+                new NodeMemoryConfig(),
+                localSpillManager,
+                new NodeSpillConfig());
     }
 
     public static class MockExchangeClientSupplier
@@ -296,31 +303,31 @@ public class TestSqlTaskManager
         @Override
         public URI createQueryLocation(QueryId queryId)
         {
-            return URI.create("fake://query/" + queryId);
+            return URI.create("http://fake.invalid/query/" + queryId);
         }
 
         @Override
         public URI createStageLocation(StageId stageId)
         {
-            return URI.create("fake://stage/" + stageId);
+            return URI.create("http://fake.invalid/stage/" + stageId);
         }
 
         @Override
         public URI createLocalTaskLocation(TaskId taskId)
         {
-            return URI.create("fake://task/" + taskId);
+            return URI.create("http://fake.invalid/task/" + taskId);
         }
 
         @Override
         public URI createTaskLocation(Node node, TaskId taskId)
         {
-            return URI.create("fake://task/" + node.getNodeIdentifier() + "/" + taskId);
+            return URI.create("http://fake.invalid/task/" + node.getNodeIdentifier() + "/" + taskId);
         }
 
         @Override
         public URI createMemoryInfoLocation(Node node)
         {
-            return URI.create("fake://" + node.getNodeIdentifier() + "/memory");
+            return URI.create("http://fake.invalid/" + node.getNodeIdentifier() + "/memory");
         }
     }
 }

@@ -17,19 +17,32 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
+
+import javax.inject.Inject;
 
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class GroupByHashPageIndexerFactory
         implements PageIndexerFactory
 {
+    private final JoinCompiler joinCompiler;
+
+    @Inject
+    public GroupByHashPageIndexerFactory(JoinCompiler joinCompiler)
+    {
+        this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+    }
+
     @Override
     public PageIndexer createPageIndexer(List<? extends Type> types)
     {
         if (types.isEmpty()) {
             return new NoHashPageIndexer();
         }
-        return new GroupByHashPageIndexer(types);
+        return new GroupByHashPageIndexer(types, joinCompiler);
     }
 
     private static class NoHashPageIndexer

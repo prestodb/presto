@@ -20,16 +20,17 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
@@ -128,7 +129,7 @@ public final class SessionPropertyManager
 
         ImmutableList.Builder<SessionPropertyValue> sessionPropertyValues = ImmutableList.builder();
         Map<String, String> systemProperties = session.getSystemProperties();
-        for (PropertyMetadata<?> property : systemSessionProperties.values()) {
+        for (PropertyMetadata<?> property : new TreeMap<>(systemSessionProperties).values()) {
             String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
             String value = systemProperties.getOrDefault(property.getName(), defaultValue);
             sessionPropertyValues.add(new SessionPropertyValue(
@@ -250,6 +251,9 @@ public final class SessionPropertyManager
         if (BigintType.BIGINT.equals(type)) {
             return value.toString();
         }
+        if (IntegerType.INTEGER.equals(type)) {
+            return value.toString();
+        }
         if (DoubleType.DOUBLE.equals(type)) {
             return value.toString();
         }
@@ -276,6 +280,9 @@ public final class SessionPropertyManager
         if (BigintType.BIGINT.equals(type)) {
             return Long.valueOf(value);
         }
+        if (IntegerType.INTEGER.equals(type)) {
+            return Integer.valueOf(value);
+        }
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.valueOf(value);
         }
@@ -295,6 +302,9 @@ public final class SessionPropertyManager
         }
         if (BigintType.BIGINT.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Long.class);
+        }
+        if (IntegerType.INTEGER.equals(type)) {
+            return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Integer.class);
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Double.class);
@@ -321,6 +331,9 @@ public final class SessionPropertyManager
         }
         if (BigintType.BIGINT.equals(type)) {
             return Long.class;
+        }
+        if (IntegerType.INTEGER.equals(type)) {
+            return Integer.class;
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.class;

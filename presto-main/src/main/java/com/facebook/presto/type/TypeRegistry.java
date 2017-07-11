@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -23,13 +27,17 @@ import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -54,6 +62,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
@@ -65,11 +74,10 @@ import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
-import static com.facebook.presto.type.MapParametricType.MAP;
+import static com.facebook.presto.type.ListLiteralType.LIST_LITERAL;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -81,13 +89,22 @@ public final class TypeRegistry
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
+    private FunctionRegistry functionRegistry;
+
+    @VisibleForTesting
     public TypeRegistry()
     {
-        this(ImmutableSet.<Type>of());
+        this(ImmutableSet.of(), new FeaturesConfig());
+    }
+
+    @VisibleForTesting
+    public TypeRegistry(Set<Type> types)
+    {
+        this(ImmutableSet.of(), new FeaturesConfig());
     }
 
     @Inject
-    public TypeRegistry(Set<Type> types)
+    public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig)
     {
         requireNonNull(types, "types is null");
 
@@ -119,17 +136,24 @@ public final class TypeRegistry
         addType(COLOR);
         addType(JSON);
         addType(CODE_POINTS);
+        addType(LIST_LITERAL);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
-        addParametricType(MAP);
+        addParametricType(new MapParametricType(featuresConfig.isNewMapBlock()));
         addParametricType(FUNCTION);
 
         for (Type type : types) {
             addType(type);
         }
+    }
+
+    public void setFunctionRegistry(FunctionRegistry functionRegistry)
+    {
+        checkState(this.functionRegistry == null, "TypeRegistry can only be associated with a single FunctionRegistry");
+        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
     }
 
     @Override
@@ -166,7 +190,7 @@ public final class TypeRegistry
         }
 
         try {
-            Type instantiatedType = parametricType.createType(parameters);
+            Type instantiatedType = parametricType.createType(this, parameters);
 
             // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
             //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
@@ -246,11 +270,11 @@ public final class TypeRegistry
         if (firstTypeBaseName.equals(secondTypeBaseName)) {
             if (firstTypeBaseName.equals(StandardTypes.DECIMAL)) {
                 return Optional.of(getCommonSuperTypeForDecimal(
-                        checkType(firstType, DecimalType.class, "firstType"), checkType(secondType, DecimalType.class, "secondType")));
+                        (DecimalType) firstType, (DecimalType) secondType));
             }
             if (firstTypeBaseName.equals(StandardTypes.VARCHAR)) {
                 return Optional.of(getCommonSuperTypeForVarchar(
-                        checkType(firstType, VarcharType.class, "firstType"), checkType(secondType, VarcharType.class, "secondType")));
+                        (VarcharType) firstType, (VarcharType) secondType));
             }
 
             if (isCovariantParametrizedType(firstType)) {
@@ -272,7 +296,7 @@ public final class TypeRegistry
         return Optional.empty();
     }
 
-    private Type getCommonSuperTypeForDecimal(DecimalType firstType, DecimalType secondType)
+    private static Type getCommonSuperTypeForDecimal(DecimalType firstType, DecimalType secondType)
     {
         int targetScale = Math.max(firstType.getScale(), secondType.getScale());
         int targetPrecision = Math.max(firstType.getPrecision() - firstType.getScale(), secondType.getPrecision() - secondType.getScale()) + targetScale;
@@ -281,8 +305,12 @@ public final class TypeRegistry
         return createDecimalType(targetPrecision, targetScale);
     }
 
-    private Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
+    private static Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
     {
+        if (firstType.isUnbounded() || secondType.isUnbounded()) {
+            return createUnboundedVarcharType();
+        }
+
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 
@@ -318,10 +346,17 @@ public final class TypeRegistry
         parametricTypes.putIfAbsent(name, parametricType);
     }
 
+    @Override
+    public Collection<ParametricType> getParametricTypes()
+    {
+        return ImmutableList.copyOf(parametricTypes.values());
+    }
+
     /**
      * coerceTypeBase and isCovariantParametrizedType defines all hand-coded rules for type coercion.
      * Other methods should reference these two functions instead of hand-code new rules.
      */
+    @Override
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
     {
         String sourceTypeName = sourceType.getTypeSignature().getBase();
@@ -511,6 +546,14 @@ public final class TypeRegistry
                         return Optional.empty();
                 }
             }
+            case StandardTypes.ARRAY: {
+                switch (resultTypeBase) {
+                    case ListLiteralType.NAME:
+                        return Optional.of(LIST_LITERAL);
+                    default:
+                        return Optional.empty();
+                }
+            }
             default:
                 return Optional.empty();
         }
@@ -525,5 +568,12 @@ public final class TypeRegistry
     public static boolean isCovariantTypeBase(String typeBase)
     {
         return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
+    }
+
+    @Override
+    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    {
+        requireNonNull(functionRegistry, "functionRegistry is null");
+        return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
     }
 }

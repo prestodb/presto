@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,15 +31,22 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
+import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class QueryContext
 {
+    private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
+
     private final QueryId queryId;
     private final Executor executor;
+    private final long maxSpill;
+    private final SpillSpaceTracker spillSpaceTracker;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
     private final MemoryPool systemMemoryPool;
 
@@ -55,13 +63,18 @@ public class QueryContext
     @GuardedBy("this")
     private long systemReserved;
 
-    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
+    @GuardedBy("this")
+    private long spillUsed;
+
+    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor, DataSize maxSpill, SpillSpaceTracker spillSpaceTracker)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
+        this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
@@ -81,6 +94,10 @@ public class QueryContext
         }
         ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
         reserved += bytes;
+        // Never block queries using a trivial amount of memory
+        if (reserved < GUARANTEED_MEMORY) {
+            return NOT_BLOCKED;
+        }
         return future;
     }
 
@@ -90,6 +107,17 @@ public class QueryContext
 
         ListenableFuture<?> future = systemMemoryPool.reserve(queryId, bytes);
         systemReserved += bytes;
+        return future;
+    }
+
+    public synchronized ListenableFuture<?> reserveSpill(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        if (spillUsed + bytes > maxSpill) {
+            throw exceededPerQueryLocalLimit(succinctBytes(maxSpill));
+        }
+        ListenableFuture<?> future = spillSpaceTracker.reserve(bytes);
+        spillUsed += bytes;
         return future;
     }
 
@@ -122,6 +150,13 @@ public class QueryContext
         systemMemoryPool.free(queryId, bytes);
     }
 
+    public synchronized void freeSpill(long bytes)
+    {
+        checkArgument(spillUsed - bytes >= 0, "tried to free more memory than is reserved");
+        spillUsed -= bytes;
+        spillSpaceTracker.free(bytes);
+    }
+
     public synchronized void setMemoryPool(MemoryPool pool)
     {
         requireNonNull(pool, "pool is null");
@@ -139,7 +174,7 @@ public class QueryContext
             {
                 originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
+                taskContexts.forEach(TaskContext::moreMemoryAvailable);
             }
 
             @Override
@@ -147,7 +182,7 @@ public class QueryContext
             {
                 originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
+                taskContexts.forEach(TaskContext::moreMemoryAvailable);
             }
         });
     }

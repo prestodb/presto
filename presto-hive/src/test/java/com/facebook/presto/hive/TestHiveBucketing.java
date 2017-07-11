@@ -19,11 +19,9 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
@@ -50,11 +48,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
-import static com.facebook.presto.hive.util.Types.checkType;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -65,8 +64,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHiveBucketing
 {
-    private static final TypeRegistry typeRegistry = new TypeRegistry();
-
     @Test
     public void testHashingBooleanLong()
             throws Exception
@@ -147,9 +144,9 @@ public class TestHiveBucketing
         assertBucketEquals("string", "\u5f3a\u5927\u7684Presto\u5f15\u64ce"); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
         assertBucketEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF"); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
         assertBucketEquals("date", null);
-        assertBucketEquals("date", new DateWritable(Ints.checkedCast(LocalDate.of(1970, 1, 1).toEpochDay())).get());
-        assertBucketEquals("date", new DateWritable(Ints.checkedCast(LocalDate.of(2015, 11, 19).toEpochDay())).get());
-        assertBucketEquals("date", new DateWritable(Ints.checkedCast(LocalDate.of(1950, 11, 19).toEpochDay())).get());
+        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1970, 1, 1).toEpochDay())).get());
+        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(2015, 11, 19).toEpochDay())).get());
+        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1950, 11, 19).toEpochDay())).get());
         assertBucketEquals("timestamp", null);
         assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0).toEpochSecond(ZoneOffset.UTC)));
         assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000).toEpochSecond(ZoneOffset.UTC)));
@@ -219,7 +216,7 @@ public class TestHiveBucketing
         ImmutableList.Builder<Block> blockListBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object javaValue = javaValues.get(i);
-            Type type = hiveTypes.get(i).getType(typeRegistry);
+            Type type = hiveTypes.get(i).getType(TYPE_MANAGER);
 
             BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function
@@ -254,7 +251,7 @@ public class TestHiveBucketing
         }
 
         ObjectInspector udfInspector = udf.initialize(objectInspectors);
-        IntObjectInspector inspector = checkType(udfInspector, IntObjectInspector.class, "udfInspector");
+        IntObjectInspector inspector = (IntObjectInspector) udfInspector;
 
         Object result = udf.evaluate(deferredObjects);
         HiveKey hiveKey = new HiveKey();

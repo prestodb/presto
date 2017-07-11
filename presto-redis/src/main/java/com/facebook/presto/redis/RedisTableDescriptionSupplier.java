@@ -15,11 +15,10 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Supplier;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 
@@ -29,8 +28,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +60,7 @@ public class RedisTableDescriptionSupplier
         try {
             for (File file : listFiles(redisConnectorConfig.getTableDescriptionDir())) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
-                    RedisTableDescription table = tableDescriptionCodec.fromJson(Files.toByteArray(file));
+                    RedisTableDescription table = tableDescriptionCodec.fromJson(readAllBytes(file.toPath()));
                     String schemaName = firstNonNull(table.getSchemaName(), redisConnectorConfig.getDefaultSchema());
                     log.debug("Redis table %s.%s: %s", schemaName, table.getTableName(), table);
                     builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
@@ -72,7 +75,7 @@ public class RedisTableDescriptionSupplier
             for (String definedTable : redisConnectorConfig.getTableNames()) {
                 SchemaTableName tableName;
                 try {
-                    tableName = SchemaTableName.valueOf(definedTable);
+                    tableName = parseTableName(definedTable);
                 }
                 catch (IllegalArgumentException iae) {
                     tableName = new SchemaTableName(redisConnectorConfig.getDefaultSchema(), definedTable);
@@ -88,8 +91,8 @@ public class RedisTableDescriptionSupplier
                     log.debug("Created dummy Table definition for %s", tableName);
                     builder.put(tableName, new RedisTableDescription(tableName.getTableName(),
                             tableName.getSchemaName(),
-                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.<RedisTableFieldDescription>of()),
-                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.<RedisTableFieldDescription>of())));
+                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.of()),
+                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.of())));
                 }
             }
 
@@ -111,5 +114,13 @@ public class RedisTableDescriptionSupplier
             }
         }
         return ImmutableList.of();
+    }
+
+    private static SchemaTableName parseTableName(String schemaTableName)
+    {
+        checkArgument(!isNullOrEmpty(schemaTableName), "schemaTableName is null or is empty");
+        List<String> parts = Splitter.on('.').splitToList(schemaTableName);
+        checkArgument(parts.size() == 2, "Invalid schemaTableName: %s", schemaTableName);
+        return new SchemaTableName(parts.get(0), parts.get(1));
     }
 }

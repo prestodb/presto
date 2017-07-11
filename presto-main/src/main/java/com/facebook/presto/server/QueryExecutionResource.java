@@ -156,8 +156,7 @@ public class QueryExecutionResource
     {
         stageInfo.ifPresent(stage -> {
             result.add(stage);
-            stage.getSubStages().stream()
-                    .forEach(subStage -> collectStages(Optional.ofNullable(subStage), result));
+            stage.getSubStages().forEach(subStage -> collectStages(Optional.ofNullable(subStage), result));
         });
     }
 

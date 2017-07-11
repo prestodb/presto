@@ -15,35 +15,38 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.util.Objects.requireNonNull;
+import static java.lang.Math.max;
 
 public class ByteArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockBuilder.class).instanceSize();
 
+    @Nullable
     private BlockBuilderStatus blockBuilderStatus;
+    private boolean initialized;
+    private int initialEntryCount;
 
     private int positionCount;
 
     // it is assumed that these arrays are the same length
-    private boolean[] valueIsNull;
-    private byte[] values;
+    private boolean[] valueIsNull = new boolean[0];
+    private byte[] values = new byte[0];
 
-    private int retainedSizeInBytes;
+    private long retainedSizeInBytes;
 
-    public ByteArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ByteArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-        this.values = new byte[expectedEntries];
-        this.valueIsNull = new boolean[expectedEntries];
+        this.blockBuilderStatus = blockBuilderStatus;
+        this.initialEntryCount = max(expectedEntries, 1);
 
         updateDataSize();
     }
@@ -58,7 +61,9 @@ public class ByteArrayBlockBuilder
         values[positionCount] = (byte) value;
 
         positionCount++;
-        blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+        }
         return this;
     }
 
@@ -78,7 +83,9 @@ public class ByteArrayBlockBuilder
         valueIsNull[positionCount] = true;
 
         positionCount++;
-        blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+        }
         return this;
     }
 
@@ -89,22 +96,22 @@ public class ByteArrayBlockBuilder
     }
 
     @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-
-        int newSize = calculateBlockResetSize(positionCount);
-        valueIsNull = new boolean[newSize];
-        values = new byte[newSize];
-
-        positionCount = 0;
-
-        updateDataSize();
+        return new ByteArrayBlockBuilder(blockBuilderStatus, positionCount);
     }
 
     private void growCapacity()
     {
-        int newSize = BlockUtil.calculateNewArraySize(values.length);
+        int newSize;
+        if (initialized) {
+            newSize = BlockUtil.calculateNewArraySize(values.length);
+        }
+        else {
+            newSize = initialEntryCount;
+            initialized = true;
+        }
+
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         values = Arrays.copyOf(values, newSize);
         updateDataSize();
@@ -112,32 +119,42 @@ public class ByteArrayBlockBuilder
 
     private void updateDataSize()
     {
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values));
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+        if (blockBuilderStatus != null) {
+            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
+        }
     }
 
-    // Copied from ByteArrayBlock
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return intSaturatedCast((Byte.BYTES + Byte.BYTES) * (long) positionCount);
+        return (Byte.BYTES + Byte.BYTES) * (long) positionCount;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRegionSizeInBytes(int position, int length)
+    {
+        return (Byte.BYTES + Byte.BYTES) * (long) length;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(values, sizeOf(values));
+        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
     public int getPositionCount()
     {
         return positionCount;
-    }
-
-    @Override
-    public int getLength(int position)
-    {
-        return Byte.BYTES;
     }
 
     @Override

@@ -21,8 +21,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Provider;
-import com.google.inject.Provides;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.GraphPath;
 import org.jgrapht.Graphs;
@@ -33,6 +31,7 @@ import org.jgrapht.graph.DefaultEdge;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 import java.io.File;
 import java.io.IOException;
@@ -149,7 +148,6 @@ public class QueryQueueRuleFactory
     }
 
     @Override
-    @Provides
     public List<QueryQueueRule> get()
     {
         return selectors;

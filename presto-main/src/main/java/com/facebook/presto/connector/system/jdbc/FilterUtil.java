@@ -13,15 +13,9 @@
  */
 package com.facebook.presto.connector.system.jdbc;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
@@ -30,24 +24,7 @@ import java.util.Optional;
 
 final class FilterUtil
 {
-    private static final SystemSessionProperties SYSTEM_SESSION_PROPERTIES = new SystemSessionProperties();
-
     private FilterUtil() {}
-
-    // this does not preserve any connector properties (for the system connector)
-    public static Session toSession(TransactionId transactionId, ConnectorSession session)
-    {
-        return Session.builder(new SessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
-                .setQueryId(new QueryId(session.getQueryId()))
-                .setTransactionId(transactionId)
-                .setCatalog("catalog")
-                .setSchema("schema")
-                .setIdentity(session.getIdentity())
-                .setTimeZoneKey(session.getTimeZoneKey())
-                .setLocale(session.getLocale())
-                .setStartTime(session.getStartTime())
-                .build();
-    }
 
     public static Optional<String> stringFilter(TupleDomain<Integer> constraint, int index)
     {

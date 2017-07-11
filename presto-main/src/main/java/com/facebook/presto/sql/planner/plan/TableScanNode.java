@@ -130,7 +130,7 @@ public class TableScanNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableScan(this, context);
     }
@@ -146,5 +146,12 @@ public class TableScanNode
                 .add("currentConstraint", currentConstraint)
                 .add("originalConstraint", originalConstraint)
                 .toString();
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
+        return this;
     }
 }

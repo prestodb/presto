@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.testing;
 
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -36,6 +35,7 @@ public class TestingEventListenerManager
         configuredEventListener.set(Optional.of(eventListenerFactory.create(ImmutableMap.of())));
     }
 
+    @Override
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         if (configuredEventListener.get().isPresent()) {
@@ -43,6 +43,7 @@ public class TestingEventListenerManager
         }
     }
 
+    @Override
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
         if (configuredEventListener.get().isPresent()) {
@@ -50,6 +51,7 @@ public class TestingEventListenerManager
         }
     }
 
+    @Override
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
         if (configuredEventListener.get().isPresent()) {

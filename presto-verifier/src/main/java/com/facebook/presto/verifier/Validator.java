@@ -18,6 +18,7 @@ import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.verifier.Validator.ChangedRow.Changed;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -35,7 +36,6 @@ import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -206,12 +206,12 @@ public class Validator
 
         // query has too many rows. Consider blacklisting.
         if (controlResult.getState() == State.TOO_MANY_ROWS) {
-            testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.<List<Object>>of());
+            testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
             return false;
         }
         // query failed in the control
         if (controlResult.getState() != State.SUCCESS) {
-            testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.<List<Object>>of());
+            testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
             return true;
         }
 
@@ -239,7 +239,7 @@ public class Validator
             QueryResult queryResult = executor.apply(postqueryString);
             postQueryResults.add(queryResult);
             if (queryResult.getState() != State.SUCCESS) {
-                return new QueryResult(State.FAILED_TO_TEARDOWN, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.<List<Object>>of());
+                return new QueryResult(State.FAILED_TO_TEARDOWN, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of());
             }
         }
 
@@ -252,8 +252,11 @@ public class Validator
         for (String prequeryString : query.getPreQueries()) {
             QueryResult queryResult = executor.apply(prequeryString);
             preQueryResults.add(queryResult);
-            if (queryResult.getState() != State.SUCCESS) {
-                return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.<List<Object>>of());
+            if (queryResult.getState() == State.TIMEOUT) {
+                return queryResult;
+            }
+            else if (queryResult.getState() != State.SUCCESS) {
+                return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of());
             }
         }
 
@@ -294,7 +297,7 @@ public class Validator
     private QueryResult executeQueryTest()
     {
         Query query = queryPair.getTest();
-        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.<List<Object>>of());
+        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
         try {
             // startup
             queryResult = setup(query, testPreQueryResults, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionProperties));
@@ -331,7 +334,7 @@ public class Validator
     private QueryResult executeQueryControl()
     {
         Query query = queryPair.getControl();
-        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.<List<Object>>of());
+        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
         try {
             // startup
             queryResult = setup(query, controlPreQueryResults, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionProperties));
@@ -443,7 +446,7 @@ public class Validator
                 }
                 catch (AssertionError e) {
                     if (e.getMessage().startsWith("unimplemented type:")) {
-                        return new QueryResult(State.INVALID, null, null, null, queryId, ImmutableList.<List<Object>>of());
+                        return new QueryResult(State.INVALID, null, null, null, queryId, ImmutableList.of());
                     }
                     throw e;
                 }
@@ -451,7 +454,7 @@ public class Validator
                     throw e;
                 }
                 catch (UncheckedTimeoutException e) {
-                    return new QueryResult(State.TIMEOUT, null, null, null, queryId, ImmutableList.<List<Object>>of());
+                    return new QueryResult(State.TIMEOUT, null, null, null, queryId, ImmutableList.of());
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -713,16 +716,33 @@ public class Validator
         return x instanceof Byte || x instanceof Short || x instanceof Integer || x instanceof Long;
     }
 
-    private static int precisionCompare(double a, double b, int precision)
+    //adapted from http://floating-point-gui.de/errors/comparison/
+    private static boolean isClose(double a, double b, double epsilon)
     {
+        double absA = Math.abs(a);
+        double absB = Math.abs(b);
+        double diff = Math.abs(a - b);
+
         if (!isFinite(a) || !isFinite(b)) {
-            return Double.compare(a, b);
+            return Double.compare(a, b) == 0;
         }
 
-        MathContext context = new MathContext(precision);
-        BigDecimal x = new BigDecimal(a).round(context);
-        BigDecimal y = new BigDecimal(b).round(context);
-        return x.compareTo(y);
+        // a or b is zero or both are extremely close to it
+        // relative error is less meaningful here
+        if (a == 0 || b == 0 || diff < Float.MIN_NORMAL) {
+            return diff < (epsilon * Float.MIN_NORMAL);
+        }
+        else {
+            // use relative error
+            return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
+        }
+    }
+
+    @VisibleForTesting
+    static int precisionCompare(double a, double b, int precision)
+    {
+        //we don't care whether a is smaller than b or not when they are not close since we will fail verification anyway
+        return isClose(a, b, Math.pow(10, -1 * (precision - 1))) ? 0 : -1;
     }
 
     public static class ChangedRow

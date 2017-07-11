@@ -1,2 +1,2 @@
--- delimiter: |; ignoreOrder: false; types: DOUBLE
-123141078.2283|
+-- delimiter: |; ignoreOrder: false; types: DECIMAL
+1193053.2253

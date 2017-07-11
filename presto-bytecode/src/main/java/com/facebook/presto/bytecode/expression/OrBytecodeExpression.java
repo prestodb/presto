@@ -60,7 +60,7 @@ class OrBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<BytecodeNode>of(left, right);
+        return ImmutableList.of(left, right);
     }
 
     @Override

@@ -30,6 +30,7 @@ public final class PrestoHeaders
     public static final String PRESTO_TRANSACTION_ID = "X-Presto-Transaction-Id";
     public static final String PRESTO_STARTED_TRANSACTION_ID = "X-Presto-Started-Transaction-Id";
     public static final String PRESTO_CLEAR_TRANSACTION_ID = "X-Presto-Clear-Transaction-Id";
+    public static final String PRESTO_CLIENT_INFO = "X-Presto-Client-Info";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";

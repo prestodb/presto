@@ -81,7 +81,7 @@ public class NullIfCodeGenerator
         return block;
     }
 
-    private BytecodeNode cast(
+    private static BytecodeNode cast(
             BytecodeGeneratorContext generatorContext,
             BytecodeNode argument,
             Type actualType,

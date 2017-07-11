@@ -320,7 +320,7 @@ class CastBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<BytecodeNode>of(instance);
+        return ImmutableList.of(instance);
     }
 
     private enum TypeKind {

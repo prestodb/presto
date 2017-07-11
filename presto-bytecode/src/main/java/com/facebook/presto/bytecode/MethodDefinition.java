@@ -15,6 +15,7 @@ package com.facebook.presto.bytecode;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -30,6 +31,7 @@ import java.util.Optional;
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.toAccessModifier;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static org.objectweb.asm.Opcodes.RETURN;
 
@@ -70,6 +72,8 @@ public class MethodDefinition
             Iterable<Parameter> parameters
     )
     {
+        checkArgument(Iterables.size(parameters) <= 254, "Too many parameters for method");
+
         this.declaringClass = declaringClass;
         body = new BytecodeBlock();
 
@@ -84,9 +88,8 @@ public class MethodDefinition
         this.parameters = ImmutableList.copyOf(parameters);
         this.parameterTypes = Lists.transform(this.parameters, Parameter::getType);
         this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, input -> new ArrayList<>()));
-
         Optional<ParameterizedType> thisType = Optional.empty();
-        if (!access.contains(STATIC)) {
+        if (!declaringClass.isInterface() && !access.contains(STATIC)) {
             thisType = Optional.of(declaringClass.getType());
         }
         scope = new Scope(thisType, parameters);
@@ -171,6 +174,9 @@ public class MethodDefinition
 
     public BytecodeBlock getBody()
     {
+        if (declaringClass.isInterface()) {
+            throw new IllegalAccessError("Interface does not have method body");
+        }
         return body;
     }
 
@@ -236,19 +242,19 @@ public class MethodDefinition
                 parameterAnnotation.visitParameterAnnotation(parameterIndex, methodVisitor);
             }
         }
+        if (!declaringClass.isInterface()) {
+            // visit code
+            methodVisitor.visitCode();
 
-        // visit code
-        methodVisitor.visitCode();
-
-        // visit instructions
-        MethodGenerationContext generationContext = new MethodGenerationContext(methodVisitor);
-        generationContext.enterScope(scope);
-        body.accept(methodVisitor, generationContext);
-        if (addReturn) {
-            new InsnNode(RETURN).accept(methodVisitor);
+            // visit instructions
+            MethodGenerationContext generationContext = new MethodGenerationContext(methodVisitor);
+            generationContext.enterScope(scope);
+            body.accept(methodVisitor, generationContext);
+            if (addReturn) {
+                new InsnNode(RETURN).accept(methodVisitor);
+            }
+            generationContext.exitScope(scope);
         }
-        generationContext.exitScope(scope);
-
         // done
         methodVisitor.visitMaxs(-1, -1);
         methodVisitor.visitEnd();

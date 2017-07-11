@@ -31,13 +31,13 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -93,7 +93,7 @@ public class LocalExchange
             bufferCount = defaultConcurrency;
             checkArgument(partitionChannels.isEmpty(), "Broadcast exchange must not have partition channels");
         }
-        else if (partitioning.equals(FIXED_RANDOM_DISTRIBUTION)) {
+        else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
             bufferCount = defaultConcurrency;
             checkArgument(partitionChannels.isEmpty(), "Random exchange must not have partition channels");
         }
@@ -122,7 +122,7 @@ public class LocalExchange
         else if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
             exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager::updateMemoryUsage);
         }
-        else if (partitioning.equals(FIXED_RANDOM_DISTRIBUTION)) {
+        else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
             exchangerSupplier = () -> new RandomExchanger(buffers, memoryManager::updateMemoryUsage);
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {

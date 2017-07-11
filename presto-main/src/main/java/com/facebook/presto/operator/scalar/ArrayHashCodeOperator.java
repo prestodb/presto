@@ -13,8 +13,6 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -23,15 +21,14 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
-import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
+import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarOperator(HASH_CODE)
 public final class ArrayHashCodeOperator
@@ -45,20 +42,16 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invoke(readNativeValue(type, block, i)));
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invoke(readNativeValue(type, block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @TypeParameter("T")
@@ -69,20 +62,16 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getLong(block, i)));
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getLong(block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @TypeParameter("T")
@@ -93,20 +82,16 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getBoolean(block, i)));
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getBoolean(block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @TypeParameter("T")
@@ -117,20 +102,16 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getSlice(block, i)));
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getSlice(block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @TypeParameter("T")
@@ -141,19 +122,15 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getDouble(block, i)));
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getDouble(block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 }

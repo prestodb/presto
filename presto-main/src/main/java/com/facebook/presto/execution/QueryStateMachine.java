@@ -17,11 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;
@@ -30,10 +33,14 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
@@ -42,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,6 +90,7 @@ public class QueryStateMachine
     private final boolean autoCommit;
     private final TransactionManager transactionManager;
     private final Ticker ticker;
+    private final Metadata metadata;
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
@@ -124,7 +131,9 @@ public class QueryStateMachine
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
-    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker)
+    private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
+
+    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
@@ -133,6 +142,7 @@ public class QueryStateMachine
         this.autoCommit = autoCommit;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.ticker = ticker;
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.createNanos = tickerNanos();
 
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
@@ -150,9 +160,10 @@ public class QueryStateMachine
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
-            Executor executor)
+            Executor executor,
+            Metadata metadata)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker());
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -164,7 +175,8 @@ public class QueryStateMachine
             TransactionManager transactionManager,
             AccessControl accessControl,
             Executor executor,
-            Ticker ticker)
+            Ticker ticker,
+            Metadata metadata)
     {
         session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
 
@@ -179,9 +191,9 @@ public class QueryStateMachine
             querySession = session;
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker);
-        queryStateMachine.addStateChangeListener(newState -> log.debug("Query %s is %s", queryId, newState));
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata);
         queryStateMachine.addStateChangeListener(newState -> {
+            log.debug("Query %s is %s", queryId, newState);
             if (newState.isDone()) {
                 session.getTransactionId().ifPresent(transactionManager::trySetInactive);
             }
@@ -193,9 +205,9 @@ public class QueryStateMachine
     /**
      * Create a QueryStateMachine that is already in a failed state.
      */
-    public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Throwable throwable)
+    public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Metadata metadata, Throwable throwable)
     {
-        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), throwable);
+        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), metadata, throwable);
     }
 
     static QueryStateMachine failedWithTicker(
@@ -206,9 +218,10 @@ public class QueryStateMachine
             TransactionManager transactionManager,
             Executor executor,
             Ticker ticker,
+            Metadata metadata,
             Throwable throwable)
     {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker, metadata);
         queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
@@ -239,6 +252,17 @@ public class QueryStateMachine
         if (currentMemoryValue > peakMemory.get()) {
             peakMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
         }
+    }
+
+    public void setResourceGroup(ResourceGroupId group)
+    {
+        requireNonNull(group, "group is null");
+        resourceGroup.compareAndSet(null, group);
+    }
+
+    public Optional<ResourceGroupId> getResourceGroup()
+    {
+        return Optional.ofNullable(resourceGroup.get());
     }
 
     public QueryInfo getQueryInfoWithoutDetails()
@@ -280,6 +304,7 @@ public class QueryStateMachine
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int runningDrivers = 0;
+        int blockedDrivers = 0;
         int completedDrivers = 0;
 
         long cumulativeMemory = 0;
@@ -303,6 +328,7 @@ public class QueryStateMachine
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageStats stageStats = stageInfo.getStageStats();
@@ -313,6 +339,7 @@ public class QueryStateMachine
             totalDrivers += stageStats.getTotalDrivers();
             queuedDrivers += stageStats.getQueuedDrivers();
             runningDrivers += stageStats.getRunningDrivers();
+            blockedDrivers += stageStats.getBlockedDrivers();
             completedDrivers += stageStats.getCompletedDrivers();
 
             cumulativeMemory += stageStats.getCumulativeMemory();
@@ -337,6 +364,7 @@ public class QueryStateMachine
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
             completeInfo = completeInfo && stageInfo.isCompleteInfo();
+            operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
 
         if (rootStage.isPresent()) {
@@ -344,6 +372,8 @@ public class QueryStateMachine
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();
             outputPositions += outputStageStats.getOutputPositions();
         }
+
+        boolean isScheduled = isScheduled(rootStage);
 
         QueryStats queryStats = new QueryStats(
                 createTime,
@@ -365,11 +395,15 @@ public class QueryStateMachine
                 totalDrivers,
                 queuedDrivers,
                 runningDrivers,
+                blockedDrivers,
                 completedDrivers,
 
                 cumulativeMemory,
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakMemoryReservation),
+
+                isScheduled,
+
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -382,13 +416,14 @@ public class QueryStateMachine
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 succinctBytes(outputDataSize),
-                outputPositions);
+                outputPositions,
+                operatorStatsSummary.build());
 
         return new QueryInfo(queryId,
                 session.toSessionRepresentation(),
                 state,
                 memoryPool.get().getId(),
-                isScheduled(rootStage),
+                isScheduled,
                 self,
                 outputFieldNames.get(),
                 query,
@@ -405,7 +440,8 @@ public class QueryStateMachine
                 errorCode,
                 inputs.get(),
                 output.get(),
-                completeInfo);
+                completeInfo,
+                getResourceGroup().map(ResourceGroupId::toString));
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -553,15 +589,21 @@ public class QueryStateMachine
         }
 
         if (autoCommit) {
-            transactionManager.asyncCommit(session.getTransactionId().get())
-                    .whenComplete((value, throwable) -> {
-                        if (throwable == null) {
-                            transitionToFinished();
-                        }
-                        else {
-                            transitionToFailed(unwrapCompletionException(throwable));
-                        }
-                    });
+            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(session.getTransactionId().get());
+            Futures.addCallback(commitFuture, new FutureCallback<Object>()
+            {
+                @Override
+                public void onSuccess(@Nullable Object result)
+                {
+                    transitionToFinished();
+                }
+
+                @Override
+                public void onFailure(Throwable throwable)
+                {
+                    transitionToFailed(throwable);
+                }
+            });
         }
         else {
             transitionToFinished();
@@ -571,6 +613,7 @@ public class QueryStateMachine
 
     private boolean transitionToFinished()
     {
+        cleanupQueryQuietly();
         recordDoneStats();
 
         return queryState.setIf(FINISHED, currentState -> !currentState.isDone());
@@ -578,13 +621,13 @@ public class QueryStateMachine
 
     public boolean transitionToFailed(Throwable throwable)
     {
-        requireNonNull(throwable, "throwable is null");
-
+        cleanupQueryQuietly();
         recordDoneStats();
 
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause
         // can only be observed if the transition to FAILED is successful.
+        requireNonNull(throwable, "throwable is null");
         failureCause.compareAndSet(null, toFailure(throwable));
 
         boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
@@ -601,6 +644,7 @@ public class QueryStateMachine
 
     public boolean transitionToCanceled()
     {
+        cleanupQueryQuietly();
         recordDoneStats();
 
         // NOTE: The failure cause must be set before triggering the state change, so
@@ -614,6 +658,16 @@ public class QueryStateMachine
         }
 
         return canceled;
+    }
+
+    private void cleanupQueryQuietly()
+    {
+        try {
+            metadata.cleanupQuery(session);
+        }
+        catch (Throwable t) {
+            log.error("Error cleaning up query: %s", t);
+        }
     }
 
     private void recordDoneStats()
@@ -735,8 +789,8 @@ public class QueryStateMachine
                 queryInfo.getErrorCode(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
-                queryInfo.isCompleteInfo()
-        );
+                queryInfo.isCompleteInfo(),
+                queryInfo.getResourceGroupName());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
@@ -748,14 +802,5 @@ public class QueryStateMachine
     private Duration nanosSince(long start)
     {
         return succinctNanos(tickerNanos() - start);
-    }
-
-    // TODO: move to Airlift MoreFutures
-    private static Throwable unwrapCompletionException(Throwable throwable)
-    {
-        if (throwable instanceof CompletionException) {
-            return throwable.getCause();
-        }
-        return throwable;
     }
 }

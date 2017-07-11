@@ -38,6 +38,7 @@ import org.skife.jdbi.v2.PreparedBatchPart;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
+import java.io.Closeable;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -66,10 +67,10 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -78,6 +79,7 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
 public class H2QueryRunner
+        implements Closeable
 {
     private final Handle handle;
 
@@ -143,6 +145,7 @@ public class H2QueryRunner
         insertRows(tpchMetadata.getTableMetadata(null, tableHandle), handle, createTpchRecordSet(tpchTable, tableHandle.getScaleFactor()));
     }
 
+    @Override
     public void close()
     {
         handle.close();

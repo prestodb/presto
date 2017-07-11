@@ -258,7 +258,7 @@ public class HiveRecordCursor
     }
 
     @VisibleForTesting
-    public RecordCursor getRegularColumnRecordCursor()
+    RecordCursor getRegularColumnRecordCursor()
     {
         return delegate;
     }

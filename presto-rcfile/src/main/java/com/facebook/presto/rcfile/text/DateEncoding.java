@@ -14,16 +14,20 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.concurrent.TimeUnit;
+
+import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DateEncoding
         implements TextColumnEncoding
@@ -32,11 +36,43 @@ public class DateEncoding
 
     private final Type type;
     private final Slice nullSequence;
+    private final StringBuilder buffer = new StringBuilder();
 
     public DateEncoding(Type type, Slice nullSequence)
     {
         this.type = type;
         this.nullSequence = nullSequence;
+    }
+
+    @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                encodeValue(block, position, output);
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    {
+        encodeValue(block, position, output);
+    }
+
+    private void encodeValue(Block block, int position, SliceOutput output)
+    {
+        long days = type.getLong(block, position);
+        long millis = TimeUnit.DAYS.toMillis(days);
+        buffer.setLength(0);
+        HIVE_DATE_PARSER.printTo(buffer, millis);
+        for (int index = 0; index < buffer.length(); index++) {
+            output.writeByte(buffer.charAt(index));
+        }
     }
 
     @Override
@@ -69,6 +105,6 @@ public class DateEncoding
     private static int parseDate(Slice slice, int offset, int length)
     {
         long millis = HIVE_DATE_PARSER.parseMillis(slice.toStringAscii(offset, length));
-        return Ints.checkedCast(TimeUnit.MILLISECONDS.toDays(millis));
+        return toIntExact(MILLISECONDS.toDays(millis));
     }
 }

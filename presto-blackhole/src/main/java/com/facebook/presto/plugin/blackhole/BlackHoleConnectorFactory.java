@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -48,7 +47,7 @@ public class BlackHoleConnectorFactory
         return new BlackHoleConnector(
                 new BlackHoleMetadata(),
                 new BlackHoleSplitManager(),
-                new BlackHolePageSourceProvider(),
+                new BlackHolePageSourceProvider(executorService),
                 new BlackHolePageSinkProvider(executorService),
                 new BlackHoleNodePartitioningProvider(context.getNodeManager()),
                 context.getTypeManager(),

@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -24,15 +26,17 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -212,7 +216,7 @@ public class StateMachine<T>
         checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
         requireNonNull(newState, "newState is null");
 
-        executor.execute(() -> {
+        safeExecute(() -> {
             checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
             try {
                 futureStateChange.complete(newState);
@@ -234,7 +238,7 @@ public class StateMachine<T>
     /**
      * Gets a future that completes when the state is no longer {@code .equals()} to {@code currentState)}.
      */
-    public CompletableFuture<T> getStateChange(T currentState)
+    public ListenableFuture<T> getStateChange(T currentState)
     {
         checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
         requireNonNull(currentState, "currentState is null");
@@ -242,7 +246,7 @@ public class StateMachine<T>
         synchronized (lock) {
             // return a completed future if the state has already changed, or we are in a terminal state
             if (isPossibleStateChange(currentState)) {
-                return CompletableFuture.completedFuture(state);
+                return immediateFuture(state);
             }
 
             return futureStateChange.get().createNewListener();
@@ -331,38 +335,16 @@ public class StateMachine<T>
         return get().toString();
     }
 
-    private static class FutureStateChange<T>
+    private void safeExecute(Runnable command)
     {
-        // Use a separate future for each listener so canceled listeners can be removed
-        @GuardedBy("this")
-        private final Set<CompletableFuture<T>> listeners = new HashSet<>();
-
-        public synchronized CompletableFuture<T> createNewListener()
-        {
-            CompletableFuture<T> listener = new CompletableFuture<>();
-            listeners.add(listener);
-
-            // remove the listener when the future completes
-            listener.whenComplete((t, throwable) -> {
-                synchronized (FutureStateChange.this) {
-                    listeners.remove(listener);
-                }
-            });
-
-            return listener;
+        try {
+            executor.execute(command);
         }
-
-        public void complete(T newState)
-        {
-            Set<CompletableFuture<T>> futures;
-            synchronized (this) {
-                futures = ImmutableSet.copyOf(listeners);
-                listeners.clear();
+        catch (RejectedExecutionException e) {
+            if ((executor instanceof ExecutorService) && ((ExecutorService) executor).isShutdown()) {
+                throw new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
             }
-
-            for (CompletableFuture<T> future : futures) {
-                future.complete(newState);
-            }
+            throw e;
         }
     }
 }

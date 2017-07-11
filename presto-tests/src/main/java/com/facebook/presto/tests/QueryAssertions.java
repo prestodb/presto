@@ -28,15 +28,17 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.OptionalLong;
+import java.util.function.Supplier;
 
-import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public final class QueryAssertions
@@ -75,7 +77,6 @@ public final class QueryAssertions
             @Language("SQL") String expected,
             boolean ensureOrdering,
             boolean compareUpdate)
-            throws Exception
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = null;
@@ -93,7 +94,7 @@ public final class QueryAssertions
             expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
         }
         catch (RuntimeException ex) {
-            fail("Execution of 'expected' query failed: " + actual, ex);
+            fail("Execution of 'expected' query failed: " + expected, ex);
         }
         log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
 
@@ -155,6 +156,23 @@ public final class QueryAssertions
         }
     }
 
+    public static void assertContainsEventually(Supplier<MaterializedResult> all, MaterializedResult expectedSubset, Duration timeout)
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertContains(all.get(), expectedSubset);
+                return;
+            }
+            catch (AssertionError e) {
+                if (nanosSince(start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            sleepUninterruptibly(50, MILLISECONDS);
+        }
+    }
+
     public static void assertContains(MaterializedResult all, MaterializedResult expectedSubset)
     {
         for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
@@ -169,45 +187,38 @@ public final class QueryAssertions
         }
     }
 
-    public static void assertApproximateQuery(
-            QueryRunner queryRunner,
-            Session session,
-            @Language("SQL") String actual,
-            H2QueryRunner h2QueryRunner,
-            @Language("SQL") String expected)
-            throws Exception
+    protected static void assertQueryFailsEventually(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
     {
         long start = System.nanoTime();
-        MaterializedResult actualResults = queryRunner.execute(session, actual);
-        log.info("FINISHED in %s", nanosSince(start));
-
-        MaterializedResult expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
-        assertApproximatelyEqual(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
+                return;
+            }
+            catch (AssertionError e) {
+                if (nanosSince(start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            sleepUninterruptibly(50, MILLISECONDS);
+        }
     }
 
-    public static void assertApproximatelyEqual(List<MaterializedRow> actual, List<MaterializedRow> expected)
-            throws Exception
+    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
-        // TODO: support GROUP BY queries
-        assertEquals(actual.size(), 1, "approximate query returned more than one row");
+        try {
+            queryRunner.execute(session, sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(sql, ex, expectedMessageRegExp);
+        }
+    }
 
-        MaterializedRow actualRow = actual.get(0);
-        MaterializedRow expectedRow = expected.get(0);
-
-        for (int i = 0; i < actualRow.getFieldCount(); i++) {
-            String actualField = (String) actualRow.getField(i);
-            double actualValue = Double.parseDouble(actualField.split(" ")[0]);
-            double error = Double.parseDouble(actualField.split(" ")[2]);
-            Object expectedField = expectedRow.getField(i);
-            assertTrue(expectedField instanceof String || expectedField instanceof Number);
-            double expectedValue;
-            if (expectedField instanceof String) {
-                expectedValue = Double.parseDouble((String) expectedField);
-            }
-            else {
-                expectedValue = ((Number) expectedField).doubleValue();
-            }
-            assertTrue(Math.abs(actualValue - expectedValue) < error);
+    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
+    {
+        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
         }
     }
 
@@ -217,7 +228,6 @@ public final class QueryAssertions
             String sourceSchema,
             Session session,
             Iterable<TpchTable<?>> tables)
-            throws Exception
     {
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
@@ -228,7 +238,6 @@ public final class QueryAssertions
     }
 
     public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
-            throws Exception
     {
         QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
         copyTable(queryRunner, table, session);
@@ -239,7 +248,7 @@ public final class QueryAssertions
         long start = System.nanoTime();
         log.info("Running import for %s", table.getObjectName());
         @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
-        long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 }

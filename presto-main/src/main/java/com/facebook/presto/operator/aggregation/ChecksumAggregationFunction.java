@@ -39,8 +39,8 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.generate
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedLongArray;
 
 public class ChecksumAggregationFunction
@@ -89,11 +89,11 @@ public class ChecksumAggregationFunction
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 NullableLongState.class,
-                new StateCompiler().generateStateSerializer(NullableLongState.class, classLoader),
-                new StateCompiler().generateStateFactory(NullableLongState.class, classLoader),
+                StateCompiler.generateStateSerializer(NullableLongState.class, classLoader),
+                StateCompiler.generateStateFactory(NullableLongState.class, classLoader),
                 VARBINARY);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(NAME, inputTypes, BIGINT, VARBINARY, true, factory);
     }
 

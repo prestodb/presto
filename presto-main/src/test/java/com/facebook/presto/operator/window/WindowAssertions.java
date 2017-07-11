@@ -47,7 +47,7 @@ public final class WindowAssertions
             "    ( 5,                   'F',                   CAST(NULL AS VARCHAR)),\n" +
             "    ( 7,                   CAST(NULL AS VARCHAR), '1996-01-10'),\n" +
             "    (34,                   'O',                   '1998-07-21'),\n" +
-            "    (CAST(NULL AS BIGINT), 'F',                   '1992-02-21'),\n" +
+            "    ( 6,                   'F',                   '1992-02-21'),\n" +
             "    (CAST(NULL AS BIGINT), 'F',                   '1993-10-27'),\n" +
             "    (CAST(NULL AS BIGINT), 'O',                   '1996-12-01'),\n" +
             "    (CAST(NULL AS BIGINT), CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR)),\n" +
@@ -68,11 +68,16 @@ public final class WindowAssertions
 
     public static void assertWindowQueryWithNulls(@Language("SQL") String sql, MaterializedResult expected, LocalQueryRunner localQueryRunner)
     {
+        MaterializedResult actual = executeWindowQueryWithNulls(sql, localQueryRunner);
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    public static MaterializedResult executeWindowQueryWithNulls(@Language("SQL") String sql, LocalQueryRunner localQueryRunner)
+    {
         @Language("SQL") String query = format("" +
                 "SELECT orderkey, orderstatus,\n%s\n" +
                 "FROM (%s) x", sql, VALUES_WITH_NULLS);
 
-        MaterializedResult actual = localQueryRunner.execute(query);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        return localQueryRunner.execute(query);
     }
 }

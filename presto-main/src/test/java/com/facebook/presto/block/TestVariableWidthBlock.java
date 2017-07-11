@@ -22,6 +22,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -63,6 +64,26 @@ public class TestVariableWidthBlock
     }
 
     @Test
+    public void testLazyBlockBuilderInitialization()
+            throws Exception
+    {
+        Slice[] expectedValues = createExpectedValues(100);
+        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0, 0);
+
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32);
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+
+        writeValues(expectedValues, blockBuilder);
+        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
+        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+
+        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+    }
+
+    @Test
     private void testGetSizeInBytes()
     {
         int numEntries = 1000;
@@ -73,18 +94,12 @@ public class TestVariableWidthBlock
         }
         Block block = blockBuilder.build();
 
-        Block half1 = block.getRegion(0, numEntries / 2);
-        Block half2 = block.getRegion(numEntries / 2, numEntries / 2);
-        Block quarter1 = half1.getRegion(0, numEntries / 4);
-        Block quarter2 = half1.getRegion(numEntries / 4, numEntries / 4);
-        Block quarter3 = half2.getRegion(0, numEntries / 4);
-        Block quarter4 = half2.getRegion(numEntries / 4, numEntries / 4);
-
-        int sizeInBytes = block.getSizeInBytes();
-        int quarter1size = quarter1.getSizeInBytes();
-        int quarter2size = quarter2.getSizeInBytes();
-        int quarter3size = quarter3.getSizeInBytes();
-        int quarter4size = quarter4.getSizeInBytes();
+        List<Block> splitQuarter = splitBlock(block, 4);
+        long sizeInBytes = block.getSizeInBytes();
+        long quarter1size = splitQuarter.get(0).getSizeInBytes();
+        long quarter2size = splitQuarter.get(1).getSizeInBytes();
+        long quarter3size = splitQuarter.get(2).getSizeInBytes();
+        long quarter4size = splitQuarter.get(3).getSizeInBytes();
         double expectedQuarterSizeMin = sizeInBytes * 0.2;
         double expectedQuarterSizeMax = sizeInBytes * 0.3;
         assertTrue(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax, format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax));
@@ -103,7 +118,12 @@ public class TestVariableWidthBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32);
+        return writeValues(expectedValues, blockBuilder);
+    }
+
+    private static BlockBuilder writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();

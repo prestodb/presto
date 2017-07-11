@@ -15,6 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -23,6 +25,8 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.EmptySplit;
+import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
@@ -34,13 +38,12 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.getProcessingOptimization;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.DISABLED;
+import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class ScanFilterAndProjectOperator
@@ -59,14 +62,12 @@ public class ScanFilterAndProjectOperator
     private final LocalMemoryContext pageSourceMemoryContext;
     private final LocalMemoryContext pageBuilderMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
-    private final String processingOptimization;
 
     private RecordCursor cursor;
     private ConnectorPageSource pageSource;
 
     private Split split;
-    private Page currentPage;
-    private int currentPosition;
+    private PageProcessorOutput currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
 
     private boolean finishing;
 
@@ -91,7 +92,6 @@ public class ScanFilterAndProjectOperator
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.pageSourceMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
         this.pageBuilderMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-        this.processingOptimization = getProcessingOptimization(operatorContext.getSession());
 
         this.pageBuilder = new PageBuilder(getTypes());
     }
@@ -122,9 +122,13 @@ public class ScanFilterAndProjectOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> splitInfo);
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
         }
         blocked.set(null);
+
+        if (split.getConnectorSplit() instanceof EmptySplit) {
+            pageSource = new EmptySplitPageSource();
+        }
 
         return () -> {
             if (pageSource instanceof UpdatablePageSource) {
@@ -176,17 +180,20 @@ public class ScanFilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
-        if (pageSource != null && pageSource.isFinished() && currentPage == null) {
-            finishing = true;
-        }
-
-        return finishing && pageBuilder.isEmpty();
+        return finishing && pageBuilder.isEmpty() && !currentOutput.hasNext();
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return blocked;
+        if (!blocked.isDone()) {
+            return blocked;
+        }
+        if (pageSource != null) {
+            CompletableFuture<?> pageSourceBlocked = pageSource.isBlocked();
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -208,90 +215,77 @@ public class ScanFilterAndProjectOperator
             return null;
         }
 
-        if (!finishing) {
-            if ((pageSource == null) && (cursor == null)) {
-                ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
-                if (source instanceof RecordPageSource) {
-                    cursor = ((RecordPageSource) source).getCursor();
-                }
-                else {
-                    pageSource = source;
-                }
-            }
-
-            if (cursor != null) {
-                int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
-
-                pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
-
-                long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
-                long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
-                operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
-                completedBytes = cursor.getCompletedBytes();
-                readTimeNanos = cursor.getReadTimeNanos();
-
-                if (rowsProcessed == 0) {
-                    finishing = true;
-                }
+        if (!finishing && pageSource == null && cursor == null) {
+            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
+            if (source instanceof RecordPageSource) {
+                cursor = ((RecordPageSource) source).getCursor();
             }
             else {
-                if (currentPage == null) {
-                    currentPage = pageSource.getNextPage();
-
-                    if (currentPage != null) {
-                        // update operator stats
-                        long endCompletedBytes = pageSource.getCompletedBytes();
-                        long endReadTimeNanos = pageSource.getReadTimeNanos();
-                        operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, currentPage.getPositionCount(), endReadTimeNanos - readTimeNanos);
-                        completedBytes = endCompletedBytes;
-                        readTimeNanos = endReadTimeNanos;
-                    }
-
-                    currentPosition = 0;
-                }
-
-                if (currentPage != null) {
-                    switch (processingOptimization) {
-                        case COLUMNAR: {
-                            Page page = pageProcessor.processColumnar(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                            currentPage = null;
-                            currentPosition = 0;
-                            return page;
-                        }
-                        case COLUMNAR_DICTIONARY: {
-                            Page page = pageProcessor.processColumnarDictionary(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                            currentPage = null;
-                            currentPosition = 0;
-                            return page;
-                        }
-                        case DISABLED: {
-                            currentPosition = pageProcessor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
-                            if (currentPosition == currentPage.getPositionCount()) {
-                                currentPage = null;
-                                currentPosition = 0;
-                            }
-                            break;
-                        }
-                        default:
-                            throw new IllegalStateException(String.format("Found unexpected value %s for processingOptimization", processingOptimization));
-                    }
-                }
-
-                pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
+                pageSource = source;
             }
         }
 
-        // only return a full page if buffer is full or we are finishing
-        if (pageBuilder.isEmpty() || (!finishing && !pageBuilder.isFull())) {
-            pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-            return null;
+        if (pageSource != null) {
+            return processPageSource();
+        }
+        else {
+            return processColumnSource();
+        }
+    }
+
+    private Page processColumnSource()
+    {
+        if (!finishing) {
+            int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
+
+            pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
+
+            long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
+            long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
+            operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
+            completedBytes = cursor.getCompletedBytes();
+            readTimeNanos = cursor.getReadTimeNanos();
+
+            if (rowsProcessed == 0) {
+                finishing = true;
+            }
         }
 
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-
+        // only return a page if buffer is full or we are finishing
+        Page page = null;
+        if (!pageBuilder.isEmpty() && (finishing || pageBuilder.isFull())) {
+            page = pageBuilder.build();
+            pageBuilder.reset();
+        }
         pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
         return page;
+    }
+
+    private Page processPageSource()
+    {
+        if (!finishing && !currentOutput.hasNext()) {
+            Page page = pageSource.getNextPage();
+
+            finishing = pageSource.isFinished();
+            pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
+
+            if (page == null) {
+                currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
+            }
+            else {
+                // update operator stats
+                long endCompletedBytes = pageSource.getCompletedBytes();
+                long endReadTimeNanos = pageSource.getReadTimeNanos();
+                operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
+                completedBytes = endCompletedBytes;
+                readTimeNanos = endReadTimeNanos;
+
+                currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), page);
+            }
+            pageBuilderMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
+        }
+
+        return currentOutput.hasNext() ? currentOutput.next() : null;
     }
 
     public static class ScanFilterAndProjectOperatorFactory

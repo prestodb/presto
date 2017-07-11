@@ -22,13 +22,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -50,7 +49,7 @@ public class JsonToMapCast
         extends SqlOperator
 {
     public static final JsonToMapCast JSON_TO_MAP = new JsonToMapCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", Type.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, ConnectorSession.class, Slice.class);
 
     private JsonToMapCast()
     {
@@ -67,28 +66,30 @@ public class JsonToMapCast
         checkArgument(arity == 1, "Expected arity to be 1");
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
+        MapType mapType = (MapType) typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
         checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", mapType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType);
         return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
     @UsedByGeneratedCode
-    public static Block toMap(Type mapType, ConnectorSession connectorSession, Slice json)
+    public static Block toMap(MapType mapType, ConnectorSession connectorSession, Slice json)
     {
         try {
             Map<?, ?> map = (Map<?, ?>) stackRepresentationToObject(connectorSession, json, mapType);
             if (map == null) {
                 return null;
             }
-            Type keyType = ((MapType) mapType).getKeyType();
-            Type valueType = ((MapType) mapType).getValueType();
-            BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), map.size() * 2);
+            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
             for (Map.Entry<?, ?> entry : map.entrySet()) {
                 appendToBlockBuilder(keyType, entry.getKey(), blockBuilder);
                 appendToBlockBuilder(valueType, entry.getValue(), blockBuilder);
             }
-            return blockBuilder.build();
+            mapBlockBuilder.closeEntry();
+            return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
         }
         catch (RuntimeException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to " + mapType, e);

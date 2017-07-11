@@ -18,12 +18,13 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,6 +33,8 @@ import java.util.List;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -42,7 +45,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -81,6 +83,7 @@ public final class BlockAssertions
 
     public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
+        assertEquals(actual.getPositionCount(), expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
             assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
         }
@@ -155,7 +158,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(length, builder.build(), wrappedIntArray(ids));
+        return new DictionaryBlock(builder.build(), ids);
     }
 
     public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
@@ -236,7 +239,7 @@ public final class BlockAssertions
 
     public static Block createLongDecimalsBlock(Iterable<String> values)
     {
-        DecimalType longDecimalType = (DecimalType) DecimalType.createDecimalType(18);
+        DecimalType longDecimalType = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1);
         BlockBuilder builder = longDecimalType.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (String value : values) {
@@ -343,7 +346,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(length, builder.build(), wrappedIntArray(ids));
+        return new DictionaryBlock(builder.build(), ids);
     }
 
     public static Block createLongRepeatBlock(int value, int length)
@@ -475,6 +478,30 @@ public final class BlockAssertions
 
         for (int i = start; i < end; i++) {
             TIMESTAMP.writeLong(builder, i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createShortDecimalSequenceBlock(int start, int end, DecimalType type)
+    {
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+        long base = BigInteger.TEN.pow(type.getScale()).longValue();
+
+        for (int i = start; i < end; ++i) {
+            type.writeLong(builder, base * i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createLongDecimalSequenceBlock(int start, int end, DecimalType type)
+    {
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+        BigInteger base = BigInteger.TEN.pow(type.getScale());
+
+        for (int i = start; i < end; ++i) {
+            type.writeSlice(builder, encodeUnscaledValue(BigInteger.valueOf(i).multiply(base)));
         }
 
         return builder.build();

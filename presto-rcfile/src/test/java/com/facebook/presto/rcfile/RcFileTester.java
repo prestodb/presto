@@ -13,57 +13,96 @@
  */
 package com.facebook.presto.rcfile;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.rcfile.text.TextRcFileEncoding;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Ints;
 import com.hadoop.compression.lzo.LzoCodec;
+import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
+import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
+import org.apache.hadoop.hive.serde2.StructObject;
+import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
+import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
+import org.apache.hadoop.hive.serde2.io.ShortWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.lazy.LazyArray;
+import org.apache.hadoop.hive.serde2.lazy.LazyMap;
+import org.apache.hadoop.hive.serde2.lazy.LazyPrimitive;
+import org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray;
+import org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryMap;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.hadoop.io.BooleanWritable;
+import org.apache.hadoop.io.ByteWritable;
+import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.DoubleWritable;
+import org.apache.hadoop.io.FloatWritable;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.io.compress.Lz4Codec;
 import org.apache.hadoop.io.compress.SnappyCodec;
+import org.apache.hadoop.mapred.FileSplit;
+import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -81,15 +120,19 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.LZ4;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.NONE;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.SNAPPY;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.ZLIB;
+import static com.facebook.presto.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION;
+import static com.facebook.presto.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -97,9 +140,11 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
@@ -109,8 +154,15 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
+import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -124,6 +176,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaShortObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.apache.hadoop.mapred.Reporter.NULL;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -133,7 +186,11 @@ import static org.testng.Assert.assertTrue;
 @SuppressWarnings("StaticPseudoFunctionalStyleMethod")
 public class RcFileTester
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
     static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+
         HadoopNative.requireHadoopNative();
     }
 
@@ -323,7 +380,7 @@ public class RcFileTester
             throws Exception
     {
         // json does not support null keys, so we just write the first value
-        Object nullKeyWrite = writeValues.iterator().next();
+        Object nullKeyWrite = Iterables.getFirst(writeValues, null);
 
         // values in simple map and mix in some null values
         testRoundTripType(
@@ -354,20 +411,33 @@ public class RcFileTester
     {
         List<?> finalValues = Lists.newArrayList(writeValues);
 
-        System.out.println("Testing RcFile with " + finalValues.size() + " " + type + " values");
-
         Set<Format> formats = new LinkedHashSet<>(this.formats);
         formats.removeAll(skipFormats);
 
         for (Format format : formats) {
             for (Compression compression : compressions) {
+                // write old, read new
                 try (TempFile tempFile = new TempFile()) {
                     writeRcFileColumnOld(tempFile.getFile(), format, compression, type, finalValues.iterator());
+                    assertFileContentsNew(type, tempFile, format, finalValues, false, ImmutableMap.of());
+                }
 
-                    assertFileContentsNew(type, tempFile, format, finalValues, false);
+                // write new, read old and new
+                try (TempFile tempFile = new TempFile()) {
+                    Map<String, String> metadata = ImmutableMap.of(String.valueOf(ThreadLocalRandom.current().nextLong()), String.valueOf(ThreadLocalRandom.current().nextLong()));
+                    writeRcFileColumnNew(tempFile.getFile(), format, compression, type, finalValues.iterator(), metadata);
+
+                    assertFileContentsOld(type, tempFile, format, finalValues);
+
+                    Map<String, String> expectedMetadata = ImmutableMap.<String, String>builder()
+                            .putAll(metadata)
+                            .put(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY, PRESTO_RCFILE_WRITER_VERSION)
+                            .build();
+
+                    assertFileContentsNew(type, tempFile, format, finalValues, false, expectedMetadata);
 
                     if (readLastBatchOnlyEnabled) {
-                        assertFileContentsNew(type, tempFile, format, finalValues, true);
+                        assertFileContentsNew(type, tempFile, format, finalValues, true, expectedMetadata);
                     }
                 }
             }
@@ -379,15 +449,20 @@ public class RcFileTester
             TempFile tempFile,
             Format format,
             List<?> expectedValues,
-            boolean readLastBatchOnly)
+            boolean readLastBatchOnly,
+            Map<String, String> metadata)
             throws IOException
     {
         try (RcFileReader recordReader = createRcFileReader(tempFile, type, format.getVectorEncoding())) {
             assertIndexOf(recordReader, tempFile.getFile());
+            assertEquals(recordReader.getMetadata(), ImmutableMap.builder()
+                    .putAll(metadata)
+                    .put("hive.io.rcfile.column.number", "1")
+                    .build());
 
             Iterator<?> iterator = expectedValues.iterator();
             int totalCount = 0;
-            for (int batchSize = recordReader.advance(); batchSize >= 0; batchSize = Ints.checkedCast(recordReader.advance())) {
+            for (int batchSize = recordReader.advance(); batchSize >= 0; batchSize = toIntExact(recordReader.advance())) {
                 totalCount += batchSize;
                 if (readLastBatchOnly && totalCount == expectedValues.size()) {
                     assertEquals(advance(iterator, batchSize), batchSize);
@@ -555,9 +630,8 @@ public class RcFileTester
         RcFileDataSource rcFileDataSource = new FileRcFileDataSource(tempFile.getFile());
         RcFileReader rcFileReader = new RcFileReader(
                 rcFileDataSource,
-                ImmutableList.of(type),
                 encoding,
-                ImmutableSet.of(0),
+                ImmutableMap.of(0, type),
                 new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader())),
                 0,
                 tempFile.getFile().length(),
@@ -566,6 +640,270 @@ public class RcFileTester
         assertEquals(rcFileReader.getColumnCount(), 1);
 
         return rcFileReader;
+    }
+
+    private static DataSize writeRcFileColumnNew(File outputFile, Format format, Compression compression, Type type, Iterator<?> values, Map<String, String> metadata)
+            throws Exception
+    {
+        OutputStreamSliceOutput output = new OutputStreamSliceOutput(new FileOutputStream(outputFile));
+        AircompressorCodecFactory codecFactory = new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader()));
+        RcFileWriter writer = new RcFileWriter(
+                output,
+                ImmutableList.of(type),
+                format.getVectorEncoding(),
+                compression.getCodecName(),
+                codecFactory,
+                metadata,
+                new DataSize(100, KILOBYTE),   // use a smaller size to create more row groups
+                new DataSize(200, KILOBYTE),
+                true);
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1024);
+        while (values.hasNext()) {
+            Object value = values.next();
+            writeValue(type, blockBuilder, value);
+        }
+
+        writer.write(new Page(blockBuilder.build()));
+        writer.close();
+
+        writer.validate(new FileRcFileDataSource(outputFile));
+
+        return new DataSize(output.size(), BYTE);
+    }
+
+    private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else {
+            if (BOOLEAN.equals(type)) {
+                type.writeBoolean(blockBuilder, (Boolean) value);
+            }
+            else if (TINYINT.equals(type)) {
+                type.writeLong(blockBuilder, ((Number) value).longValue());
+            }
+            else if (SMALLINT.equals(type)) {
+                type.writeLong(blockBuilder, ((Number) value).longValue());
+            }
+            else if (INTEGER.equals(type)) {
+                type.writeLong(blockBuilder, ((Number) value).longValue());
+            }
+            else if (BIGINT.equals(type)) {
+                type.writeLong(blockBuilder, ((Number) value).longValue());
+            }
+            else if (Decimals.isShortDecimal(type)) {
+                type.writeLong(blockBuilder, ((SqlDecimal) value).toBigDecimal().unscaledValue().longValue());
+            }
+            else if (Decimals.isLongDecimal(type)) {
+                type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) value).toBigDecimal().unscaledValue()));
+            }
+            else if (REAL.equals(type)) {
+                type.writeLong(blockBuilder, Float.floatToIntBits((Float) value));
+            }
+            else if (DOUBLE.equals(type)) {
+                type.writeDouble(blockBuilder, ((Number) value).doubleValue());
+            }
+            else if (VARCHAR.equals(type)) {
+                type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
+            }
+            else if (VARBINARY.equals(type)) {
+                type.writeSlice(blockBuilder, Slices.wrappedBuffer(((SqlVarbinary) value).getBytes()));
+            }
+            else if (DATE.equals(type)) {
+                long days = ((SqlDate) value).getDays();
+                type.writeLong(blockBuilder, days);
+            }
+            else if (TIMESTAMP.equals(type)) {
+                long millis = ((SqlTimestamp) value).getMillisUtc();
+                type.writeLong(blockBuilder, millis);
+            }
+            else {
+                String baseType = type.getTypeSignature().getBase();
+                if (ARRAY.equals(baseType)) {
+                    List<?> array = (List<?>) value;
+                    Type elementType = type.getTypeParameters().get(0);
+                    BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
+                    for (Object elementValue : array) {
+                        writeValue(elementType, arrayBlockBuilder, elementValue);
+                    }
+                    blockBuilder.closeEntry();
+                }
+                else if (MAP.equals(baseType)) {
+                    Map<?, ?> map = (Map<?, ?>) value;
+                    Type keyType = type.getTypeParameters().get(0);
+                    Type valueType = type.getTypeParameters().get(1);
+                    BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
+                    for (Entry<?, ?> entry : map.entrySet()) {
+                        writeValue(keyType, mapBlockBuilder, entry.getKey());
+                        writeValue(valueType, mapBlockBuilder, entry.getValue());
+                    }
+                    blockBuilder.closeEntry();
+                }
+                else if (ROW.equals(baseType)) {
+                    List<?> array = (List<?>) value;
+                    List<Type> fieldTypes = type.getTypeParameters();
+                    BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
+                    for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
+                        Type fieldType = fieldTypes.get(fieldId);
+                        writeValue(fieldType, rowBlockBuilder, array.get(fieldId));
+                    }
+                    blockBuilder.closeEntry();
+                }
+                else {
+                    throw new IllegalArgumentException("Unsupported type " + type);
+                }
+            }
+        }
+    }
+
+    private static <K extends LongWritable, V extends BytesRefArrayWritable> void assertFileContentsOld(
+            Type type,
+            TempFile tempFile,
+            Format format,
+            Iterable<?> expectedValues)
+            throws Exception
+    {
+        JobConf configuration = new JobConf(new Configuration(false));
+        configuration.set(READ_COLUMN_IDS_CONF_STR, "0");
+        configuration.setBoolean(READ_ALL_COLUMNS, false);
+
+        Properties schema = new Properties();
+        schema.setProperty(META_TABLE_COLUMNS, "test");
+        schema.setProperty(META_TABLE_COLUMN_TYPES, getJavaObjectInspector(type).getTypeName());
+
+        @SuppressWarnings("deprecation")
+        Deserializer deserializer;
+        if (format == Format.BINARY) {
+            deserializer = new LazyBinaryColumnarSerDe();
+        }
+        else {
+            deserializer = new ColumnarSerDe();
+        }
+        deserializer.initialize(configuration, schema);
+        configuration.set(SERIALIZATION_LIB, deserializer.getClass().getName());
+
+        InputFormat<K, V> inputFormat = new RCFileInputFormat<>();
+        RecordReader<K, V> recordReader = inputFormat.getRecordReader(
+                new FileSplit(new Path(tempFile.getFile().getAbsolutePath()), 0, tempFile.getFile().length(), (String[]) null),
+                configuration,
+                NULL);
+
+        K key = recordReader.createKey();
+        V value = recordReader.createValue();
+
+        StructObjectInspector rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
+        StructField field = rowInspector.getStructFieldRef("test");
+
+        Iterator<?> iterator = expectedValues.iterator();
+        while (recordReader.next(key, value)) {
+            Object expectedValue = iterator.next();
+
+            Object rowData = deserializer.deserialize(value);
+            Object actualValue = rowInspector.getStructFieldData(rowData, field);
+            actualValue = decodeRecordReaderValue(type, actualValue);
+            assertColumnValueEquals(type, actualValue, expectedValue);
+        }
+        assertFalse(iterator.hasNext());
+    }
+
+    private static Object decodeRecordReaderValue(Type type, Object actualValue)
+    {
+        if (actualValue instanceof LazyPrimitive) {
+            actualValue = ((LazyPrimitive<?, ?>) actualValue).getWritableObject();
+        }
+        if (actualValue instanceof BooleanWritable) {
+            actualValue = ((BooleanWritable) actualValue).get();
+        }
+        else if (actualValue instanceof ByteWritable) {
+            actualValue = ((ByteWritable) actualValue).get();
+        }
+        else if (actualValue instanceof BytesWritable) {
+            actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
+        }
+        else if (actualValue instanceof DateWritable) {
+            actualValue = new SqlDate(((DateWritable) actualValue).getDays());
+        }
+        else if (actualValue instanceof DoubleWritable) {
+            actualValue = ((DoubleWritable) actualValue).get();
+        }
+        else if (actualValue instanceof FloatWritable) {
+            actualValue = ((FloatWritable) actualValue).get();
+        }
+        else if (actualValue instanceof IntWritable) {
+            actualValue = ((IntWritable) actualValue).get();
+        }
+        else if (actualValue instanceof LongWritable) {
+            actualValue = ((LongWritable) actualValue).get();
+        }
+        else if (actualValue instanceof ShortWritable) {
+            actualValue = ((ShortWritable) actualValue).get();
+        }
+        else if (actualValue instanceof HiveDecimalWritable) {
+            DecimalType decimalType = (DecimalType) type;
+            HiveDecimalWritable writable = (HiveDecimalWritable) actualValue;
+            // writable messes with the scale so rescale the values to the Presto type
+            BigInteger rescaledValue = rescale(writable.getHiveDecimal().unscaledValue(), writable.getScale(), decimalType.getScale());
+            actualValue = new SqlDecimal(rescaledValue, decimalType.getPrecision(), decimalType.getScale());
+        }
+        else if (actualValue instanceof Text) {
+            actualValue = actualValue.toString();
+        }
+        else if (actualValue instanceof TimestampWritable) {
+            TimestampWritable timestamp = (TimestampWritable) actualValue;
+            actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), UTC_KEY);
+        }
+        else if (actualValue instanceof StructObject) {
+            StructObject structObject = (StructObject) actualValue;
+            actualValue = decodeRecordReaderStruct(type, structObject.getFieldsAsList());
+        }
+        else if (actualValue instanceof LazyBinaryArray) {
+            actualValue = decodeRecordReaderList(type, ((LazyBinaryArray) actualValue).getList());
+        }
+        else if (actualValue instanceof LazyBinaryMap) {
+            actualValue = decodeRecordReaderMap(type, ((LazyBinaryMap) actualValue).getMap());
+        }
+        else if (actualValue instanceof LazyArray) {
+            actualValue = decodeRecordReaderList(type, ((LazyArray) actualValue).getList());
+        }
+        else if (actualValue instanceof LazyMap) {
+            actualValue = decodeRecordReaderMap(type, ((LazyMap) actualValue).getMap());
+        }
+        else if (actualValue instanceof List) {
+            actualValue = decodeRecordReaderList(type, ((List<?>) actualValue));
+        }
+        return actualValue;
+    }
+
+    private static List<Object> decodeRecordReaderList(Type type, List<?> list)
+    {
+        Type elementType = type.getTypeParameters().get(0);
+        return list.stream()
+                .map(element -> decodeRecordReaderValue(elementType, element))
+                .collect(toList());
+    }
+
+    private static Object decodeRecordReaderMap(Type type, Map<?, ?> map)
+    {
+        Type keyType = type.getTypeParameters().get(0);
+        Type valueType = type.getTypeParameters().get(1);
+        Map<Object, Object> newMap = new HashMap<>();
+        for (Entry<?, ?> entry : map.entrySet()) {
+            newMap.put(decodeRecordReaderValue(keyType, entry.getKey()), decodeRecordReaderValue(valueType, entry.getValue()));
+        }
+        return newMap;
+    }
+
+    private static List<Object> decodeRecordReaderStruct(Type type, List<?> fields)
+    {
+        List<Type> fieldTypes = type.getTypeParameters();
+        List<Object> newFields = new ArrayList<>(fields.size());
+        for (int i = 0; i < fields.size(); i++) {
+            Type fieldType = fieldTypes.get(i);
+            Object field = fields.get(i);
+            newFields.add(decodeRecordReaderValue(fieldType, field));
+        }
+        return newFields;
     }
 
     private static DataSize writeRcFileColumnOld(File outputFile, Format format, Compression compression, Type type, Iterator<?> values)
@@ -740,9 +1078,7 @@ public class RcFileTester
     {
         JobConf jobConf = new JobConf(false);
         Optional<String> codecName = compression.getCodecName();
-        if (codecName.isPresent()) {
-            jobConf.set(COMPRESS_CODEC, codecName.get());
-        }
+        codecName.ifPresent(s -> jobConf.set(COMPRESS_CODEC, s));
 
         return new RCFileOutputFormat().getHiveRecordWriter(
                 jobConf,
@@ -836,7 +1172,9 @@ public class RcFileTester
 
     private static MapType createMapType(Type type)
     {
-        return new MapType(type, type);
+        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(type.getTypeSignature()),
+                TypeSignatureParameter.of(type.getTypeSignature())));
     }
 
     private static Object toHiveMap(Object nullKeyValue, Object input)

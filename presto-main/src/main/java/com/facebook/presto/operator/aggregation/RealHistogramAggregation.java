@@ -15,8 +15,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -37,32 +37,32 @@ public class RealHistogramAggregation
     }
 
     @InputFunction
-    public static void add(DoubleHistogramAggregation.State state, @SqlType(StandardTypes.BIGINT) long buckets, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.DOUBLE) double weight)
+    public static void add(@AggregationState DoubleHistogramAggregation.State state, @SqlType(StandardTypes.BIGINT) long buckets, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.DOUBLE) double weight)
     {
         DoubleHistogramAggregation.add(state, buckets, intBitsToFloat((int) value), weight);
     }
 
     @InputFunction
-    public static void add(DoubleHistogramAggregation.State state, @SqlType(StandardTypes.BIGINT) long buckets, @SqlType(StandardTypes.REAL) long value)
+    public static void add(@AggregationState DoubleHistogramAggregation.State state, @SqlType(StandardTypes.BIGINT) long buckets, @SqlType(StandardTypes.REAL) long value)
     {
         add(state, buckets, value, 1);
     }
 
     @CombineFunction
-    public static void merge(DoubleHistogramAggregation.State state, DoubleHistogramAggregation.State other)
+    public static void merge(@AggregationState DoubleHistogramAggregation.State state, @AggregationState DoubleHistogramAggregation.State other)
     {
         DoubleHistogramAggregation.merge(state, other);
     }
 
     @OutputFunction("map(real,real)")
-    public static void output(DoubleHistogramAggregation.State state, BlockBuilder out)
+    public static void output(@AggregationState DoubleHistogramAggregation.State state, BlockBuilder out)
     {
         if (state.get() == null) {
             out.appendNull();
         }
         else {
             Map<Double, Double> value = state.get().getBuckets();
-            BlockBuilder blockBuilder = REAL.createBlockBuilder(new BlockBuilderStatus(), value.size() * 2);
+            BlockBuilder blockBuilder = REAL.createBlockBuilder(null, value.size() * 2);
             for (Map.Entry<Double, Double> entry : value.entrySet()) {
                 REAL.writeLong(blockBuilder, floatToRawIntBits(entry.getKey().floatValue()));
                 REAL.writeLong(blockBuilder, floatToRawIntBits(entry.getValue().floatValue()));

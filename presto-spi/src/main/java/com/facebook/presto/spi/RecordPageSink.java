@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class RecordPageSink
         implements ConnectorPageSink
@@ -34,9 +35,9 @@ public class RecordPageSink
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
-        return recordSink.commit();
+        return completedFuture(recordSink.commit());
     }
 
     @Override

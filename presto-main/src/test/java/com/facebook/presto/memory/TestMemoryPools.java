@@ -18,9 +18,9 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -34,6 +34,7 @@ import java.util.List;
 import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -55,16 +56,15 @@ public class TestMemoryPools
         LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 
         // add tpch
-        NodeManager nodeManager = localQueryRunner.getNodeManager();
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         // reserve all the memory in the pool
         MemoryPool pool = new MemoryPool(new MemoryPoolId("test"), new DataSize(10, MEGABYTE));
         QueryId fakeQueryId = new QueryId("fake");
         assertTrue(pool.tryReserve(fakeQueryId, TEN_MEGABYTES));
         MemoryPool systemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(10, MEGABYTE));
-
-        QueryContext queryContext = new QueryContext(new QueryId("query"), new DataSize(10, MEGABYTE), pool, systemPool, localQueryRunner.getExecutor());
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        QueryContext queryContext = new QueryContext(new QueryId("query"), new DataSize(10, MEGABYTE), pool, systemPool, localQueryRunner.getExecutor(), new DataSize(10, MEGABYTE), spillSpaceTracker);
         // discard all output
         OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> { }));
         TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session);
@@ -95,6 +95,8 @@ public class TestMemoryPools
             // query should not block
             assertTrue(progress);
         } while (!drivers.stream().allMatch(Driver::isFinished));
+
+        localQueryRunner.close();
     }
 
     public static boolean isWaitingForMemory(List<Driver> drivers)

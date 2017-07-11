@@ -27,16 +27,20 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 
 public final class HiveSessionProperties
 {
+    private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
+    private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
-    private static final String RCFILE_OPTIMIZED_READER_ENABLED = "rcfile_optimized_reader_enabled";
+    public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
+    private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
+    private static final String STATISTICS_ENABLED = "statistics_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -44,6 +48,11 @@ public final class HiveSessionProperties
     public HiveSessionProperties(HiveClientConfig config)
     {
         sessionProperties = ImmutableList.of(
+                booleanSessionProperty(
+                        BUCKET_EXECUTION_ENABLED,
+                        "Enable bucket-aware execution: only use a single worker per bucket",
+                        config.isBucketExecutionEnabled(),
+                        false),
                 booleanSessionProperty(
                         FORCE_LOCAL_SCHEDULING,
                         "Only schedule splits on workers colocated with data node",
@@ -69,6 +78,11 @@ public final class HiveSessionProperties
                         "ORC: Size of buffer for streaming reads",
                         config.getOrcStreamBufferSize(),
                         false),
+                dataSizeSessionProperty(
+                        ORC_MAX_READ_BLOCK_SIZE,
+                        "ORC: Maximum size of a block to read",
+                        config.getOrcMaxReadBlockSize(),
+                        false),
                 booleanSessionProperty(
                         PARQUET_OPTIMIZED_READER_ENABLED,
                         "Experimental: Parquet: Enable optimized reader",
@@ -90,15 +104,30 @@ public final class HiveSessionProperties
                         config.getMaxInitialSplitSize(),
                         true),
                 booleanSessionProperty(
-                        RCFILE_OPTIMIZED_READER_ENABLED,
-                        "Experimental: RCFile: Enable optimized reader",
-                        config.isRcfileOptimizedReaderEnabled(),
+                        RCFILE_OPTIMIZED_WRITER_ENABLED,
+                        "Experimental: RCFile: Enable optimized writer",
+                        config.isRcfileOptimizedWriterEnabled(),
+                        false),
+                booleanSessionProperty(
+                        RCFILE_OPTIMIZED_WRITER_VALIDATE,
+                        "Experimental: RCFile: Validate writer files",
+                        config.isRcfileWriterValidate(),
+                        false),
+                booleanSessionProperty(
+                        STATISTICS_ENABLED,
+                        "Experimental: Expose table statistics",
+                        true,
                         false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isBucketExecutionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static boolean isForceLocalScheduling(ConnectorSession session)
@@ -131,6 +160,11 @@ public final class HiveSessionProperties
         return session.getProperty(ORC_STREAM_BUFFER_SIZE, DataSize.class);
     }
 
+    public static DataSize getOrcMaxReadBlockSize(ConnectorSession session)
+    {
+        return session.getProperty(ORC_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
     public static boolean isParquetPredicatePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_PREDICATE_PUSHDOWN_ENABLED, Boolean.class);
@@ -146,9 +180,19 @@ public final class HiveSessionProperties
         return session.getProperty(MAX_INITIAL_SPLIT_SIZE, DataSize.class);
     }
 
-    public static boolean isRcfileOptimizedReaderEnabled(ConnectorSession session)
+    public static boolean isRcfileOptimizedWriterEnabled(ConnectorSession session)
     {
-        return session.getProperty(RCFILE_OPTIMIZED_READER_ENABLED, Boolean.class);
+        return session.getProperty(RCFILE_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRcfileOptimizedWriterValidate(ConnectorSession session)
+    {
+        return session.getProperty(RCFILE_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
+    }
+
+    public static boolean isStatisticsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(STATISTICS_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

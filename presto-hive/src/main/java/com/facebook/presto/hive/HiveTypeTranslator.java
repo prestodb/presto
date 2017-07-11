@@ -92,7 +92,7 @@ public class HiveTypeTranslator
             if (varcharLength <= HiveVarchar.MAX_VARCHAR_LENGTH) {
                 return getVarcharTypeInfo(varcharLength);
             }
-            else if (varcharLength == VarcharType.MAX_LENGTH) {
+            else if (varcharLength == VarcharType.UNBOUNDED_LENGTH) {
                 return HIVE_STRING.getTypeInfo();
             }
             else {

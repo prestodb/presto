@@ -36,6 +36,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,7 +53,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
-import static com.facebook.presto.accumulo.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -102,10 +102,10 @@ public class AccumuloMetadata
     }
 
     @Override
-    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        checkType(tableHandle, AccumuloTableHandle.class, "tableHandle");
         clearRollback();
+        return Optional.empty();
     }
 
     private void rollbackCreateTable(AccumuloTable table)
@@ -122,7 +122,7 @@ public class AccumuloMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "table");
+        AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
         AccumuloTable table = client.getTable(handle.toSchemaTableName());
         if (table != null) {
             client.dropTable(table);
@@ -137,7 +137,7 @@ public class AccumuloMetadata
             throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Table " + newTableName + " already exists");
         }
 
-        AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "table");
+        AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
         client.renameTable(handle.toSchemaTableName(), newTableName);
     }
 
@@ -206,15 +206,16 @@ public class AccumuloMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         checkNoRollback();
-        AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "table");
+        AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
         setRollback(() -> rollbackInsert(handle));
         return handle;
     }
 
     @Override
-    public void finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         clearRollback();
+        return Optional.empty();
     }
 
     private static void rollbackInsert(ConnectorInsertTableHandle insertHandle)
@@ -224,7 +225,7 @@ public class AccumuloMetadata
         // is to run the insert operation again until it is successful
         // Any mutations that were successfully written will be overwritten
         // with the same values, so that isn't a problem.
-        AccumuloTableHandle handle = checkType(insertHandle, AccumuloTableHandle.class, "table");
+        AccumuloTableHandle handle = (AccumuloTableHandle) insertHandle;
         throw new PrestoException(NOT_SUPPORTED, format("Unable to rollback insert for table %s.%s. Some rows may have been written. Please run your insert again.", handle.getSchema(), handle.getTable()));
     }
 
@@ -262,7 +263,7 @@ public class AccumuloMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        AccumuloTableHandle tableHandle = checkType(table, AccumuloTableHandle.class, "table");
+        AccumuloTableHandle tableHandle = (AccumuloTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new AccumuloTableLayoutHandle(tableHandle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
@@ -270,13 +271,13 @@ public class AccumuloMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        return new ConnectorTableLayout(checkType(handle, AccumuloTableLayoutHandle.class, "layout"));
+        return new ConnectorTableLayout((AccumuloTableLayoutHandle) handle);
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        AccumuloTableHandle handle = checkType(table, AccumuloTableHandle.class, "table");
+        AccumuloTableHandle handle = (AccumuloTableHandle) table;
         checkArgument(handle.getConnectorId().equals(connectorId), "table is not for this connector");
         SchemaTableName tableName = new SchemaTableName(handle.getSchema(), handle.getTable());
         ConnectorTableMetadata metadata = getTableMetadata(tableName);
@@ -289,7 +290,7 @@ public class AccumuloMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "tableHandle");
+        AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
         checkArgument(handle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         AccumuloTable table = client.getTable(handle.toSchemaTableName());
@@ -307,15 +308,14 @@ public class AccumuloMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, AccumuloTableHandle.class, "tableHandle");
-        return checkType(columnHandle, AccumuloColumnHandle.class, "columnHandle").getColumnMetadata();
+        return ((AccumuloColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
-        AccumuloTableHandle handle = checkType(tableHandle, AccumuloTableHandle.class, "handle");
-        AccumuloColumnHandle columnHandle = checkType(source, AccumuloColumnHandle.class, "columnHandle");
+        AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
+        AccumuloColumnHandle columnHandle = (AccumuloColumnHandle) source;
         AccumuloTable table = client.getTable(handle.toSchemaTableName());
         if (table == null) {
             throw new TableNotFoundException(new SchemaTableName(handle.getSchema(), handle.getTable()));

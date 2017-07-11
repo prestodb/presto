@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -25,7 +26,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -38,12 +38,14 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class TableWriterOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT, VARBINARY);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory
@@ -116,10 +118,12 @@ public class TableWriterOperator
     }
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
     private final List<Integer> inputChannels;
 
     private ListenableFuture<?> blocked = NOT_BLOCKED;
+    private CompletableFuture<Collection<Slice>> finishFuture;
     private State state = State.RUNNING;
     private long rowCount;
     private boolean committed;
@@ -130,6 +134,7 @@ public class TableWriterOperator
             List<Integer> inputChannels)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.pageSinkMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
     }
@@ -151,6 +156,8 @@ public class TableWriterOperator
     {
         if (state == State.RUNNING) {
             state = State.FINISHING;
+            finishFuture = pageSink.finish();
+            blocked = toListenableFuture(finishFuture);
         }
     }
 
@@ -194,8 +201,9 @@ public class TableWriterOperator
         }
 
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
+        pageSinkMemoryContext.setBytes(pageSink.getSystemMemoryUsage());
         if (!future.isDone()) {
-            this.blocked = MoreFutures.toListenableFuture(future);
+            this.blocked = toListenableFuture(future);
         }
         rowCount += page.getPositionCount();
     }
@@ -203,12 +211,12 @@ public class TableWriterOperator
     @Override
     public Page getOutput()
     {
-        if (state != State.FINISHING) {
+        if (state != State.FINISHING || !blocked.isDone()) {
             return null;
         }
         state = State.FINISHED;
 
-        Collection<Slice> fragments = pageSink.finish();
+        Collection<Slice> fragments = getFutureValue(finishFuture);
         committed = true;
 
         PageBuilder page = new PageBuilder(TYPES);

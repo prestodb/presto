@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.tests.querystats;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +22,7 @@ import com.google.inject.Provides;
 import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.initialization.AutoModuleProvider;
 import com.teradata.tempto.initialization.SuiteModuleProvider;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.ObjectMapperProvider;
 
@@ -50,11 +50,14 @@ public class QueryStatsClientModuleProvider
             @Inject
             @Provides
             @Exposed
-            QueryStatsClient getQueryStatsClient(ObjectMapper objectMapper, @Named("presto_rest.base_uri") String prestoRestInterfaceBaseUri)
+            QueryStatsClient getQueryStatsClient(ObjectMapper objectMapper, @Named("databases.presto.server_address") String serverAddress)
             {
                 // @Singleton does not work due: https://github.com/prestodb/tempto/issues/94
                 if (httpQueryStatsClient == null) {
-                    httpQueryStatsClient = new HttpQueryStatsClient(new JettyHttpClient(), objectMapper, URI.create(prestoRestInterfaceBaseUri));
+                    HttpClientConfig httpClientConfig = new HttpClientConfig();
+                    httpClientConfig.setKeyStorePath(configuration.getString("databases.presto.https_keystore_path").orElse(null));
+                    httpClientConfig.setKeyStorePassword(configuration.getString("databases.presto.https_keystore_password").orElse(null));
+                    httpQueryStatsClient = new HttpQueryStatsClient(new JettyHttpClient(httpClientConfig), objectMapper, URI.create(serverAddress));
                 }
                 return httpQueryStatsClient;
             }

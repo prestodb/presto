@@ -15,11 +15,13 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Set;
 
 public interface AccessControl
 {
@@ -28,6 +30,16 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetUser(Principal principal, String userName);
+
+    /**
+     * Filter the list of catalogs to those visible to the identity.
+     */
+    Set<String> filterCatalogs(Identity identity, Set<String> catalogs);
+
+    /**
+     * Check whether identity is allowed to access catalog
+     */
+    void checkCanAccessCatalog(Identity identity, String catalogName);
 
     /**
      * Check if identity is allowed to create the specified schema.
@@ -48,6 +60,22 @@ public interface AccessControl
     void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName);
 
     /**
+     * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
+     *
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterSchemas} method must filter all results for unauthorized users,
+     * since there are multiple ways to list schemas.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName);
+
+    /**
+     * Filter the list of schemas in a catalog to those visible to the identity.
+     */
+    Set<String> filterSchemas(TransactionId transactionId, Identity identity, String catalogName, Set<String> schemaNames);
+
+    /**
      * Check if identity is allowed to create the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
@@ -64,6 +92,22 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName);
+
+    /**
+     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
+     *
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterTables} method must filter all results for unauthorized users,
+     * since there are multiple ways to list tables.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema);
+
+    /**
+     * Filter the list of tables and views to those visible to the identity.
+     */
+    Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, String catalogName, Set<SchemaTableName> tableNames);
 
     /**
      * Check if identity is allowed to add columns to the specified table.
@@ -126,16 +170,16 @@ public interface AccessControl
     void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName);
 
     /**
-     * Check if identity is allowed to grant a privilege on the specified table.
+     * Check if identity is allowed to grant a privilege to the grantee on the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName);
+    void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String grantee, boolean withGrantOption);
 
     /**
-     * Check if identity is allowed to revoke a privilege on the specified table.
+     * Check if identity is allowed to revoke a privilege from the revokee on the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName);
+    void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String revokee, boolean grantOptionFor);
 
     /**
      * Check if identity is allowed to set the specified system property.

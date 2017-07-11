@@ -38,17 +38,8 @@ public interface LookupSource
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
 
-    default OuterPositionIterator getOuterPositionIterator()
-    {
-        return (pageBuilder, outputChannelOffset) -> false;
-    }
+    boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
 
-    // this is only here for index lookup source
     @Override
-    default void close() {}
-
-    interface OuterPositionIterator
-    {
-        boolean appendToNext(PageBuilder pageBuilder, int outputChannelOffset);
-    }
+    void close();
 }

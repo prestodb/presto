@@ -14,9 +14,12 @@
 package com.facebook.presto.array;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 public final class SliceBigArray
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceBigArray.class).instanceSize();
+    private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
     private final ObjectBigArray<Slice> array;
     private long sizeOfSlices;
 
@@ -35,7 +38,7 @@ public final class SliceBigArray
      */
     public long sizeOf()
     {
-        return array.sizeOf() + sizeOfSlices;
+        return INSTANCE_SIZE + array.sizeOf() + sizeOfSlices;
     }
 
     /**
@@ -58,12 +61,20 @@ public final class SliceBigArray
     {
         Slice currentValue = array.get(index);
         if (currentValue != null) {
-            sizeOfSlices -= currentValue.length();
+            sizeOfSlices -= getSize(currentValue);
         }
         if (value != null) {
-            sizeOfSlices += value.length();
+            sizeOfSlices += getSize(value);
         }
         array.set(index, value);
+    }
+
+    // For now we approximate the retained size of a slice by object overhead plus length.
+    // In general this is more complicated than that as there may be multiple "view" slices
+    // pointing to the same backing memory of a slice.
+    private long getSize(Slice slice)
+    {
+        return slice.length() + SLICE_INSTANCE_SIZE;
     }
 
     /**

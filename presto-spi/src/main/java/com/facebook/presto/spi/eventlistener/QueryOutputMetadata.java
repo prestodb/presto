@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -24,11 +25,16 @@ public class QueryOutputMetadata
     private final String schema;
     private final String table;
 
-    public QueryOutputMetadata(String connectorId, String schema, String table)
+    private final Optional<String> connectorOutputMetadata;
+    private final Optional<Boolean> jsonLengthLimitExceeded;
+
+    public QueryOutputMetadata(String connectorId, String schema, String table, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
+        this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
+        this.jsonLengthLimitExceeded = requireNonNull(jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
     }
 
     @JsonProperty
@@ -47,5 +53,17 @@ public class QueryOutputMetadata
     public String getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public Optional<String> getConnectorOutputMetadata()
+    {
+        return connectorOutputMetadata;
+    }
+
+    @JsonProperty
+    public Optional<Boolean> getJsonLengthLimitExceeded()
+    {
+        return jsonLengthLimitExceeded;
     }
 }
