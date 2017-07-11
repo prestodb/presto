@@ -788,6 +788,12 @@ public class PruneUnreferencedOutputs
                     .addAll(newCorrelation)
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
+
+            // remove unused lateral nodes
+            if (intersection(ImmutableSet.copyOf(input.getOutputSymbols()), inputContext).isEmpty() && isScalar(input)) {
+                return subquery;
+            }
+
             return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType());
         }
     }
