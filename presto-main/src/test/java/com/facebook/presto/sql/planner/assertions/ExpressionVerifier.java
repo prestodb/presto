@@ -66,7 +66,7 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  */
 final class ExpressionVerifier
-        extends AstVisitor<Boolean, Expression>
+        extends AstVisitor<Boolean, Node>
 {
     private final SymbolAliases symbolAliases;
 
@@ -76,13 +76,13 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitNode(Node node, Expression context)
+    protected Boolean visitNode(Node node, Node context)
     {
         throw new IllegalStateException(format("Node %s is not supported", node));
     }
 
     @Override
-    protected Boolean visitTryExpression(TryExpression actual, Expression expected)
+    protected Boolean visitTryExpression(TryExpression actual, Node expected)
     {
         if (!(expected instanceof TryExpression)) {
             return false;
@@ -92,7 +92,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitCast(Cast actual, Expression expectedExpression)
+    protected Boolean visitCast(Cast actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof Cast)) {
             return false;
@@ -108,7 +108,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitIsNullPredicate(IsNullPredicate actual, Expression expectedExpression)
+    protected Boolean visitIsNullPredicate(IsNullPredicate actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof IsNullPredicate)) {
             return false;
@@ -120,7 +120,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitIsNotNullPredicate(IsNotNullPredicate actual, Expression expectedExpression)
+    protected Boolean visitIsNotNullPredicate(IsNotNullPredicate actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof IsNotNullPredicate)) {
             return false;
@@ -132,7 +132,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitInPredicate(InPredicate actual, Expression expectedExpression)
+    protected Boolean visitInPredicate(InPredicate actual, Node expectedExpression)
     {
         if (expectedExpression instanceof InPredicate) {
             InPredicate expected = (InPredicate) expectedExpression;
@@ -166,7 +166,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitComparisonExpression(ComparisonExpression actual, Expression expectedExpression)
+    protected Boolean visitComparisonExpression(ComparisonExpression actual, Node expectedExpression)
     {
         if (expectedExpression instanceof ComparisonExpression) {
             ComparisonExpression expected = (ComparisonExpression) expectedExpression;
@@ -178,7 +178,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression actual, Expression expectedExpression)
+    protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression actual, Node expectedExpression)
     {
         if (expectedExpression instanceof ArithmeticBinaryExpression) {
             ArithmeticBinaryExpression expected = (ArithmeticBinaryExpression) expectedExpression;
@@ -189,7 +189,7 @@ final class ExpressionVerifier
         return false;
     }
 
-    protected Boolean visitGenericLiteral(GenericLiteral actual, Expression expected)
+    protected Boolean visitGenericLiteral(GenericLiteral actual, Node expected)
     {
         if (expected instanceof GenericLiteral) {
             return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
@@ -199,7 +199,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitLongLiteral(LongLiteral actual, Expression expected)
+    protected Boolean visitLongLiteral(LongLiteral actual, Node expected)
     {
         if (expected instanceof LongLiteral) {
             return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
@@ -209,7 +209,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitDoubleLiteral(DoubleLiteral actual, Expression expected)
+    protected Boolean visitDoubleLiteral(DoubleLiteral actual, Node expected)
     {
         if (expected instanceof DoubleLiteral) {
             return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
@@ -219,7 +219,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitBooleanLiteral(BooleanLiteral actual, Expression expected)
+    protected Boolean visitBooleanLiteral(BooleanLiteral actual, Node expected)
     {
         if (expected instanceof BooleanLiteral) {
             return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
@@ -227,7 +227,7 @@ final class ExpressionVerifier
         return false;
     }
 
-    private static String getValueFromLiteral(Expression expression)
+    private static String getValueFromLiteral(Node expression)
     {
         if (expression instanceof LongLiteral) {
             return String.valueOf(((LongLiteral) expression).getValue());
@@ -247,7 +247,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitStringLiteral(StringLiteral actual, Expression expectedExpression)
+    protected Boolean visitStringLiteral(StringLiteral actual, Node expectedExpression)
     {
         if (expectedExpression instanceof StringLiteral) {
             StringLiteral expected = (StringLiteral) expectedExpression;
@@ -257,7 +257,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression actual, Expression expectedExpression)
+    protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression actual, Node expectedExpression)
     {
         if (expectedExpression instanceof LogicalBinaryExpression) {
             LogicalBinaryExpression expected = (LogicalBinaryExpression) expectedExpression;
@@ -269,7 +269,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitBetweenPredicate(BetweenPredicate actual, Expression expectedExpression)
+    protected Boolean visitBetweenPredicate(BetweenPredicate actual, Node expectedExpression)
     {
         if (expectedExpression instanceof BetweenPredicate) {
             BetweenPredicate expected = (BetweenPredicate) expectedExpression;
@@ -280,7 +280,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitNotExpression(NotExpression actual, Expression expected)
+    protected Boolean visitNotExpression(NotExpression actual, Node expected)
     {
         if (expected instanceof NotExpression) {
             return process(actual.getValue(), ((NotExpression) expected).getValue());
@@ -289,7 +289,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitSymbolReference(SymbolReference actual, Expression expected)
+    protected Boolean visitSymbolReference(SymbolReference actual, Node expected)
     {
         if (!(expected instanceof SymbolReference)) {
             return false;
@@ -298,7 +298,7 @@ final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitCoalesceExpression(CoalesceExpression actual, Expression expected)
+    protected Boolean visitCoalesceExpression(CoalesceExpression actual, Node expected)
     {
         if (!(expected instanceof CoalesceExpression)) {
             return false;
