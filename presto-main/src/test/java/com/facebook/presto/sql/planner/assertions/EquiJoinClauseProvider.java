@@ -37,9 +37,6 @@ class EquiJoinClauseProvider
     @Override
     public String toString()
     {
-        return "EquiJoinClauseProvider{" +
-                "left=" + left +
-                ", right=" + right +
-                '}';
+        return left + " = "  + right;
     }
 }

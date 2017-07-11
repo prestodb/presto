@@ -21,6 +21,8 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class AssignUniqueIdMatcher
         implements RvalueMatcher
 {
@@ -34,5 +36,12 @@ public class AssignUniqueIdMatcher
         AssignUniqueId assignUniqueIdNode = (AssignUniqueId) node;
 
         return Optional.of(assignUniqueIdNode.getIdColumn());
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .toString();
     }
 }
