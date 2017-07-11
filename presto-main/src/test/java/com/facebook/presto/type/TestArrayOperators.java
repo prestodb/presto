@@ -284,6 +284,8 @@ public class TestArrayOperators
         catch (RuntimeException e) {
             // Expected
         }
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY [1, NULL] || ARRAY [3]");
     }
 
     @Test
@@ -315,6 +317,9 @@ public class TestArrayOperators
         catch (RuntimeException e) {
             // Expected
         }
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY [1, NULL] || 3");
+        assertCachedInstanceHasBoundedRetainedSize("3 || ARRAY [1, NULL]");
     }
 
     @Test
@@ -543,6 +548,14 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testShuffle()
+    {
+        // More tests can be found in AbstractTestQueries.testArrayShuffle
+
+        assertCachedInstanceHasBoundedRetainedSize("SHUFFLE(ARRAY[2, 3, 4, 1])");
+    }
+
+    @Test
     public void testSort()
             throws Exception
     {
@@ -564,6 +577,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_SORT(ARRAY[1, null, null, -1, 0])", new ArrayType(INTEGER), expected);
 
         assertInvalidFunction("ARRAY_SORT(ARRAY[color('red'), color('blue')])", FUNCTION_NOT_FOUND);
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_SORT(ARRAY[2, 3, 4, 1])");
     }
 
     @Test
@@ -577,6 +592,8 @@ public class TestArrayOperators
         assertFunction("REVERSE(ARRAY['a', 'b', 'c', 'd'])", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "c", "b", "a"));
         assertFunction("REVERSE(ARRAY[TRUE, FALSE])", new ArrayType(BOOLEAN), ImmutableList.of(false, true));
         assertFunction("REVERSE(ARRAY[1.1, 2.2, 3.3, 4.4])", new ArrayType(DOUBLE), ImmutableList.of(4.4, 3.3, 2.2, 1.1));
+
+        assertCachedInstanceHasBoundedRetainedSize("REVERSE(ARRAY[1.1, 2.2, 3.3, 4.4])");
     }
 
     @Test
@@ -712,6 +729,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_INTERSECT(ARRAY [8.3, 1.6, 4.1, 5.2], ARRAY [4.0, 5.2, 8.3, 9.7, 3.5])", new ArrayType(DOUBLE), ImmutableList.of(5.2, 8.3));
         assertFunction("ARRAY_INTERSECT(ARRAY [5.1, 7, 3.0, 4.8, 10], ARRAY [6.5, 10.0, 1.9, 5.1, 3.9, 4.8])", new ArrayType(DOUBLE), ImmutableList.of(4.8, 5.1, 10.0));
         assertFunction("ARRAY_INTERSECT(ARRAY [ARRAY [4, 5], ARRAY [6, 7]], ARRAY [ARRAY [4, 5], ARRAY [6, 8]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(4, 5)));
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])");
     }
 
     @Test

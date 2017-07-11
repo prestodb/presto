@@ -34,6 +34,12 @@ public class TestMapTransformKeyFunction
         extends AbstractTestFunctions
 {
     @Test
+    public void testRetainedSizeBounded()
+    {
+        assertCachedInstanceHasBoundedRetainedSize("transform_keys(map(ARRAY [1, 2, 3, 4], ARRAY [10, 20, 30, 40]), (k, v) -> k + v)");
+    }
+
+    @Test
     public void testEmpty()
             throws Exception
     {

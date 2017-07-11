@@ -199,6 +199,11 @@ public abstract class AbstractTestFunctions
         }
     }
 
+    public void assertCachedInstanceHasBoundedRetainedSize(String projection)
+    {
+        functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
+    }
+
     protected void assertNotSupported(String projection, String message)
     {
         try {

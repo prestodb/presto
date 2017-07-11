@@ -144,6 +144,8 @@ public class TestMapOperators
                 100.0));
 
         assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
+
+        assertCachedInstanceHasBoundedRetainedSize("MAP(ARRAY ['1','3'], ARRAY [2,4])");
     }
 
     @Test
@@ -572,6 +574,8 @@ public class TestMapOperators
         assertFunction("MAP_CONCAT(MAP(), MAP(), MAP())", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
         assertFunction("MAP_CONCAT(MAP(ARRAY[1], ARRAY[-1]), MAP(), MAP(ARRAY[3], ARRAY[-3]))", mapType(INTEGER, INTEGER), ImmutableMap.of(1, -1, 3, -3));
         assertFunction("MAP_CONCAT(MAP(ARRAY[TRUE], ARRAY[1]), MAP(ARRAY[TRUE, FALSE], ARRAY[10, 20]), MAP(ARRAY[FALSE], ARRAY[0]))", mapType(BOOLEAN, INTEGER), ImmutableMap.of(true, 10, false, 0));
+
+        assertCachedInstanceHasBoundedRetainedSize("MAP_CONCAT(MAP (ARRAY ['1', '2', '3'], ARRAY [1, 2, 3]), MAP (ARRAY ['1', '2', '3', '4'], ARRAY [10, 20, 30, 40]))");
     }
 
     @Test
