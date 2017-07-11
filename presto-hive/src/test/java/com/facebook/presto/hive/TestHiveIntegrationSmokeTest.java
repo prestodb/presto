@@ -1862,6 +1862,29 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testDropColumn()
+            throws Exception
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_drop_column\n" +
+                "WITH (\n" +
+                "  partitioned_by = ARRAY ['orderstatus']\n" +
+                ")\n" +
+                "AS\n" +
+                "SELECT custkey, orderkey, orderstatus FROM orders";
+
+        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertQuery("SELECT orderkey, orderstatus FROM test_drop_column", "SELECT orderkey, orderstatus FROM orders");
+
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN orderstatus", "Cannot drop partition columns in a table");
+        assertUpdate("ALTER TABLE test_drop_column DROP COLUMN orderkey");
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN custkey", "Cannot drop the only column in a table");
+        assertQuery("SELECT * FROM test_drop_column", "SELECT custkey, orderstatus FROM orders");
+
+        assertUpdate("DROP TABLE test_drop_column");
+    }
+
+    @Test
     public void testAvroTypeValidation()
     {
         assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column x has a non-varchar map key, which is not supported by Avro");

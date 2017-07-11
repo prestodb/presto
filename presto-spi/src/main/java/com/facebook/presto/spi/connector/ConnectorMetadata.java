@@ -205,6 +205,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop the specified column
+     */
+    default void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+    }
+
+    /**
      * Get the physical layout for a new table.
      */
     default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)

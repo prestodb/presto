@@ -141,6 +141,86 @@ public class TestRaptorMetadata
     }
 
     @Test
+    public void testDropColumn()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                .column("orderkey", BIGINT)
+                .column("price", BIGINT)));
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+
+        ColumnHandle lastColumn = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
+        metadata.dropColumn(SESSION, raptorTableHandle, lastColumn);
+        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
+    }
+
+    @Test
+    public void testDropDisallowedColumn()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        Map<String, Object> properties = ImmutableMap.of(
+                BUCKET_COUNT_PROPERTY, 16,
+                BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey"),
+                ORDERING_PROPERTY, ImmutableList.of("totalprice"),
+                TEMPORAL_COLUMN_PROPERTY, "orderdate");
+        ConnectorTableMetadata ordersTable = buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                .column("orderkey", BIGINT)
+                .column("totalprice", DOUBLE)
+                .column("orderdate", DATE)
+                .column("highestid", BIGINT));
+        metadata.createTable(SESSION, ordersTable);
+
+        ConnectorTableHandle ordersTableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(ordersTableHandle, RaptorTableHandle.class);
+        RaptorTableHandle ordersRaptorTableHandle = (RaptorTableHandle) ordersTableHandle;
+        assertEquals(ordersRaptorTableHandle.getTableId(), 1);
+
+        assertInstanceOf(ordersRaptorTableHandle, RaptorTableHandle.class);
+
+        // disallow dropping bucket, sort, temporal and highest-id columns
+        ColumnHandle bucketColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderkey");
+        try {
+            metadata.dropColumn(SESSION, ordersTableHandle, bucketColumn);
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Cannot drop bucket columns in a table");
+        }
+
+        ColumnHandle sortColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("totalprice");
+        try {
+            metadata.dropColumn(SESSION, ordersTableHandle, sortColumn);
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Cannot drop sort columns in a table");
+        }
+
+        ColumnHandle temporalColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderdate");
+        try {
+            metadata.dropColumn(SESSION, ordersTableHandle, temporalColumn);
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Cannot drop temporal columns in a table");
+        }
+
+        ColumnHandle highestColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("highestid");
+        try {
+            metadata.dropColumn(SESSION, ordersTableHandle, highestColumn);
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Cannot drop the column which has highest column id in a table");
+        }
+    }
+
+    @Test
     public void testRenameTable()
             throws Exception
     {

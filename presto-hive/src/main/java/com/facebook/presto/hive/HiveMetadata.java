@@ -582,6 +582,15 @@ public class HiveMetadata
     }
 
     @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        HiveColumnHandle columnHandle = (HiveColumnHandle) column;
+
+        metastore.dropColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), columnHandle.getName());
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
