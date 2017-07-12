@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.memory;
 
+import java.util.function.Supplier;
+
 public abstract class AbstractAggregatedMemoryContext
 {
     // This class should remain exactly the same as AbstractAggregatedMemoryContext in com.facebook.presto.memory
@@ -26,11 +28,21 @@ public abstract class AbstractAggregatedMemoryContext
 
     public AggregatedMemoryContext newAggregatedMemoryContext()
     {
-        return new AggregatedMemoryContext(this);
+        return childContextSupplier().get();
+    }
+
+    public Supplier<AggregatedMemoryContext> childContextSupplier()
+    {
+        return () -> new AggregatedMemoryContext(this);
     }
 
     public LocalMemoryContext newLocalMemoryContext()
     {
-        return new LocalMemoryContext(this);
+        return localContextSupplier().get();
+    }
+
+    public Supplier<LocalMemoryContext> localContextSupplier()
+    {
+        return () -> new LocalMemoryContext(this);
     }
 }
