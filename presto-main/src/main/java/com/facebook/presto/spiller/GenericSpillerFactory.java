@@ -35,7 +35,7 @@ public class GenericSpillerFactory
     }
 
     @Override
-    public Spiller create(List<Type> types, Supplier<SpillContext> spillContext, AggregatedMemoryContext memoryContext)
+    public Spiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<AggregatedMemoryContext> memoryContext)
     {
         return new GenericSpiller(types, spillContext, memoryContext, singleStreamSpillerFactory);
     }

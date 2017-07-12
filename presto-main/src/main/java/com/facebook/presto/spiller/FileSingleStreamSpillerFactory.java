@@ -139,7 +139,7 @@ public class FileSingleStreamSpillerFactory
     }
 
     @Override
-    public SingleStreamSpiller create(List<Type> types, Supplier<SpillContext> spillContext, LocalMemoryContext memoryContext)
+    public SingleStreamSpiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<LocalMemoryContext> memoryContext)
     {
         return new FileSingleStreamSpiller(serdeFactory.createPagesSerde(), executor, getNextSpillPath(), spillerStats, spillContext, memoryContext);
     }

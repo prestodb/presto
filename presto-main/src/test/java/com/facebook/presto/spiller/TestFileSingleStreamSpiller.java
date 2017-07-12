@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.AggregatedMemoryContext;
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -69,8 +68,8 @@ public class TestFileSingleStreamSpiller
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(TYPES))), false);
         PagesSerde serde = serdeFactory.createPagesSerde();
         SpillerStats spillerStats = new SpillerStats();
-        LocalMemoryContext memoryContext = new AggregatedMemoryContext().newLocalMemoryContext();
-        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, testingSpillContextSupplier(), memoryContext);
+        AggregatedMemoryContext memoryContext = new AggregatedMemoryContext();
+        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, testingSpillContextSupplier(), memoryContext.localContextSupplier());
 
         Page page = buildPage();
 

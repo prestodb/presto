@@ -11,16 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spiller;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.AggregatedMemoryContext;
-import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.memory.LocalMemoryContext;
 
-import java.util.List;
 import java.util.function.Supplier;
 
-public interface SpillerFactory
+public class TestingAggregatedMemoryContext
 {
-    Spiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<AggregatedMemoryContext> memoryContext);
+    public static Supplier<AggregatedMemoryContext> testingMemoryContextSupplier()
+    {
+        return new AggregatedMemoryContext().childContextSupplier();
+    }
+
+    public static Supplier<LocalMemoryContext> testingLocalMemoryContextSupplier()
+    {
+        return new AggregatedMemoryContext().localContextSupplier();
+    }
+
+    private TestingAggregatedMemoryContext() {}
 }

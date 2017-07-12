@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.spiller;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -48,6 +47,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.TestingAggregatedMemoryContext.testingMemoryContextSupplier;
 import static com.facebook.presto.operator.TestingSpillContext.testingSpillContextSupplier;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -113,7 +113,7 @@ public class BenchmarkBinaryFileSpiller
                 throws ExecutionException, InterruptedException
         {
             pages = createInputPages();
-            readSpiller = spillerFactory.create(TYPES, testingSpillContextSupplier(), new AggregatedMemoryContext());
+            readSpiller = spillerFactory.create(TYPES, testingSpillContextSupplier(), testingMemoryContextSupplier());
             readSpiller.spill(pages.iterator()).get();
         }
 
@@ -160,7 +160,7 @@ public class BenchmarkBinaryFileSpiller
 
         public Spiller createSpiller()
         {
-            return spillerFactory.create(TYPES, testingSpillContextSupplier(), new AggregatedMemoryContext());
+            return spillerFactory.create(TYPES, testingSpillContextSupplier(), testingMemoryContextSupplier());
         }
     }
 }

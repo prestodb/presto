@@ -72,13 +72,13 @@ public class FileSingleStreamSpiller
             Path spillPath,
             SpillerStats spillerStats,
             Supplier<SpillContext> spillContext,
-            LocalMemoryContext memoryContext)
+            Supplier<LocalMemoryContext> memoryContext)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = closer.register(spillContext.get());
-        this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null").get();
         try {
             targetFileName = Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
         }

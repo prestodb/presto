@@ -48,12 +48,13 @@ public class GenericSpiller
     public GenericSpiller(
             List<Type> types,
             Supplier<SpillContext> spillContext,
-            AggregatedMemoryContext memoryContext,
+            Supplier<AggregatedMemoryContext> memoryContext,
             SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
         this.types = requireNonNull(types, "types can not be null");
         this.spillContext = requireNonNull(spillContext, "spillContext can not be null");
-        this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null").get();
+        closer.register(this.memoryContext::close);
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory can not be null");
     }
 
@@ -61,7 +62,7 @@ public class GenericSpiller
     public ListenableFuture<?> spill(Iterator<Page> pageIterator)
     {
         checkNoSpillInProgress();
-        SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext());
+        SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, memoryContext.localContextSupplier());
         closer.register(singleStreamSpiller);
         singleStreamSpillers.add(singleStreamSpiller);
         previousSpill = singleStreamSpiller.spill(pageIterator);

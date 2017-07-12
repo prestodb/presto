@@ -90,7 +90,7 @@ public class TestBinaryFileSpiller
     public void testFileSpiller()
             throws Exception
     {
-        try (Spiller spiller = factory.create(TYPES, testingSpillContextSupplier(), memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, testingSpillContextSupplier(), memoryContext.childContextSupplier())) {
             testSimpleSpiller(spiller);
         }
     }
@@ -111,7 +111,7 @@ public class TestBinaryFileSpiller
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
-        try (Spiller spiller = factory.create(TYPES, testingSpillContextSupplier(), memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, testingSpillContextSupplier(), memoryContext.childContextSupplier())) {
             testSpiller(types, spiller, ImmutableList.of(page));
         }
     }

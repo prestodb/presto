@@ -638,7 +638,7 @@ public class TestHashAggregationOperator
         private long spillsCount;
 
         @Override
-        public Spiller create(List<Type> types, Supplier<SpillContext> spillContext, AggregatedMemoryContext memoryContext)
+        public Spiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<AggregatedMemoryContext> memoryContext)
         {
             return new Spiller()
             {
@@ -677,7 +677,7 @@ public class TestHashAggregationOperator
             implements SpillerFactory
     {
         @Override
-        public Spiller create(List<Type> types, Supplier<SpillContext> spillContext, AggregatedMemoryContext memoryContext)
+        public Spiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<AggregatedMemoryContext> memoryContext)
         {
             return new Spiller()
             {

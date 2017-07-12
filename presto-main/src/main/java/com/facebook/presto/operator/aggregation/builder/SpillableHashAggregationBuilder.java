@@ -211,7 +211,7 @@ public class SpillableHashAggregationBuilder
             spiller = Optional.of(spillerFactory.create(
                     hashAggregationBuilder.buildTypes(),
                     operatorContext.getSpillContextSupplier(),
-                    operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+                    operatorContext.getSystemMemoryContext().childContextSupplier()));
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...

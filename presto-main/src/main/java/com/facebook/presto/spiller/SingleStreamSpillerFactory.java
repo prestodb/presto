@@ -22,5 +22,5 @@ import java.util.function.Supplier;
 
 public interface SingleStreamSpillerFactory
 {
-    SingleStreamSpiller create(List<Type> types, Supplier<SpillContext> spillContext, LocalMemoryContext memoryContext);
+    SingleStreamSpiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<LocalMemoryContext> memoryContext);
 }
