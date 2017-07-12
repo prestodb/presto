@@ -180,7 +180,7 @@ public class ParquetPageSourceFactory
                     blocks,
                     dataSource,
                     typeManager,
-                    systemMemoryContext);
+                    systemMemoryContext.childContextSupplier());
 
             return new ParquetPageSource(
                     parquetReader,

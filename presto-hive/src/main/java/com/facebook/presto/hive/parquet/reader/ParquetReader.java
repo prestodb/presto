@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getColumns;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
@@ -78,23 +79,23 @@ public class ParquetReader
     private int batchSize;
     private final Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
 
+    private final Supplier<AggregatedMemoryContext> memoryContextSupplier;
     private AggregatedMemoryContext currentRowGroupMemoryContext;
-    private final AggregatedMemoryContext systemMemoryContext;
 
     public ParquetReader(MessageType fileSchema,
             MessageType requestedSchema,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             TypeManager typeManager,
-            AggregatedMemoryContext systemMemoryContext)
+            Supplier<AggregatedMemoryContext> memoryContextSupplier)
     {
         this.fileSchema = fileSchema;
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;
         this.typeManager = typeManager;
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+        this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
+        this.currentRowGroupMemoryContext = memoryContextSupplier.get();
         initializeColumnReaders();
     }
 
@@ -133,7 +134,7 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
     {
         currentRowGroupMemoryContext.close();
-        currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+        currentRowGroupMemoryContext = memoryContextSupplier.get();
 
         if (currentBlock == blocks.size()) {
             return false;
@@ -268,7 +269,7 @@ public class ParquetReader
     private byte[] allocateBlock(int length)
     {
         byte[] buffer = new byte[length];
-        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext();
+        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.localContextSupplier().get();
         blockMemoryContext.setBytes(buffer.length);
         return buffer;
     }
