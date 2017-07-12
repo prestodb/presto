@@ -164,7 +164,7 @@ public class TestUnion
     {
         assertTrue(
                 searchFrom(plan.getRoot())
-                        .skipOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
+                        .recurseOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
                         .findAll()
                         .stream()
                         .noneMatch(this::shouldBeDistributed),
@@ -206,7 +206,7 @@ public class TestUnion
         for (PlanNode fragment : fragments) {
             List<PlanNode> aggregations = searchFrom(fragment)
                     .where(AggregationNode.class::isInstance)
-                    .skipOnlyWhen(TestUnion::isNotRemoteExchange)
+                    .recurseOnlyWhen(TestUnion::isNotRemoteExchange)
                     .findAll();
 
             assertFalse(aggregations.size() > 1, "More than a single AggregationNode between remote exchanges");

@@ -83,7 +83,7 @@ public class TransformCorrelatedScalarAggregationToJoin
     {
         return searchFrom(rootNode, lookup)
                 .where(AggregationNode.class::isInstance)
-                .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
+                .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
                 .findFirst();
     }
 }

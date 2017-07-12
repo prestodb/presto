@@ -45,7 +45,7 @@ public class PlanNodeSearcher
     private final PlanNode node;
     private final Lookup lookup;
     private Predicate<PlanNode> where = alwaysTrue();
-    private Predicate<PlanNode> skipOnly = alwaysTrue();
+    private Predicate<PlanNode> recurseOnlyWhen = alwaysTrue();
 
     public PlanNodeSearcher(PlanNode node, Lookup lookup)
     {
@@ -59,9 +59,9 @@ public class PlanNodeSearcher
         return this;
     }
 
-    public PlanNodeSearcher skipOnlyWhen(Predicate<PlanNode> skipOnly)
+    public PlanNodeSearcher recurseOnlyWhen(Predicate<PlanNode> skipOnly)
     {
-        this.skipOnly = requireNonNull(skipOnly, "skipOnly is null");
+        this.recurseOnlyWhen = requireNonNull(skipOnly, "recurseOnlyWhen is null");
         return this;
     }
 
@@ -77,7 +77,7 @@ public class PlanNodeSearcher
         if (where.test(node)) {
             return Optional.of((T) node);
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             for (PlanNode source : node.getSources()) {
                 Optional<T> found = findFirstRecursive(source);
                 if (found.isPresent()) {
@@ -125,7 +125,7 @@ public class PlanNodeSearcher
         if (where.test(node)) {
             nodes.add((T) node);
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             for (PlanNode source : node.getSources()) {
                 findAllRecursive(source, nodes);
             }
@@ -147,7 +147,7 @@ public class PlanNodeSearcher
                     "Unable to remove plan node as it contains 0 or more than 1 children");
             return node.getSources().get(0);
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources().stream()
                     .map(source -> removeAllRecursive(source))
                     .collect(toImmutableList());
@@ -171,7 +171,7 @@ public class PlanNodeSearcher
                     "Unable to remove plan node as it contains 0 or more than 1 children");
             return node.getSources().get(0);
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources();
             if (sources.isEmpty()) {
                 return node;
@@ -198,7 +198,7 @@ public class PlanNodeSearcher
         if (where.test(node)) {
             return nodeToReplace;
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources().stream()
                     .map(source -> replaceAllRecursive(source, nodeToReplace))
                     .collect(toImmutableList());

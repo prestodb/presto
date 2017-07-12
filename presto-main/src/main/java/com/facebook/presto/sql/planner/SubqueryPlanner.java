@@ -399,7 +399,7 @@ class SubqueryPlanner
     private static boolean isAggregationWithEmptyGroupBy(PlanNode planNode)
     {
         return searchFrom(planNode)
-                .skipOnlyWhen(MorePredicates.isInstanceOfAny(ProjectNode.class))
+                .recurseOnlyWhen(MorePredicates.isInstanceOfAny(ProjectNode.class))
                 .where(AggregationNode.class::isInstance)
                 .findFirst()
                 .map(AggregationNode.class::cast)
