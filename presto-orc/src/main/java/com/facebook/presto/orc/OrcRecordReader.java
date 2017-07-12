@@ -15,7 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksum;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
-import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
@@ -51,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
@@ -98,7 +98,7 @@ public class OrcRecordReader
 
     private final Map<String, Slice> userMetadata;
 
-    private final AbstractAggregatedMemoryContext systemMemoryUsage;
+    private final Supplier<AggregatedMemoryContext> memoryContextSupplier;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
@@ -123,7 +123,7 @@ public class OrcRecordReader
             DataSize maxReadSize,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AbstractAggregatedMemoryContext systemMemoryUsage,
+            Supplier<AggregatedMemoryContext> memoryContextSupplier,
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
@@ -203,8 +203,8 @@ public class OrcRecordReader
 
         this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
 
-        this.systemMemoryUsage = requireNonNull(systemMemoryUsage, "systemMemoryUsage is null").newAggregatedMemoryContext();
-        this.currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
+        this.currentStripeSystemMemoryContext = memoryContextSupplier.get();
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -428,7 +428,7 @@ public class OrcRecordReader
             throws IOException
     {
         currentStripeSystemMemoryContext.close();
-        currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        currentStripeSystemMemoryContext = memoryContextSupplier.get();
         rowGroups = ImmutableList.<RowGroup>of().iterator();
 
         currentStripe++;

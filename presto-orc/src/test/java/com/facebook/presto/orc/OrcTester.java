@@ -621,7 +621,7 @@ public class OrcTester
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, new AggregatedMemoryContext());
+        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, AggregatedMemoryContext::new);
     }
 
     private static DataSize writeOrcColumnNew(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values)

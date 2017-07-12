@@ -124,7 +124,7 @@ public class BenchmarkOrcDecimalReader
                     ImmutableMap.of(0, DECIMAL_TYPE),
                     OrcPredicate.TRUE,
                     DateTimeZone.forID("Asia/Katmandu"),
-                    new AggregatedMemoryContext());
+                    AggregatedMemoryContext::new);
         }
 
         private List<SqlDecimal> createDecimalValues()

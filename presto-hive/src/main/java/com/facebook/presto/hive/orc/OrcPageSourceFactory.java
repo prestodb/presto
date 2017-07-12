@@ -188,7 +188,7 @@ public class OrcPageSourceFactory
                     start,
                     length,
                     hiveStorageTimeZone,
-                    systemMemoryUsage);
+                    systemMemoryUsage.childContextSupplier());
 
             return new OrcPageSource(
                     recordReader,
