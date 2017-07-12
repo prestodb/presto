@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.List;
 
+import static com.facebook.presto.operator.TestingSpillContext.testingSpillContextSupplier;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -69,7 +70,7 @@ public class TestFileSingleStreamSpiller
         PagesSerde serde = serdeFactory.createPagesSerde();
         SpillerStats spillerStats = new SpillerStats();
         LocalMemoryContext memoryContext = new AggregatedMemoryContext().newLocalMemoryContext();
-        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, bytes -> { }, memoryContext);
+        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, testingSpillContextSupplier(), memoryContext);
 
         Page page = buildPage();
 

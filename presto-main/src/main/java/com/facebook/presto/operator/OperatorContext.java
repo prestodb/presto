@@ -334,9 +334,9 @@ public class OperatorContext
         systemMemoryContext.close();
     }
 
-    public SpillContext getSpillContext()
+    public Supplier<SpillContext> getSpillContextSupplier()
     {
-        return spillContext;
+        return spillContext.childContextSupplier();
     }
 
     public void moreMemoryAvailable()

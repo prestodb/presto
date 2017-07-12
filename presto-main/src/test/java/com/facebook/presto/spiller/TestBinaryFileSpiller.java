@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.TestingSpillContext.testingSpillContextSupplier;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -89,7 +90,7 @@ public class TestBinaryFileSpiller
     public void testFileSpiller()
             throws Exception
     {
-        try (Spiller spiller = factory.create(TYPES, bytes -> { }, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, testingSpillContextSupplier(), memoryContext)) {
             testSimpleSpiller(spiller);
         }
     }
@@ -110,7 +111,7 @@ public class TestBinaryFileSpiller
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
-        try (Spiller spiller = factory.create(TYPES, bytes -> { }, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, testingSpillContextSupplier(), memoryContext)) {
             testSpiller(types, spiller, ImmutableList.of(page));
         }
     }

@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spiller.LocalSpillContext;
 
 import java.io.Closeable;
+import java.util.function.Supplier;
 
 @FunctionalInterface
 public interface SpillContext
@@ -23,11 +24,11 @@ public interface SpillContext
 {
     void updateBytes(long bytes);
 
-    default SpillContext newLocalSpillContext()
-    {
-        return new LocalSpillContext(this);
-    }
-
     @Override
     default void close() {}
+
+    default Supplier<SpillContext> childContextSupplier()
+    {
+        return () -> new LocalSpillContext(this);
+    }
 }

@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +38,7 @@ public class GenericSpiller
         implements Spiller
 {
     private final List<Type> types;
-    private final SpillContext spillContext;
+    private final Supplier<SpillContext> spillContext;
     private final AggregatedMemoryContext memoryContext;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final Closer closer = Closer.create();
@@ -46,7 +47,7 @@ public class GenericSpiller
 
     public GenericSpiller(
             List<Type> types,
-            SpillContext spillContext,
+            Supplier<SpillContext> spillContext,
             AggregatedMemoryContext memoryContext,
             SingleStreamSpillerFactory singleStreamSpillerFactory)
     {

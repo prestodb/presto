@@ -39,6 +39,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -70,13 +71,13 @@ public class FileSingleStreamSpiller
             ListeningExecutorService executor,
             Path spillPath,
             SpillerStats spillerStats,
-            SpillContext spillContext,
+            Supplier<SpillContext> spillContext,
             LocalMemoryContext memoryContext)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
-        this.localSpillContext = spillContext.newLocalSpillContext();
+        this.localSpillContext = closer.register(spillContext.get());
         this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null");
         try {
             targetFileName = Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
@@ -140,7 +141,6 @@ public class FileSingleStreamSpiller
     public void close()
     {
         closer.register(() -> Files.delete(targetFileName));
-        closer.register(localSpillContext);
 
         try {
             closer.close();

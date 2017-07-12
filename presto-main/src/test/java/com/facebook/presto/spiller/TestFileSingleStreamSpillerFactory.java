@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 
+import static com.facebook.presto.operator.TestingSpillContext.testingSpillContextSupplier;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
@@ -93,7 +94,7 @@ public class TestFileSingleStreamSpillerFactory
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
         for (int i = 0; i < 10; ++i) {
-            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> { }, new AggregatedMemoryContext().newLocalMemoryContext());
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, testingSpillContextSupplier(), new AggregatedMemoryContext().newLocalMemoryContext());
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
@@ -125,7 +126,7 @@ public class TestFileSingleStreamSpillerFactory
                 spillPaths,
                 0.0);
 
-        spillerFactory.create(types, bytes -> { }, new AggregatedMemoryContext().newLocalMemoryContext());
+        spillerFactory.create(types, testingSpillContextSupplier(), new AggregatedMemoryContext().newLocalMemoryContext());
     }
 
     @Test
