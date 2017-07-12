@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
-import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.MergeHashSort;
 import com.facebook.presto.operator.OperatorContext;
@@ -58,7 +56,6 @@ public class SpillableHashAggregationBuilder
     private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
     private Optional<MergeHashSort> mergeHashSort = Optional.empty();
     private ListenableFuture<?> spillInProgress = immediateFuture(null);
-    private final LocalMemoryContext memoryContext;
     private final JoinCompiler joinCompiler;
 
     // todo get rid of that and only use revocable memory
@@ -91,9 +88,6 @@ public class SpillableHashAggregationBuilder
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
         this.joinCompiler = joinCompiler;
-
-        AbstractAggregatedMemoryContext systemMemoryContext = operatorContext.getSystemMemoryContext();
-        this.memoryContext = systemMemoryContext.newLocalMemoryContext();
 
         rebuildHashAggregationBuilder();
     }
@@ -211,7 +205,7 @@ public class SpillableHashAggregationBuilder
             spiller = Optional.of(spillerFactory.create(
                     hashAggregationBuilder.buildTypes(),
                     operatorContext.getSpillContextSupplier(),
-                    operatorContext.getSystemMemoryContext().childContextSupplier()));
+                    operatorContext.getSystemMemoryContextSupplier()));
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
@@ -228,7 +222,7 @@ public class SpillableHashAggregationBuilder
         checkState(spiller.isPresent());
 
         hashAggregationBuilder.setOutputPartial();
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.getSystemMemoryContextSupplier()));
 
         Iterator<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -245,7 +239,7 @@ public class SpillableHashAggregationBuilder
     {
         checkState(spiller.isPresent());
 
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.getSystemMemoryContextSupplier()));
 
         Iterator<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -265,7 +259,7 @@ public class SpillableHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 sortedPages,
-                operatorContext.getSystemMemoryContext().newLocalMemoryContext(),
+                operatorContext.getSystemMemoryLocalContextSupplier(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler));

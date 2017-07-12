@@ -16,6 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
+import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -327,6 +329,16 @@ public class OperatorContext
     public AbstractAggregatedMemoryContext getSystemMemoryContext()
     {
         return systemMemoryContext;
+    }
+
+    public Supplier<AggregatedMemoryContext> getSystemMemoryContextSupplier()
+    {
+        return systemMemoryContext.childContextSupplier();
+    }
+
+    public Supplier<LocalMemoryContext> getSystemMemoryLocalContextSupplier()
+    {
+        return systemMemoryContext.localContextSupplier();
     }
 
     public void closeSystemMemoryContext()
