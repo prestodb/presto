@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -155,8 +156,8 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, DE),
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
-                ImmutableMap.of(C, new Aggregation(fakeFunction("test"), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
-                                D, new Aggregation(fakeFunction("test"), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
+                ImmutableMap.of(C, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
+                                D, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
                 ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
@@ -393,14 +394,14 @@ public class TestEffectivePredicateExtractor
             throws Exception
     {
         ImmutableListMultimap<Symbol, Symbol> symbolMapping = ImmutableListMultimap.of(A, B, A, C, A, E);
-        PlanNode node = new UnionNode(newId(),
-                ImmutableList.of(
-                        filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
-                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
-                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))
-                ),
-                symbolMapping,
-                ImmutableList.copyOf(symbolMapping.keySet()));
+        PlanNode node = new UnionNode(
+                newId(),
+                new MultiSourceSymbolMapping(
+                        symbolMapping,
+                        ImmutableList.of(
+                                filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
+                                filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
+                                filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))))));
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -778,7 +779,7 @@ public class TestEffectivePredicateExtractor
         return new IsNullPredicate(expression);
     }
 
-    private static FunctionCall fakeFunction(String name)
+    private static FunctionCall fakeFunction()
     {
         return new FunctionCall(QualifiedName.of("test"), ImmutableList.of());
     }

@@ -51,6 +51,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -1014,7 +1015,7 @@ public class AddExchanges
 
         private Function<Symbol, Optional<Symbol>> outputToInputTranslator(UnionNode node, int sourceIndex)
         {
-            return symbol -> Optional.of(node.getSymbolMapping().get(symbol).get(sourceIndex));
+            return symbol -> Optional.of(node.getMultiSourceSymbolMapping().getInput(symbol).get(sourceIndex));
         }
 
         private Partitioning selectUnionPartitioning(UnionNode node, Context context, PreferredProperties.PartitioningProperties parentPreference)
@@ -1033,7 +1034,7 @@ public class AddExchanges
                         .build();
                 PlanWithProperties child = node.getSources().get(sourceIndex).accept(this, context.withPreferredProperties(childPreferred));
                 if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsAndAnyReplicated)) {
-                    Function<Symbol, Optional<Symbol>> childToParent = createTranslator(createMapping(node.sourceOutputLayout(sourceIndex), node.getOutputSymbols()));
+                    Function<Symbol, Optional<Symbol>> childToParent = createTranslator(createMapping(node.getMultiSourceSymbolMapping().sourceOutputLayout(sourceIndex), node.getOutputSymbols()));
                     return child.getProperties().translate(childToParent).getNodePartitioning().get();
                 }
             }
@@ -1056,7 +1057,9 @@ public class AddExchanges
                 ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
 
                 for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                    Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(node.getOutputSymbols(), node.sourceOutputLayout(sourceIndex))));
+                    Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(
+                            createMapping(node.getOutputSymbols(),
+                                    node.getMultiSourceSymbolMapping().sourceOutputLayout(sourceIndex))));
 
                     PreferredProperties childPreferred = PreferredProperties.builder()
                             .global(PreferredProperties.Global.distributed(PreferredProperties.PartitioningProperties.partitioned(childPartitioning)
@@ -1081,14 +1084,14 @@ public class AddExchanges
                     partitionedSources.add(source.getNode());
 
                     for (int column = 0; column < node.getOutputSymbols().size(); column++) {
-                        outputToSourcesMapping.put(node.getOutputSymbols().get(column), node.sourceOutputLayout(sourceIndex).get(column));
+                        outputToSourcesMapping.put(
+                                node.getOutputSymbols().get(column),
+                                node.getMultiSourceSymbolMapping().sourceOutputLayout(sourceIndex).get(column));
                     }
                 }
                 UnionNode newNode = new UnionNode(
                         node.getId(),
-                        partitionedSources.build(),
-                        outputToSourcesMapping.build(),
-                        ImmutableList.copyOf(outputToSourcesMapping.build().keySet()));
+                        new MultiSourceSymbolMapping(outputToSourcesMapping.build(), partitionedSources.build()));
 
                 return new PlanWithProperties(
                         newNode,
@@ -1112,12 +1115,12 @@ public class AddExchanges
                 plannedChildren.add(child);
                 if (child.getProperties().isSingleNode()) {
                     unpartitionedChildren.add(child.getNode());
-                    unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
+                    unpartitionedOutputLayouts.add(node.getMultiSourceSymbolMapping().sourceOutputLayout(i));
                 }
                 else {
                     partitionedChildren.add(child.getNode());
                     // union may drop or duplicate symbols from the input so we must provide an exact mapping
-                    partitionedOutputLayouts.add(node.sourceOutputLayout(i));
+                    partitionedOutputLayouts.add(node.getMultiSourceSymbolMapping().sourceOutputLayout(i));
                 }
             }
 
@@ -1168,7 +1171,7 @@ public class AddExchanges
                 }
 
                 // add local union for all unpartitioned inputs
-                result = new UnionNode(node.getId(), unpartitionedChildren, mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
+                result = new UnionNode(node.getId(), new MultiSourceSymbolMapping(mappings.build(), unpartitionedChildren));
             }
             else {
                 throw new IllegalStateException("both unpartitionedChildren partitionedChildren are empty");

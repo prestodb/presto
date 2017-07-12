@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -99,14 +100,14 @@ public class PushTableWriteThroughUnion
                         unionOriginalSource,
                         node.getTarget(),
                         node.getColumns().stream()
-                            .map(column -> unionNode.getSymbolMapping().get(column).get(index))
+                            .map(column -> unionNode.getMultiSourceSymbolMapping().getInput(column, index))
                             .collect(Collectors.toList()),
                         node.getColumnNames(),
                         newSymbols.build(),
                         node.getPartitioningScheme()));
             }
 
-            return new UnionNode(idAllocator.getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
+            return new UnionNode(idAllocator.getNextId(), new MultiSourceSymbolMapping(mappings.build(), rewrittenSources.build()));
         }
     }
 }

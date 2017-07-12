@@ -256,7 +256,7 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Expression sourcePredicate = new ExpressionSymbolInliner(node.sourceSymbolMap(i)).rewrite(context.get());
+                Expression sourcePredicate = new ExpressionSymbolInliner(node.getMultiSourceSymbolMapping().sourceSymbolMap(i)).rewrite(context.get());
                 PlanNode source = node.getSources().get(i);
                 PlanNode rewrittenSource = context.rewrite(source, sourcePredicate);
                 if (rewrittenSource != source) {
@@ -266,7 +266,7 @@ public class PredicatePushDown
             }
 
             if (modified) {
-                return new UnionNode(node.getId(), builder.build(), node.getSymbolMapping(), node.getOutputSymbols());
+                return new UnionNode(node.getId(), node.getMultiSourceSymbolMapping().replaceSources(builder.build()));
             }
 
             return node;

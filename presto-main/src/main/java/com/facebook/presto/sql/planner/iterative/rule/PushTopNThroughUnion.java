@@ -71,17 +71,13 @@ public class PushTopNThroughUnion
             Set<Symbol> sourceOutputSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
 
             for (Symbol unionOutput : unionNode.getOutputSymbols()) {
-                Set<Symbol> inputSymbols = ImmutableSet.copyOf(unionNode.getSymbolMapping().get(unionOutput));
+                Set<Symbol> inputSymbols = ImmutableSet.copyOf(unionNode.getMultiSourceSymbolMapping().getInput(unionOutput));
                 Symbol unionInput = getLast(intersection(inputSymbols, sourceOutputSymbols));
                 symbolMapper.put(unionOutput, unionInput);
             }
             sources.add(symbolMapper.build().map(topNNode, source, idAllocator.getNextId()));
         }
 
-        return Optional.of(new UnionNode(
-                unionNode.getId(),
-                sources.build(),
-                unionNode.getSymbolMapping(),
-                unionNode.getOutputSymbols()));
+        return Optional.of(new UnionNode(unionNode.getId(), unionNode.getMultiSourceSymbolMapping().replaceSources(sources.build())));
     }
 }

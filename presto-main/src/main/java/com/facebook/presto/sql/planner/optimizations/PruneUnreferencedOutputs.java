@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -648,7 +649,7 @@ public class PruneUnreferencedOutputs
         {
             ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new UnionNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            return new UnionNode(node.getId(), new MultiSourceSymbolMapping(rewrittenSymbolMapping, rewrittenSubPlans));
         }
 
         @Override
@@ -656,7 +657,7 @@ public class PruneUnreferencedOutputs
         {
             ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new IntersectNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            return new IntersectNode(node.getId(), new MultiSourceSymbolMapping(rewrittenSymbolMapping, rewrittenSubPlans));
         }
 
         @Override
@@ -664,7 +665,7 @@ public class PruneUnreferencedOutputs
         {
             ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new ExceptNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            return new ExceptNode(node.getId(), new MultiSourceSymbolMapping(rewrittenSymbolMapping, rewrittenSubPlans));
         }
 
         private ListMultimap<Symbol, Symbol> rewriteSetOperationSymbolMapping(SetOperationNode node, RewriteContext<Set<Symbol>> context)
@@ -673,7 +674,7 @@ public class PruneUnreferencedOutputs
             ImmutableListMultimap.Builder<Symbol, Symbol> rewrittenSymbolMappingBuilder = ImmutableListMultimap.builder();
             for (Symbol symbol : node.getOutputSymbols()) {
                 if (context.get().contains(symbol)) {
-                    rewrittenSymbolMappingBuilder.putAll(symbol, node.getSymbolMapping().get(symbol));
+                    rewrittenSymbolMappingBuilder.putAll(symbol, node.getMultiSourceSymbolMapping().getInput(symbol));
                 }
             }
             return rewrittenSymbolMappingBuilder.build();

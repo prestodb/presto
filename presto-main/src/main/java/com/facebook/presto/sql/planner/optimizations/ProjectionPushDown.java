@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.MultiSourceSymbolMapping;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -92,7 +93,7 @@ public class ProjectionPushDown
             ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
             for (int i = 0; i < source.getSources().size(); i++) {
-                Map<Symbol, SymbolReference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
+                Map<Symbol, SymbolReference> outputToInput = source.getMultiSourceSymbolMapping().sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
                 Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 
                 // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
@@ -110,7 +111,7 @@ public class ProjectionPushDown
                 outputLayout.forEach(symbol -> mappings.put(symbol, projectSymbolMapping.get(symbol)));
             }
 
-            return new UnionNode(node.getId(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
+            return new UnionNode(node.getId(), new MultiSourceSymbolMapping(mappings.build(), outputSources.build()));
         }
 
         private PlanNode pushProjectionThrough(ProjectNode node, ExchangeNode exchange)

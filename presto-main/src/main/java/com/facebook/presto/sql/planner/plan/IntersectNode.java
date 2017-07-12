@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ListMultimap;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -29,11 +27,9 @@ public class IntersectNode
     @JsonCreator
     public IntersectNode(
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("sources") List<PlanNode> sources,
-            @JsonProperty("outputToInputs") ListMultimap<Symbol, Symbol> outputToInputs,
-            @JsonProperty("outputs") List<Symbol> outputs)
+            @JsonProperty("multiSourceSymbolMapping") MultiSourceSymbolMapping multiSourceSymbolMapping)
     {
-        super(id, sources, outputToInputs, outputs);
+        super(id, multiSourceSymbolMapping);
     }
 
     @Override
@@ -45,6 +41,6 @@ public class IntersectNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new IntersectNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
+        return new IntersectNode(getId(), getMultiSourceSymbolMapping().replaceSources(newChildren));
     }
 }
