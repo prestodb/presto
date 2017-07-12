@@ -60,7 +60,7 @@ public class PlanNodeDecorrelator
     {
         PlanNodeSearcher filterNodeSearcher = searchFrom(node, lookup)
                 .where(FilterNode.class::isInstance)
-                .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, LimitNode.class));
+                .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, LimitNode.class));
         List<FilterNode> filterNodes = filterNodeSearcher.findAll();
 
         if (filterNodes.isEmpty()) {
@@ -138,7 +138,7 @@ public class PlanNodeDecorrelator
     {
         node = searchFrom(node, lookup)
                 .where(LimitNode.class::isInstance)
-                .skipOnlyWhen(ProjectNode.class::isInstance)
+                .recurseOnlyWhen(ProjectNode.class::isInstance)
                 .removeFirst();
         return node;
     }

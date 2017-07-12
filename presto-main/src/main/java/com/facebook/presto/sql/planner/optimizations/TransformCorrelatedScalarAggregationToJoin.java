@@ -106,7 +106,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             if (!rewrittenNode.getCorrelation().isEmpty()) {
                 Optional<AggregationNode> aggregation = searchFrom(rewrittenNode.getSubquery())
                         .where(AggregationNode.class::isInstance)
-                        .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
+                        .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
                         .findFirst();
                 if (aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty()) {
                     ScalarAggregationToJoinRewriter scalarAggregationToJoinRewriter = new ScalarAggregationToJoinRewriter(functionRegistry, symbolAllocator, idAllocator, noLookup());

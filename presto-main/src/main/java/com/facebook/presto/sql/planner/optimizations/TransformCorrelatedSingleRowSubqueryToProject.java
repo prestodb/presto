@@ -83,7 +83,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
             }
 
             Optional<ValuesNode> values = searchFrom(lateral.getSubquery())
-                    .skipOnlyWhen(ProjectNode.class::isInstance)
+                    .recurseOnlyWhen(ProjectNode.class::isInstance)
                     .where(ValuesNode.class::isInstance)
                     .findSingle();
 
