@@ -43,7 +43,7 @@ public class FilterAndProjectOperator
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.outputMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.outputMemoryContext = operatorContext.getSystemMemoryLocalContextSupplier().get();
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 

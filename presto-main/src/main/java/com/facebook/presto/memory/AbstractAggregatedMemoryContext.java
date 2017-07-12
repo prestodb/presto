@@ -26,19 +26,9 @@ public abstract class AbstractAggregatedMemoryContext
 
     protected abstract void updateBytes(long bytes);
 
-    public AggregatedMemoryContext newAggregatedMemoryContext()
-    {
-        return childContextSupplier().get();
-    }
-
     public Supplier<AggregatedMemoryContext> childContextSupplier()
     {
         return () -> new AggregatedMemoryContext(this);
-    }
-
-    public LocalMemoryContext newLocalMemoryContext()
-    {
-        return localContextSupplier().get();
     }
 
     public Supplier<LocalMemoryContext> localContextSupplier()

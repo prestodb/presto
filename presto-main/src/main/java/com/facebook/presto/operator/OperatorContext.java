@@ -326,11 +326,6 @@ public class OperatorContext
         memoryReservation.getAndAdd(-bytes);
     }
 
-    public AbstractAggregatedMemoryContext getSystemMemoryContext()
-    {
-        return systemMemoryContext;
-    }
-
     public Supplier<AggregatedMemoryContext> getSystemMemoryContextSupplier()
     {
         return systemMemoryContext.childContextSupplier();

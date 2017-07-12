@@ -98,7 +98,7 @@ public class InMemoryHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.toBytes();
-        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.systemMemoryContext = operatorContext.getSystemMemoryLocalContextSupplier().get();
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();

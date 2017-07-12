@@ -102,7 +102,7 @@ public class AggregationOperator
     public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.systemMemoryContext = operatorContext.getSystemMemoryLocalContextSupplier().get();
 
         requireNonNull(step, "step is null");
         this.partial = step.isOutputPartial();
