@@ -23,7 +23,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider;
+import com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -173,7 +173,7 @@ public class PlanBuilder
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
-            Signature signature = metadata.getFunctionRegistry().resolveFunction(aggregation.getName(), IndependentTypeSignatureProvider.fromTypes(inputTypes));
+            Signature signature = metadata.getFunctionRegistry().resolveFunction(aggregation.getName(), PlainTypeSignatureProvider.fromTypes(inputTypes));
             return addAggregation(output, new Aggregation(aggregation, signature, Optional.empty()));
         }
 

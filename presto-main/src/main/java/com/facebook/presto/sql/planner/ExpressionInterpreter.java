@@ -117,7 +117,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.tryExpressionExceptionHandler;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;

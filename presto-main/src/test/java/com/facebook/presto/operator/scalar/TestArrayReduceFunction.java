@@ -21,7 +21,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.UNKNOWN_IDENTIFIER;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
 
@@ -108,19 +108,19 @@ public class TestArrayReduceFunction
     @Test
     public void testErrorMessageOnUnknownIdentifier()
     {
-        assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> s + x, s -> z)", UNKNOWN_IDENTIFIER);
+        assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> s + x, s -> z)", MISSING_ATTRIBUTE);
     }
 
     @Test
     public void testErrorMessageOnWrongNumberOfArguments()
     {
         assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> s + x, s -> s, x -> x)", FUNCTION_NOT_FOUND,
-                "Unexpected parameters for function reduce. Expected: reduce(array(T), S, function(S,T,S), function(S,R)) for type(s): T, S, R, (wrong number of arguments: expected 4 got 5)");
+                "Unexpected parameters for function reduce. Expected: reduce(array(T), S, function(S,T,S), function(S,R)) for type(s): T, S, R (wrong number of arguments: expected 4 got 5)");
     }
 
     @Test
     public void testErrorMessageOnInvalidLambdaBody()
     {
-        assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> concat(s, x), s -> s)", FUNCTION_NOT_FOUND);
+        assertInvalidFunction("reduce(ARRAY [1, 2], 0, (s, x) -> concat(s, x), s -> s)", FUNCTION_NOT_FOUND, "Unexpected parameters (integer, integer) for function concat. Expected: concat(array(E), E) for type(s): E or concat(E, array(E)) for type(s): E or concat(array(E)) for type(s): E (wrong number of arguments: expected 1 got 2) or concat(varchar) for type(s):  (wrong number of arguments: expected 1 got 2) or concat(varbinary) for type(s):  (wrong number of arguments: expected 1 got 2)");
     }
 }

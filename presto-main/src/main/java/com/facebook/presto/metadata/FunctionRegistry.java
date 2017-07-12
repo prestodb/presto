@@ -131,7 +131,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider;
+import com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
@@ -263,8 +263,8 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider.fromTypeSignatures;
-import static com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -682,7 +682,11 @@ public class FunctionRegistry
             }
             else {
                 String expected = Joiner.on(" or ").join(candidateParameters);
-                message = format("Unexpected parameters for function %s. Expected: %s", name, expected);
+                String parameterTypesString = "";
+                if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
+                    parameterTypesString = format("(%s) ", Joiner.on(", ").join(parameterTypes));
+                }
+                message = format("Unexpected parameters %sfor function %s. Expected: %s", parameterTypesString, name, expected);
             }
             throw new PrestoException(FUNCTION_NOT_FOUND, message);
         }
@@ -925,7 +929,7 @@ public class FunctionRegistry
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
-        List<IndependentTypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
+        List<PlainTypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
         for (SqlFunction candidate : candidates) {
             Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, returnType);
@@ -1137,7 +1141,7 @@ public class FunctionRegistry
      */
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
-        List<IndependentTypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
+        List<PlainTypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
         Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, right.getDeclaredSignature(), true)
                 .bindVariables(resolvedTypes);
         return boundVariables.isPresent();

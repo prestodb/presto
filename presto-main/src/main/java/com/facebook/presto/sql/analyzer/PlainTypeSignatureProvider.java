@@ -19,16 +19,33 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
-public class IndependentTypeSignatureProvider implements TypeSignatureProvider
+public class PlainTypeSignatureProvider
+        implements TypeSignatureProvider
 {
     private final TypeSignature typeSignature;
 
-    public IndependentTypeSignatureProvider(TypeSignature typeSignature)
+    public PlainTypeSignatureProvider(TypeSignature typeSignature)
     {
-        this.typeSignature = typeSignature;
+        this.typeSignature = requireNonNull(typeSignature);
+    }
+
+    public static List<PlainTypeSignatureProvider> fromTypes(List<? extends Type> types)
+    {
+        return types.stream()
+                .map(Type::getTypeSignature)
+                .map(PlainTypeSignatureProvider::new)
+                .collect(toImmutableList());
+    }
+
+    public static List<PlainTypeSignatureProvider> fromTypeSignatures(List<? extends TypeSignature> typeSignatures)
+    {
+        return typeSignatures.stream()
+                .map(PlainTypeSignatureProvider::new)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -40,28 +57,13 @@ public class IndependentTypeSignatureProvider implements TypeSignatureProvider
     @Override
     public TypeSignature getTypeSignature(List<Type> boundTypeParameters)
     {
-        checkState(boundTypeParameters.isEmpty(), "Independent type signature doesn't take any type parameters.");
+        checkArgument(boundTypeParameters.isEmpty(), "Independent type signature doesn't take any type parameters.");
         return typeSignature;
     }
 
     public TypeSignature getTypeSignature()
     {
         return getTypeSignature(ImmutableList.of());
-    }
-
-    public static List<IndependentTypeSignatureProvider> fromTypes(List<? extends Type> types)
-    {
-        return types.stream()
-                .map(Type::getTypeSignature)
-                .map(IndependentTypeSignatureProvider::new)
-                .collect(toImmutableList());
-    }
-
-    public static List<IndependentTypeSignatureProvider> fromTypeSignatures(List<? extends TypeSignature> typeSignatures)
-    {
-        return typeSignatures.stream()
-                .map(IndependentTypeSignatureProvider::new)
-                .collect(toImmutableList());
     }
 
     @Override

@@ -148,7 +148,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
-import static com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;

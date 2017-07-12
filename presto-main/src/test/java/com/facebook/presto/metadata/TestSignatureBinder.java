@@ -20,8 +20,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.LambdaTypeSignatureProvider;
+import com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.TypeRegistry;
@@ -45,7 +45,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.analyzer.IndependentTypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -1207,7 +1207,7 @@ public class TestSignatureBinder
             ImmutableList.Builder<TypeSignatureProvider> builder = ImmutableList.builder();
             for (Object argument : arguments) {
                 if (argument instanceof String) {
-                    builder.add(new IndependentTypeSignatureProvider(TypeSignature.parseTypeSignature((String) argument)));
+                    builder.add(new PlainTypeSignatureProvider(TypeSignature.parseTypeSignature((String) argument)));
                     continue;
                 }
                 if (argument instanceof TypeSignatureProvider) {
