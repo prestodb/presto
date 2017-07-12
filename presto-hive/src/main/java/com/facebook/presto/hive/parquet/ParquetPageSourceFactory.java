@@ -139,7 +139,7 @@ public class ParquetPageSourceFactory
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        AggregatedMemoryContext systemMemoryContext = new AggregatedMemoryContext();
+        AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
 
         ParquetDataSource dataSource = null;
         try {
@@ -180,7 +180,7 @@ public class ParquetPageSourceFactory
                     blocks,
                     dataSource,
                     typeManager,
-                    systemMemoryContext.childContextSupplier());
+                    systemMemoryUsage.childContextSupplier());
 
             return new ParquetPageSource(
                     parquetReader,
@@ -193,7 +193,7 @@ public class ParquetPageSourceFactory
                     effectivePredicate,
                     typeManager,
                     useParquetColumnNames,
-                    systemMemoryContext);
+                    systemMemoryUsage);
         }
         catch (Exception e) {
             try {
