@@ -35,9 +35,9 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(FeaturesConfig.class)
-                .setCpuCostWeight(0.75)
-                .setMemoryCostWeight(0)
-                .setNetworkCostWeight(0.25)
+                .setCpuCostWeight(75)
+                .setMemoryCostWeight(10)
+                .setNetworkCostWeight(15)
                 .setResourceGroupsEnabled(false)
                 .setDistributedIndexJoinsEnabled(false)
                 .setDistributedJoinsEnabled(true)
