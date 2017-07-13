@@ -57,6 +57,7 @@ import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
+import static com.facebook.presto.util.concurrent.Locks.locking;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -306,60 +307,40 @@ public class DistributedQueryRunner
     @Override
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        lock.readLock().lock();
-        try {
+        return locking(lock.readLock(), () -> {
             return prestoClient.listTables(session, catalog, schema);
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     @Override
     public boolean tableExists(Session session, String table)
     {
-        lock.readLock().lock();
-        try {
+        return locking(lock.readLock(), () -> {
             return prestoClient.tableExists(session, table);
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     @Override
     public MaterializedResult execute(@Language("SQL") String sql)
     {
-        lock.readLock().lock();
-        try {
+        return locking(lock.readLock(), () -> {
             return prestoClient.execute(sql).getResult();
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        lock.readLock().lock();
-        try {
+        return locking(lock.readLock(), () -> {
             return prestoClient.execute(session, sql).getResult();
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     public ResultWithQueryId<MaterializedResult> executeWithQueryId(Session session, @Language("SQL") String sql)
     {
-        lock.readLock().lock();
-        try {
+        return locking(lock.readLock(), () -> {
             return prestoClient.execute(session, sql);
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     public QueryInfo getQueryInfo(QueryId queryId)

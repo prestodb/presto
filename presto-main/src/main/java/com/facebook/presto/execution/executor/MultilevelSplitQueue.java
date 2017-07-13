@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.facebook.presto.util.concurrent.Locks.locking;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -73,13 +74,9 @@ public class MultilevelSplitQueue
 
     private void addLevelTime(int level, long nanos)
     {
-        lock.lock();
-        try {
+        locking(lock, () -> {
             levelScheduledTime[level] += nanos;
-        }
-        finally {
-            lock.unlock();
-        }
+        });
     }
 
     public void offer(PrioritizedSplitRunner split)
@@ -87,14 +84,10 @@ public class MultilevelSplitQueue
         checkArgument(split != null, "split is null");
 
         split.setReady();
-        lock.lock();
-        try {
+        locking(lock, () -> {
             levelWaitingSplits.get(split.getPriority().getLevel()).offer(split);
             notEmpty.signal();
-        }
-        finally {
-            lock.unlock();
-        }
+        });
     }
 
     public PrioritizedSplitRunner take()
@@ -264,28 +257,20 @@ public class MultilevelSplitQueue
     public void remove(PrioritizedSplitRunner split)
     {
         checkArgument(split != null, "split is null");
-        lock.lock();
-        try {
+        locking(lock, () -> {
             for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
                 level.remove(split);
             }
-        }
-        finally {
-            lock.unlock();
-        }
+        });
     }
 
     public void removeAll(Collection<PrioritizedSplitRunner> splits)
     {
-        lock.lock();
-        try {
+        locking(lock, () -> {
             for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
                 level.removeAll(splits);
             }
-        }
-        finally {
-            lock.unlock();
-        }
+        });
     }
 
     public long getLevelMinPriority(int level, long taskThreadUsageNanos)
@@ -296,17 +281,13 @@ public class MultilevelSplitQueue
 
     public int size()
     {
-        lock.lock();
-        try {
+        return locking(lock, () -> {
             int total = 0;
             for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
                 total += level.size();
             }
             return total;
-        }
-        finally {
-            lock.unlock();
-        }
+        });
     }
 
     public List<CounterStat> getSelectedLevelCounters()
@@ -329,12 +310,6 @@ public class MultilevelSplitQueue
     @VisibleForTesting
     long[] getLevelScheduledTime()
     {
-        lock.lock();
-        try {
-            return levelScheduledTime;
-        }
-        finally {
-            lock.unlock();
-        }
+        return locking(lock, () -> levelScheduledTime);
     }
 }

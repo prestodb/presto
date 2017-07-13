@@ -44,6 +44,7 @@ import java.util.OptionalLong;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.concurrent.Locks.locking;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -261,13 +262,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void executeExclusively(Runnable executionBlock)
     {
-        queryRunner.getExclusiveLock().lock();
-        try {
-            executionBlock.run();
-        }
-        finally {
-            queryRunner.getExclusiveLock().unlock();
-        }
+        locking(queryRunner.getExclusiveLock(), executionBlock::run);
     }
 
     protected String formatSqlText(String sql)
