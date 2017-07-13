@@ -64,6 +64,7 @@ public class ApplyNode
     private final Assignments subqueryAssignments;
 
     /**
+     * HACK!
      * Used for error reporting in case this ApplyNode is not supported
      */
     private final Node originSubquery;
