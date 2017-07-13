@@ -397,7 +397,7 @@ public class PlanOptimizers
                     stats,
                     statsCalculator,
                     estimatedExchangesCostCalculator,
-                    ImmutableSet.of(new DetermineSemiJoinDistributionType(costComparator))))); // Must run before AddExchanges
+                    ImmutableSet.of(new DetermineSemiJoinDistributionType())))); // Must run before AddExchanges
             builder.add(
                     new IterativeOptimizer(
                             stats,

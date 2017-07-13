@@ -14,15 +14,9 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.cost.SymbolStatsEstimate;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.TestingStatsCalculator;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -41,7 +35,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestDetermineSemiJoinDistributionType
 {
     private RuleTester tester;
-    private StatsCalculator statsCalculator;
 
     @BeforeClass
     public void setUp()
@@ -53,59 +46,12 @@ public class TestDetermineSemiJoinDistributionType
                 .build();
         LocalQueryRunner queryRunner = queryRunnerWithFakeNodeCountForStats(session, 4);
         tester = new RuleTester(queryRunner);
-        statsCalculator = queryRunner.getStatsCalculator();
-    }
-
-    @Test
-    public void testRepartitionsWithBigRightTable()
-    {
-        StatsCalculator testingStatsCalculator = new TestingStatsCalculator(statsCalculator, ImmutableMap.of(
-                new PlanNodeId("valuesA"), PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(100)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
-                        .build(),
-                new PlanNodeId("valuesB"), PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
-                        .build()));
-
-        tester.assertThat(new DetermineSemiJoinDistributionType(new CostComparator(1, 1, 1)))
-                .withStatsCalculator(testingStatsCalculator)
-                .on(p ->
-                        p.semiJoin(
-                                p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), p.symbol("B1", BIGINT)),
-                                p.symbol("A1", BIGINT),
-                                p.symbol("B1", BIGINT),
-                                p.symbol("A1", BIGINT),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty()))
-                .matches(semiJoin(
-                        "A1",
-                        "B1",
-                        "A1",
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0)),
-                        Optional.of(PARTITIONED)
-                ));
     }
 
     @Test
     public void testRepartitionsWhenRequiredBySession()
     {
-        StatsCalculator testingStatsCalculator = new TestingStatsCalculator(statsCalculator, ImmutableMap.of(
-                new PlanNodeId("valuesA"), PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(100)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
-                        .build(),
-                new PlanNodeId("valuesB"), PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
-                        .build()));
-
-        tester.assertThat(new DetermineSemiJoinDistributionType(new CostComparator(1, 1, 1)))
-                .withStatsCalculator(testingStatsCalculator)
+        tester.assertThat(new DetermineSemiJoinDistributionType())
                 .on(p ->
                         p.semiJoin(
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
@@ -130,18 +76,7 @@ public class TestDetermineSemiJoinDistributionType
     @Test
     public void testReplicatesWhenRequiredBySession()
     {
-        StatsCalculator testingStatsCalculator = new TestingStatsCalculator(statsCalculator, ImmutableMap.of(
-                new PlanNodeId("valuesA"), PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(100)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
-                        .build(),
-                new PlanNodeId("valuesB"), PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
-                        .build()));
-
-        tester.assertThat(new DetermineSemiJoinDistributionType(new CostComparator(1, 1, 1)))
-                .withStatsCalculator(testingStatsCalculator)
+        tester.assertThat(new DetermineSemiJoinDistributionType())
                 .on(p ->
                         p.semiJoin(
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
@@ -153,41 +88,6 @@ public class TestDetermineSemiJoinDistributionType
                                 Optional.empty(),
                                 Optional.empty()))
                 .setSystemProperty("join_distribution_type", "REPLICATED")
-                .matches(semiJoin(
-                        "A1",
-                        "B1",
-                        "A1",
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0)),
-                        Optional.of(REPLICATED)
-                ));
-    }
-
-    @Test
-    public void testReplicatesWithRightSmallTable()
-    {
-        StatsCalculator testingStatsCalculator = new TestingStatsCalculator(statsCalculator, ImmutableMap.of(
-                new PlanNodeId("valuesA"), PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(1000000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
-                        .build(),
-                new PlanNodeId("valuesB"), PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(100)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
-                        .build()));
-
-        tester.assertThat(new DetermineSemiJoinDistributionType(new CostComparator(1, 1, 1)))
-                .withStatsCalculator(testingStatsCalculator)
-                .on(p ->
-                        p.semiJoin(
-                                p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), p.symbol("B1", BIGINT)),
-                                p.symbol("A1", BIGINT),
-                                p.symbol("B1", BIGINT),
-                                p.symbol("A1", BIGINT),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty()))
                 .matches(semiJoin(
                         "A1",
                         "B1",

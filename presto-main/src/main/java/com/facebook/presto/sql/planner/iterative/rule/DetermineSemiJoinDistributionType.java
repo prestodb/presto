@@ -14,37 +14,22 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.PlanNodeWithCost;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.google.common.collect.Ordering;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 
 public class DetermineSemiJoinDistributionType
         implements Rule
 {
-    private final CostComparator costComparator;
     private boolean isDeleteQuery;
-
-    public DetermineSemiJoinDistributionType(CostComparator costComparator)
-    {
-        this.costComparator = costComparator;
-    }
 
     @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
@@ -65,58 +50,9 @@ public class DetermineSemiJoinDistributionType
 
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
 
-        if (joinDistributionType == AUTOMATIC) {
-            return chooseCostBasedJoinTypeFor(semiJoinNode, context.getSession(), context.getLookup(), context.getSymbolAllocator(), joinDistributionType);
+        if (joinDistributionType.canRepartition() && !isDeleteQuery) {
+            return Optional.of(semiJoinNode.withDistributionType(PARTITIONED));
         }
-        else {
-            return chooseSyntacticJoinTypeFor(semiJoinNode, joinDistributionType);
-        }
-    }
-
-    private Optional<PlanNode> chooseCostBasedJoinTypeFor(SemiJoinNode node, Session session, Lookup lookup, SymbolAllocator symbolAllocator, JoinDistributionType joinDistributionType)
-    {
-        Ordering<PlanNodeWithCost> planNodeOrdering = new Ordering<PlanNodeWithCost>()
-        {
-            @Override
-            public int compare(PlanNodeWithCost node1, PlanNodeWithCost node2)
-            {
-                return costComparator.compare(session, node1.getCost(), node2.getCost());
-            }
-        };
-
-        List<PlanNodeWithCost> possibleJoinNodes = new ArrayList<>();
-
-        if (canRepartition(joinDistributionType)) {
-            possibleJoinNodes.add(getSemiJoinNodeWithCost(node.withDistributionType(PARTITIONED), lookup, symbolAllocator, session));
-        }
-        if (joinDistributionType.canReplicate()) {
-            possibleJoinNodes.add(getSemiJoinNodeWithCost(node.withDistributionType(REPLICATED), lookup, symbolAllocator, session));
-        }
-
-        if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
-            return chooseSyntacticJoinTypeFor(node, joinDistributionType);
-        }
-
-        return planNodeOrdering.min(possibleJoinNodes).getPlanNode();
-    }
-
-    private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode node, Lookup lookup, SymbolAllocator symbolAllocator, Session session)
-    {
-        return new PlanNodeWithCost(lookup.getCumulativeCost(node, session, symbolAllocator.getTypes()), Optional.of(node));
-    }
-
-    private Optional<PlanNode> chooseSyntacticJoinTypeFor(SemiJoinNode node, JoinDistributionType joinDistributionType)
-    {
-        if (canRepartition(joinDistributionType)) {
-            return Optional.of(node.withDistributionType(PARTITIONED));
-        }
-        return Optional.of(node.withDistributionType(REPLICATED));
-    }
-
-    private boolean canRepartition(JoinDistributionType joinDistributionType)
-    {
-        // For delete queries, the TableScan node that corresponds to the table being deleted must be collocated
-        // with the Delete node, so you can't do a distributed semi-join
-        return joinDistributionType.canRepartition() && !isDeleteQuery;
+        return Optional.of(semiJoinNode.withDistributionType(REPLICATED));
     }
 }
