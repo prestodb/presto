@@ -128,7 +128,7 @@ public class MultilevelSplitQueue
     /**
      * Presto attempts to give each level a target amount of scheduled time, which is configurable
      * using levelTimeMultiplier.
-     *
+     * <p>
      * This function selects the level that has the the lowest ratio of actual to the target time
      * with the objective of minimizing deviation from the target scheduled time. From this level,
      * we pick the split with the lowest priority.
@@ -168,10 +168,10 @@ public class MultilevelSplitQueue
     /**
      * During periods of time when a level has no waiting splits, it will not accumulate
      * accumulate scheduled time and will fall behind relative to other levels.
-     *
+     * <p>
      * This can cause temporary starvation for other levels when splits do reach the
      * previously-empty level.
-     *
+     * <p>
      * To prevent this we set the scheduled time for levels which are empty to the expected
      * scheduled time.
      *
@@ -200,7 +200,8 @@ public class MultilevelSplitQueue
                     break;
                 }
             }
-        } while (updated && level0ExpectedTime != 0);
+        }
+        while (updated && level0ExpectedTime != 0);
 
         return level0ExpectedTime;
     }
@@ -222,7 +223,7 @@ public class MultilevelSplitQueue
      * Presto 'charges' the quanta run time to the task <i>and</i> the level it belongs to in
      * an effort to maintain the target thread utilization ratios between levels and to
      * maintain fairness within a level.
-     *
+     * <p>
      * Consider an example split where a read hung for several minutes. This is either a bug
      * or a failing dependency. In either case we do not want to charge the task too much,
      * and we especially do not want to charge the level too much - i.e. cause other queries
