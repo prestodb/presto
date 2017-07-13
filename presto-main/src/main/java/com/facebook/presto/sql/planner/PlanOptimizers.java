@@ -73,6 +73,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLate
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
+import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.DesugaringOptimizer;
 import com.facebook.presto.sql.planner.optimizations.DetermineJoinDistributionType;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
@@ -232,6 +233,7 @@ public class PlanOptimizers
                                 new ImplementFilteredAggregations())),
                 new TransformCorrelatedNoAggregationSubqueryToJoin(),
                 new TransformCorrelatedSingleRowSubqueryToProject(),
+                new CheckSubqueryNodesAreRewritten(),
                 new PredicatePushDown(metadata, sqlParser),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
