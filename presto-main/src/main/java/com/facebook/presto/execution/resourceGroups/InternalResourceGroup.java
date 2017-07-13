@@ -150,14 +150,14 @@ public class InternalResourceGroup
 
             return new ResourceGroupInfo(
                     id,
-                    new DataSize(softMemoryLimitBytes, BYTE),
+                    DataSize.succinctBytes(softMemoryLimitBytes),
                     maxRunningQueries,
                     runningTimeLimit,
                     maxQueuedQueries,
                     queuedTimeLimit,
                     getState(),
                     eligibleSubGroups.size(),
-                    new DataSize(cachedMemoryUsageBytes, BYTE),
+                    DataSize.succinctBytes(cachedMemoryUsageBytes),
                     runningQueries.size() + descendantRunningQueries,
                     queuedQueries.size() + descendantQueuedQueries,
                     infos);
@@ -177,7 +177,21 @@ public class InternalResourceGroup
                     runningTimeLimit,
                     queuedTimeLimit,
                     getAggregatedRunningQueriesInfo(),
-                    queuedQueries.size() + descendantQueuedQueries);
+                    queuedQueries.size() + descendantQueuedQueries,
+                    subGroups.values().stream()
+                            .map(subGroup -> new ResourceGroupInfo(
+                                    subGroup.getId(),
+                                    DataSize.succinctBytes(softMemoryLimitBytes),
+                                    maxRunningQueries,
+                                    runningTimeLimit,
+                                    maxQueuedQueries,
+                                    queuedTimeLimit,
+                                    getState(),
+                                    eligibleSubGroups.size(),
+                                    DataSize.succinctBytes(cachedMemoryUsageBytes),
+                                    runningQueries.size() + descendantRunningQueries,
+                                    queuedQueries.size() + descendantQueuedQueries))
+                            .collect(toImmutableList()));
         }
     }
 

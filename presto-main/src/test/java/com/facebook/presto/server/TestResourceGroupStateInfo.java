@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -38,6 +39,7 @@ public class TestResourceGroupStateInfo
     public void testJsonRoundTrip()
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(ImmutableList.of("test", "user"));
+        ResourceGroupId subGroupId = new ResourceGroupId(resourceGroupId, "sub");
         ResourceGroupStateInfo expected = new ResourceGroupStateInfo(
                 resourceGroupId,
                 CAN_RUN,
@@ -69,7 +71,19 @@ public class TestResourceGroupStateInfo
                                 8283750,
                                 false,
                                 OptionalDouble.empty())))),
-                0);
+                10,
+                ImmutableList.of(new ResourceGroupInfo(
+                        subGroupId,
+                        new DataSize(1, GIGABYTE),
+                        10,
+                        new Duration(1, HOURS),
+                        100,
+                        new Duration(10, HOURS),
+                        CAN_RUN,
+                        1,
+                        new DataSize(100, BYTE),
+                        1,
+                        10)));
         JsonCodec<ResourceGroupStateInfo> codec = JsonCodec.jsonCodec(ResourceGroupStateInfo.class);
         ResourceGroupStateInfo actual = codec.fromJson(codec.toJson(expected));
 
@@ -81,7 +95,7 @@ public class TestResourceGroupStateInfo
         assertEquals(actual.getRunningTimeLimit(), new Duration(1, HOURS));
         assertEquals(actual.getMaxQueuedQueries(), 100);
         assertEquals(actual.getQueuedTimeLimit(), new Duration(10, HOURS));
-        assertEquals(actual.getNumQueuedQueries(), 0);
+        assertEquals(actual.getNumQueuedQueries(), 10);
         assertEquals(actual.getRunningQueries().size(), 1);
         QueryStateInfo queryStateInfo = actual.getRunningQueries().get(0);
         assertEquals(queryStateInfo.getQueryId(), new QueryId("test_query"));
@@ -105,5 +119,18 @@ public class TestResourceGroupStateInfo
         assertEquals(progressStats.getInputBytes(), 8283750);
         assertEquals(progressStats.isBlocked(), false);
         assertEquals(progressStats.getProgressPercentage(), OptionalDouble.empty());
+        assertEquals(actual.getSubGroups().size(), 1);
+        ResourceGroupInfo subGroup = actual.getSubGroups().get(0);
+        assertEquals(subGroup.getId(), subGroupId);
+        assertEquals(subGroup.getSoftMemoryLimit(), new DataSize(1, GIGABYTE));
+        assertEquals(subGroup.getMaxRunningQueries(), 10);
+        assertEquals(subGroup.getRunningTimeLimit(), new Duration(1, HOURS));
+        assertEquals(subGroup.getMaxQueuedQueries(), 100);
+        assertEquals(subGroup.getQueuedTimeLimit(), new Duration(10, HOURS));
+        assertEquals(subGroup.getState(), CAN_RUN);
+        assertEquals(subGroup.getNumEligibleSubGroups(), 1);
+        assertEquals(subGroup.getMemoryUsage(), new DataSize(100, BYTE));
+        assertEquals(subGroup.getNumAggregatedRunningQueries(), 1);
+        assertEquals(subGroup.getNumAggregatedQueuedQueries(), 10);
     }
 }

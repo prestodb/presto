@@ -515,6 +515,9 @@ public class TestResourceGroups
         assertEquals(stateInfo.getState(), CAN_RUN);
         assertEquals(stateInfo.getSoftMemoryLimit(), root.getSoftMemoryLimit());
         assertEquals(stateInfo.getMemoryUsage(), new DataSize(0, BYTE));
+        assertEquals(stateInfo.getSubGroups().size(), 2);
+        assertEquals(stateInfo.getSubGroups().get(0).getId(), rootA.getId());
+        assertEquals(stateInfo.getSubGroups().get(1).getId(), rootB.getId());
         assertEquals(stateInfo.getMaxRunningQueries(), root.getMaxRunningQueries());
         assertEquals(stateInfo.getRunningTimeLimit(), new Duration(Long.MAX_VALUE, MILLISECONDS));
         assertEquals(stateInfo.getMaxQueuedQueries(), root.getMaxQueuedQueries());
