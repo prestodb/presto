@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.pushDownProjectOff;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -44,36 +44,26 @@ public class PruneSemiJoinColumns
     @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        ProjectNode parent = (ProjectNode) node;
+        return pushDownProjectOff(
+                context.getLookup(),
+                SemiJoinNode.class,
+                (ProjectNode) node,
+                (semiJoinNode, referencedOutputs) -> {
+                    if (!referencedOutputs.contains(semiJoinNode.getSemiJoinOutput())) {
+                        return Optional.of(semiJoinNode.getSource());
+                    }
 
-        PlanNode child = context.getLookup().resolve(parent.getSource());
-        if (!(child instanceof SemiJoinNode)) {
-            return Optional.empty();
-        }
+                    Set<Symbol> requiredSourceInputs = Streams.concat(
+                            referencedOutputs.stream()
+                                    .filter(symbol -> !symbol.equals(semiJoinNode.getSemiJoinOutput())),
+                            Stream.of(semiJoinNode.getSourceJoinSymbol()),
+                            semiJoinNode.getSourceHashSymbol().map(Stream::of).orElse(Stream.empty()))
+                            .collect(toImmutableSet());
 
-        SemiJoinNode semiJoinNode = (SemiJoinNode) child;
-
-        Optional<Set<Symbol>> prunedOutputs = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
-        if (!prunedOutputs.isPresent()) {
-            return Optional.empty();
-        }
-
-        if (!prunedOutputs.get().contains(semiJoinNode.getSemiJoinOutput())) {
-            return Optional.of(
-                    parent.replaceChildren(ImmutableList.of(semiJoinNode.getSource())));
-        }
-
-        Set<Symbol> requiredSourceInputs = Streams.concat(
-                prunedOutputs.get().stream()
-                        .filter(symbol -> !symbol.equals(semiJoinNode.getSemiJoinOutput())),
-                Stream.of(semiJoinNode.getSourceJoinSymbol()),
-                semiJoinNode.getSourceHashSymbol().map(Stream::of).orElse(Stream.empty()))
-                .collect(toImmutableSet());
-
-        return restrictOutputs(context.getIdAllocator(), semiJoinNode.getSource(), requiredSourceInputs)
-                .map(newSource ->
-                        parent.replaceChildren(ImmutableList.of(
-                                semiJoinNode.replaceChildren(ImmutableList.of(
-                                        newSource, semiJoinNode.getFilteringSource())))));
+                    return restrictOutputs(context.getIdAllocator(), semiJoinNode.getSource(), requiredSourceInputs)
+                            .map(newSource ->
+                                    semiJoinNode.replaceChildren(ImmutableList.of(
+                                            newSource, semiJoinNode.getFilteringSource())));
+                });
     }
 }

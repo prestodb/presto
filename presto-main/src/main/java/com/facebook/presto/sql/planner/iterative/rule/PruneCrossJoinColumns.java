@@ -18,11 +18,10 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.pushDownProjectOff;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 
 /**
@@ -42,21 +41,15 @@ public class PruneCrossJoinColumns
     @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        ProjectNode parent = (ProjectNode) node;
-
-        PlanNode child = context.getLookup().resolve(parent.getSource());
-        if (!(child instanceof JoinNode)) {
-            return Optional.empty();
-        }
-
-        JoinNode joinNode = (JoinNode) child;
-        if (!joinNode.isCrossJoin()) {
-            return Optional.empty();
-        }
-
-        return pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions())
-                .map(dependencies ->
-                        parent.replaceChildren(ImmutableList.of(
-                                restrictChildOutputs(context.getIdAllocator(), joinNode, dependencies, dependencies).get())));
+        return pushDownProjectOff(
+                context.getLookup(),
+                JoinNode.class,
+                (ProjectNode) node,
+                (joinNode, referencedOutputs) -> {
+                    if (!joinNode.isCrossJoin()) {
+                        return Optional.empty();
+                    }
+                    return restrictChildOutputs(context.getIdAllocator(), joinNode, referencedOutputs, referencedOutputs);
+                });
     }
 }
