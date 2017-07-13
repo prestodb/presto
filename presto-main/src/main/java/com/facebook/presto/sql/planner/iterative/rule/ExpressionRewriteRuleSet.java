@@ -259,7 +259,13 @@ public class ExpressionRewriteRuleSet
             if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {
                 return Optional.empty();
             }
-            return Optional.of(new ApplyNode(applyNode.getId(), applyNode.getInput(), applyNode.getSubquery(), subqueryAssignments, applyNode.getCorrelation()));
+            return Optional.of(new ApplyNode(
+                    applyNode.getId(),
+                    applyNode.getInput(),
+                    applyNode.getSubquery(),
+                    subqueryAssignments,
+                    applyNode.getCorrelation(),
+                    applyNode.getOriginSubquery()));
         }
     }
 }

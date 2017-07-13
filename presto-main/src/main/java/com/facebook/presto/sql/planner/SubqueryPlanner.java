@@ -447,7 +447,8 @@ class SubqueryPlanner
                         root,
                         subqueryNode,
                         subqueryAssignments,
-                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values()))),
+                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
+                        subquery),
                 analysis.getParameters());
     }
 
