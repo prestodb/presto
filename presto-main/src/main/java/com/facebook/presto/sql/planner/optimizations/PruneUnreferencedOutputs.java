@@ -794,7 +794,7 @@ public class PruneUnreferencedOutputs
                 return subquery;
             }
 
-            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType());
+            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType(), node.getOriginSubquery());
         }
     }
 }

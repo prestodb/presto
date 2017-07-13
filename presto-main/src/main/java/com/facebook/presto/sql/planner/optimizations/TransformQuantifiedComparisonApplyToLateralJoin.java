@@ -171,7 +171,8 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     context.rewrite(node.getInput()),
                     subqueryPlan,
                     node.getCorrelation(),
-                    LateralJoinNode.Type.INNER);
+                    LateralJoinNode.Type.INNER,
+                    node.getOriginSubquery());
 
             Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);
 
