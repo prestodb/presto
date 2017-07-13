@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -217,7 +218,7 @@ public class MongoMetadata
 
         return new MongoOutputTableHandle(
                 tableMetadata.getTable(),
-                columns.stream().filter(c -> !c.isHidden()).collect(toList()));
+                filteredCopy(columns, c -> !c.isHidden()));
     }
 
     @Override

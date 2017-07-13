@@ -22,9 +22,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 
@@ -48,7 +48,7 @@ public final class GroupingSets
         super(location);
         requireNonNull(sets, "sets is null");
         checkArgument(!sets.isEmpty(), "grouping sets cannot be empty");
-        this.sets = sets.stream().map(ImmutableList::copyOf).collect(toImmutableList());
+        this.sets = listOfListsCopy(sets);
     }
 
     public List<List<QualifiedName>> getSets()

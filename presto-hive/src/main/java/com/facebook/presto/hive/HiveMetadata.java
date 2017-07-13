@@ -140,6 +140,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.statistics.TableStatistics.EMPTY_STATISTICS;
+import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -819,9 +820,9 @@ public class HiveMetadata
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get()).stream()
-                .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toList());
+        List<HiveColumnHandle> handles = filteredCopy(
+                hiveColumnHandles(connectorId, table.get()),
+                columnHandle -> !columnHandle.isHidden());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session.getUser(), session.getQueryId(), table.get());

@@ -23,6 +23,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-util</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.hive</groupId>
             <artifactId>hive-dwrf</artifactId>
         </dependency>
