@@ -190,7 +190,7 @@ public class DesugaringOptimizer
             PlanNode subquery = context.rewrite(node.getSubquery());
             // ApplyNode.Assignments are synthetic expressions which are meaningful for ApplyNode transformations.
             // They cannot contain any lambda or "sugared" expression
-            return new ApplyNode(node.getId(), input, subquery, node.getSubqueryAssignments(), node.getCorrelation());
+            return new ApplyNode(node.getId(), input, subquery, node.getSubqueryAssignments(), node.getCorrelation(), node.getOriginSubquery());
         }
 
         private Expression desugar(Expression expression)
