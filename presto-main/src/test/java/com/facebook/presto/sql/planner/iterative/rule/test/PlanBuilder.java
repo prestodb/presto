@@ -279,7 +279,8 @@ public class PlanBuilder
 
     public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, new NullLiteral());
+        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
+        return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);
     }
 
     public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, PlanNode subquery)
