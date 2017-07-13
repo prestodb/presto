@@ -106,6 +106,7 @@ public class TransformExistsApplyToLateralNode
                                         Optional.empty()),
                                 Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
                         parent.getCorrelation(),
-                        INNER));
+                        INNER,
+                        parent.getOriginSubquery()));
     }
 }
