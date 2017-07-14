@@ -27,6 +27,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -76,6 +77,7 @@ public class FileSingleStreamSpillerFactory
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold());
     }
 
+    @VisibleForTesting
     public FileSingleStreamSpillerFactory(
             ListeningExecutorService executor,
             BlockEncodingSerde blockEncodingSerde,
@@ -109,6 +111,12 @@ public class FileSingleStreamSpillerFactory
     public void cleanupOldSpillFiles()
     {
         spillPaths.forEach(FileSingleStreamSpillerFactory::cleanupOldSpillFiles);
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        executor.shutdownNow();
     }
 
     private static void cleanupOldSpillFiles(Path path)
