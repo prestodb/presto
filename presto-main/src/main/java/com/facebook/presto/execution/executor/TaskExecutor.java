@@ -139,6 +139,9 @@ public class TaskExecutor
     private final TimeDistribution leafSplitWaitTime = new TimeDistribution(MICROSECONDS);
     private final TimeDistribution intermediateSplitWaitTime = new TimeDistribution(MICROSECONDS);
 
+    private final TimeDistribution leafSplitCpuTime = new TimeDistribution(MICROSECONDS);
+    private final TimeDistribution intermediateSplitCpuTime = new TimeDistribution(MICROSECONDS);
+
     // shared between SplitRunners
     private final CounterStat globalCpuTimeMicros = new CounterStat();
     private final CounterStat globalScheduledTimeMicros = new CounterStat();
@@ -342,11 +345,13 @@ public class TaskExecutor
                 intermediateSplitWallTime.add(wallNanos);
                 intermediateSplitScheduledTime.add(split.getScheduledNanos());
                 intermediateSplitWaitTime.add(split.getWaitNanos());
+                intermediateSplitCpuTime.add(split.getCpuTimeNanos());
             }
             else {
                 leafSplitWallTime.add(wallNanos);
                 leafSplitScheduledTime.add(split.getScheduledNanos());
                 leafSplitWaitTime.add(split.getWaitNanos());
+                leafSplitCpuTime.add(split.getCpuTimeNanos());
             }
 
             TaskHandle taskHandle = split.getTaskHandle();
@@ -770,6 +775,20 @@ public class TaskExecutor
     public TimeDistribution getIntermediateSplitWaitTime()
     {
         return intermediateSplitWaitTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeDistribution getLeafSplitCpuTime()
+    {
+        return leafSplitCpuTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeDistribution getIntermediateSplitCpuTime()
+    {
+        return intermediateSplitCpuTime;
     }
 
     @Managed
