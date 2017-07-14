@@ -966,7 +966,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        DateTime dateTime2 = new DateTime( DAYS.toMillis(date));
+        DateTime dateTime2 = new DateTime(DAYS.toMillis(date));
         return MILLISECONDS.toDays(dateTime2.dayOfMonth().withMaximumValue().getMillis());
     }
 
