@@ -28,7 +28,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -54,6 +53,7 @@ import com.google.common.collect.PeekingIterator;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -281,14 +281,12 @@ public final class DomainTranslator
         private final Metadata metadata;
         private final Session session;
         private final Map<Symbol, Type> types;
-        private final FunctionInvoker functionInvoker;
 
         private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
-            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
         }
 
         private Type checkedTypeLookup(Symbol symbol)
@@ -659,7 +657,7 @@ public final class DomainTranslator
         private Optional<Object> floorValue(Type fromType, Type toType, Object value)
         {
             return getSaturatedFloorCastOperator(fromType, toType)
-                    .map((operator) -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
+                    .map((operator) -> ExpressionInterpreter.invoke(session.toConnectorSession(), operator, Arrays.asList(value), metadata.getFunctionRegistry()));
         }
 
         private Optional<Signature> getSaturatedFloorCastOperator(Type fromType, Type toType)
@@ -673,7 +671,7 @@ public final class DomainTranslator
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
             Signature castToOriginalTypeOperator = metadata.getFunctionRegistry().getCoercion(coercedValueType, originalValueType);
-            Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
+            Object coercedValueInOriginalType = ExpressionInterpreter.invoke(session.toConnectorSession(), castToOriginalTypeOperator, Arrays.asList(coercedValue), metadata.getFunctionRegistry());
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
             return originalValueType.compareTo(originalValueBlock, 0, coercedValueBlock, 0);

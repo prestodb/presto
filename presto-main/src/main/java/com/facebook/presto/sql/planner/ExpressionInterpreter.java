@@ -1358,6 +1358,12 @@ public class ExpressionInterpreter
         }
     }
 
+    public static Object invoke(ConnectorSession session, Signature function, List<Object> arguments, FunctionRegistry functionRegistry)
+    {
+        ScalarFunctionImplementation implementation = functionRegistry.getScalarFunctionImplementation(function);
+        return invoke(session, implementation, arguments);
+    }
+
     public static Object invoke(ConnectorSession session, ScalarFunctionImplementation function, List<Object> argumentValues)
     {
         MethodHandle handle = function.getMethodHandle();
