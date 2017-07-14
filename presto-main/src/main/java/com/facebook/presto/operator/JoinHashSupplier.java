@@ -77,6 +77,12 @@ public class JoinHashSupplier
     }
 
     @Override
+    public long checksum()
+    {
+        return positionLinks.map(PositionLinks.Factory::checksum).orElse(0L);
+    }
+
+    @Override
     public JoinHash get()
     {
         // We need to create new JoinFilterFunction per each thread using it, since those functions
