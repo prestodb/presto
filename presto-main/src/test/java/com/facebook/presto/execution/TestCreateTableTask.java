@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
@@ -177,6 +178,12 @@ public class TestCreateTableTask
         public int getCreateTableCallCount()
         {
             return createTableCallCount.get();
+        }
+
+        @Override
+        public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }
