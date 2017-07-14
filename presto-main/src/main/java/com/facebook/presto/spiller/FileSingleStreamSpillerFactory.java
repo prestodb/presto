@@ -101,7 +101,7 @@ public class FileSingleStreamSpillerFactory
                         format("spill path %s is not writable; adjust experimental.spiller-spill-path config property or filesystem permissions", path));
             }
         });
-        this.maxUsedSpaceThreshold = requireNonNull(maxUsedSpaceThreshold, "maxUsedSpaceThreshold can not be null");
+        this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
         this.roundRobinIndex = 0;
     }
 
