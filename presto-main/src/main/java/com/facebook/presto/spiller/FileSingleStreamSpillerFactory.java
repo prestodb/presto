@@ -96,11 +96,11 @@ public class FileSingleStreamSpillerFactory
             }
             catch (IOException e) {
                 throw new IllegalArgumentException(
-                        format("could not create spill path %s; adjust experimental.spiller-spill-path config property or filesystem permissions", path), e);
+                        format("could not create spill path %s; adjust beta.spiller-spill-path config property or filesystem permissions", path), e);
             }
             if (!path.toFile().canWrite()) {
                 throw new IllegalArgumentException(
-                        format("spill path %s is not writable; adjust experimental.spiller-spill-path config property or filesystem permissions", path));
+                        format("spill path %s is not writable; adjust beta.spiller-spill-path config property or filesystem permissions", path));
             }
         });
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
