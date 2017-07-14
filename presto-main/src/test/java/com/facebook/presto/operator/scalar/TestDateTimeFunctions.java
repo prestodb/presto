@@ -951,6 +951,16 @@ public class TestDateTimeFunctions
         assertInvalidFunction("parse_duration('abc')", "duration is not a valid data duration string: abc");
     }
 
+    @Test
+    public void testLastDayOfMonth()
+    {
+        DateTime result = DATE.withDayOfMonth(31);
+        assertFunction("last_day( " + DATE_LITERAL + ")", DateType.DATE, toDate(result));
+
+        DateTime result2 = DATE.withDayOfMonth(30);
+        assertFunction("last_day( " + TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(result2));
+    }
+
     private void assertFunctionString(String projection, Type expectedType, String expected)
     {
         functionAssertions.assertFunctionString(projection, expectedType, expected);
