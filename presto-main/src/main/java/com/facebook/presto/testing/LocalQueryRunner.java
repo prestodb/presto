@@ -220,6 +220,7 @@ public class LocalQueryRunner
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
+    private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
 
     private final ExpressionCompiler expressionCompiler;
@@ -362,7 +363,8 @@ public class LocalQueryRunner
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();
-        this.spillerFactory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
+        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
+        this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
@@ -378,6 +380,7 @@ public class LocalQueryRunner
         transactionCheckExecutor.shutdownNow();
         connectorManager.stop();
         finalizerService.destroy();
+        singleStreamSpillerFactory.destroy();
     }
 
     @Override
