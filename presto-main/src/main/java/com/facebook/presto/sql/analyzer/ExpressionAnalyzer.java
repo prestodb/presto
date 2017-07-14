@@ -1068,7 +1068,7 @@ public class ExpressionAnalyzer
 
             if (types.size() != lambdaArguments.size()) {
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node,
-                        format("Expected a lambda that takes %s argument(s) but got %s in %s", types.size(), lambdaArguments.size(), node));
+                        format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
             }
             verify(types.size() == lambdaArguments.size());
 
