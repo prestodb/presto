@@ -79,7 +79,7 @@ public class TestFileSingleStreamSpillerFactory
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types)));
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor,
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
@@ -117,7 +117,7 @@ public class TestFileSingleStreamSpillerFactory
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types)));
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor,
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
@@ -147,7 +147,7 @@ public class TestFileSingleStreamSpillerFactory
         assertEquals(FileUtils.listFiles(spillPath2).size(), 3);
 
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor,
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
