@@ -53,6 +53,10 @@ Date and Time Functions
     Returns the current time zone in the format defined by IANA
     (e.g., ``America/Los_Angeles``) or as fixed offset from UTC (e.g., ``+08:35``)
 
+.. function:: date(x) -> date
+
+    This is an alias for ``CAST(x AS date)``.
+
 .. function:: from_iso8601_timestamp(string) -> timestamp with time zone
 
     Parses the ISO 8601 formatted ``string`` into a ``timestamp with time zone``.
