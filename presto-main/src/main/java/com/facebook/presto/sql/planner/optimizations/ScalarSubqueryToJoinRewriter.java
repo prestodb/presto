@@ -14,9 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -33,7 +31,10 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -43,9 +44,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -100,40 +105,65 @@ public class ScalarSubqueryToJoinRewriter
             return Optional.empty();
         }
 
-        Optional<ProjectNode> subqueryProjection = searchFrom(lateralJoinNode.getSubquery(), lookup)
-                .where(ProjectNode.class::isInstance)
-                .recurseOnlyWhen(EnforceSingleRowNode.class::isInstance)
-                .findFirst();
-
-        List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(lateralJoinNode, aggregationNode.get());
-
-        if (subqueryProjection.isPresent()) {
-            Assignments assignments = Assignments.builder()
-                    .putIdentities(aggregationOutputSymbols)
-                    .putAll(subqueryProjection.get().getAssignments())
-                    .build();
-
-            return Optional.of(new ProjectNode(
-                    idAllocator.getNextId(),
-                    aggregationNode.get(),
-                    assignments));
-        }
-        else {
-            return Optional.of(new ProjectNode(
-                    idAllocator.getNextId(),
-                    aggregationNode.get(),
-                    Assignments.identity(aggregationOutputSymbols)));
-        }
+        return projectToLateralOutputSymbols(lateralJoinNode, aggregationNode.get(), Optional.empty());
     }
 
-    private SubqueryEquivalentJoin createSubqueryEquivalentJoin(LateralJoinNode lateralJoinNode, PlanNode decorrelatedSubquery, Optional<Expression> joinExpression)
+    public Optional<PlanNode> projectToLateralOutputSymbols(
+            LateralJoinNode lateralJoinNode,
+            PlanNode decorrelatedSubquery,
+            Optional<Expression> isSubqueryOutputAccessibleCondition)
+    {
+        List<Symbol> outputSymbols = truncateToLateralSymbols(lateralJoinNode, decorrelatedSubquery);
+
+        List<ProjectNode> subqueryProjections = searchFrom(lateralJoinNode.getSubquery(), lookup)
+                .where(ProjectNode.class::isInstance)
+                .recurseOnlyWhen(isInstanceOfAny(EnforceSingleRowNode.class, ProjectNode.class))
+                .findAll();
+
+        if (subqueryProjections.size() > 1) {
+            return Optional.empty();
+        }
+
+        Assignments.Builder assignments = Assignments.builder()
+                .putIdentities(outputSymbols);
+        if (subqueryProjections.size() == 1) {
+            Assignments subqueryOutput = subqueryProjections.get(0).getAssignments();
+
+            boolean correlationUsedInSubqueryOutput = lateralJoinNode.getCorrelation().stream()
+                    .anyMatch(subqueryOutput.getSymbols()::contains);
+            if (correlationUsedInSubqueryOutput) {
+                // TODO remove this IF block once https://github.com/prestodb/presto/issues/8459 is fixed
+                return Optional.empty();
+            }
+
+            // do not symbols which come directly from aggregation
+            subqueryOutput = subqueryOutput.filter(not(new HashSet<>(outputSymbols)::contains));
+
+            if (isSubqueryOutputAccessibleCondition.isPresent()) {
+                // make sure that no output is propagated when subquery has not produced any data
+                subqueryOutput = subqueryOutput.rewrite(expression -> new SimpleCaseExpression(
+                        isSubqueryOutputAccessibleCondition.get(),
+                        ImmutableList.of(new WhenClause(TRUE_LITERAL, expression)),
+                        Optional.of(new NullLiteral())));
+            }
+
+            assignments.putAll(subqueryOutput);
+        }
+
+        return Optional.of(new ProjectNode(
+                idAllocator.getNextId(),
+                decorrelatedSubquery,
+                assignments.build()));
+    }
+
+    public SubqueryEquivalentJoin createSubqueryEquivalentJoin(LateralJoinNode lateralJoinNode, PlanNode decorrelatedSubquery, Optional<Expression> joinExpression)
     {
         AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
                 idAllocator.getNextId(),
                 lateralJoinNode.getInput(),
-                symbolAllocator.newSymbol("unique", BigintType.BIGINT));
+                symbolAllocator.newSymbol("unique", BIGINT));
 
-        Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
+        Symbol nonNull = symbolAllocator.newSymbol("non_null", BOOLEAN);
         ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
                 idAllocator.getNextId(),
                 decorrelatedSubquery,
@@ -157,13 +187,13 @@ public class ScalarSubqueryToJoinRewriter
                 Optional.empty(),
                 Optional.empty());
 
-        return new SubqueryEquivalentJoin(leftOuterJoin, nonNull);
+        return new SubqueryEquivalentJoin(leftOuterJoin, nonNull, inputWithUniqueColumns);
     }
 
-    private static List<Symbol> getTruncatedAggregationSymbols(LateralJoinNode lateralJoinNode, AggregationNode aggregationNode)
+    private static List<Symbol> truncateToLateralSymbols(LateralJoinNode lateralJoinNode, PlanNode plan)
     {
         Set<Symbol> applySymbols = new HashSet<>(lateralJoinNode.getOutputSymbols());
-        return aggregationNode.getOutputSymbols().stream()
+        return plan.getOutputSymbols().stream()
                 .filter(symbol -> applySymbols.contains(symbol))
                 .collect(toImmutableList());
     }
@@ -178,16 +208,7 @@ public class ScalarSubqueryToJoinRewriter
             FunctionCall call = entry.getValue().getCall();
             Symbol symbol = entry.getKey();
             if (call.getName().equals(COUNT)) {
-                List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
-                        symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
-                aggregations.put(symbol, new Aggregation(
-                        new FunctionCall(
-                                COUNT,
-                                ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
-                        functionRegistry.resolveFunction(
-                                COUNT,
-                                fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
-                        entry.getValue().getMask()));
+                aggregations.put(symbol, createCountAggregation(nonNullableAggregationSourceSymbol, entry.getValue()));
             }
             else {
                 aggregations.put(symbol, entry.getValue());
@@ -205,15 +226,34 @@ public class ScalarSubqueryToJoinRewriter
                 Optional.empty()));
     }
 
-    private static final class SubqueryEquivalentJoin
+    private Aggregation createCountAggregation(Symbol nonNullableAggregationSourceSymbol, Aggregation scalarAggregation)
+    {
+        return new Aggregation(
+                new FunctionCall(
+                        COUNT,
+                        ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
+                functionRegistry.resolveFunction(
+                        COUNT,
+                        asTypeSignature(nonNullableAggregationSourceSymbol)),
+                scalarAggregation.getMask());
+    }
+
+    private List<TypeSignatureProvider> asTypeSignature(Symbol symbol)
+    {
+        return fromTypeSignatures(ImmutableList.of(symbolAllocator.getTypes().get(symbol).getTypeSignature()));
+    }
+
+    public static final class SubqueryEquivalentJoin
     {
         private final JoinNode join;
         private final Symbol nonNull;
+        private final PlanNode input;
 
-        private SubqueryEquivalentJoin(JoinNode join, Symbol nonNull)
+        private SubqueryEquivalentJoin(JoinNode join, Symbol nonNull, PlanNode input)
         {
             this.join = requireNonNull(join, "join is null");
             this.nonNull = requireNonNull(nonNull, "nonNull is null");
+            this.input = requireNonNull(input, "input is null");
         }
 
         public JoinNode getJoin()
@@ -221,9 +261,14 @@ public class ScalarSubqueryToJoinRewriter
             return join;
         }
 
-        private Symbol getNonNull()
+        public Symbol getNonNull()
         {
             return nonNull;
+        }
+
+        public PlanNode getInput()
+        {
+            return input;
         }
     }
 }
