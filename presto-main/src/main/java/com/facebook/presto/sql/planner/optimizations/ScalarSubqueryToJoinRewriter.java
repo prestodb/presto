@@ -68,12 +68,12 @@ public class ScalarSubqueryToJoinRewriter
         this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, lookup);
     }
 
-    public PlanNode rewriteScalarAggregation(LateralJoinNode lateralJoinNode, AggregationNode aggregation)
+    public Optional<PlanNode> rewriteScalarAggregation(LateralJoinNode lateralJoinNode, AggregationNode aggregation)
     {
         List<Symbol> correlation = lateralJoinNode.getCorrelation();
         Optional<DecorrelatedNode> aggregationSource = planNodeDecorrelator.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
         if (!aggregationSource.isPresent()) {
-            return lateralJoinNode;
+            return Optional.empty();
         }
 
         Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
@@ -94,7 +94,7 @@ public class ScalarSubqueryToJoinRewriter
                 nonNull);
     }
 
-    private PlanNode rewriteScalarAggregation(
+    private Optional<PlanNode> rewriteScalarAggregation(
             LateralJoinNode lateralJoinNode,
             AggregationNode scalarAggregation,
             PlanNode scalarAggregationSource,
@@ -127,7 +127,7 @@ public class ScalarSubqueryToJoinRewriter
                 nonNull);
 
         if (!aggregationNode.isPresent()) {
-            return lateralJoinNode;
+            return Optional.empty();
         }
 
         Optional<ProjectNode> subqueryProjection = searchFrom(lateralJoinNode.getSubquery(), lookup)
@@ -143,16 +143,16 @@ public class ScalarSubqueryToJoinRewriter
                     .putAll(subqueryProjection.get().getAssignments())
                     .build();
 
-            return new ProjectNode(
+            return Optional.of(new ProjectNode(
                     idAllocator.getNextId(),
                     aggregationNode.get(),
-                    assignments);
+                    assignments));
         }
         else {
-            return new ProjectNode(
+            return Optional.of(new ProjectNode(
                     idAllocator.getNextId(),
                     aggregationNode.get(),
-                    Assignments.identity(aggregationOutputSymbols));
+                    Assignments.identity(aggregationOutputSymbols)));
         }
     }
 
