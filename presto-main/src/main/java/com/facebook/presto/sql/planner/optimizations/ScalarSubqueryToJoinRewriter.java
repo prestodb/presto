@@ -49,8 +49,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-// TODO: move this class to TransformCorrelatedScalarAggregationToJoin when old optimizer is gone
-public class ScalarAggregationToJoinRewriter
+public class ScalarSubqueryToJoinRewriter
 {
     private static final QualifiedName COUNT = QualifiedName.of("count");
 
@@ -60,7 +59,7 @@ public class ScalarAggregationToJoinRewriter
     private final Lookup lookup;
     private final PlanNodeDecorrelator planNodeDecorrelator;
 
-    public ScalarAggregationToJoinRewriter(FunctionRegistry functionRegistry, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public ScalarSubqueryToJoinRewriter(FunctionRegistry functionRegistry, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         this.functionRegistry = requireNonNull(functionRegistry, "metadata is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
