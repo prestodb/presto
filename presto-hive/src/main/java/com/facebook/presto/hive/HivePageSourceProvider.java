@@ -42,6 +42,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.extractRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
+import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -285,9 +286,7 @@ public class HivePageSourceProvider
 
         public static List<ColumnMapping> extractRegularColumnMappings(List<ColumnMapping> columnMappings)
         {
-            return columnMappings.stream()
-                    .filter(columnMapping -> !columnMapping.isPrefilled())
-                    .collect(toList());
+            return filteredCopy(columnMappings, columnMapping -> !columnMapping.isPrefilled());
         }
 
         public static List<HiveColumnHandle> extractRegularColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion)

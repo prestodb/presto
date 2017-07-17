@@ -33,10 +33,10 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
+import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class CassandraPartitionManager
 {
@@ -62,9 +62,9 @@ public class CassandraPartitionManager
         log.debug("%s.%s #partitions: %d", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName(), allPartitions.size());
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        List<CassandraPartition> partitions = allPartitions.stream()
-                .filter(partition -> tupleDomain.overlaps(partition.getTupleDomain()))
-                .collect(toList());
+        List<CassandraPartition> partitions = filteredCopy(
+                allPartitions,
+                partition -> tupleDomain.overlaps(partition.getTupleDomain()));
 
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.none();

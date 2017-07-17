@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.stream.Collectors.toList;
 
 public class CassandraTable
 {
@@ -44,16 +44,12 @@ public class CassandraTable
 
     public List<CassandraColumnHandle> getPartitionKeyColumns()
     {
-        return columns.stream()
-                .filter(CassandraColumnHandle::isPartitionKey)
-                .collect(toList());
+        return filteredCopy(columns, CassandraColumnHandle::isPartitionKey);
     }
 
     public List<CassandraColumnHandle> getClusteringKeyColumns()
     {
-        return columns.stream()
-                .filter(CassandraColumnHandle::isClusteringKey)
-                .collect(toList());
+        return filteredCopy(columns, CassandraColumnHandle::isClusteringKey);
     }
 
     public String getTokenExpression()
