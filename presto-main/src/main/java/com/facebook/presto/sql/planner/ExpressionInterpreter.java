@@ -34,6 +34,7 @@ import com.facebook.presto.spi.type.RowType.RowField;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -91,8 +92,6 @@ import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Defaults;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -132,7 +131,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.any;
-import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
@@ -142,6 +140,7 @@ public class ExpressionInterpreter
     private final ConnectorSession session;
     private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
+    private final FunctionInvoker functionInvoker;
 
     private final Visitor visitor;
 
@@ -251,6 +250,7 @@ public class ExpressionInterpreter
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
+        this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
 
         this.visitor = new Visitor();
     }
@@ -868,16 +868,14 @@ public class ExpressionInterpreter
 
             Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
             Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
-            ScalarFunctionImplementation firstCastFunction = metadata.getFunctionRegistry().getScalarFunctionImplementation(firstCast);
-            ScalarFunctionImplementation secondCastFunction = metadata.getFunctionRegistry().getScalarFunctionImplementation(secondCast);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = (Boolean) invokeOperator(
                     OperatorType.EQUAL,
                     ImmutableList.of(commonType, commonType),
                     ImmutableList.of(
-                            invoke(session, firstCastFunction, ImmutableList.of(first)),
-                            invoke(session, secondCastFunction, ImmutableList.of(second))));
+                            functionInvoker.invoke(firstCast, session, ImmutableList.of(first)),
+                            functionInvoker.invoke(secondCast, session, ImmutableList.of(second))));
 
             if (equal) {
                 return null;
@@ -972,7 +970,7 @@ public class ExpressionInterpreter
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            return invoke(session, function, argumentValues);
+            return functionInvoker.invoke(functionSignature, session, argumentValues);
         }
 
         @Override
@@ -1168,7 +1166,7 @@ public class ExpressionInterpreter
             Signature operator = metadata.getFunctionRegistry().getCoercion(type(node.getExpression()), type);
 
             try {
-                return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operator), ImmutableList.of(value));
+                return functionInvoker.invoke(operator, session, ImmutableList.of(value));
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -1283,7 +1281,7 @@ public class ExpressionInterpreter
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             Signature operatorSignature = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
-            return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorSignature), argumentValues);
+            return functionInvoker.invoke(operatorSignature, session, argumentValues);
         }
     }
 
@@ -1355,53 +1353,6 @@ public class ExpressionInterpreter
             else {
                 return rightPosition;
             }
-        }
-    }
-
-    public static Object invoke(ConnectorSession session, ScalarFunctionImplementation function, List<Object> argumentValues)
-    {
-        MethodHandle handle = function.getMethodHandle();
-        if (function.getInstanceFactory().isPresent()) {
-            try {
-                handle = handle.bindTo(function.getInstanceFactory().get().invoke());
-            }
-            catch (Throwable throwable) {
-                if (throwable instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
-                throw Throwables.propagate(throwable);
-            }
-        }
-        if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
-            handle = handle.bindTo(session);
-        }
-        try {
-            List<Object> actualArguments = new ArrayList<>();
-            Class<?>[] parameterArray = handle.type().parameterArray();
-            for (int i = 0; i < argumentValues.size(); i++) {
-                Object argument = argumentValues.get(i);
-                if (function.getLambdaInterface().get(i).isPresent() && !MethodHandle.class.equals(function.getLambdaInterface().get(i).get())) {
-                    argument = asInterfaceInstance(function.getLambdaInterface().get(i).get(), (MethodHandle) argument);
-                }
-                if (function.getNullFlags().get(i)) {
-                    boolean isNull = argument == null;
-                    if (isNull) {
-                        argument = Defaults.defaultValue(parameterArray[actualArguments.size()]);
-                    }
-                    actualArguments.add(argument);
-                    actualArguments.add(isNull);
-                }
-                else {
-                    actualArguments.add(argument);
-                }
-            }
-            return handle.invokeWithArguments(actualArguments);
-        }
-        catch (Throwable throwable) {
-            if (throwable instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(throwable);
         }
     }
 
