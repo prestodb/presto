@@ -286,11 +286,14 @@ public class RcFileReader
         rowGroupPosition = 0;
         rowGroupRowCount = 0;
         currentChunkRowCount = 0;
-        input.close();
-        if (decompressor != null) {
-            decompressor.destroy();
+        try  {
+            input.close();
         }
-
+        finally {
+            if (decompressor != null) {
+                decompressor.destroy();
+            }
+        }
         if (writeChecksumBuilder.isPresent()) {
             WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
             validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
