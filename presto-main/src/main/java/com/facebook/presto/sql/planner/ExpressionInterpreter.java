@@ -106,6 +106,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -130,7 +131,6 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.any;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
@@ -618,7 +618,7 @@ public class ExpressionInterpreter
             Type type = type(node);
             List<Object> values = node.getOperands().stream()
                     .map(value -> processWithExceptionHandling(value, context))
-                    .filter(value -> value != null)
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 
             if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
@@ -1275,7 +1275,7 @@ public class ExpressionInterpreter
 
         private boolean hasUnresolvedValue(List<Object> values)
         {
-            return any(values, instanceOf(Expression.class));
+            return values.stream().anyMatch(instanceOf(Expression.class)::apply);
         }
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
@@ -1287,9 +1287,9 @@ public class ExpressionInterpreter
 
     private interface PagePositionContext
     {
-        public Block getBlock(int channel);
+        Block getBlock(int channel);
 
-        public int getPosition(int channel);
+        int getPosition(int channel);
     }
 
     private static class SinglePagePositionContext
