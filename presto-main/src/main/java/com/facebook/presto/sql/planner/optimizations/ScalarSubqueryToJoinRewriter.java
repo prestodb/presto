@@ -76,45 +76,42 @@ public class ScalarSubqueryToJoinRewriter
             return Optional.empty();
         }
 
-        Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
-        Assignments scalarAggregationSourceAssignments = Assignments.builder()
-                .putIdentities(aggregationSource.get().getNode().getOutputSymbols())
-                .put(nonNull, TRUE_LITERAL)
-                .build();
-        ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
-                idAllocator.getNextId(),
-                aggregationSource.get().getNode(),
-                scalarAggregationSourceAssignments);
-
         return rewriteScalarAggregation(
                 lateralJoinNode,
                 aggregation,
-                scalarAggregationSourceWithNonNullableSymbol,
-                aggregationSource.get().getCorrelatedPredicates(),
-                nonNull);
+                aggregationSource.get().getNode(),
+                aggregationSource.get().getCorrelatedPredicates());
     }
 
     private Optional<PlanNode> rewriteScalarAggregation(
             LateralJoinNode lateralJoinNode,
             AggregationNode scalarAggregation,
             PlanNode scalarAggregationSource,
-            Optional<Expression> joinExpression,
-            Symbol nonNull)
+            Optional<Expression> joinExpression)
     {
         AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
                 idAllocator.getNextId(),
                 lateralJoinNode.getInput(),
                 symbolAllocator.newSymbol("unique", BigintType.BIGINT));
 
+        Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
+        ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
+                idAllocator.getNextId(),
+                scalarAggregationSource,
+                Assignments.builder()
+                        .putAll(Assignments.identity(scalarAggregationSource.getOutputSymbols()))
+                        .put(nonNull, TRUE_LITERAL)
+                        .build());
+
         JoinNode leftOuterJoin = new JoinNode(
                 idAllocator.getNextId(),
                 JoinNode.Type.LEFT,
                 inputWithUniqueColumns,
-                scalarAggregationSource,
+                scalarAggregationSourceWithNonNullableSymbol,
                 ImmutableList.of(),
                 ImmutableList.<Symbol>builder()
                         .addAll(inputWithUniqueColumns.getOutputSymbols())
-                        .addAll(scalarAggregationSource.getOutputSymbols())
+                        .addAll(scalarAggregationSourceWithNonNullableSymbol.getOutputSymbols())
                         .build(),
                 joinExpression,
                 Optional.empty(),
