@@ -23,10 +23,10 @@ import com.google.common.base.Throwables;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionInvoker
@@ -53,36 +53,53 @@ public class FunctionInvoker
         ScalarFunctionImplementation implementation = registry.getScalarFunctionImplementation(function);
         MethodHandle method = implementation.getMethodHandle();
 
+        // handle function on instance method, to allow use of fields
+        method = bindInstanceFactory(method, implementation);
+
         if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
             method = method.bindTo(session);
         }
-        Iterator<Object> iterator = arguments.iterator();
         List<Object> actualArguments = new ArrayList<>();
-        for (int i = 0; i < method.type().parameterCount(); i++) {
-            Class<?> parameterType = method.type().parameterType(i);
-            checkArgument(iterator.hasNext(), "Not enough arguments provided for method: %s", method.type());
-            Object argument = iterator.next();
+        for (int i = 0; i < arguments.size(); i++) {
+            Object argument = arguments.get(i);
+            Optional<Class> lambdaArgument = implementation.getLambdaInterface().get(i);
+            if (lambdaArgument.isPresent() && !MethodHandle.class.equals(lambdaArgument.get())) {
+                argument = asInterfaceInstance(lambdaArgument.get(), (MethodHandle) argument);
+            }
             if (implementation.getNullFlags().get(i)) {
                 boolean isNull = argument == null;
                 if (isNull) {
-                    argument = Defaults.defaultValue(parameterType);
+                    argument = Defaults.defaultValue(method.type().parameterType(actualArguments.size()));
                 }
                 actualArguments.add(argument);
                 actualArguments.add(isNull);
-                // Skip the next method parameter which is marked @IsNull
-                i++;
             }
             else {
                 actualArguments.add(argument);
             }
         }
 
-        checkArgument(!iterator.hasNext(), "Too many arguments provided for method: %s", method.type());
-
         try {
             return method.invokeWithArguments(actualArguments);
         }
         catch (Throwable throwable) {
+            throw Throwables.propagate(throwable);
+        }
+    }
+
+    private static MethodHandle bindInstanceFactory(MethodHandle method, ScalarFunctionImplementation implementation)
+    {
+        if (!implementation.getInstanceFactory().isPresent()) {
+            return method;
+        }
+
+        try {
+            return method.bindTo(implementation.getInstanceFactory().get().invoke());
+        }
+        catch (Throwable throwable) {
+            if (throwable instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw Throwables.propagate(throwable);
         }
     }
