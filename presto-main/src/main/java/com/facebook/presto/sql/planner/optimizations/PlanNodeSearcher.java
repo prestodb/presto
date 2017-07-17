@@ -31,12 +31,16 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher
 {
-    @Deprecated
     public static PlanNodeSearcher searchFrom(PlanNode node)
     {
         return searchFrom(node, noLookup());
     }
 
+    /**
+     * Use it in optimizer {@link com.facebook.presto.sql.planner.iterative.Rule} only if you truly do not have a better option
+     *
+     * TODO: replace it with a support for plan (physical) properties in rules pattern matching
+     */
     public static PlanNodeSearcher searchFrom(PlanNode node, Lookup lookup)
     {
         return new PlanNodeSearcher(node, lookup);
@@ -47,7 +51,7 @@ public class PlanNodeSearcher
     private Predicate<PlanNode> where = alwaysTrue();
     private Predicate<PlanNode> recurseOnlyWhen = alwaysTrue();
 
-    public PlanNodeSearcher(PlanNode node, Lookup lookup)
+    private PlanNodeSearcher(PlanNode node, Lookup lookup)
     {
         this.node = requireNonNull(node, "node is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
