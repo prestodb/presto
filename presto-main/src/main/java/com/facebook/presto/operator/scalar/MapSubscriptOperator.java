@@ -26,13 +26,14 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
 
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
@@ -48,11 +49,11 @@ import static java.lang.String.format;
 public class MapSubscriptOperator
         extends SqlOperator
 {
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionInvoker.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, Object.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionRegistry.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionRegistry.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionRegistry.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionRegistry.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, boolean.class, FunctionRegistry.class, MethodHandle.class, Type.class, Type.class, ConnectorSession.class, Block.class, Object.class);
 
     private final boolean legacyMissingKey;
     private final boolean useNewMapBlock;
@@ -93,8 +94,7 @@ public class MapSubscriptOperator
             methodHandle = METHOD_HANDLE_OBJECT;
         }
         methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey, useNewMapBlock);
-        FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
-        methodHandle = methodHandle.bindTo(functionInvoker).bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
+        methodHandle = methodHandle.bindTo(functionRegistry).bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
 
         // this casting is necessary because otherwise presto byte code generator will generate illegal byte code
         if (valueType.getJavaType() == void.class) {
@@ -108,7 +108,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, boolean key)
+    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionRegistry functionRegistry, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, boolean key)
     {
         if (map instanceof SingleMapBlock && useNewMapBlock) {
             SingleMapBlock mapBlock = (SingleMapBlock) map;
@@ -117,7 +117,7 @@ public class MapSubscriptOperator
                 if (legacyMissingKey) {
                     return null;
                 }
-                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+                throw throwMissingKeyException(keyType, functionRegistry, key, session);
             }
             return readNativeValue(valueType, mapBlock, valuePosition);
         }
@@ -135,11 +135,11 @@ public class MapSubscriptOperator
         if (legacyMissingKey) {
             return null;
         }
-        throw throwMissingKeyException(keyType, functionInvoker, key, session);
+        throw throwMissingKeyException(keyType, functionRegistry, key, session);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, long key)
+    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionRegistry functionRegistry, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, long key)
     {
         if (map instanceof SingleMapBlock && useNewMapBlock) {
             SingleMapBlock mapBlock = (SingleMapBlock) map;
@@ -148,7 +148,7 @@ public class MapSubscriptOperator
                 if (legacyMissingKey) {
                     return null;
                 }
-                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+                throw throwMissingKeyException(keyType, functionRegistry, key, session);
             }
             return readNativeValue(valueType, mapBlock, valuePosition);
         }
@@ -166,11 +166,11 @@ public class MapSubscriptOperator
         if (legacyMissingKey) {
             return null;
         }
-        throw throwMissingKeyException(keyType, functionInvoker, key, session);
+        throw throwMissingKeyException(keyType, functionRegistry, key, session);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, double key)
+    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionRegistry functionRegistry, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, double key)
     {
         if (map instanceof SingleMapBlock && useNewMapBlock) {
             SingleMapBlock mapBlock = (SingleMapBlock) map;
@@ -179,7 +179,7 @@ public class MapSubscriptOperator
                 if (legacyMissingKey) {
                     return null;
                 }
-                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+                throw throwMissingKeyException(keyType, functionRegistry, key, session);
             }
             return readNativeValue(valueType, mapBlock, valuePosition);
         }
@@ -197,11 +197,11 @@ public class MapSubscriptOperator
         if (legacyMissingKey) {
             return null;
         }
-        throw throwMissingKeyException(keyType, functionInvoker, key, session);
+        throw throwMissingKeyException(keyType, functionRegistry, key, session);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, Slice key)
+    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionRegistry functionRegistry, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, Slice key)
     {
         if (map instanceof SingleMapBlock && useNewMapBlock) {
             SingleMapBlock mapBlock = (SingleMapBlock) map;
@@ -210,7 +210,7 @@ public class MapSubscriptOperator
                 if (legacyMissingKey) {
                     return null;
                 }
-                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+                throw throwMissingKeyException(keyType, functionRegistry, key, session);
             }
             return readNativeValue(valueType, mapBlock, valuePosition);
         }
@@ -228,11 +228,11 @@ public class MapSubscriptOperator
         if (legacyMissingKey) {
             return null;
         }
-        throw throwMissingKeyException(keyType, functionInvoker, key, session);
+        throw throwMissingKeyException(keyType, functionRegistry, key, session);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionInvoker functionInvoker, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
+    public static Object subscript(boolean legacyMissingKey, boolean useNewMapBlock, FunctionRegistry functionRegistry, MethodHandle keyEqualsMethod, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
     {
         if (map instanceof SingleMapBlock && useNewMapBlock) {
             SingleMapBlock mapBlock = (SingleMapBlock) map;
@@ -241,7 +241,7 @@ public class MapSubscriptOperator
                 if (legacyMissingKey) {
                     return null;
                 }
-                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+                throw throwMissingKeyException(keyType, functionRegistry, key, session);
             }
             return readNativeValue(valueType, mapBlock, valuePosition);
         }
@@ -259,14 +259,14 @@ public class MapSubscriptOperator
         if (legacyMissingKey) {
             return null;
         }
-        throw throwMissingKeyException(keyType, functionInvoker, key, session);
+        throw throwMissingKeyException(keyType, functionRegistry, key, session);
     }
 
-    private static RuntimeException throwMissingKeyException(Type type, FunctionInvoker functionInvoker, Object value, ConnectorSession session)
+    private static RuntimeException throwMissingKeyException(Type type, FunctionRegistry functionRegistry, Object value, ConnectorSession session)
     {
         String stringValue;
         try {
-            stringValue = ((Slice) functionInvoker.invoke(castSignature(VarcharType.VARCHAR, type), session, value)).toStringUtf8();
+            stringValue = ((Slice) ExpressionInterpreter.invoke(session, castSignature(VarcharType.VARCHAR, type), Arrays.asList(value), functionRegistry)).toStringUtf8();
         }
         catch (RuntimeException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key not present in map");
