@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
@@ -25,6 +24,7 @@ import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -219,10 +219,12 @@ public final class LiteralInterpreter
             extends AstVisitor<Object, ConnectorSession>
     {
         private final Metadata metadata;
+        private final FunctionInvoker functionInvoker;
 
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
+            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
         }
 
         @Override
@@ -282,25 +284,21 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                ScalarFunctionImplementation operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature()));
+                Signature operatorSignature = new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature());
                 try {
-                    return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
+                    return functionInvoker.invoke(operatorSignature, session, ImmutableList.of(utf8Slice(node.getValue())));
                 }
                 catch (Throwable throwable) {
                     throw Throwables.propagate(throwable);
                 }
             }
 
-            ScalarFunctionImplementation operator;
             try {
                 Signature signature = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
-                operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(signature);
+                return functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
-            }
-            try {
-                return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
