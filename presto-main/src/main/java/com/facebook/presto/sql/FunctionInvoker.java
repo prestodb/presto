@@ -53,30 +53,27 @@ public class FunctionInvoker
         ScalarFunctionImplementation implementation = registry.getScalarFunctionImplementation(function);
         MethodHandle method = implementation.getMethodHandle();
 
-        List<Object> actualArguments = new ArrayList<>(arguments.size() + 1);
-
+        if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
+            method = method.bindTo(session);
+        }
         Iterator<Object> iterator = arguments.iterator();
+        List<Object> actualArguments = new ArrayList<>();
         for (int i = 0; i < method.type().parameterCount(); i++) {
             Class<?> parameterType = method.type().parameterType(i);
-            if (parameterType == ConnectorSession.class) {
-                actualArguments.add(session);
+            checkArgument(iterator.hasNext(), "Not enough arguments provided for method: %s", method.type());
+            Object argument = iterator.next();
+            if (implementation.getNullFlags().get(i)) {
+                boolean isNull = argument == null;
+                if (isNull) {
+                    argument = Defaults.defaultValue(parameterType);
+                }
+                actualArguments.add(argument);
+                actualArguments.add(isNull);
+                // Skip the next method parameter which is marked @IsNull
+                i++;
             }
             else {
-                checkArgument(iterator.hasNext(), "Not enough arguments provided for method: %s", method.type());
-                Object argument = iterator.next();
-                if (implementation.getNullFlags().get(i)) {
-                    boolean isNull = argument == null;
-                    if (isNull) {
-                        argument = Defaults.defaultValue(parameterType);
-                    }
-                    actualArguments.add(argument);
-                    actualArguments.add(isNull);
-                    // Skip the next method parameter which is marked @IsNull
-                    i++;
-                }
-                else {
-                    actualArguments.add(argument);
-                }
+                actualArguments.add(argument);
             }
         }
 
