@@ -16,7 +16,11 @@ package com.facebook.presto.memory;
 import com.facebook.presto.execution.TaskManager;
 
 import javax.inject.Inject;
-import javax.ws.rs.*;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
 import java.util.ArrayList;
@@ -52,8 +56,7 @@ public class MemoryResource
     @Produces(MediaType.APPLICATION_JSON)
     public MemoryInfo getMemoryInfo()
     {
-        taskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest("",0, new ArrayList<>()));
+        taskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest("", 0, new ArrayList<>()));
         return memoryManager.getInfo();
     }
-
 }
