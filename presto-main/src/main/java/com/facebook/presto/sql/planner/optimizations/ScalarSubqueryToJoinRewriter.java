@@ -71,26 +71,26 @@ public class ScalarSubqueryToJoinRewriter
     public PlanNode rewriteScalarAggregation(LateralJoinNode lateralJoinNode, AggregationNode aggregation)
     {
         List<Symbol> correlation = lateralJoinNode.getCorrelation();
-        Optional<DecorrelatedNode> source = planNodeDecorrelator.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
-        if (!source.isPresent()) {
+        Optional<DecorrelatedNode> aggregationSource = planNodeDecorrelator.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
+        if (!aggregationSource.isPresent()) {
             return lateralJoinNode;
         }
 
         Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
-                .putIdentities(source.get().getNode().getOutputSymbols())
+                .putIdentities(aggregationSource.get().getNode().getOutputSymbols())
                 .put(nonNull, TRUE_LITERAL)
                 .build();
         ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
                 idAllocator.getNextId(),
-                source.get().getNode(),
+                aggregationSource.get().getNode(),
                 scalarAggregationSourceAssignments);
 
         return rewriteScalarAggregation(
                 lateralJoinNode,
                 aggregation,
                 scalarAggregationSourceWithNonNullableSymbol,
-                source.get().getCorrelatedPredicates(),
+                aggregationSource.get().getCorrelatedPredicates(),
                 nonNull);
     }
 
