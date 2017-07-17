@@ -89,39 +89,12 @@ public class ScalarSubqueryToJoinRewriter
             PlanNode scalarAggregationSource,
             Optional<Expression> joinExpression)
     {
-        AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
-                idAllocator.getNextId(),
-                lateralJoinNode.getInput(),
-                symbolAllocator.newSymbol("unique", BigintType.BIGINT));
-
-        Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
-        ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
-                idAllocator.getNextId(),
-                scalarAggregationSource,
-                Assignments.builder()
-                        .putAll(Assignments.identity(scalarAggregationSource.getOutputSymbols()))
-                        .put(nonNull, TRUE_LITERAL)
-                        .build());
-
-        JoinNode leftOuterJoin = new JoinNode(
-                idAllocator.getNextId(),
-                JoinNode.Type.LEFT,
-                inputWithUniqueColumns,
-                scalarAggregationSourceWithNonNullableSymbol,
-                ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(inputWithUniqueColumns.getOutputSymbols())
-                        .addAll(scalarAggregationSourceWithNonNullableSymbol.getOutputSymbols())
-                        .build(),
-                joinExpression,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+        SubqueryEquivalentJoin subqueryEquivalentJoin = createSubqueryEquivalentJoin(lateralJoinNode, scalarAggregationSource, joinExpression);
 
         Optional<AggregationNode> aggregationNode = createAggregationNode(
                 scalarAggregation,
-                leftOuterJoin,
-                nonNull);
+                subqueryEquivalentJoin.getJoin(),
+                subqueryEquivalentJoin.getNonNull());
 
         if (!aggregationNode.isPresent()) {
             return Optional.empty();
@@ -151,6 +124,40 @@ public class ScalarSubqueryToJoinRewriter
                     aggregationNode.get(),
                     Assignments.identity(aggregationOutputSymbols)));
         }
+    }
+
+    private SubqueryEquivalentJoin createSubqueryEquivalentJoin(LateralJoinNode lateralJoinNode, PlanNode decorrelatedSubquery, Optional<Expression> joinExpression)
+    {
+        AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
+                idAllocator.getNextId(),
+                lateralJoinNode.getInput(),
+                symbolAllocator.newSymbol("unique", BigintType.BIGINT));
+
+        Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
+        ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
+                idAllocator.getNextId(),
+                decorrelatedSubquery,
+                Assignments.builder()
+                        .putIdentities(decorrelatedSubquery.getOutputSymbols())
+                        .put(nonNull, TRUE_LITERAL)
+                        .build());
+
+        JoinNode leftOuterJoin = new JoinNode(
+                idAllocator.getNextId(),
+                JoinNode.Type.LEFT,
+                inputWithUniqueColumns,
+                scalarAggregationSourceWithNonNullableSymbol,
+                ImmutableList.of(),
+                ImmutableList.<Symbol>builder()
+                        .addAll(inputWithUniqueColumns.getOutputSymbols())
+                        .addAll(scalarAggregationSourceWithNonNullableSymbol.getOutputSymbols())
+                        .build(),
+                joinExpression,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        return new SubqueryEquivalentJoin(leftOuterJoin, nonNull);
     }
 
     private static List<Symbol> getTruncatedAggregationSymbols(LateralJoinNode lateralJoinNode, AggregationNode aggregationNode)
@@ -196,5 +203,27 @@ public class ScalarSubqueryToJoinRewriter
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashSymbol(),
                 Optional.empty()));
+    }
+
+    private static final class SubqueryEquivalentJoin
+    {
+        private final JoinNode join;
+        private final Symbol nonNull;
+
+        private SubqueryEquivalentJoin(JoinNode join, Symbol nonNull)
+        {
+            this.join = requireNonNull(join, "join is null");
+            this.nonNull = requireNonNull(nonNull, "nonNull is null");
+        }
+
+        public JoinNode getJoin()
+        {
+            return join;
+        }
+
+        private Symbol getNonNull()
+        {
+            return nonNull;
+        }
     }
 }
