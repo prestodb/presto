@@ -179,7 +179,7 @@ public class BindableAggregationFunction
                 builder.add(new ParameterMetadata(STATE));
             }
             else {
-                throw new IllegalArgumentException("Unsupported annotation: " + annotations[i]);
+                throw new IllegalArgumentException("Unsupported annotation: " + Arrays.toString(annotations[i]));
             }
         }
         return builder.build();
