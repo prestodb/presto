@@ -119,16 +119,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void createDatabase(Database database)
     {
-        requireNonNull(database, "database is null");
-
-        if (database.getLocation().isPresent()) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Database can not be created with a location set");
-        }
-
-        verifyDatabaseNotExists(database.getDatabaseName());
-
-        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
-        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(database), false);
+        createDatabase(database, true);
     }
 
     @Override
@@ -171,6 +162,20 @@ public class FileHiveMetastore
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
         return readSchemaFile("database", databaseMetadataDirectory, databaseCodec)
                 .map(databaseMetadata -> databaseMetadata.toDatabase(databaseName, databaseMetadataDirectory.toString()));
+    }
+
+    protected void createDatabase(Database database, boolean checkLocation)
+    {
+        requireNonNull(database, "database is null");
+
+        if (checkLocation && database.getLocation().isPresent()) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Database can not be created with a location set");
+        }
+
+        verifyDatabaseNotExists(database.getDatabaseName());
+
+        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
+        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(database), false);
     }
 
     private Database getRequiredDatabase(String databaseName)

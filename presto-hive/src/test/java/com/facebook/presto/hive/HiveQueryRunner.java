@@ -16,8 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.MockFileHiveMetastore;
 import com.facebook.presto.hive.metastore.PrincipalType;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -88,11 +88,13 @@ public final class HiveQueryRunner
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
             HiveClientConfig hiveClientConfig = new HiveClientConfig();
+            hiveClientConfig.setHiveMetastoreWarehouseDir("/tmp/usr/hive/warehouse");
+
             HiveS3Config s3Config = new HiveS3Config();
-            HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig, s3Config));
+            HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new MockHdfsConfigurationUpdater(hiveClientConfig, s3Config));
             HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
 
-            FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+            MockFileHiveMetastore metastore = new MockFileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
             metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
             metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));

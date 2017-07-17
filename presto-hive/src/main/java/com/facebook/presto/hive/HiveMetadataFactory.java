@@ -41,6 +41,7 @@ public class HiveMetadataFactory
     private final boolean writesToNonManagedTablesEnabled;
     private final HiveStorageFormat defaultStorageFormat;
     private final long perTransactionCacheMaximumSize;
+    private final String metastoreWarehouseDir;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -82,6 +83,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getHiveStorageFormat(),
                 hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
+                hiveClientConfig.getHiveMetastoreWarehouseDir(),
                 typeManager,
                 locationService,
                 tableParameterCodec,
@@ -105,6 +107,7 @@ public class HiveMetadataFactory
             boolean writesToNonManagedTablesEnabled,
             HiveStorageFormat defaultStorageFormat,
             long perTransactionCacheMaximumSize,
+            String metastoreWarehouseDir,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -122,6 +125,7 @@ public class HiveMetadataFactory
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
+        this.metastoreWarehouseDir = metastoreWarehouseDir;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -162,6 +166,7 @@ public class HiveMetadataFactory
                 respectTableFormat,
                 bucketWritingEnabled,
                 writesToNonManagedTablesEnabled,
+                metastoreWarehouseDir,
                 defaultStorageFormat,
                 typeManager,
                 locationService,

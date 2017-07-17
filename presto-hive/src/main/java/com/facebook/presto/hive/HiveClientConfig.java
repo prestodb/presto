@@ -114,6 +114,20 @@ public class HiveClientConfig
 
     private boolean writesToNonManagedTablesEnabled;
 
+    private String hiveMetastoreWarehouseDir = "/usr/hive/warehouse";
+
+    public String getHiveMetastoreWarehouseDir()
+    {
+        return hiveMetastoreWarehouseDir;
+    }
+
+    @Config("hive.metastore-warehouse-dir")
+    public HiveClientConfig setHiveMetastoreWarehouseDir(String hiveMetastoreWarehouseDir)
+    {
+        this.hiveMetastoreWarehouseDir = hiveMetastoreWarehouseDir;
+        return this;
+    }
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;

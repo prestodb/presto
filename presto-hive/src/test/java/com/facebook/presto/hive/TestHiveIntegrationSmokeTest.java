@@ -31,6 +31,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import io.airlift.testing.FileUtils;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
@@ -116,6 +117,9 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testSchemaOperations()
     {
+        String defaultMetastoreWarehouseDir = new HiveClientConfig().getHiveMetastoreWarehouseDir();
+        FileUtils.deleteRecursively(new File(defaultMetastoreWarehouseDir + "/new_schema.db"));
+
         assertUpdate("CREATE SCHEMA new_schema");
 
         assertUpdate("CREATE TABLE new_schema.test (x bigint)");

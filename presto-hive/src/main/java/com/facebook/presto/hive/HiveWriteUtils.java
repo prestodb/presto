@@ -43,7 +43,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclEntryType;
+import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
@@ -92,6 +97,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -470,6 +476,45 @@ public final class HiveWriteUtils
         return temporaryPath;
     }
 
+    public static void inheritACL(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    {
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path);
+            List<AclEntry> parentACLs = fileSystem.getAclStatus(path.getParent()).getEntries();
+            FsPermission parentPermission = fileSystem.getFileStatus(path.getParent()).getPermission();
+            String parentGroup = fileSystem.getFileStatus(path.getParent()).getGroup();
+
+            FsPermission targetPermission = new FsPermission(
+                    parentPermission.getUserAction(),
+                    getChildFsActionsFor(parentACLs, AclEntryType.GROUP).orElse(FsPermission.getDirDefault().getGroupAction()),
+                    getChildFsActionsFor(parentACLs, AclEntryType.OTHER).orElse(FsPermission.getDirDefault().getOtherAction()));
+
+            List<AclEntry> targetAcl = parentACLs.stream()
+                    .filter(a -> a.getScope() == AclEntryScope.DEFAULT)
+                    .flatMap(a -> Stream.of(a, new AclEntry.Builder()
+                            .setScope(AclEntryScope.ACCESS)
+                            .setPermission(a.getPermission())
+                            .setType(a.getType())
+                            .setName(a.getName())
+                            .build())
+                    ).collect(toList());
+
+            fileSystem.setOwner(path, user, parentGroup);
+            fileSystem.setPermission(path, targetPermission);
+            fileSystem.modifyAclEntries(path, targetAcl);
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to setup permissions: " + path, e);
+        }
+    }
+
+    private static Optional<FsAction> getChildFsActionsFor(List<AclEntry> parentACLs, AclEntryType aclEntryType)
+    {
+        return parentACLs.stream().filter(
+                a -> a.getScope() == AclEntryScope.DEFAULT && a.getType() == aclEntryType && a.getName() == null
+        ).map(AclEntry::getPermission).findFirst();
+    }
+
     public static void createDirectory(String user, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
@@ -487,6 +532,30 @@ public final class HiveWriteUtils
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
+        }
+    }
+
+    public static void createDirectoryDefaultACL(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    {
+        try {
+            if (!hdfsEnvironment.getFileSystem(user, path).mkdirs(path)) {
+                throw new IOException("mkdirs returned false");
+            }
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + path, e);
+        }
+
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path);
+            List<AclEntry> aclEntries = fileSystem.getAclStatus(path).getEntries();
+
+            AclEntry maskACLAll = new AclEntry.Builder().setType(AclEntryType.MASK).setPermission(FsAction.ALL).setScope(AclEntryScope.ACCESS).build();
+            aclEntries.add(maskACLAll);
+            fileSystem.modifyAclEntries(path, aclEntries);
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + path, e);
         }
     }
 

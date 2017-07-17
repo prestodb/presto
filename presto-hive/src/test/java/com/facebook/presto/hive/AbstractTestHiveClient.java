@@ -527,6 +527,7 @@ public abstract class AbstractTestHiveClient
                 false,
                 HiveStorageFormat.RCBINARY,
                 1000,
+                "/usr/hive/warehouse",
                 TYPE_MANAGER,
                 locationService,
                 new TableParameterCodec(),

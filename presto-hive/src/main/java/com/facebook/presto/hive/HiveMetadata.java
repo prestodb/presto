@@ -84,6 +84,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -174,6 +175,7 @@ public class HiveMetadata
     private final boolean respectTableFormat;
     private final boolean bucketWritingEnabled;
     private final boolean writesToNonManagedTablesEnabled;
+    private final String metastoreWarehouseDir;
     private final HiveStorageFormat defaultStorageFormat;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
@@ -189,6 +191,7 @@ public class HiveMetadata
             boolean respectTableFormat,
             boolean bucketWritingEnabled,
             boolean writesToNonManagedTablesEnabled,
+            String metastoreWarehouseDir,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
@@ -213,6 +216,7 @@ public class HiveMetadata
         this.respectTableFormat = respectTableFormat;
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
+        this.metastoreWarehouseDir = metastoreWarehouseDir;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
@@ -391,15 +395,21 @@ public class HiveMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
-            try {
-                hdfsEnvironment.getFileSystem(session.getUser(), new Path(locationUri));
-            }
-            catch (IOException e) {
-                throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
-            }
-            return locationUri;
-        });
+        Optional<String> customLocation = HiveSchemaProperties.getLocation(properties);
+        Optional<String> defaultLocation = Optional.of(this.metastoreWarehouseDir + "/" + schemaName + ".db");
+
+        Optional<String> location = Stream.of(customLocation, defaultLocation)
+                .filter(Optional::isPresent)
+                .findFirst()
+                .flatMap(locationUri -> {
+                    try {
+                        hdfsEnvironment.getFileSystem(session.getUser(), new Path(locationUri.get()));
+                    }
+                    catch (IOException e) {
+                        throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
+                    }
+                    return locationUri;
+                });
 
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
@@ -408,7 +418,7 @@ public class HiveMetadata
                 .setOwnerName(session.getUser())
                 .build();
 
-        metastore.createDatabase(database);
+        metastore.  createDatabase(database);
     }
 
     @Override

@@ -56,10 +56,12 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
-import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
+import static com.facebook.presto.hive.HiveWriteUtils.createDirectoryDefaultACL;
+import static com.facebook.presto.hive.HiveWriteUtils.inheritACL;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -266,7 +268,24 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void createDatabase(Database database)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.createDatabase(database));
+        if (database.getLocation().isPresent()) {
+            Path path = new Path(database.getLocation().get());
+            String user = database.getOwnerName();
+            if (!pathExists(database.getOwnerName(), hdfsEnvironment, path)) {
+                createDirectoryDefaultACL(user, hdfsEnvironment, path);
+            }
+            else {
+                throw new PrestoException(
+                        HIVE_PATH_ALREADY_EXISTS,
+                        format("Unable to create directory %s: target directory already exists", path));
+            }
+            setExclusive((delegate, hdfsEnvironment) -> delegate.createDatabase(database));
+        }
+        else {
+            throw new PrestoException(
+                    HIVE_MISSING_DATA,
+                    "Missing location property");
+        }
     }
 
     public synchronized void dropDatabase(String schemaName)
@@ -949,7 +968,7 @@ public class SemiTransactionalHiveMetastore
                     }
                     else {
                         cleanUpTasksForAbort.add(new DirectoryCleanUpTask(user, targetPath, true));
-                        createDirectory(user, hdfsEnvironment, targetPath);
+                        createDirectoryDefaultACL(user, hdfsEnvironment, targetPath);
                     }
                 }
             }
@@ -1609,7 +1628,7 @@ public class SemiTransactionalHiveMetastore
         }
 
         if (!pathExists(user, hdfsEnvironment, target.getParent())) {
-            createDirectory(user, hdfsEnvironment, target.getParent());
+            createDirectoryDefaultACL(user, hdfsEnvironment, target.getParent());
         }
 
         // The runnable will assume that if rename fails, it will be okay to delete the directory (if the directory is empty).
@@ -1619,6 +1638,9 @@ public class SemiTransactionalHiveMetastore
         try {
             if (!hdfsEnvironment.getFileSystem(user, source).rename(source, target)) {
                 throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s: rename returned false", source, target));
+            }
+            else {
+                inheritACL(user, hdfsEnvironment, target);
             }
         }
         catch (IOException e) {
