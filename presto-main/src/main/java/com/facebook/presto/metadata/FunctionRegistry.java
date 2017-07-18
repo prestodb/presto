@@ -97,6 +97,7 @@ import com.facebook.presto.operator.scalar.ListLiteralCast;
 import com.facebook.presto.operator.scalar.MapCardinalityFunction;
 import com.facebook.presto.operator.scalar.MapDistinctFromOperator;
 import com.facebook.presto.operator.scalar.MapEqualOperator;
+import com.facebook.presto.operator.scalar.MapFromEntriesFunction;
 import com.facebook.presto.operator.scalar.MapKeys;
 import com.facebook.presto.operator.scalar.MapNotEqualOperator;
 import com.facebook.presto.operator.scalar.MapSubscriptOperator;
@@ -526,6 +527,7 @@ public class FunctionRegistry
                 .scalar(ArraySliceFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
+                .scalar(MapFromEntriesFunction.class)
                 .scalar(MapNotEqualOperator.class)
                 .scalar(MapKeys.class)
                 .scalar(MapValues.class)
