@@ -734,6 +734,50 @@ public class TestMapOperators
     }
 
     @Test
+    public void testMapFromEntries()
+    {
+        assertFunction("map_from_entries(null)", mapType(UNKNOWN, UNKNOWN), null);
+        assertFunction("map_from_entries(ARRAY[])", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
+        assertFunction("map_from_entries(CAST(ARRAY[] AS ARRAY(ROW(DOUBLE, BIGINT))))", mapType(DOUBLE, BIGINT), ImmutableMap.of());
+        assertFunction("map_from_entries(ARRAY[(1, 3)])", mapType(INTEGER, INTEGER), ImmutableMap.of(1, 3));
+        assertFunction("map_from_entries(ARRAY[(1, 'x'), (2, 'y')])", mapType(INTEGER, createVarcharType(1)), ImmutableMap.of(1, "x", 2, "y"));
+        assertFunction("map_from_entries(ARRAY[('x', 1.0), ('y', 2.0)])", mapType(createVarcharType(1), DOUBLE), ImmutableMap.of("x", 1.0, "y", 2.0));
+
+        assertFunction(
+                "map_from_entries(ARRAY[('x', ARRAY[1, 2]), ('y', ARRAY[3, 4])])",
+                mapType(createVarcharType(1), new ArrayType(INTEGER)),
+                ImmutableMap.of("x", ImmutableList.of(1, 2), "y", ImmutableList.of(3, 4)));
+        assertFunction(
+                "map_from_entries(ARRAY[(ARRAY[1, 2], 'x'), (ARRAY[3, 4], 'y')])",
+                mapType(new ArrayType(INTEGER), createVarcharType(1)),
+                ImmutableMap.of(ImmutableList.of(1, 2), "x", ImmutableList.of(3, 4), "y"));
+        assertFunction(
+                "map_from_entries(ARRAY[('x', MAP(ARRAY[1], ARRAY[2])), ('y', MAP(ARRAY[3], ARRAY[4]))])",
+                mapType(createVarcharType(1), mapType(INTEGER, INTEGER)),
+                ImmutableMap.of("x", ImmutableMap.of(1, 2), "y", ImmutableMap.of(3, 4)));
+        assertFunction(
+                "map_from_entries(ARRAY[(MAP(ARRAY[1], ARRAY[2]), 'x'), (MAP(ARRAY[3], ARRAY[4]), 'y')])",
+                mapType(mapType(INTEGER, INTEGER), createVarcharType(1)),
+                ImmutableMap.of(ImmutableMap.of(1, 2), "x", ImmutableMap.of(3, 4), "y"));
+
+        // null values
+        Map<String, Integer> expectedNullValueMap = new HashMap<>();
+        expectedNullValueMap.put("x", null);
+        expectedNullValueMap.put("y", null);
+        assertFunction("map_from_entries(ARRAY[('x', null), ('y', null)])", mapType(createVarcharType(1), UNKNOWN), expectedNullValueMap);
+
+        // invalid invocation
+        assertInvalidFunction("map_from_entries(ARRAY[('a', 1), ('a', 2)])", "Duplicate keys (a) are not allowed");
+        assertInvalidFunction("map_from_entries(ARRAY[(1, 1), (1, 2)])", "Duplicate keys (1) are not allowed");
+        assertInvalidFunction("map_from_entries(ARRAY[(1.0, 1), (1.0, 2)])", "Duplicate keys (1.0) are not allowed");
+        assertInvalidFunction("map_from_entries(ARRAY[(ARRAY[1, 2], 1), (ARRAY[1, 2], 2)])", "Duplicate keys ([1, 2]) are not allowed");
+        assertInvalidFunction("map_from_entries(ARRAY[(MAP(ARRAY[1], ARRAY[2]), 1), (MAP(ARRAY[1], ARRAY[2]), 2)])", "Duplicate keys ({1=2}) are not allowed");
+        assertInvalidFunction("map_from_entries(ARRAY[(null, 1), (null, 2)])", "map key cannot be null");
+
+        assertCachedInstanceHasBoundedRetainedSize("map_from_entries(ARRAY[('a', 1.0), ('b', 2.0), ('c', 3.0), ('d', 4.0), ('e', 5.0), ('f', 6.0)])");
+    }
+
+    @Test
     public void testMapHashOperator()
     {
         assertMapHashOperator("MAP(ARRAY[1], ARRAY[2])", INTEGER, INTEGER, ImmutableList.of(1, 2));
