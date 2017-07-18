@@ -102,7 +102,7 @@ Date and Time Functions
 
 .. function:: last_day(timestamp) -> date
 
-    Returns last day of the month that contains the timestamp.
+    Returns last day of the month that contains the timestamp.   
 
 .. note:: The following SQL-standard functions do not use parenthesis:
 
