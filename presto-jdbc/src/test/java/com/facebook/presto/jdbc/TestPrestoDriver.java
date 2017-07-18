@@ -1497,7 +1497,7 @@ public class TestPrestoDriver
         });
 
         // make sure the query timed out
-        assertTrue(queryFinished.await(2, SECONDS));
+        queryFinished.await();
         assertNotNull(queryFailure.get());
         assertContains(queryFailure.get().getMessage(), "Query exceeded maximum time limit of 1.00s");
 
