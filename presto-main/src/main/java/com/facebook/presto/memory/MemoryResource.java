@@ -23,7 +23,6 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
-import java.util.ArrayList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -55,7 +54,6 @@ public class MemoryResource
     @Produces(MediaType.APPLICATION_JSON)
     public MemoryInfo getMemoryInfo()
     {
-        taskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest("", 0, new ArrayList<>()));
         return memoryManager.getInfo();
     }
 }
