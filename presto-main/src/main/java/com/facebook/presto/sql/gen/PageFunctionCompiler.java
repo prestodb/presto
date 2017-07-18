@@ -50,10 +50,15 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.Signatures;
 import com.google.common.base.VerifyException;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -97,6 +102,28 @@ public class PageFunctionCompiler
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
+    private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache = CacheBuilder.newBuilder().recordStats().maximumSize(10_000).build(
+            new CacheLoader<RowExpression, Supplier<PageProjection>>()
+            {
+                @Override
+                public Supplier<PageProjection> load(RowExpression projection)
+                        throws Exception
+                {
+                    return compileProjectionInternal(projection);
+                }
+            });
+
+    private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache = CacheBuilder.newBuilder().recordStats().maximumSize(10_000).build(
+            new CacheLoader<RowExpression, Supplier<PageFilter>>()
+            {
+                @Override
+                public Supplier<PageFilter> load(RowExpression projection)
+                        throws Exception
+                {
+                    return compileFilterInternal(projection);
+                }
+            });
+
     @Inject
     public PageFunctionCompiler(Metadata metadata)
     {
@@ -104,7 +131,32 @@ public class PageFunctionCompiler
         this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
     }
 
+    @Managed
+    public long getCacheSize()
+    {
+        return projectionCache.size();
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getProjectionCacheStats()
+    {
+        return new CacheStatsMBean(projectionCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getFilterCacheStats()
+    {
+        return new CacheStatsMBean(filterCache);
+    }
+
     public Supplier<PageProjection> compileProjection(RowExpression projection)
+    {
+        return projectionCache.getUnchecked(projection);
+    }
+
+    private Supplier<PageProjection> compileProjectionInternal(RowExpression projection)
     {
         requireNonNull(projection, "projection is null");
 
@@ -299,6 +351,11 @@ public class PageFunctionCompiler
     }
 
     public Supplier<PageFilter> compileFilter(RowExpression filter)
+    {
+        return filterCache.getUnchecked(filter);
+    }
+
+    private Supplier<PageFilter> compileFilterInternal(RowExpression filter)
     {
         requireNonNull(filter, "filter is null");
 
