@@ -37,7 +37,10 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithFakeNodeCountForStats;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
@@ -186,6 +189,138 @@ public class TestDetermineJoinDistributionType
                 .setSystemProperty("join_distribution_type", "REPLICATED")
                 .matches(join(
                         INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))
+                ));
+    }
+
+    @Test
+    public void testRepartitionsForFullOuterJoin()
+    {
+        StatsCalculator testingStatsCalculator = new TestingStatsCalculator(statsCalculator, ImmutableMap.of(
+                new PlanNodeId("valuesA"), PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10000)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build(),
+                new PlanNodeId("valuesB"), PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build()));
+
+        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(1, 1, 1)))
+                .withStatsCalculator(testingStatsCalculator)
+                .on(p ->
+                        p.join(
+                                FULL,
+                                p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        FULL,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))
+                ));
+    }
+
+    @Test
+    public void testRepartitionsForRightOuterJoin()
+    {
+        StatsCalculator testingStatsCalculator = new TestingStatsCalculator(statsCalculator, ImmutableMap.of(
+                new PlanNodeId("valuesA"), PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10000)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build(),
+                new PlanNodeId("valuesB"), PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build()));
+
+        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(1, 1, 1)))
+                .withStatsCalculator(testingStatsCalculator)
+                .on(p ->
+                        p.join(
+                                RIGHT,
+                                p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        RIGHT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))
+                ));
+    }
+
+    @Test
+    public void testReplicatesForLeftOuterJoin()
+    {
+        StatsCalculator testingStatsCalculator = new TestingStatsCalculator(statsCalculator, ImmutableMap.of(
+                new PlanNodeId("valuesA"), PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10000)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build(),
+                new PlanNodeId("valuesB"), PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build()));
+
+        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(75, 10, 15)))
+                .withStatsCalculator(testingStatsCalculator)
+                .on(p ->
+                        p.join(
+                                LEFT,
+                                p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))
+                ));
+    }
+
+    @Test
+    public void testReplicatesAndFlipsForRightOuterJoin()
+    {
+        StatsCalculator testingStatsCalculator = new TestingStatsCalculator(statsCalculator, ImmutableMap.of(
+                new PlanNodeId("valuesA"), PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build(),
+                new PlanNodeId("valuesB"), PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1000000)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build()));
+
+        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(75, 10, 15)))
+                .withStatsCalculator(testingStatsCalculator)
+                .on(p ->
+                        p.join(
+                                RIGHT,
+                                p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        LEFT,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
                         Optional.empty(),
                         Optional.of(REPLICATED),

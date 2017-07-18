@@ -35,6 +35,7 @@ import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 
 public class DetermineJoinDistributionType
@@ -91,12 +92,18 @@ public class DetermineJoinDistributionType
                             lookup, symbolAllocator, session));
         }
 
-        if (type != RIGHT && type != FULL && joinDistributionType.canReplicate()) {
-            JoinNode possibleJoinNode = joinNode.withDistributionType(REPLICATED);
-            possibleJoinNodes.add(getJoinNodeWithCost(possibleJoinNode, lookup, symbolAllocator, session));
-            possibleJoinNodes.add(
-                    getJoinNodeWithCost(possibleJoinNode.flipChildren().withDistributionType(REPLICATED),
-                            lookup, symbolAllocator, session));
+        if (type != FULL && joinDistributionType.canReplicate()) {
+            // RIGHT OUTER JOIN only works with hash partitioned data.
+            if (type != RIGHT) {
+                possibleJoinNodes.add(getJoinNodeWithCost(joinNode.withDistributionType(REPLICATED),
+                        lookup, symbolAllocator, session));
+            }
+
+            // Don't flip LEFT OUTER JOIN, as RIGHT OUTER JOIN only works with hash partitioned data.
+            if (type != LEFT) {
+                possibleJoinNodes.add(getJoinNodeWithCost(joinNode.flipChildren().withDistributionType(REPLICATED),
+                        lookup, symbolAllocator, session));
+            }
         }
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
