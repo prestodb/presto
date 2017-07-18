@@ -1579,6 +1579,8 @@ public class TestHiveIntegrationSmokeTest
                         "COMMENT 'test'\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
+                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                        "   orc_bloom_filter_fpp = 0.7,\n" +
                         "   partitioned_by = ARRAY['c4','c5']\n" +
                         ")",
                 getSession().getCatalog().get(),
