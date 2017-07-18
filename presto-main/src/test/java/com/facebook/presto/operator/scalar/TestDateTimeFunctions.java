@@ -954,13 +954,10 @@ public class TestDateTimeFunctions
     @Test
     public void testLastDayOfMonth()
     {
-        DateTime result = DATE.withDayOfMonth(31);
-        assertFunction("last_day( " + DATE_LITERAL + ")", DateType.DATE, toDate(result));
-
-        DateTime result2 = DATE.withDayOfMonth(30);
-        assertFunction("last_day( " + TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(result2));
+        assertFunction("last_day( " + DATE_LITERAL + ")", DateType.DATE, toDate(DATE.withDayOfMonth(31)));
+        assertFunction("last_day( " + TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(DATE.withDayOfMonth(31)));
+        assertFunction("last_day( " + WEIRD_TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(DATE.withDayOfMonth(31)));
     }
-
 
     private void assertFunctionString(String projection, Type expectedType, String expected)
     {

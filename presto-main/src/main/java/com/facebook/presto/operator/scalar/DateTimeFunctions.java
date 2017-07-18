@@ -952,22 +952,22 @@ public final class DateTimeFunctions
         return extractZoneOffsetMinutes(timestampWithTimeZone) / 60;
     }
 
-    @Description("time zone hour of the given timestamp")
+    @Description("last day of the month that contains timestamp")
     @ScalarFunction("last_day")
     @SqlType(StandardTypes.DATE)
-    public static long lastDayOfMonthFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    public static long lastDayOfMonthFromTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        DateTime dateTime = new DateTime(getChronology(session.getTimeZoneKey()).millis().getMillis(timestamp));
-        return MILLISECONDS.toDays(dateTime.dayOfMonth().withMaximumValue().getMillis());
+        DateTime dateTime = new DateTime(unpackChronology(timestampWithTimeZone).millis().getMillis(unpackMillisUtc(timestampWithTimeZone))).dayOfMonth().withMaximumValue();
+        return MILLISECONDS.toDays(dateTime.dayOfMonth().roundCeilingCopy().getMillis());
     }
 
-    @Description("time zone hour of the given date")
+    @Description("last day of the month that contains the date")
     @ScalarFunction("last_day")
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        DateTime dateTime = new DateTime( DAYS.toMillis(date));
-        return MILLISECONDS.toDays(dateTime.dayOfMonth().withMaximumValue().getMillis());
+        DateTime dateTime = new DateTime(DAYS.toMillis(date)).dayOfMonth().withMaximumValue();
+        return MILLISECONDS.toDays(dateTime.dayOfMonth().roundCeilingCopy().getMillis());
     }
 
     @SuppressWarnings("fallthrough")
