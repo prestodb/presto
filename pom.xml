@@ -1166,9 +1166,9 @@
             </plugin>
 
             <plugin>
-                <groupId>io.takari.maven.plugins</groupId>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.1.12</version>
+                <version>0.2</version>
                 <extensions>true</extensions>
             </plugin>
 
