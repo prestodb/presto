@@ -93,6 +93,7 @@ public class HiveClientConfig
 
     private boolean useOrcColumnNames;
     private boolean orcBloomFiltersEnabled;
+    private Double orcBloomFilterFpp = 0.05;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
@@ -673,6 +674,19 @@ public class HiveClientConfig
     public HiveClientConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
     {
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Double getOrcBloomFilterFpp()
+    {
+        return orcBloomFilterFpp;
+    }
+
+    @Config("hive.orc.bloom-filter-fpp")
+    public HiveClientConfig setOrcBloomFilterFpp(Double orcBloomFilterFpp)
+    {
+        this.orcBloomFilterFpp = orcBloomFilterFpp;
         return this;
     }
 
