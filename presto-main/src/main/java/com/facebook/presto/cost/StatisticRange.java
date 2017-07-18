@@ -96,6 +96,9 @@ public class StatisticRange
 
         double lengthOfIntersect = min(high, other.high) - max(low, other.low);
         if (isInfinite(lengthOfIntersect)) {
+            if (isFinite(this.distinctValues) && isFinite(other.distinctValues)) {
+                return min(other.distinctValues / this.distinctValues, 1);
+            }
             return INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR;
         }
         if (lengthOfIntersect == 0) {

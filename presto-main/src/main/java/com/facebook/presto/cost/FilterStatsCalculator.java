@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.OptionalDouble;
 
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToLiteralStats;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonSymbolToSymbolStats;
@@ -259,11 +260,11 @@ public class FilterStatsCalculator
             return filterStatsForUnknownExpression(input);
         }
 
-        private double doubleValueFromLiteral(Type type, Literal literal)
+        private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
             Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), literal);
             DomainConverter domainConverter = new DomainConverter(type, metadata.getFunctionRegistry(), session.toConnectorSession());
-            return domainConverter.translateToDouble(literalValue).orElse(NaN);
+            return domainConverter.translateToDouble(literalValue);
         }
     }
 }
