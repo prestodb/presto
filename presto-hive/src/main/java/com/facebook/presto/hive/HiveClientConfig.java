@@ -96,7 +96,6 @@ public class HiveClientConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
-    private Float orcBloomFilterFpp = 0.05f;
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean rcfileOptimizedWriterEnabled = true;
@@ -653,17 +652,6 @@ public class HiveClientConfig
     }
 
     @NotNull
-    public Float getOrcBloomFilterFpp()
-    {
-        return orcBloomFilterFpp;
-    }
-
-    @Config("hive.orc.bloom-filter-fpp")
-    public void setOrcBloomFilterFpp(Float orcBloomFilterFpp)
-    {
-        this.orcBloomFilterFpp = orcBloomFilterFpp;
-    }
-  
     public DataSize getOrcMaxReadBlockSize()
     {
         return orcMaxReadBlockSize;
@@ -674,7 +662,6 @@ public class HiveClientConfig
     {
         this.orcMaxReadBlockSize = orcMaxReadBlockSize;
         return this;
-
     }
 
     public boolean isOrcBloomFiltersEnabled()
