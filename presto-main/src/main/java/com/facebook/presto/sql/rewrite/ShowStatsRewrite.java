@@ -167,7 +167,7 @@ public class ShowStatsRewrite
             }
         }
 
-        void validateShowStatsWhereExpression(Expression expression, ShowStats node)
+        private void validateShowStatsWhereExpression(Expression expression, ShowStats node)
         {
             check(ALLOWED_SHOW_STATS_WHERE_EXPRESSION_TYPES.stream().anyMatch(clazz -> clazz.isInstance(expression)), node, "Only literals, column references, comparators, is (not) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
 
@@ -265,7 +265,7 @@ public class ShowStatsRewrite
             return unmodifiableList(new ArrayList(statisticsKeys));
         }
 
-        static List<Expression> buildStatisticsRows(TableStatistics tableStatistics, Map<ColumnHandle, String> columnNames, List<String> statisticsNames)
+        private static List<Expression> buildStatisticsRows(TableStatistics tableStatistics, Map<ColumnHandle, String> columnNames, List<String> statisticsNames)
         {
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
 
@@ -281,12 +281,12 @@ public class ShowStatsRewrite
             return rowsBuilder.build();
         }
 
-        static List<SelectItem> buildSelectItems(List<String> columnNames)
+        private static List<SelectItem> buildSelectItems(List<String> columnNames)
         {
             return columnNames.stream().map(QueryUtil::unaliasedName).collect(toImmutableList());
         }
 
-        static List<String> buildColumnsNames(List<String> statisticsNames)
+        private static List<String> buildColumnsNames(List<String> statisticsNames)
         {
             ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
             columnNamesBuilder.add("column_name");
