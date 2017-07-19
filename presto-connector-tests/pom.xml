@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.facebook.presto</groupId>
+        <artifactId>presto-root</artifactId>
+        <version>0.182-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>presto-connector-tests</artifactId>
+    <description>Tests for Presto Connectors</description>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+		<junit.version>4.12</junit.version>
+		<junit.jupiter.version>5.0.0-M6</junit.jupiter.version>
+		<junit.vintage.version>${junit.version}.0-M6</junit.vintage.version>
+		<junit.platform.version>1.0.0-M6</junit.platform.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>${junit.jupiter.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>${junit.version}</version>
+            <scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.platform</groupId>
+			<artifactId>junit-platform-launcher</artifactId>
+			<version>${junit.platform.version}</version>
+            <scope>runtime</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<version>${junit.jupiter.version}</version>
+            <scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.vintage</groupId>
+			<artifactId>junit-vintage-engine</artifactId>
+			<version>${junit.vintage.version}</version>
+            <scope>runtime</scope>
+		</dependency>
+
+    </dependencies>
+</project>

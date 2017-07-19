@@ -115,6 +115,7 @@
         <module>presto-thrift-connector-api</module>
         <module>presto-thrift-testing-server</module>
         <module>presto-thrift-connector</module>
+        <module>presto-connector-tests</module>
     </modules>
 
     <dependencyManagement>
@@ -326,6 +327,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-sqlserver</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-connector-tests</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
