@@ -10,6 +10,7 @@ General Changes
 * Prevent ``CREATE TABLE IF NOT EXISTS`` queries from ever failing with *"Table already exists"*.
 * Fix query failure when ``ORDER BY`` expressions reference columns that are used in
   the ``GROUP BY`` clause by their fully-qualified name.
+* Fix excessive GC overhead caused by large arrays and maps containing ``VARCHAR`` elements.
 * Improve error handling when passing too many arguments to various
   functions or operators that take a variable number of arguments.
 * Improve performance of ``count(*)`` aggregations over subqueries with known
