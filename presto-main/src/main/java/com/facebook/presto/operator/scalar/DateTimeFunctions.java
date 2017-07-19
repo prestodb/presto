@@ -952,6 +952,24 @@ public final class DateTimeFunctions
         return extractZoneOffsetMinutes(timestampWithTimeZone) / 60;
     }
 
+    @Description("time zone hour of the given timestamp")
+    @ScalarFunction("last_day")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    {
+        DateTime dateTime = new DateTime(getChronology(session.getTimeZoneKey()).millis().getMillis(timestamp));
+        return MILLISECONDS.toDays(dateTime.dayOfMonth().withMaximumValue().getMillis());
+    }
+
+    @Description("time zone hour of the given date")
+    @ScalarFunction("last_day")
+    @SqlType(StandardTypes.DATE)
+    public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
+    {
+        DateTime dateTime2 = new DateTime(DAYS.toMillis(date));
+        return MILLISECONDS.toDays(dateTime2.dayOfMonth().withMaximumValue().getMillis());
+    }
+
     @SuppressWarnings("fallthrough")
     public static DateTimeFormatter createDateTimeFormatter(Slice format)
     {
