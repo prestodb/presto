@@ -31,6 +31,8 @@ public final class ColumnStatistics
     private ColumnStatistics(Estimate dataSize, Estimate nullsCount, Estimate distinctValuesCount)
     {
         requireNonNull(dataSize, "dataSize can not be null");
+        requireNonNull(nullsCount, "nullsCount can not be null");
+        requireNonNull(distinctValuesCount, "distinctValuesCount can not be null");
         statistics = createStatisticsMap(dataSize, nullsCount, distinctValuesCount);
     }
 
@@ -76,7 +78,7 @@ public final class ColumnStatistics
 
         public Builder setDataSize(Estimate dataSize)
         {
-            this.dataSize = requireNonNull(dataSize, "dataSize can not be null");
+            this.dataSize = dataSize;
             return this;
         }
 
