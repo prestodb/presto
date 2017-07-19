@@ -386,6 +386,17 @@ final class ExpressionVerifier
         return expected instanceof NullLiteral;
     }
 
+    @Override
+    protected Boolean visitInListExpression(InListExpression actual, Node expected)
+    {
+        if (!(expected instanceof InListExpression)) {
+            return false;
+        }
+
+        InListExpression expectedInList = (InListExpression) expected;
+        return process(actual.getValues(), expectedInList.getValues());
+    }
+
     private <T extends Node> boolean process(List<T> actuals, List<T> expecteds)
     {
         if (actuals.size() != expecteds.size()) {
