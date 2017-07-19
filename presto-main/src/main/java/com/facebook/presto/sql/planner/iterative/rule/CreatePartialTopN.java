@@ -48,11 +48,9 @@ public class CreatePartialTopN
             return Optional.empty();
         }
 
-        PlanNode source = context.getLookup().resolve(single.getSource());
-
         TopNNode partial = new TopNNode(
                 context.getIdAllocator().getNextId(),
-                source,
+                single.getSource(),
                 single.getCount(),
                 single.getOrderBy(),
                 single.getOrderings(),
