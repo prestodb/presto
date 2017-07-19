@@ -19,14 +19,21 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.RuleSet;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Optional.empty;
+import static java.util.stream.Collectors.toSet;
 
 public class RuleTester
         implements Closeable
@@ -52,7 +59,7 @@ public class RuleTester
         queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
-                ImmutableMap.<String, String>of());
+                ImmutableMap.of());
 
         this.metadata = queryRunner.getMetadata();
         this.costCalculator = queryRunner.getCostCalculator();
@@ -65,9 +72,36 @@ public class RuleTester
         return new RuleAssert(metadata, costCalculator, session, rule, transactionManager, accessControl);
     }
 
+    public RuleAssert assertThat(RuleSet rules)
+    {
+        return assertThat(new RuleSetAdapter(rules));
+    }
+
     @Override
     public void close()
     {
         queryRunner.close();
+    }
+
+    private class RuleSetAdapter
+            implements Rule
+    {
+        private final RuleSet ruleSet;
+
+        RuleSetAdapter(RuleSet ruleSet)
+        {
+            this.ruleSet = ruleSet;
+        }
+
+        @Override
+        public Optional<PlanNode> apply(PlanNode node, Context context)
+        {
+            Set<Rule> matching = ruleSet.rules().stream().filter(rule -> rule.getPattern().matches(node)).collect(toSet());
+            if (matching.size() == 0) {
+                return empty();
+            }
+
+            return getOnlyElement(matching).apply(node, context);
+        }
     }
 }
