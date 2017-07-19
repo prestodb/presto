@@ -225,7 +225,7 @@ public class SliceArrayBlock
     private static long getSliceArrayRetainedSizeInBytes(Slice[] values)
     {
         long sizeInBytes = sizeOf(values);
-        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>(values.length);
+        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>();
         for (Slice value : values) {
             if (value == null) {
                 continue;
