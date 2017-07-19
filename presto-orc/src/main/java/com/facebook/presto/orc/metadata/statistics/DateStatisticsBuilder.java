@@ -66,6 +66,7 @@ public class DateStatisticsBuilder
                 null,
                 buildDateStatistics().orElse(null),
                 null,
+                null,
                 null);
     }
 

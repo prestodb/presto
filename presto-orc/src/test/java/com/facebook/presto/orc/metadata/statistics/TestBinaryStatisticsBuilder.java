@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.NONE;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestBinaryStatisticsBuilder
         extends AbstractStatisticsBuilderTest<BinaryStatisticsBuilder, Slice>
@@ -38,5 +45,58 @@ public class TestBinaryStatisticsBuilder
         assertMinMaxValues(EMPTY_SLICE, EMPTY_SLICE);
         assertMinMaxValues(FIRST_VALUE, SECOND_VALUE);
         assertMinMaxValues(SECOND_VALUE, FIRST_VALUE);
+    }
+
+    @Test
+    public void testSum()
+    {
+        BinaryStatisticsBuilder binaryStatisticsBuilder = new BinaryStatisticsBuilder();
+        for (Slice value : ImmutableList.of(EMPTY_SLICE, FIRST_VALUE, SECOND_VALUE)) {
+            binaryStatisticsBuilder.addValue(value);
+        }
+        assertBinaryStatistics(binaryStatisticsBuilder.buildColumnStatistics(), 3, EMPTY_SLICE.length() + FIRST_VALUE.length() + SECOND_VALUE.length());
+    }
+
+    @Test
+    public void testMerge()
+    {
+        List<ColumnStatistics> statisticsList = new ArrayList<>();
+
+        BinaryStatisticsBuilder statisticsBuilder = new BinaryStatisticsBuilder();
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedBinaryStatistics(statisticsList, 0, 0);
+
+        statisticsBuilder.addValue(EMPTY_SLICE);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedBinaryStatistics(statisticsList, 1, 0);
+
+        statisticsBuilder.addValue(FIRST_VALUE);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedBinaryStatistics(statisticsList, 3, FIRST_VALUE.length());
+
+        statisticsBuilder.addValue(SECOND_VALUE);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedBinaryStatistics(statisticsList, 6, FIRST_VALUE.length() * 2 + SECOND_VALUE.length());
+    }
+
+    private void assertMergedBinaryStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, long expectedSum)
+    {
+        assertBinaryStatistics(mergeColumnStatistics(statisticsList), expectedNumberOfValues, expectedSum);
+
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, 0, 10)), expectedNumberOfValues + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size(), 10)), expectedNumberOfValues + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size() / 2, 10)), expectedNumberOfValues + 10);
+    }
+
+    private void assertBinaryStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, long expectedSum)
+    {
+        if (expectedNumberOfValues > 0) {
+            assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
+            assertEquals(columnStatistics.getBinaryStatistics().getSum(), expectedSum);
+        }
+        else {
+            assertNull(columnStatistics.getBinaryStatistics());
+            assertEquals(columnStatistics.getNumberOfValues(), 0);
+        }
     }
 }

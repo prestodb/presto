@@ -17,6 +17,7 @@ import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.metadata.statistics.BinaryStatistics;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
@@ -207,6 +208,7 @@ public class DwrfMetadataReader
                 toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 null,
                 null,
+                toBinaryStatistics(statistics.getBinaryStatistics()),
                 null);
     }
 
@@ -271,6 +273,15 @@ public class DwrfMetadataReader
         }
 
         return new StringStatistics(minimum, maximum);
+    }
+
+    private static BinaryStatistics toBinaryStatistics(DwrfProto.BinaryStatistics binaryStatistics)
+    {
+        if (!binaryStatistics.hasSum()) {
+            return null;
+        }
+
+        return new BinaryStatistics(binaryStatistics.getSum());
     }
 
     private static OrcType toType(DwrfProto.Type type)

@@ -61,6 +61,7 @@ public class ShortDecimalStatisticsBuilder
                 null,
                 null,
                 buildDecimalStatistics().orElse(null),
+                null,
                 null);
     }
 }

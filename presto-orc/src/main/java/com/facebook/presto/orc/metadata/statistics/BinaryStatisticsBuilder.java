@@ -15,19 +15,40 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
 
+import java.util.List;
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class BinaryStatisticsBuilder
         implements SliceColumnStatisticsBuilder
 {
     private long nonNullValueCount;
+    private long sum;
 
     @Override
     public void addValue(Slice value)
     {
         requireNonNull(value, "value is null");
 
+        sum += value.length();
         nonNullValueCount++;
+    }
+
+    private Optional<BinaryStatistics> buildBinaryStatistics()
+    {
+        if (nonNullValueCount == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(new BinaryStatistics(sum));
+    }
+
+    private void addBinaryStatistics(long valueCount, BinaryStatistics value)
+    {
+        requireNonNull(value, "value is null");
+
+        nonNullValueCount += valueCount;
+        sum += value.getSum();
     }
 
     @Override
@@ -41,6 +62,23 @@ public class BinaryStatisticsBuilder
                 null,
                 null,
                 null,
+                buildBinaryStatistics().orElse(null),
                 null);
+    }
+
+    public static Optional<BinaryStatistics> mergeBinaryStatistics(List<ColumnStatistics> stats)
+    {
+        BinaryStatisticsBuilder binaryStatisticsBuilder = new BinaryStatisticsBuilder();
+        for (ColumnStatistics columnStatistics : stats) {
+            BinaryStatistics partialStatistics = columnStatistics.getBinaryStatistics();
+            if (columnStatistics.getNumberOfValues() > 0) {
+                if (partialStatistics == null) {
+                    // there are non null values but no statistics, so we can not say anything about the data
+                    return Optional.empty();
+                }
+                binaryStatisticsBuilder.addBinaryStatistics(columnStatistics.getNumberOfValues(), partialStatistics);
+            }
+        }
+        return binaryStatisticsBuilder.buildBinaryStatistics();
     }
 }

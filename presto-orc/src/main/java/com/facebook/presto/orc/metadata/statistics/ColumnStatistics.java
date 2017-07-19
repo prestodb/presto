@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata.statistics;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder.mergeBinaryStatistics;
 import static com.facebook.presto.orc.metadata.statistics.BooleanStatisticsBuilder.mergeBooleanStatistics;
 import static com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder.mergeDateStatistics;
 import static com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder.mergeDoubleStatistics;
@@ -33,6 +34,7 @@ public class ColumnStatistics
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
     private final DecimalStatistics decimalStatistics;
+    private final BinaryStatistics binaryStatistics;
     private final HiveBloomFilter bloomFilter;
 
     public ColumnStatistics(
@@ -43,6 +45,7 @@ public class ColumnStatistics
             StringStatistics stringStatistics,
             DateStatistics dateStatistics,
             DecimalStatistics decimalStatistics,
+            BinaryStatistics binaryStatistics,
             HiveBloomFilter bloomFilter)
     {
         this.numberOfValues = numberOfValues;
@@ -52,6 +55,7 @@ public class ColumnStatistics
         this.stringStatistics = stringStatistics;
         this.dateStatistics = dateStatistics;
         this.decimalStatistics = decimalStatistics;
+        this.binaryStatistics = binaryStatistics;
         this.bloomFilter = bloomFilter;
     }
 
@@ -95,6 +99,11 @@ public class ColumnStatistics
         return decimalStatistics;
     }
 
+    public BinaryStatistics getBinaryStatistics()
+    {
+        return binaryStatistics;
+    }
+
     public HiveBloomFilter getBloomFilter()
     {
         return bloomFilter;
@@ -110,6 +119,7 @@ public class ColumnStatistics
                 stringStatistics,
                 dateStatistics,
                 decimalStatistics,
+                binaryStatistics,
                 bloomFilter);
     }
 
@@ -169,6 +179,7 @@ public class ColumnStatistics
                 mergeStringStatistics(stats).orElse(null),
                 mergeDateStatistics(stats).orElse(null),
                 mergeDecimalStatistics(stats).orElse(null),
+                mergeBinaryStatistics(stats).orElse(null),
                 null);
     }
 }
