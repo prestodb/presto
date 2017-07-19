@@ -17,6 +17,7 @@ import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.metadata.statistics.BinaryStatistics;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.DateStatistics;
@@ -215,6 +216,7 @@ public class OrcMetadataReader
                 toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup),
                 toDecimalStatistics(statistics.getDecimalStatistics()),
+                toBinaryStatistics(statistics.getBinaryStatistics()),
                 null);
     }
 
@@ -330,6 +332,15 @@ public class OrcMetadataReader
         BigDecimal maximum = decimalStatistics.hasMaximum() ? new BigDecimal(decimalStatistics.getMaximum()) : null;
 
         return new DecimalStatistics(minimum, maximum);
+    }
+
+    private static BinaryStatistics toBinaryStatistics(OrcProto.BinaryStatistics binaryStatistics)
+    {
+        if (!binaryStatistics.hasSum()) {
+            return null;
+        }
+
+        return new BinaryStatistics(binaryStatistics.getSum());
     }
 
     @VisibleForTesting

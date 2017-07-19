@@ -78,6 +78,7 @@ public class LongDecimalStatisticsBuilder
                 null,
                 null,
                 buildDecimalStatistics().orElse(null),
+                null,
                 null);
     }
 

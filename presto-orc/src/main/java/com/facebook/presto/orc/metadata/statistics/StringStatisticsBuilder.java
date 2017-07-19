@@ -81,6 +81,7 @@ public class StringStatisticsBuilder
                 buildStringStatistics().orElse(null),
                 null,
                 null,
+                null,
                 null);
     }
 
