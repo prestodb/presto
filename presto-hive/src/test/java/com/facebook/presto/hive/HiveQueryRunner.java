@@ -54,7 +54,7 @@ public final class HiveQueryRunner
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
+    public static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
