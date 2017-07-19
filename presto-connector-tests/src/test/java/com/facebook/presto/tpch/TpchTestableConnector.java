@@ -25,7 +25,8 @@ import static com.facebook.presto.test.ConnectorFeature.READ_DATA;
  * presto-connector-tests as a dependency of presto-tpch without creating a
  * circular dependency.
  */
-@TestableConnector(connectorName = "Tpch", supportedFeatures = {READ_DATA})
+@TestableConnector(connectorName = "Tpch",
+        supportedFeatures = {READ_DATA})
 public class TpchTestableConnector
 {
     private TpchTestableConnector()
