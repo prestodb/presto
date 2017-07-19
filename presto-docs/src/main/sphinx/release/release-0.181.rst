@@ -7,6 +7,7 @@ General Changes
 
 * Fix query failure and memory usage tracking when query contains
   :func:`transform_keys` or :func:`transform_values`.
+* Fix excessive GC overhead caused by large array/map of VARCHAR.
 * Prevent ``CREATE TABLE IF NOT EXISTS`` queries from ever failing with *"Table already exists"*.
 * Fix query failure when ``ORDER BY`` expressions reference columns that are used in
   the ``GROUP BY`` clause by their fully-qualified name.
