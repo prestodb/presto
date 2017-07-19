@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+
+import java.util.HashMap;
+import java.util.Optional;
 
 public interface InternalConnector
         extends Connector
@@ -27,4 +31,5 @@ public interface InternalConnector
     }
 
     ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly);
+    Optional<HashMap<String[],ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols);
 }

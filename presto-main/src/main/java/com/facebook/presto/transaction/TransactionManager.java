@@ -99,6 +99,11 @@ public class TransactionManager
         this.finishingExecutor = finishingExecutor;
     }
 
+    public CatalogManager getCatalogManager()
+    {
+        return catalogManager;
+    }
+
     public static TransactionManager create(
             TransactionManagerConfig config,
             ScheduledExecutorService idleCheckExecutor,

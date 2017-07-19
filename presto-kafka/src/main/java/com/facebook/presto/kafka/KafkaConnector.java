@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
@@ -23,6 +24,9 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
+
+import java.util.HashMap;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -52,6 +56,11 @@ public class KafkaConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+    }
+
+    @Override
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+        return Optional.empty();
     }
 
     @Override

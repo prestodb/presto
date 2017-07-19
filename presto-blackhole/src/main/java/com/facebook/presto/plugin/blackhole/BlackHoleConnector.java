@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -27,7 +28,9 @@ import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
@@ -72,6 +75,11 @@ public class BlackHoleConnector
         this.partitioningProvider = partitioningProvider;
         this.typeManager = typeManager;
         this.executorService = executorService;
+    }
+
+    @Override
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+        return Optional.empty();
     }
 
     @Override

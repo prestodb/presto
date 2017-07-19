@@ -14,10 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.FixedPageSource;
-import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.*;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -42,7 +39,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -191,6 +190,11 @@ public class TestBeginQuery
         private TestConnector(ConnectorMetadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+        }
+
+        @Override
+        public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+            return Optional.empty();
         }
 
         @Override

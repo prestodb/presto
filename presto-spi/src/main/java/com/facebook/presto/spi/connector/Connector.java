@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -26,6 +29,8 @@ import static java.util.Collections.emptySet;
 
 public interface Connector
 {
+    Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols);
+
     ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
 
     /**

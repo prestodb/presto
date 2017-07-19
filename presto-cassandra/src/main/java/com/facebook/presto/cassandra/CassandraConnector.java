@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
@@ -24,6 +25,9 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
+
+import java.util.HashMap;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -53,6 +57,12 @@ public class CassandraConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.recordSinkProvider = requireNonNull(recordSinkProvider, "recordSinkProvider is null");
+    }
+
+    @Override
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols)
+    {
+        return Optional.empty();
     }
 
     @Override

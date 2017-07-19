@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
@@ -25,7 +26,9 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
@@ -75,6 +78,12 @@ public class TpchConnectorFactory
 
         return new Connector()
         {
+            @Override
+            public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols)
+            {
+                return Optional.empty();
+            }
+
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
             {

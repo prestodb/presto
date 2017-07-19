@@ -20,6 +20,7 @@ import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashMap;
 import java.util.Optional;
 
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
@@ -78,6 +80,12 @@ public final class TestingSession
     {
         return new Connector()
         {
+            @Override
+            public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols)
+            {
+                return Optional.empty();
+            }
+
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
             {

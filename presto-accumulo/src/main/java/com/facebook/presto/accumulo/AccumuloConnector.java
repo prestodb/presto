@@ -17,6 +17,7 @@ import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.io.AccumuloPageSinkProvider;
 import com.facebook.presto.accumulo.io.AccumuloRecordSetProvider;
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -30,7 +31,9 @@ import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -82,6 +85,11 @@ public class AccumuloConnector
         ConnectorMetadata metadata = transactions.get(transactionHandle);
         checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
         return metadata;
+    }
+
+    @Override
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+        return Optional.empty();
     }
 
     @Override

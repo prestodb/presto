@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -31,7 +32,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
@@ -155,6 +158,19 @@ public class HiveConnector
     public boolean isSingleStatementWritesOnly()
     {
         return false;
+    }
+
+    @Override
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+        HashMap<String[], ColHistogram> map = new HashMap<String[], ColHistogram>();
+        ColHistogram h = new ColHistogram();
+        h.setMinVal(0);
+        h.setRowcount(20);
+        h.setBucketNum(1);
+        h.setMaxVal(1);
+        h.addBucket(1,1,1,1);
+        map.put(new String[]{"lineitem"},h);
+        return Optional.of(map);
     }
 
     @Override

@@ -32,6 +32,7 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -54,6 +55,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -1686,6 +1688,12 @@ public class TestAnalyzer
         return new Connector()
         {
             private final ConnectorMetadata metadata = new TestingMetadata();
+
+            @Override
+            public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols)
+            {
+                return Optional.empty();
+            }
 
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)

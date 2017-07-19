@@ -15,6 +15,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -24,6 +25,8 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
 import com.facebook.presto.transaction.TransactionId;
 
+import java.util.HashMap;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -60,6 +63,11 @@ public class SystemConnector
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
         return new SystemTransactionHandle(connectorId, transactionId, transactionHandleFunction);
+    }
+
+    @Override
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+        return Optional.empty();
     }
 
     @Override

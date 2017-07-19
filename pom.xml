@@ -969,6 +969,8 @@
                                         <ignore />
                                     </action>
                                 </pluginExecution>
+
+                                <!--2017 by xw  关闭checkstyle
                                 <pluginExecution>
                                     <pluginExecutionFilter>
                                         <groupId>org.apache.maven.plugins</groupId>
@@ -981,7 +983,9 @@
                                     <action>
                                         <ignore />
                                     </action>
-                                </pluginExecution>
+                                </pluginExecution>    -->
+
+
                                 <pluginExecution>
                                     <pluginExecutionFilter>
                                         <groupId>io.takari.maven.plugins</groupId>
@@ -1019,6 +1023,7 @@
         </pluginManagement>
 
         <plugins>
+            <!--2017 by xw  关闭checkstyle
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
@@ -1051,7 +1056,7 @@
                         <version>7.3</version>
                     </dependency>
                 </dependencies>
-            </plugin>
+            </plugin>  -->
 
             <plugin>
                 <groupId>io.takari.maven.plugins</groupId>

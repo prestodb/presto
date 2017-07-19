@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
@@ -36,9 +37,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -116,6 +115,11 @@ public class RaptorConnector
     public boolean isSingleStatementWritesOnly()
     {
         return true;
+    }
+
+    @Override
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+        return Optional.empty();
     }
 
     @Override

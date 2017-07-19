@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
+
+import java.util.HashMap;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -63,6 +67,11 @@ public class JmxConnector
     public JmxRecordSetProvider getRecordSetProvider()
     {
         return jmxRecordSetProvider;
+    }
+
+    @Override
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+        return Optional.empty();
     }
 
     @Override

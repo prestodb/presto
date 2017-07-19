@@ -26,9 +26,11 @@ import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -68,6 +70,8 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -247,6 +251,24 @@ public final class SqlQueryExecution
                 PlanRoot plan = analyzeQuery();
 
                 metadata.beginQuery(getSession(), plan.getConnectors());
+
+                //2.2017 07 17 by xw  在语法解析后执行计划优化前加载统计信息
+                //----start----
+                String dbname = "tpch_flat_orc_2";
+                String[][] cols = {{"l_orderkey", "l_suppkey"}, {"o_orderkey", " o_custkey"}, {"c_nationkey", " c_custkey "}, {"s_suppkey", "s_nationkey"}, {"n_nationkey", "n_regionkey"}, {"r_regionkey"}};
+                String[] tables = {"lineitem", "orders", "customer", "supplier", "nation", "region"};
+                Optional<Catalog> catalog = stateMachine.getTransactionManager().getCatalogManager().getCatalog("hive");
+                if (catalog.isPresent()) {
+                    Optional<HashMap<String[], ColHistogram>> histograms = catalog.get().getConnector(catalog.get().getConnectorId()).getHistograms(dbname, tables, cols);
+                    if (histograms .isPresent()) {
+                        Iterator<Map.Entry<String[], ColHistogram>> it = histograms.get().entrySet().iterator();
+                        while (it.hasNext()) {
+                            it.next();
+                        }
+                        String t = "";
+                    }
+                }
+                //-----end------
 
                 // plan distribution of query
                 planDistribution(plan);
