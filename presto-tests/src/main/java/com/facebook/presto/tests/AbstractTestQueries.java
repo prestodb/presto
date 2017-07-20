@@ -105,7 +105,7 @@ public abstract class AbstractTestQueries
 {
     // We can just use the default type registry, since we don't use any parametric types
     protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
-            .aggregate(CustomSum.class)
+            .aggregates(CustomSum.class)
             .window(CustomRank.class)
             .scalars(CustomAdd.class)
             .scalars(CreateHll.class)

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-public class MaxBy
+public class MaxByAggregationFunction
         extends AbstractMinMaxBy
 {
-    public static final MaxBy MAX_BY = new MaxBy();
+    public static final MaxByAggregationFunction MAX_BY = new MaxByAggregationFunction();
 
-    public MaxBy()
+    public MaxByAggregationFunction()
     {
         super(false);
     }
