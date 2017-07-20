@@ -72,7 +72,6 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -300,7 +299,7 @@ public class HashGenerationOptimizer
                 PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(), true, new HashComputationSet());
                 checkState(left.getHashSymbols().isEmpty() && right.getHashSymbols().isEmpty());
                 return new PlanWithProperties(
-                        replaceChildren(node, ImmutableList.of(left.getNode(), right.getNode())),
+                        node.replaceChildren(ImmutableList.of(left.getNode(), right.getNode())),
                         ImmutableMap.of());
             }
 
@@ -649,7 +648,7 @@ public class HashGenerationOptimizer
 
             // There is not requirement to produce hash symbols and only preference for symbols
             PlanWithProperties source = planAndEnforce(Iterables.getOnlyElement(node.getSources()), new HashComputationSet(), alwaysPruneExtraHashSymbols, preferredHashes);
-            PlanNode result = replaceChildren(node, ImmutableList.of(source.getNode()));
+            PlanNode result = node.replaceChildren(ImmutableList.of(source.getNode()));
 
             // return only hash symbols that are passed through the new node
             Map<HashComputation, Symbol> hashSymbols = new HashMap<>(source.getHashSymbols());

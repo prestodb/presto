@@ -45,7 +45,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
-import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.stream.Collectors.toSet;
@@ -187,21 +186,21 @@ public class BeginTableWrite
 
             if (node instanceof FilterNode) {
                 PlanNode source = rewriteDeleteTableScan(((FilterNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source));
+                return node.replaceChildren(ImmutableList.of(source));
             }
             if (node instanceof ProjectNode) {
                 PlanNode source = rewriteDeleteTableScan(((ProjectNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source));
+                return node.replaceChildren(ImmutableList.of(source));
             }
             if (node instanceof SemiJoinNode) {
                 PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
+                return node.replaceChildren(ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
             if (node instanceof JoinNode) {
                 JoinNode joinNode = (JoinNode) node;
                 if (joinNode.getType() == JoinNode.Type.INNER && isAtMostScalar(joinNode.getRight())) {
                     PlanNode source = rewriteDeleteTableScan(joinNode.getLeft(), handle);
-                    return replaceChildren(node, ImmutableList.of(source, joinNode.getRight()));
+                    return node.replaceChildren(ImmutableList.of(source, joinNode.getRight()));
                 }
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());

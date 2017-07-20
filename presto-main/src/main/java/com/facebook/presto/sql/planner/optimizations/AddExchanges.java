@@ -38,7 +38,6 @@ import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -965,7 +964,7 @@ public class AddExchanges
             // TODO: if input is grouped, create streaming join
 
             // index side is really a nested-loops plan, so don't add exchanges
-            PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
+            PlanNode result = node.replaceChildren(ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(probeSource.getProperties(), indexSource.getProperties())));
         }
 
@@ -1231,7 +1230,7 @@ public class AddExchanges
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, PlanWithProperties child)
         {
             return withDerivedProperties(
-                    ChildReplacer.replaceChildren(node, ImmutableList.of(child.getNode())),
+                    node.replaceChildren(ImmutableList.of(child.getNode())),
                     child.getProperties());
         }
 

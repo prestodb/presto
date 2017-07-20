@@ -73,7 +73,6 @@ import static com.facebook.presto.sql.planner.optimizations.StreamPreferredPrope
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.singleStream;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
-import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -573,11 +572,9 @@ public class AddLocalExchanges
 
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, List<PlanWithProperties> children)
         {
-            PlanNode result = replaceChildren(
-                    node,
-                    children.stream()
-                            .map(PlanWithProperties::getNode)
-                            .collect(toList()));
+            PlanNode result = node.replaceChildren(children.stream()
+                    .map(PlanWithProperties::getNode)
+                    .collect(toList()));
 
             List<StreamProperties> inputProperties = children.stream()
                     .map(PlanWithProperties::getProperties)
