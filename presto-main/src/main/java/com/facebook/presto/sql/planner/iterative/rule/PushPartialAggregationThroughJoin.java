@@ -62,6 +62,11 @@ public class PushPartialAggregationThroughJoin
             return Optional.empty();
         }
 
+        if (aggregationNode.getHashSymbol().isPresent()) {
+            // TODO: add support for hash symbol in aggregation node
+            return Optional.empty();
+        }
+
         PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
         if (!(childNode instanceof JoinNode)) {
             return Optional.empty();
