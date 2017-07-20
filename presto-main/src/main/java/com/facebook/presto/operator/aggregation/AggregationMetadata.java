@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -31,6 +32,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -115,12 +117,14 @@ public class AggregationMetadata
     private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> parameterMetadatas, Class<?> stateInterface)
     {
         Class<?>[] parameters = method.type().parameterArray();
-        checkArgument(stateInterface == parameters[0], "First argument of aggregation input function must be %s", stateInterface.getSimpleName());
         checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
-        checkArgument(parameterMetadatas.get(0).getParameterType() == STATE, "First parameter must be state");
-        for (int i = 1; i < parameters.length; i++) {
+        checkArgument(parameterMetadatas.stream().filter(m -> m.getParameterType() == STATE).count() == 1, "There must be exactly one state parameter in input function");
+        for (int i = 0; i < parameters.length; i++) {
             ParameterMetadata metadata = parameterMetadatas.get(i);
             switch (metadata.getParameterType()) {
+                case STATE:
+                    checkArgument(stateInterface == parameters[i], String.format("State argument must be of type %s", stateInterface));
+                    break;
                 case BLOCK_INPUT_CHANNEL:
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
                     checkArgument(parameters[i] == Block.class, "Parameter must be Block if it has @BlockPosition");
@@ -146,7 +150,8 @@ public class AggregationMetadata
     private static void verifyCombineFunction(MethodHandle method, Class<?> stateInterface)
     {
         Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateInterface && parameterTypes[1] == stateInterface, "Combine function must have the signature (%s, %s)", stateInterface.getSimpleName(), stateInterface.getSimpleName());
+        checkArgument(parameterTypes.length == 2, "Combine function must take exactly 2 arguments.");
+        checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(stateInterface)).count() == 2, "Combine function must take exactly two arguments of type %s annotated as @AggregationState", stateInterface.getSimpleName());
     }
 
     private static void verifyExactOutputFunction(MethodHandle method, Class<?> stateInterface)
@@ -155,7 +160,9 @@ public class AggregationMetadata
             return;
         }
         Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateInterface && parameterTypes[1] == BlockBuilder.class, "Output function must have the signature (%s, BlockBuilder)", stateInterface.getSimpleName());
+        checkArgument(parameterTypes.length == 2, "Output function must take at exactly 2 arguments.");
+        checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(stateInterface)).count() == 1, "Output function must take exactly one @AggregationState of type %s", stateInterface.getSimpleName());
+        checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(BlockBuilder.class)).count() == 1, "Output function must take exactly one BlockBuilder parameter");
     }
 
     public static int countInputChannels(List<ParameterMetadata> metadatas)
@@ -192,22 +199,7 @@ public class AggregationMetadata
 
         public static ParameterMetadata fromSqlType(Type sqlType, boolean isBlock, boolean isNullable, String methodName)
         {
-            if (isBlock) {
-                if (isNullable) {
-                    return new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, sqlType);
-                }
-                else {
-                    return new ParameterMetadata(BLOCK_INPUT_CHANNEL, sqlType);
-                }
-            }
-            else {
-                if (isNullable) {
-                    throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
-                }
-                else {
-                    return new ParameterMetadata(INPUT_CHANNEL, sqlType);
-                }
-            }
+            return new ParameterMetadata(inputChannelParameterType(isNullable, isBlock, methodName), sqlType);
         }
 
         public static ParameterMetadata forBlockIndexParameter()
@@ -236,7 +228,27 @@ public class AggregationMetadata
             BLOCK_INPUT_CHANNEL,
             NULLABLE_BLOCK_INPUT_CHANNEL,
             BLOCK_INDEX,
-            STATE
+            STATE;
+
+            static ParameterType inputChannelParameterType(boolean isNullable, boolean isBlock, String methodName)
+            {
+                if (isBlock) {
+                    if (isNullable) {
+                        return NULLABLE_BLOCK_INPUT_CHANNEL;
+                    }
+                    else {
+                        return BLOCK_INPUT_CHANNEL;
+                    }
+                }
+                else {
+                    if (isNullable) {
+                        throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
+                    }
+                    else {
+                        return INPUT_CHANNEL;
+                    }
+                }
+            }
         }
     }
 }
