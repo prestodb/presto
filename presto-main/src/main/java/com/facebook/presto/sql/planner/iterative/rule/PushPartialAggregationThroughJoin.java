@@ -17,12 +17,10 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -105,7 +103,7 @@ public class PushPartialAggregationThroughJoin
     {
         Set<Symbol> joinLeftChildSymbols = ImmutableSet.copyOf(child.getLeft().getOutputSymbols());
         List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinLeftChildSymbols, intersection(getJoinRequiredSymbols(child), joinLeftChildSymbols));
-        AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), child.getCriteria(), groupingSet);
+        AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), groupingSet);
         return pushPartialToJoin(pushedAggregation, child, pushedAggregation, child.getRight(), child.getRight().getOutputSymbols());
     }
 
@@ -113,7 +111,7 @@ public class PushPartialAggregationThroughJoin
     {
         Set<Symbol> joinRightChildSymbols = ImmutableSet.copyOf(child.getRight().getOutputSymbols());
         List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinRightChildSymbols, intersection(getJoinRequiredSymbols(child), joinRightChildSymbols));
-        AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), child.getCriteria(), groupingSet);
+        AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), groupingSet);
         return pushPartialToJoin(pushedAggregation, child, child.getLeft(), pushedAggregation, child.getLeft().getOutputSymbols());
     }
 
@@ -149,30 +147,16 @@ public class PushPartialAggregationThroughJoin
     private AggregationNode replaceAggregationSource(
             AggregationNode aggregation,
             PlanNode source,
-            List<JoinNode.EquiJoinClause> criteria,
             List<Symbol> groupingSet)
     {
-        ImmutableSet<Symbol> sourceSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
-        ImmutableMap.Builder<Symbol, Symbol> mapping = ImmutableMap.builder();
-
-        for (JoinNode.EquiJoinClause joinClause : criteria) {
-            if (sourceSymbols.contains(joinClause.getLeft())) {
-                mapping.put(joinClause.getRight(), joinClause.getLeft());
-            }
-            else {
-                mapping.put(joinClause.getLeft(), joinClause.getRight());
-            }
-        }
-
-        AggregationNode pushedAggregation = new AggregationNode(
+        return new AggregationNode(
                 aggregation.getId(),
-                aggregation.getSource(),
+                source,
                 aggregation.getAggregations(),
                 ImmutableList.of(groupingSet),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),
                 aggregation.getGroupIdSymbol());
-        return new SymbolMapper(mapping.build()).map(pushedAggregation, source);
     }
 
     private PlanNode pushPartialToJoin(
