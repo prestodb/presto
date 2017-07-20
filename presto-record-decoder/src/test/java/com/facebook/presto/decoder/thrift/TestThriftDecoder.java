@@ -73,7 +73,7 @@ public class TestThriftDecoder
         ThriftRowDecoder rowDecoder = new ThriftRowDecoder();
 
         // schema
-        DecoderTestColumnHandle col1 = new DecoderTestColumnHandle("", 1, "user_id", IntegerType.INTEGER,"1", "thrift", null, false, false, false);
+        DecoderTestColumnHandle col1 = new DecoderTestColumnHandle("", 1, "user_id", IntegerType.INTEGER, "1", "thrift", null, false, false, false);
         DecoderTestColumnHandle col2 = new DecoderTestColumnHandle("", 2, "username", createVarcharType(100), "2", "thrift", null, false, false, false);
         DecoderTestColumnHandle col3 = new DecoderTestColumnHandle("", 3, "text", createVarcharType(100), "3", "thrift", null, false, false, false);
         DecoderTestColumnHandle col4 = new DecoderTestColumnHandle("", 4, "loc.latitude", DoubleType.DOUBLE, "4/1", "thrift", null, false, false, false);
