@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -61,7 +62,7 @@ public class TestTupleFilterProcessor
                 outputTypes,
                 new PageFunctionCompiler(createTestMetadataManager(), 0));
         PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage).get();
-        Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, inputPage));
+        Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, new DriverYieldSignal(), inputPage)).orElseThrow(() -> new AssertionError("page is not present"));
 
         Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)

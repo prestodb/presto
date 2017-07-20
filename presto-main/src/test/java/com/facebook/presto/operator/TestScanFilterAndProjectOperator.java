@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -51,6 +52,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.toValues;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -181,6 +183,65 @@ public class TestScanFilterAndProjectOperator
     }
 
     @Test
+    public void testPageYield()
+            throws Exception
+    {
+        int totalRows = 1000;
+        Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), totalRows, 1);
+        DriverContext driverContext = newDriverContext();
+
+        // 20 columns; each column is associated with a function that will force yield per projection
+        int totalColumns = 20;
+        ImmutableList.Builder<SqlScalarFunction> functions = ImmutableList.builder();
+        for (int i = 0; i < totalColumns; i++) {
+            functions.add(new GenericLongFunction("page_col" + i, value -> {
+                driverContext.getYieldSignal().forceYieldForTesting();
+                return value;
+            }));
+        }
+        Metadata metadata = functionAssertions.getMetadata();
+        metadata.getFunctionRegistry().addFunctions(functions.build());
+
+        // match each column with a projection
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+        ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
+        for (int i = 0; i < totalColumns; i++) {
+            projections.add(call(internalScalarFunction("generic_long_page_col" + i, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature())), BIGINT, field(0, BIGINT)));
+        }
+        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build());
+
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                new PlanNodeId("0"),
+                (session, split, columns) -> new FixedPageSource(ImmutableList.of(input)),
+                cursorProcessor,
+                pageProcessor,
+                ImmutableList.of(),
+                ImmutableList.of(BIGINT));
+
+        SourceOperator operator = factory.createOperator(driverContext);
+        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.noMoreSplits();
+
+        // we only check yield signal once a column has been completely processed; thus the first 19 outputs will get nothing
+        for (int i = 0; i < totalColumns - 1; i++) {
+            driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
+            assertNull(operator.getOutput());
+            driverContext.getYieldSignal().reset();
+        }
+
+        // the last call will return the whole page
+        Page output = operator.getOutput();
+        assertEquals(output.getPositionCount(), totalRows);
+        assertEquals(output.getChannelCount(), totalColumns);
+        for (int i = 0; i < totalColumns; i++) {
+            assertEquals(toValues(BIGINT, output.getBlock(i)), toValues(BIGINT, input.getBlock(0)));
+        }
+    }
+
+    @Test
     public void testRecordCursorYield()
             throws Exception
     {
@@ -223,13 +284,13 @@ public class TestScanFilterAndProjectOperator
 
         // start driver; get null value due to yield for the first 15 times
         for (int i = 0; i < length; i++) {
-            driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
+            driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
             assertNull(operator.getOutput());
             driverContext.getYieldSignal().reset();
         }
 
         // the 16th yield is not going to prevent the operator from producing a page
-        driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
+        driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
         Page output = operator.getOutput();
         driverContext.getYieldSignal().reset();
         assertNotNull(output);

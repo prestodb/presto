@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
@@ -533,7 +534,7 @@ public class BenchmarkDecimalOperators
 
     private Object execute(BaseState state)
     {
-        return ImmutableList.copyOf(state.getProcessor().process(SESSION, state.getInputPage()));
+        return ImmutableList.copyOf(state.getProcessor().process(SESSION, new DriverYieldSignal(), state.getInputPage()));
     }
 
     private static class BaseState

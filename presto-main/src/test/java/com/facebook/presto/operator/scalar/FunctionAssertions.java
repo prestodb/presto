@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorFactory;
@@ -309,7 +310,7 @@ public final class FunctionAssertions
         long maxRetainedSize = 0;
         int maxIterationCount = 0;
         for (int iterationCount = 0; iterationCount < Math.max(1000, maxIterationCount * 4); iterationCount++) {
-            PageProcessorOutput output = processor.process(session.toConnectorSession(), SOURCE_PAGE);
+            PageProcessorOutput output = processor.process(session.toConnectorSession(), new DriverYieldSignal(), SOURCE_PAGE);
             // consume the iterator
             Iterators.getOnlyElement(output);
 

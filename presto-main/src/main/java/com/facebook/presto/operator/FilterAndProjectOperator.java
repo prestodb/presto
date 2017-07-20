@@ -89,7 +89,7 @@ public class FilterAndProjectOperator
         requireNonNull(page, "page is null");
         checkState(!currentOutput.hasNext(), "Page buffer is full");
 
-        currentOutput = processor.process(operatorContext.getSession().toConnectorSession(), page);
+        currentOutput = processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), page);
         outputMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
     }
 
@@ -99,7 +99,7 @@ public class FilterAndProjectOperator
         if (!currentOutput.hasNext()) {
             return null;
         }
-        return currentOutput.next();
+        return currentOutput.next().orElse(null);
     }
 
     public static class FilterAndProjectOperatorFactory

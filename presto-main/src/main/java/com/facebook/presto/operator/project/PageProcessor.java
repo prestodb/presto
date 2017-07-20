@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.presto.array.ReferenceCountMap;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -71,7 +72,7 @@ public class PageProcessor
                 .collect(toImmutableList());
     }
 
-    public PageProcessorOutput process(ConnectorSession session, Page page)
+    public PageProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, Page page)
     {
         // limit the scope of the dictionary ids to just one page
         dictionarySourceIdFunction.reset();
@@ -87,16 +88,16 @@ public class PageProcessor
             }
 
             if (projections.isEmpty()) {
-                return new PageProcessorOutput(() -> calculateRetainedSizeWithoutLoading(page), singletonIterator(new Page(selectedPositions.size())));
+                return new PageProcessorOutput(() -> calculateRetainedSizeWithoutLoading(page), singletonIterator(Optional.of(new Page(selectedPositions.size()))));
             }
 
             if (selectedPositions.size() != page.getPositionCount()) {
-                PositionsPageProcessorIterator pages = new PositionsPageProcessorIterator(session, page, selectedPositions);
+                PositionsPageProcessorIterator pages = new PositionsPageProcessorIterator(session, yieldSignal, page, selectedPositions);
                 return new PageProcessorOutput(pages::getRetainedSizeInBytes, pages);
             }
         }
 
-        PositionsPageProcessorIterator pages = new PositionsPageProcessorIterator(session, page, positionsRange(0, page.getPositionCount()));
+        PositionsPageProcessorIterator pages = new PositionsPageProcessorIterator(session, yieldSignal, page, positionsRange(0, page.getPositionCount()));
         return new PageProcessorOutput(pages::getRetainedSizeInBytes, pages);
     }
 
@@ -123,18 +124,24 @@ public class PageProcessor
     }
 
     private class PositionsPageProcessorIterator
-            extends AbstractIterator<Page>
+            extends AbstractIterator<Optional<Page>>
     {
         private final ConnectorSession session;
+        private final DriverYieldSignal yieldSignal;
         private final Page page;
 
         private SelectedPositions selectedPositions;
         private final Block[] previouslyComputedResults;
         private long retainedSizeInBytes;
 
-        public PositionsPageProcessorIterator(ConnectorSession session, Page page, SelectedPositions selectedPositions)
+        // remember if we need to re-use the same batch size if we yield last time
+        private boolean forceYieldFinish;
+        private int previousBatchSize;
+
+        public PositionsPageProcessorIterator(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             this.session = session;
+            this.yieldSignal = yieldSignal;
             this.page = page;
             this.selectedPositions = selectedPositions;
             this.previouslyComputedResults = new Block[projections.size()];
@@ -147,19 +154,35 @@ public class PageProcessor
         }
 
         @Override
-        protected Page computeNext()
+        protected Optional<Page> computeNext()
         {
+            int batchSize;
             while (true) {
                 if (selectedPositions.isEmpty()) {
                     updateRetainedSize();
+                    verify(!forceYieldFinish);
                     return endOfData();
                 }
 
-                int batchSize = Math.min(selectedPositions.size(), projectBatchSize);
+                // we always process one chunk
+                if (forceYieldFinish) {
+                    // re-use the batch size from the last checkpoint
+                    verify(previousBatchSize > 0);
+                    batchSize = previousBatchSize;
+                    forceYieldFinish = false;
+                }
+                else {
+                    batchSize = Math.min(selectedPositions.size(), projectBatchSize);
+                }
                 Optional<Page> result = processBatch(batchSize);
 
-                // if the page buffer filled up, so halve the batch size and retry
                 if (!result.isPresent()) {
+                    // if we are running out of time
+                    if (forceYieldFinish) {
+                        return Optional.empty();
+                    }
+
+                    // if the page buffer filled up, so halve the batch size and retry
                     verify(batchSize > 1);
                     projectBatchSize = projectBatchSize / 2;
                     continue;
@@ -190,7 +213,7 @@ public class PageProcessor
                 }
 
                 updateRetainedSize();
-                return page;
+                return Optional.of(page);
             }
         }
 
@@ -226,6 +249,13 @@ public class PageProcessor
             int pageSize = 0;
             SelectedPositions positionsBatch = selectedPositions.subRange(0, batchSize);
             for (int i = 0; i < projections.size(); i++) {
+                if (yieldSignal.isSet()) {
+                    // save current batch size
+                    forceYieldFinish = true;
+                    previousBatchSize = batchSize;
+                    return Optional.empty();
+                }
+
                 if (positionsBatch.size() > 1 && pageSize > MAX_PAGE_SIZE_IN_BYTES) {
                     return Optional.empty();
                 }

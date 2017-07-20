@@ -16,21 +16,22 @@ package com.facebook.presto.operator.project;
 import com.facebook.presto.spi.Page;
 
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.function.LongSupplier;
 
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
 public class PageProcessorOutput
-        implements Iterator<Page>
+        implements Iterator<Optional<Page>>
 {
     public static final PageProcessorOutput EMPTY_PAGE_PROCESSOR_OUTPUT = new PageProcessorOutput(() -> 0, emptyIterator());
 
     private final LongSupplier retainedSizeInBytesSupplier;
-    private final Iterator<Page> pages;
+    private final Iterator<Optional<Page>> pages;
     private long retainedSizeInBytes;
 
-    public PageProcessorOutput(LongSupplier retainedSizeInBytesSupplier, Iterator<Page> pages)
+    public PageProcessorOutput(LongSupplier retainedSizeInBytesSupplier, Iterator<Optional<Page>> pages)
     {
         this.retainedSizeInBytesSupplier = requireNonNull(retainedSizeInBytesSupplier, "retainedSizeInBytesSupplier is null");
         this.pages = requireNonNull(pages, "pages is null");
@@ -51,7 +52,7 @@ public class PageProcessorOutput
     }
 
     @Override
-    public Page next()
+    public Optional<Page> next()
     {
         return pages.next();
     }
