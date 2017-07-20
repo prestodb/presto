@@ -10,7 +10,6 @@ databases:
 
   hive:
     host: hadoop-master
-    path: /user/hive/warehouse/
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
     jdbc_url: jdbc:hive2://${databases.hive.host}:10000
     jdbc_user: hdfs
