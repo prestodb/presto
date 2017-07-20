@@ -18,14 +18,12 @@ import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.SliceState;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.util.Failures.internalError;
 
 public class MinMaxHelper
 {
@@ -45,7 +43,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -62,7 +60,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -78,7 +76,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -95,7 +93,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -111,7 +109,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -128,7 +126,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -145,7 +143,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -161,7 +159,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -178,7 +176,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
     }
 
@@ -194,14 +192,7 @@ public class MinMaxHelper
             }
         }
         catch (Throwable t) {
-            wrapGenericInternalError(t);
+            throw internalError(t);
         }
-    }
-
-    private static void wrapGenericInternalError(Throwable t)
-    {
-        Throwables.propagateIfInstanceOf(t, Error.class);
-        Throwables.propagateIfInstanceOf(t, PrestoException.class);
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
     }
 }
