@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
@@ -28,6 +29,12 @@ public class LazyAccumulatorFactoryBinder
     public LazyAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
     {
         binder = Suppliers.memoize(() -> AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader));
+    }
+
+    @VisibleForTesting
+    public GenericAccumulatorFactoryBinder getGenericAccumulatorFactoryBinder()
+    {
+        return (GenericAccumulatorFactoryBinder) binder.get();
     }
 
     @Override

@@ -11,21 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.operator;
 
-public class MinBy
-        extends AbstractMinMaxBy
+import com.facebook.presto.metadata.Signature;
+
+public interface ParametricImplementation
 {
-    public static final MinBy MIN_BY = new MinBy();
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns the value of the first argument, associated with the minimum value of the second argument";
-    }
-
-    public MinBy()
-    {
-        super(true);
-    }
+    Signature getSignature();
+    boolean hasSpecializedTypeParameters();
 }
