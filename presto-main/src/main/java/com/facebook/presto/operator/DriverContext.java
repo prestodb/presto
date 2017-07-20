@@ -85,6 +85,8 @@ public class DriverContext
     private final AtomicLong systemMemoryReservation = new AtomicLong();
     private final AtomicLong revocableMemoryReservation = new AtomicLong();
 
+    private final DriverYieldSignal yieldSignal;
+
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
 
@@ -94,6 +96,7 @@ public class DriverContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "scheduler is null");
         this.partitioned = partitioned;
+        this.yieldSignal = new DriverYieldSignal();
     }
 
     public TaskId getTaskId()
@@ -270,6 +273,11 @@ public class DriverContext
         }
         checkArgument(bytes > 0, "bytes is negative");
         pipelineContext.freeSpill(bytes);
+    }
+
+    public DriverYieldSignal getYieldSignal()
+    {
+        return yieldSignal;
     }
 
     public long getSystemMemoryUsage()
@@ -455,6 +463,11 @@ public class DriverContext
     public boolean isPartitioned()
     {
         return partitioned;
+    }
+
+    public ScheduledExecutorService getYieldExecutor()
+    {
+        return yieldExecutor;
     }
 
     private long currentThreadUserTime()

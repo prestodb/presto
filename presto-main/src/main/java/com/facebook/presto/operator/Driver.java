@@ -234,6 +234,7 @@ public class Driver
 
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
             driverContext.startProcessTimer();
+            driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
             try {
                 long start = System.nanoTime();
                 do {
@@ -245,6 +246,7 @@ public class Driver
                 while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
             }
             finally {
+                driverContext.getYieldSignal().reset();
                 driverContext.recordProcessed();
             }
             return NOT_BLOCKED;

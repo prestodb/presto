@@ -15,6 +15,7 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
@@ -40,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Boolean.TRUE;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 
 public class InterpretedCursorProcessor
         implements CursorProcessor
@@ -91,19 +93,19 @@ public class InterpretedCursorProcessor
     }
 
     @Override
-    public int process(ConnectorSession session, RecordCursor cursor, int count, PageBuilder pageBuilder)
+    public CursorProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, RecordCursor cursor, PageBuilder pageBuilder)
     {
         checkArgument(!pageBuilder.isFull(), "page builder can't be full");
-        checkArgument(count > 0, "count must be > 0");
+        requireNonNull(yieldSignal, "yieldSignal is null");
 
         int position = 0;
-        for (; position < count; position++) {
-            if (pageBuilder.isFull()) {
-                break;
+        while (true) {
+            if (pageBuilder.isFull() || yieldSignal.isSet()) {
+                return new CursorProcessorOutput(position, false);
             }
 
             if (!cursor.advanceNextPosition()) {
-                break;
+                return new CursorProcessorOutput(position, true);
             }
 
             if (filter(cursor)) {
@@ -112,8 +114,8 @@ public class InterpretedCursorProcessor
                     project(cursor, channel, pageBuilder);
                 }
             }
+            position++;
         }
-        return position;
     }
 
     private boolean filter(RecordCursor cursor)
