@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -28,7 +27,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.base.Throwables;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -40,15 +39,18 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.aggregation.AggregationCompiler.getCombineFunction;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterBlock;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterNullable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromSqlType;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateFactory;
+import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class BindableAggregationFunction
@@ -90,7 +92,10 @@ public class BindableAggregationFunction
     {
         // bind variables
         Signature boundSignature = applyBoundVariables(getSignature(), variables, arity);
-        List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
+        List<Type> inputTypes = boundSignature.getArgumentTypes()
+                .stream()
+                .map(typeManager::getType)
+                .collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
 
         AggregationFunction aggregationAnnotation = definitionClass.getAnnotation(AggregationFunction.class);
@@ -99,29 +104,24 @@ public class BindableAggregationFunction
         DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         AggregationMetadata metadata;
-        AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateClass, classLoader);
+        AccumulatorStateSerializer<?> stateSerializer = generateStateSerializer(stateClass, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
-        Method combineFunction = AggregationCompiler.getCombineFunction(definitionClass, stateClass);
-        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
+        Method combineFunction = getCombineFunction(definitionClass, stateClass);
+        AccumulatorStateFactory<?> stateFactory = generateStateFactory(stateClass, classLoader);
 
-        try {
-            MethodHandle inputHandle = lookup().unreflect(inputFunction);
-            MethodHandle combineHandle = lookup().unreflect(combineFunction);
-            MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
-            metadata = new AggregationMetadata(
-                    generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
-                    getParameterMetadata(inputFunction, inputTypes),
-                    inputHandle,
-                    combineHandle,
-                    outputHandle,
-                    stateClass,
-                    stateSerializer,
-                    stateFactory,
-                    outputType);
-        }
-        catch (IllegalAccessException e) {
-            throw Throwables.propagate(e);
-        }
+        MethodHandle inputHandle = methodHandle(inputFunction);
+        MethodHandle combineHandle = methodHandle(combineFunction);
+        MethodHandle outputHandle = outputFunction == null ? null : methodHandle(outputFunction);
+        metadata = new AggregationMetadata(
+                generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
+                getParameterMetadata(inputFunction, inputTypes),
+                inputHandle,
+                combineHandle,
+                outputHandle,
+                stateClass,
+                stateSerializer,
+                stateFactory,
+                outputType);
 
         AccumulatorFactoryBinder factory = new LazyAccumulatorFactoryBinder(metadata, classLoader);
 
@@ -133,6 +133,7 @@ public class BindableAggregationFunction
                 factory);
     }
 
+    @VisibleForTesting
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager)
     {
         return specialize(variables, arity, typeManager, null);
@@ -142,7 +143,7 @@ public class BindableAggregationFunction
     {
         return types
                 .stream()
-                .map(x -> x.getTypeSignature())
+                .map(Type::getTypeSignature)
                 .collect(toImmutableList());
     }
 
@@ -157,9 +158,8 @@ public class BindableAggregationFunction
         Annotation[][] annotations = method.getParameterAnnotations();
         String methodName = method.getDeclaringClass() + "." + method.getName();
 
-        checkArgument(annotations.length > 0, "At least @AggregationState argument is required for each of aggregation functions.");
+        checkArgument(annotations.length > 0, "At least one @AggregationState argument is required for each aggregation function");
 
-        int inputId = 0;
         int i = 0;
         if (annotations[0].length == 0) {
             // Backward compatibility - first argument without annotations is interpreted as State argument
@@ -179,7 +179,7 @@ public class BindableAggregationFunction
                 builder.add(new ParameterMetadata(STATE));
             }
             else {
-                throw new IllegalArgumentException("Unsupported annotation: " + annotations[i]);
+                throw new IllegalArgumentException("Unsupported annotation: " + Arrays.toString(annotations[i]));
             }
         }
         return builder.build();
@@ -187,7 +187,7 @@ public class BindableAggregationFunction
 
     private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
     {
-        List<Annotation> baseTypes = Arrays.asList(annotations).stream()
+        List<Annotation> baseTypes = Arrays.stream(annotations)
                 .filter(annotation -> annotation instanceof SqlType || annotation instanceof BlockIndex || annotation instanceof AggregationState)
                 .collect(toImmutableList());
 
