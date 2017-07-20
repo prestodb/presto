@@ -38,8 +38,6 @@ import static java.util.Objects.requireNonNull;
  */
 class MultiJoinNode
 {
-    private static final int JOIN_LIMIT = 10;
-
     private final List<PlanNode> sources;
     private final Expression filter;
     private final List<Symbol> outputSymbols;
@@ -69,9 +67,9 @@ class MultiJoinNode
         return outputSymbols;
     }
 
-    static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup)
+    static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup, int joinLimit)
     {
-        return new MultiJoinNodeBuilder(joinNode, lookup).toMultiJoinNode();
+        return new MultiJoinNodeBuilder(joinNode, lookup, joinLimit).toMultiJoinNode();
     }
 
     private static class MultiJoinNodeBuilder
@@ -80,32 +78,40 @@ class MultiJoinNode
         private final List<Expression> filters = new ArrayList<>();
         private final List<Symbol> outputSymbols;
         private final Lookup lookup;
+        private int joinLimit;
 
-        MultiJoinNodeBuilder(JoinNode node, Lookup lookup)
+        MultiJoinNodeBuilder(JoinNode node, Lookup lookup, int joinLimit)
         {
             requireNonNull(node, "node is null");
             checkState(node.getType() == INNER, "join type must be INNER");
             this.outputSymbols = node.getOutputSymbols();
             this.lookup = requireNonNull(lookup, "lookup is null");
-            flattenNode(node);
+            this.joinLimit = requireNonNull(joinLimit, "joinLimit is null");
+            flattenNode(node, joinLimit);
         }
 
-        private void flattenNode(PlanNode node)
+        private void flattenNode(PlanNode node, int limit)
         {
             PlanNode resolved = lookup.resolve(node);
-            if (resolved instanceof JoinNode && sources.size() < JOIN_LIMIT) {
-                JoinNode joinNode = (JoinNode) resolved;
-                if (joinNode.getType() == INNER && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL))) {
-                    flattenNode(joinNode.getLeft());
-                    flattenNode(joinNode.getRight());
-                    joinNode.getCriteria().stream()
-                            .map(JoinNode.EquiJoinClause::toExpression)
-                            .forEach(filters::add);
-                    joinNode.getFilter().ifPresent(filters::add);
-                    return;
-                }
+
+            // (limit - 2) because you need to account for adding left and right side
+            if (!(resolved instanceof JoinNode) || (sources.size() > (limit - 2))) {
+                sources.add(node);
+                return;
             }
-            sources.add(node);
+
+            JoinNode joinNode = (JoinNode) resolved;
+            if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL)) || joinNode.getDistributionType().isPresent()) {
+                sources.add(node);
+                return;
+            }
+
+            flattenNode(joinNode.getLeft(), limit - 1); // (limit - 1) to account for the right side
+            flattenNode(joinNode.getRight(), limit);
+            joinNode.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::toExpression)
+                    .forEach(filters::add);
+            joinNode.getFilter().ifPresent(filters::add);
         }
 
         MultiJoinNode toMultiJoinNode()
