@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -24,19 +25,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isPushAggregationThroughJoin;
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.intersection;
 
 public class PushPartialAggregationThroughJoin
         implements Rule
@@ -99,40 +103,46 @@ public class PushPartialAggregationThroughJoin
 
     private PlanNode pushPartialToLeftChild(AggregationNode node, JoinNode child)
     {
-        List<Symbol> groupingSet = getPushedDownGroupingSet(node, child, ImmutableSet.copyOf(child.getLeft().getOutputSymbols()));
+        Set<Symbol> joinLeftChildSymbols = ImmutableSet.copyOf(child.getLeft().getOutputSymbols());
+        List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinLeftChildSymbols, intersection(getJoinRequiredSymbols(child), joinLeftChildSymbols));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), child.getCriteria(), groupingSet);
         return pushPartialToJoin(pushedAggregation, child, pushedAggregation, child.getRight(), child.getRight().getOutputSymbols());
     }
 
     private PlanNode pushPartialToRightChild(AggregationNode node, JoinNode child)
     {
-        List<Symbol> groupingSet = getPushedDownGroupingSet(node, child, ImmutableSet.copyOf(child.getRight().getOutputSymbols()));
+        Set<Symbol> joinRightChildSymbols = ImmutableSet.copyOf(child.getRight().getOutputSymbols());
+        List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinRightChildSymbols, intersection(getJoinRequiredSymbols(child), joinRightChildSymbols));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), child.getCriteria(), groupingSet);
         return pushPartialToJoin(pushedAggregation, child, child.getLeft(), pushedAggregation, child.getLeft().getOutputSymbols());
     }
 
-    private List<Symbol> getPushedDownGroupingSet(AggregationNode aggregation, JoinNode join, Set<Symbol> availableSymbols)
+    private Set<Symbol> getJoinRequiredSymbols(JoinNode node)
+    {
+        return Streams.concat(
+                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
+                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
+                node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
+                node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
+                node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
+                .collect(toImmutableSet());
+    }
+
+    private List<Symbol> getPushedDownGroupingSet(AggregationNode aggregation, Set<Symbol> availableSymbols, Set<Symbol> requiredJoinSymbols)
     {
         List<Symbol> groupingSet = Iterables.getOnlyElement(aggregation.getGroupingSets());
-        Set<Symbol> joinKeys = Stream.concat(
-                join.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
-                join.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight)
-        ).collect(Collectors.toSet());
 
-        // keep symbols that are either directly from the join's child (availableSymbols) or there is
-        // an equality in join condition to a symbol for the join child
+        // keep symbols that are directly from the join's child (availableSymbols)
         List<Symbol> pushedDownGroupingSet = groupingSet.stream()
-                .filter(symbol -> joinKeys.contains(symbol) || availableSymbols.contains(symbol))
+                .filter(availableSymbols::contains)
                 .collect(Collectors.toList());
 
-        if (pushedDownGroupingSet.size() != groupingSet.size() || pushedDownGroupingSet.isEmpty()) {
-            // If we dropped some symbol, we have to add all join key columns to the grouping set
-            Set<Symbol> existingSymbols = ImmutableSet.copyOf(pushedDownGroupingSet);
+        // add missing required join symbols to grouping set
+        Set<Symbol> existingSymbols = new HashSet<>(pushedDownGroupingSet);
+        requiredJoinSymbols.stream()
+                .filter(existingSymbols::add)
+                .forEach(pushedDownGroupingSet::add);
 
-            join.getCriteria().stream()
-                    .filter(equiJoinClause -> !existingSymbols.contains(equiJoinClause.getLeft()) && !existingSymbols.contains(equiJoinClause.getRight()))
-                    .forEach(joinClause -> pushedDownGroupingSet.add(joinClause.getLeft()));
-        }
         return pushedDownGroupingSet;
     }
 
