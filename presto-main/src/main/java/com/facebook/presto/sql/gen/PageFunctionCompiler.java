@@ -19,6 +19,7 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
@@ -58,6 +59,7 @@ import com.google.common.primitives.Primitives;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
@@ -104,7 +106,7 @@ public class PageFunctionCompiler
         this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
     }
 
-    public Supplier<PageProjection> compileProjection(RowExpression projection)
+    public Supplier<PageProjection> compileProjection(RowExpression projection, Optional<String> classNameSuffix)
     {
         requireNonNull(projection, "projection is null");
 
@@ -123,7 +125,7 @@ public class PageFunctionCompiler
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection);
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = defineProjectionClass(result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder);
+        ClassDefinition classDefinition = defineProjectionClass(result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix);
 
         Class<? extends PageProjection> projectionClass;
         try {
@@ -143,11 +145,21 @@ public class PageFunctionCompiler
         };
     }
 
-    private ClassDefinition defineProjectionClass(RowExpression projection, InputChannels inputChannels, CallSiteBinder callSiteBinder)
+    private ParameterizedType generateProjectionClassName(Optional<String> classNameSuffix)
+    {
+        StringBuilder className = new StringBuilder(PageProjection.class.getSimpleName());
+        classNameSuffix.ifPresent(suffix -> className.append("_").append(suffix.replace('.', '_')));
+        return makeClassName(className.toString());
+    }
+
+    private ClassDefinition defineProjectionClass(RowExpression projection,
+            InputChannels inputChannels,
+            CallSiteBinder callSiteBinder,
+            Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(PageProjection.class.getSimpleName()),
+                generateProjectionClassName(classNameSuffix),
                 type(Object.class),
                 type(PageProjection.class));
 
