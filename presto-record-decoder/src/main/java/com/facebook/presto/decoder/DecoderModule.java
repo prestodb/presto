@@ -17,6 +17,7 @@ import com.facebook.presto.decoder.csv.CsvDecoderModule;
 import com.facebook.presto.decoder.dummy.DummyDecoderModule;
 import com.facebook.presto.decoder.json.JsonDecoderModule;
 import com.facebook.presto.decoder.raw.RawDecoderModule;
+import com.facebook.presto.decoder.thrift.ThriftDecoderModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -38,6 +39,7 @@ public class DecoderModule
         binder.install(new CsvDecoderModule());
         binder.install(new JsonDecoderModule());
         binder.install(new RawDecoderModule());
+        binder.install(new ThriftDecoderModule());
     }
 
     public static void bindRowDecoder(Binder binder, Class<? extends RowDecoder> decoderClass)
