@@ -135,9 +135,9 @@ public class PageProcessorBenchmark
     }
 
     @Benchmark
-    public List<Page> columnOriented()
+    public List<Optional<Page>> columnOriented()
     {
-        return ImmutableList.copyOf(pageProcessor.process(null, inputPage));
+        return ImmutableList.copyOf(pageProcessor.process(null, new DriverYieldSignal(), inputPage));
     }
 
     private RowExpression getFilter(Type type)

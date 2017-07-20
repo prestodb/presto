@@ -260,7 +260,8 @@ public class ScanFilterAndProjectOperator
 
     private Page processPageSource()
     {
-        if (!finishing && !currentOutput.hasNext()) {
+        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
+        if (!finishing && !currentOutput.hasNext() && !yieldSignal.isSet()) {
             Page page = pageSource.getNextPage();
 
             finishing = pageSource.isFinished();
@@ -277,12 +278,12 @@ public class ScanFilterAndProjectOperator
                 completedBytes = endCompletedBytes;
                 readTimeNanos = endReadTimeNanos;
 
-                currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), page);
+                currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, page);
             }
             pageBuilderMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
         }
 
-        return currentOutput.hasNext() ? currentOutput.next() : null;
+        return currentOutput.hasNext() ? currentOutput.next().orElse(null) : null;
     }
 
     public static class ScanFilterAndProjectOperatorFactory
