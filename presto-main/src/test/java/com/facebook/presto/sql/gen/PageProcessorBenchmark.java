@@ -17,6 +17,7 @@ import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -82,6 +83,7 @@ public class PageProcessorBenchmark
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final int POSITIONS = 1024;
 
+    private final DriverYieldSignal yieldSignal = new DriverYieldSignal();
     private final Map<Symbol, Type> symbolTypes = new HashMap<>();
     private final Map<Symbol, Integer> sourceLayout = new HashMap<>();
 
@@ -128,7 +130,7 @@ public class PageProcessorBenchmark
     public Page rowOriented()
     {
         PageBuilder pageBuilder = new PageBuilder(types);
-        cursorProcessor.process(null, recordSet.cursor(), inputPage.getPositionCount(), pageBuilder);
+        cursorProcessor.process(null, yieldSignal, recordSet.cursor(), pageBuilder);
         return pageBuilder.build();
     }
 

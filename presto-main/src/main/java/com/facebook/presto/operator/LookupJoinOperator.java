@@ -32,8 +32,6 @@ import static java.util.Objects.requireNonNull;
 public class LookupJoinOperator
         implements Operator, Closeable
 {
-    private static final int MAX_POSITIONS_EVALUATED_PER_CALL = 10000;
-
     private final OperatorContext operatorContext;
     private final List<Type> types;
     private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
@@ -153,11 +151,11 @@ public class LookupJoinOperator
         }
 
         // join probe page with the lookup source
-        Counter lookupPositionsConsidered = new Counter();
+        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (probe != null) {
-            while (true) {
+            while (!yieldSignal.isSet()) {
                 if (probe.getPosition() >= 0) {
-                    if (!joinCurrentPosition(lookupPositionsConsidered)) {
+                    if (!joinCurrentPosition(yieldSignal)) {
                         break;
                     }
                     if (!currentProbePositionProducedRow) {
@@ -210,11 +208,10 @@ public class LookupJoinOperator
      *
      * @return true if all eligible rows have been produced; false otherwise (because pageBuilder became full)
      */
-    private boolean joinCurrentPosition(Counter lookupPositionsConsidered)
+    private boolean joinCurrentPosition(DriverYieldSignal yieldSignal)
     {
         // while we have a position on lookup side to join against...
         while (joinPosition >= 0) {
-            lookupPositionsConsidered.increment();
             if (lookupSource.isJoinPositionEligible(joinPosition, probe.getPosition(), probe.getPage())) {
                 currentProbePositionProducedRow = true;
 
@@ -229,10 +226,7 @@ public class LookupJoinOperator
             // get next position on lookup side for this probe row
             joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
 
-            if (lookupPositionsConsidered.get() >= MAX_POSITIONS_EVALUATED_PER_CALL) {
-                return false;
-            }
-            if (pageBuilder.isFull()) {
+            if (yieldSignal.isSet() || pageBuilder.isFull()) {
                 return false;
             }
         }
@@ -277,21 +271,5 @@ public class LookupJoinOperator
             }
         }
         return true;
-    }
-
-    // This class needs to be public because LookupJoinOperator is isolated.
-    public static class Counter
-    {
-        private int count;
-
-        public void increment()
-        {
-            count++;
-        }
-
-        public int get()
-        {
-            return count;
-        }
     }
 }

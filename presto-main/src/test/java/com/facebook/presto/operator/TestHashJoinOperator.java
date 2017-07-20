@@ -58,6 +58,10 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
 public class TestHashJoinOperator
@@ -136,6 +140,63 @@ public class TestHashJoinOperator
                 .build();
 
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+    }
+
+    @Test
+    public void testYield()
+            throws Exception
+    {
+        // create a filter function that yields for every probe match
+        // verify we will yield #match times totally
+
+        TaskContext taskContext = createTaskContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+
+        // force a yield for every match
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+                (leftPosition, leftBlocks, rightPosition, rightBlocks) -> {
+                    driverContext.getYieldSignal().forceYieldForTesting();
+                    return true;
+                }));
+
+        // build with 4 entries
+        int entries = 4;
+        RowPagesBuilder buildPages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(BIGINT))
+                .addSequencePage(entries, 42);
+        LookupSourceFactory lookupSourceFactory = buildHash(true, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction));
+
+        // probe matching the above 4 entries
+        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT));
+        List<Page> probeInput = probePages.addSequencePage(100, 0).build();
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceFactory,
+                probePages.getTypes(),
+                Ints.asList(0),
+                probePages.getHashChannel(),
+                Optional.empty());
+
+        Operator operator = joinOperatorFactory.createOperator(driverContext);
+        if (operator.needsInput()) {
+            operator.addInput(probeInput.get(0));
+        }
+        operator.finish();
+
+        // we will yield 4 times due to filterFunction
+        for (int i = 0; i < entries; i++) {
+            driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
+            assertNull(operator.getOutput());
+            driverContext.getYieldSignal().reset();
+        }
+        // yield is not going to prevent operator from producing a page for the 5th time
+        driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
+        Page output = operator.getOutput();
+        assertNotNull(output);
+        driverContext.getYieldSignal().reset();
+
+        // make sure we have all 4 entries
+        assertEquals(output.getPositionCount(), entries);
     }
 
     @Test(dataProvider = "hashEnabledValues")
