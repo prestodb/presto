@@ -195,16 +195,16 @@ public class ShowStatsRewrite
         {
             TableHandle tableHandle = getTableHandle(node, table.getName());
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
-            List<String> resultColumnNames = buildColumnsNames();
-            List<SelectItem> selectItems = buildSelectItems(resultColumnNames);
-            Map<ColumnHandle, String> columnNames = getStatisticsColumnNames(tableStatistics, node, table.getName());
+            List<String> statsColumnNames = buildColumnsNames();
+            List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
+            Map<ColumnHandle, String> tableColumnNames = getStatisticsColumnNames(tableStatistics, node, table.getName());
 
-            List<Expression> resultRows = buildStatisticsRows(tableStatistics, columnNames);
+            List<Expression> resultRows = buildStatisticsRows(tableStatistics, tableColumnNames);
 
             return simpleQuery(selectAll(selectItems),
                     aliased(new Values(resultRows),
                             "table_stats_for_" + table.getName(),
-                            resultColumnNames));
+                            statsColumnNames));
         }
 
         private static void check(boolean condition, ShowStats node, String message)
