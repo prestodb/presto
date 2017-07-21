@@ -18,10 +18,8 @@ import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PatternVisitor;
+import com.facebook.presto.matching.Property;
 import com.facebook.presto.matching.PropertyPattern;
-
-import java.util.Optional;
-import java.util.function.Function;
 
 public class WithPattern<T>
         extends Pattern<T>
@@ -39,7 +37,7 @@ public class WithPattern<T>
         return propertyPattern.getPattern();
     }
 
-    public Function<? super T, Optional<?>> getProperty()
+    public Property<? super T, ?> getProperty()
     {
         return propertyPattern.getProperty();
     }

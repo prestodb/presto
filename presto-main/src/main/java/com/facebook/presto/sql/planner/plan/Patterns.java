@@ -140,13 +140,13 @@ public class Patterns
 
     public static Property<PlanNode, PlanNode> source()
     {
-        return optionalProperty(node -> node.getSources().size() == 1 ?
+        return optionalProperty("source", node -> node.getSources().size() == 1 ?
                 Optional.of(node.getSources().get(0)) :
                 empty());
     }
 
     public static Property<PlanNode, List<PlanNode>> sources()
     {
-        return property(PlanNode::getSources);
+        return property("sources", PlanNode::getSources);
     }
 }

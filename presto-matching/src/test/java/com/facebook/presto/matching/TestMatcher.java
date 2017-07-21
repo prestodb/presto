@@ -67,7 +67,7 @@ public class TestMatcher
     public void propertyMatchers()
     {
         Pattern<String> aString = typeOf(String.class);
-        Property<String, Integer> length = Property.property(String::length);
+        Property<String, Integer> length = Property.property("length", String::length);
         String string = "a";
 
         assertMatch(project().with(source().matching(scan())), new ProjectNode(new ScanNode("T")));
@@ -109,7 +109,7 @@ public class TestMatcher
     @Test
     public void optionalProperties()
     {
-        Property<RelNode, RelNode> onlySource = Property.optionalProperty(node ->
+        Property<RelNode, RelNode> onlySource = Property.optionalProperty("onlySource", node ->
                 Optional.of(node.getSources())
                         .filter(sources -> sources.size() == 1)
                         .map((List<RelNode> sources) -> sources.get(0)));

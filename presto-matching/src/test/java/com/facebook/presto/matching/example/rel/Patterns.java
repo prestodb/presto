@@ -30,12 +30,12 @@ public class Patterns
 
     public static Property<JoinNode, RelNode> build()
     {
-        return property(JoinNode::getBuild);
+        return property("build", JoinNode::getBuild);
     }
 
     public static Property<JoinNode, RelNode> probe()
     {
-        return property(JoinNode::getProbe);
+        return property("probe", JoinNode::getProbe);
     }
 
     public static Pattern<ScanNode> scan()
@@ -60,11 +60,11 @@ public class Patterns
 
     public static Property<ScanNode, String> tableName()
     {
-        return property(ScanNode::getTableName);
+        return property("tableName", ScanNode::getTableName);
     }
 
     public static Property<SingleSourceRelNode, RelNode> source()
     {
-        return property(SingleSourceRelNode::getSource);
+        return property("source", SingleSourceRelNode::getSource);
     }
 }
