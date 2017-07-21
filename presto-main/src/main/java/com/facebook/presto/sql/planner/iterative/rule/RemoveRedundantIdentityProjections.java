@@ -30,7 +30,16 @@ import static com.facebook.presto.sql.planner.plan.Patterns.project;
 public class RemoveRedundantIdentityProjections
         implements Rule<ProjectNode>
 {
-    private static final Pattern<ProjectNode> PATTERN = project();
+    private static final Pattern<ProjectNode> PATTERN = project()
+            .matching(ProjectNode::isIdentity)
+            // only drop this projection if it does not constrain the outputs
+            // of its child
+            .matching(project -> outputsSameAsSource(project));
+
+    private static boolean outputsSameAsSource(ProjectNode node)
+    {
+        return ImmutableSet.copyOf(node.getOutputSymbols()).equals(ImmutableSet.copyOf(node.getSource().getOutputSymbols()));
+    }
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -41,16 +50,6 @@ public class RemoveRedundantIdentityProjections
     @Override
     public Optional<PlanNode> apply(ProjectNode project, Captures captures, Context context)
     {
-        if (!project.isIdentity()) {
-            return Optional.empty();
-        }
-
-        // only drop this projection if it does not constrain the outputs
-        // of its child
-        if (!ImmutableSet.copyOf(project.getOutputSymbols()).equals(ImmutableSet.copyOf(project.getSource().getOutputSymbols()))) {
-            return Optional.empty();
-        }
-
         return Optional.of(project.getSource());
     }
 }

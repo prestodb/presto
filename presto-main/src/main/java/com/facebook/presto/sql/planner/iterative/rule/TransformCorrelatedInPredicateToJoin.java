@@ -96,7 +96,8 @@ import static java.util.Objects.requireNonNull;
 public class TransformCorrelatedInPredicateToJoin
         implements Rule<ApplyNode>
 {
-    private static final Pattern<ApplyNode> PATTERN = applyNode();
+    private static final Pattern<ApplyNode> PATTERN = applyNode()
+            .matching(applyNode -> !applyNode.getCorrelation().isEmpty());
 
     @Override
     public Pattern<ApplyNode> getPattern()
@@ -107,10 +108,6 @@ public class TransformCorrelatedInPredicateToJoin
     @Override
     public Optional<PlanNode> apply(ApplyNode apply, Captures captures, Context context)
     {
-        if (apply.getCorrelation().isEmpty()) {
-            return Optional.empty();
-        }
-
         Assignments subqueryAssignments = apply.getSubqueryAssignments();
         if (subqueryAssignments.size() != 1) {
             return Optional.empty();

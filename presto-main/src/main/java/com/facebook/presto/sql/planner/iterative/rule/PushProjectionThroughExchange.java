@@ -69,6 +69,7 @@ public class PushProjectionThroughExchange
     private static final Capture<ExchangeNode> CHILD = newCapture();
 
     private static final Pattern<ProjectNode> PATTERN = project()
+            .matching(project -> !isSymbolToSymbolProjection(project))
             .with(source().matching(exchange().capturedAs(CHILD)));
 
     @Override
@@ -80,10 +81,6 @@ public class PushProjectionThroughExchange
     @Override
     public Optional<PlanNode> apply(ProjectNode project, Captures captures, Context context)
     {
-        if (isSymbolToSymbolProjection(project)) {
-            return Optional.empty();
-        }
-
         ExchangeNode exchange = captures.get(CHILD);
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
@@ -150,7 +147,7 @@ public class PushProjectionThroughExchange
         return Optional.of(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
     }
 
-    private boolean isSymbolToSymbolProjection(ProjectNode project)
+    private static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
         return project.getAssignments().getExpressions().stream().allMatch(e -> e instanceof SymbolReference);
     }
