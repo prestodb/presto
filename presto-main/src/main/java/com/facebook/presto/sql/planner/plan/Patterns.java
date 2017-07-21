@@ -138,7 +138,12 @@ public class Patterns
         return typeOf(WindowNode.class);
     }
 
-    public static Property<PlanNode, PlanNode> source()
+    public static Property<HasSource, PlanNode> source()
+    {
+        return property(HasSource::getSource);
+    }
+
+    public static Property<PlanNode, PlanNode> onlySource()
     {
         return optionalProperty(node -> node.getSources().size() == 1 ?
                 Optional.of(node.getSources().get(0)) :

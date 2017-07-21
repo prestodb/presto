@@ -28,6 +28,7 @@ import java.util.Optional;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.delete;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
+import static com.facebook.presto.sql.planner.plan.Patterns.onlySource;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableFinish;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
@@ -58,7 +59,7 @@ public class RemoveEmptyDelete
 
     private static final Pattern<TableFinishNode> PATTERN = tableFinish()
             .with(source().matching(exchange()
-                    .with(source().matching(delete()
+                    .with(onlySource().matching(delete()
                             .with(source().matching(values().capturedAs(VALUES)))))));
 
     @Override
