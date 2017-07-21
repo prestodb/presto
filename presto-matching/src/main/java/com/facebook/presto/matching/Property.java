@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.matching;
 
+import com.facebook.presto.matching.pattern.FilterPattern;
+
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public interface Property<F, T>
 {
@@ -41,5 +44,10 @@ public interface Property<F, T>
     {
         Pattern<T> matchAll = (Pattern<T>) Pattern.any();
         return matching(matchAll.capturedAs(capture));
+    }
+
+    default PropertyPattern<F, T> matching(Predicate<? super T> predicate)
+    {
+        return matching(new FilterPattern<>(predicate, null));
     }
 }
