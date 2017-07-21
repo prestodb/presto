@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class SampleNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final double sampleRatio;

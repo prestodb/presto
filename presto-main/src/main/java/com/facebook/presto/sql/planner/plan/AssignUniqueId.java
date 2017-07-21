@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 public class AssignUniqueId
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final Symbol idColumn;

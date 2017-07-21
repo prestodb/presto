@@ -34,6 +34,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class TopNNode
         extends PlanNode
+        implements HasSource
 {
     public enum Step
     {

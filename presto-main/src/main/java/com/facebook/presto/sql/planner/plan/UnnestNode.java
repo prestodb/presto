@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class UnnestNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final List<Symbol> replicateSymbols;

@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class TableFinishNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final WriterTarget target;

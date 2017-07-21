@@ -41,6 +41,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class AggregationNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final Map<Symbol, Aggregation> aggregations;

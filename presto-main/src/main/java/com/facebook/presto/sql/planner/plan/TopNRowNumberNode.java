@@ -34,6 +34,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class TopNRowNumberNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final Specification specification;

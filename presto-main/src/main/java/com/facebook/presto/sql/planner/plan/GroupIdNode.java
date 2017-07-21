@@ -39,6 +39,7 @@ import static java.util.stream.Collectors.toSet;
 @Immutable
 public class GroupIdNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
 
