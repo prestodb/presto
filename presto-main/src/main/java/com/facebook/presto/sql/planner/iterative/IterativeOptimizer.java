@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.matching.MatchingEngine;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -42,7 +41,7 @@ public class IterativeOptimizer
         implements PlanOptimizer
 {
     private final List<PlanOptimizer> legacyRules;
-    private final MatchingEngine<Rule> ruleStore;
+    private final RuleIndex ruleIndex;
     private final StatsRecorder stats;
 
     public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
@@ -53,7 +52,7 @@ public class IterativeOptimizer
     public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
-        this.ruleStore = MatchingEngine.<Rule>builder()
+        this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
                 .build();
 
@@ -116,7 +115,7 @@ public class IterativeOptimizer
             }
 
             done = true;
-            Iterator<Rule> possiblyMatchingRules = ruleStore.getCandidates(node).iterator();
+            Iterator<Rule> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
             while (possiblyMatchingRules.hasNext()) {
                 Rule rule = possiblyMatchingRules.next();
 

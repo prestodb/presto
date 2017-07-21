@@ -35,7 +35,7 @@ public abstract class Pattern
         return new TypeOf(objectClass);
     }
 
-    static class TypeOf<T>
+    public static class TypeOf<T>
             extends Pattern
     {
         private final Class<T> type;
