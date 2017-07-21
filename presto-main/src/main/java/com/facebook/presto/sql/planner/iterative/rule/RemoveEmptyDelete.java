@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -25,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
-import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.delete;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -54,12 +52,15 @@ import static com.facebook.presto.sql.planner.plan.Patterns.values;
 public class RemoveEmptyDelete
         implements Rule<TableFinishNode>
 {
-    private static final Capture<ValuesNode> VALUES = newCapture();
-
     private static final Pattern<TableFinishNode> PATTERN = tableFinish()
             .with(source().matching(exchange()
                     .with(source().matching(delete()
-                            .with(source().matching(values().capturedAs(VALUES)))))));
+                            .with(source().matching(emptyValues()))))));
+
+    private static Pattern<ValuesNode> emptyValues()
+    {
+        return values().matching(values -> values.getRows().isEmpty());
+    }
 
     @Override
     public Pattern<TableFinishNode> getPattern()
@@ -70,10 +71,6 @@ public class RemoveEmptyDelete
     @Override
     public Optional<PlanNode> apply(TableFinishNode node, Captures captures, Context context)
     {
-        if (!captures.get(VALUES).getRows().isEmpty()) {
-            return Optional.empty();
-        }
-
         return Optional.of(
                 new ValuesNode(
                         node.getId(),

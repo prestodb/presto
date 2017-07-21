@@ -27,7 +27,8 @@ import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 public class RemoveUnreferencedScalarApplyNodes
         implements Rule<ApplyNode>
 {
-    private static final Pattern<ApplyNode> PATTERN = applyNode();
+    private static final Pattern<ApplyNode> PATTERN = applyNode()
+            .matching(applyNode -> applyNode.getSubqueryAssignments().isEmpty());
 
     @Override
     public Pattern<ApplyNode> getPattern()
@@ -38,9 +39,6 @@ public class RemoveUnreferencedScalarApplyNodes
     @Override
     public Optional<PlanNode> apply(ApplyNode applyNode, Captures captures, Context context)
     {
-        if (applyNode.getSubqueryAssignments().isEmpty()) {
-            return Optional.of(applyNode.getInput());
-        }
-        return Optional.empty();
+        return Optional.of(applyNode.getInput());
     }
 }

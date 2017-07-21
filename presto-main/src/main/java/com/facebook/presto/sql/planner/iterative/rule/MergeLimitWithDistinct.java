@@ -35,7 +35,18 @@ public class MergeLimitWithDistinct
     private static final Capture<AggregationNode> CHILD = newCapture();
 
     private static final Pattern<LimitNode> PATTERN = limit()
-            .with(source().matching(aggregation().capturedAs(CHILD)));
+            .with(source().matching(aggregation().capturedAs(CHILD)
+                    .matching(aggregation -> isDistinct(aggregation))));
+
+    /**
+     * Whether this node corresponds to a DISTINCT operation in SQL
+     */
+    private static boolean isDistinct(AggregationNode node)
+    {
+        return node.getAggregations().isEmpty() &&
+                node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
+                node.getOutputSymbols().containsAll(node.getGroupingKeys());
+    }
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -48,10 +59,6 @@ public class MergeLimitWithDistinct
     {
         AggregationNode child = captures.get(CHILD);
 
-        if (!isDistinct(child)) {
-            return Optional.empty();
-        }
-
         return Optional.of(
                 new DistinctLimitNode(
                         parent.getId(),
@@ -60,15 +67,5 @@ public class MergeLimitWithDistinct
                         false,
                         child.getGroupingKeys(),
                         child.getHashSymbol()));
-    }
-
-    /**
-     * Whether this node corresponds to a DISTINCT operation in SQL
-     */
-    private boolean isDistinct(AggregationNode node)
-    {
-        return node.getAggregations().isEmpty() &&
-                node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
-                node.getOutputSymbols().containsAll(node.getGroupingKeys());
     }
 }

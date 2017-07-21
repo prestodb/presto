@@ -60,7 +60,16 @@ public class SingleMarkDistinctToGroupBy
     private static final Capture<MarkDistinctNode> CHILD = newCapture();
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .matching(aggregation -> hasFilters(aggregation))
             .with(source().matching(markDistinct().capturedAs(CHILD)));
+
+    private static boolean hasFilters(AggregationNode aggregationNode)
+    {
+        return aggregationNode.getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getFilter)
+                .anyMatch(Optional::isPresent);
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -72,15 +81,6 @@ public class SingleMarkDistinctToGroupBy
     public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
     {
         MarkDistinctNode child = captures.get(CHILD);
-
-        boolean hasFilters = parent.getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getFilter)
-                .anyMatch(Optional::isPresent);
-
-        if (hasFilters) {
-            return Optional.empty();
-        }
 
         // optimize if and only if
         // all aggregation functions have a single common distinct mask symbol

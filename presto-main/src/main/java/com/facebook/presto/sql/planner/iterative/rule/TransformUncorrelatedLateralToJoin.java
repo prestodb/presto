@@ -29,7 +29,8 @@ import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 public class TransformUncorrelatedLateralToJoin
         implements Rule<LateralJoinNode>
 {
-    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin();
+    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
+            .matching(lateralJoin -> lateralJoin.getCorrelation().isEmpty());
 
     @Override
     public Pattern<LateralJoinNode> getPattern()
@@ -40,10 +41,6 @@ public class TransformUncorrelatedLateralToJoin
     @Override
     public Optional<PlanNode> apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
-        if (!lateralJoinNode.getCorrelation().isEmpty()) {
-            return Optional.empty();
-        }
-
         return Optional.of(new JoinNode(
                 context.getIdAllocator().getNextId(),
                 JoinNode.Type.INNER,

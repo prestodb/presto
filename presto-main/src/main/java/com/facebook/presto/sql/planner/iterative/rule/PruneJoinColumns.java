@@ -23,6 +23,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
+import static com.google.common.base.Predicates.not;
 
 /**
  * Non-cross joins support output symbol selection, so absorb any project-off into the node.
@@ -32,16 +33,12 @@ public class PruneJoinColumns
 {
     public PruneJoinColumns()
     {
-        super(join());
+        super(join().matching(not(JoinNode::isCrossJoin)));
     }
 
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
     {
-        if (joinNode.isCrossJoin()) {
-            return Optional.empty();
-        }
-
         return Optional.of(
                 new JoinNode(
                         joinNode.getId(),
