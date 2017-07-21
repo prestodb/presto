@@ -16,21 +16,26 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
-public class TestCanonicalizeJoinExpressions
+public class TestCanonicalizeExpressions
         extends BaseRuleTest
 {
     @Test
+    public void testDoesNotFireForExpressionsInCanonicalForm()
+    {
+        tester().assertThat(new CanonicalizeExpressions())
+                .on(p -> p.filter(FALSE_LITERAL, p.values()))
+                .doesNotFire();
+    }
+
+    @Test
     public void testDoesNotFireForUnfilteredJoin()
     {
-        tester().assertThat(new CanonicalizeJoinExpressions())
+        tester().assertThat(new CanonicalizeExpressions())
                 .on(p -> p.join(INNER, p.values(), p.values()))
                 .doesNotFire();
     }
@@ -38,25 +43,24 @@ public class TestCanonicalizeJoinExpressions
     @Test
     public void testDoesNotFireForCanonicalExpressions()
     {
-        tester().assertThat(new CanonicalizeJoinExpressions())
+        tester().assertThat(new CanonicalizeExpressions())
                 .on(p -> p.join(INNER, p.values(), p.values(), FALSE_LITERAL))
                 .doesNotFire();
     }
 
     @Test
-    public void testCanonicalizesExpressions()
+    public void testDoesNotFireForUnfilteredTableScan()
     {
-        tester().assertThat(new CanonicalizeJoinExpressions())
-                .on(p -> p.join(
-                        INNER,
-                        p.values(p.symbol("x")),
-                        p.values(),
-                        p.expression("x IS NOT NULL")))
-                .matches(join(
-                        INNER,
-                        emptyList(),
-                        Optional.of("NOT (x IS NULL)"),
-                        values("x"),
-                        values()));
+        tester().assertThat(new CanonicalizeExpressions())
+                .on(p -> p.tableScan(emptyList(), emptyMap()))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForFilterInCanonicalForm()
+    {
+        tester().assertThat(new CanonicalizeExpressions())
+                .on(p -> p.tableScan(emptyList(), emptyMap(), FALSE_LITERAL))
+                .doesNotFire();
     }
 }
