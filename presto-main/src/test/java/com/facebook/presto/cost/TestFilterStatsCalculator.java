@@ -17,9 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -29,6 +31,7 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +53,8 @@ import static java.lang.Double.POSITIVE_INFINITY;
 @Test(singleThreaded = true)
 public class TestFilterStatsCalculator
 {
+    private static final VarcharType MEDIUM_VARCHAR_TYPE = VarcharType.createVarcharType(100);
+
     private FilterStatsCalculator statsCalculator;
     private PlanNodeStatsEstimate standardInputStatistics;
     private Map<Symbol, Type> standardTypes;
@@ -108,6 +113,13 @@ public class TestFilterStatsCalculator
                 .setHighValue(NaN)
                 .setNullsFraction(NaN)
                 .build();
+        SymbolStatsEstimate mediumVarcharStats = SymbolStatsEstimate.builder()
+                .setAverageRowSize(85.0)
+                .setDistinctValuesCount(165)
+                .setLowValue(NEGATIVE_INFINITY)
+                .setHighValue(POSITIVE_INFINITY)
+                .setNullsFraction(0.34)
+                .build();
         standardInputStatistics = PlanNodeStatsEstimate.builder()
                 .addSymbolStatistics(new Symbol("x"), xStats)
                 .addSymbolStatistics(new Symbol("y"), yStats)
@@ -116,6 +128,7 @@ public class TestFilterStatsCalculator
                 .addSymbolStatistics(new Symbol("rightOpen"), rightOpenStats)
                 .addSymbolStatistics(new Symbol("unknownRange"), unknownRangeStats)
                 .addSymbolStatistics(new Symbol("emptyRange"), emptyRangeStats)
+                .addSymbolStatistics(new Symbol("mediumVarchar"), mediumVarcharStats)
                 .setOutputRowCount(1000.0)
                 .build();
 
@@ -126,7 +139,9 @@ public class TestFilterStatsCalculator
                 .put(new Symbol("leftOpen"), DoubleType.DOUBLE)
                 .put(new Symbol("rightOpen"), DoubleType.DOUBLE)
                 .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
-                .put(new Symbol("emptyRange"), DoubleType.DOUBLE).build();
+                .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
+                .put(new Symbol("mediumVarchar"), MEDIUM_VARCHAR_TYPE)
+                .build();
 
         session = testSessionBuilder().build();
         statsCalculator = new FilterStatsCalculator(MetadataManager.createTestMetadataManager());
@@ -472,6 +487,30 @@ public class TestFilterStatsCalculator
                     symbolStats.distinctValuesCount(5.0)
                             .lowValue(-42.0)
                             .highValue(314.0)
+                            .nullsFraction(0.0);
+                });
+
+        // Casted literals as value
+        assertExpression(
+                new InPredicate(new SymbolReference("mediumVarchar"), new InListExpression(
+                        ImmutableList.of(
+                                new Cast(new StringLiteral("abc"), MEDIUM_VARCHAR_TYPE.toString())
+                        ))))
+                .outputRowsCount(4)
+                .symbolStats("mediumVarchar", symbolStats -> {
+                    symbolStats.distinctValuesCount(1)
+                            .nullsFraction(0.0);
+                });
+
+        assertExpression(
+                new InPredicate(new SymbolReference("mediumVarchar"), new InListExpression(
+                        ImmutableList.of(
+                                new Cast(new StringLiteral("abc"), MEDIUM_VARCHAR_TYPE.toString()),
+                                new Cast(new StringLiteral("def"), MEDIUM_VARCHAR_TYPE.toString())
+                        ))))
+                .outputRowsCount(8)
+                .symbolStats("mediumVarchar", symbolStats -> {
+                    symbolStats.distinctValuesCount(2)
                             .nullsFraction(0.0);
                 });
 
