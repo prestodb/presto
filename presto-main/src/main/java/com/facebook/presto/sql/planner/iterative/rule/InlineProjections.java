@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -45,7 +46,7 @@ import static java.util.stream.Collectors.toSet;
 public class InlineProjections
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
+    private static final Pattern PATTERN = project();
 
     @Override
     public Pattern getPattern()

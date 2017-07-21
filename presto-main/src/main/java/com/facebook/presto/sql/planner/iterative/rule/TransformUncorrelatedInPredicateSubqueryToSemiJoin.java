@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.InPredicate;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
@@ -52,10 +53,12 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         implements Rule
 {
+    private static final Pattern PATTERN = applyNode();
+
     @Override
     public Pattern getPattern()
     {
-        return Pattern.typeOf(ApplyNode.class);
+        return PATTERN;
     }
 
     @Override

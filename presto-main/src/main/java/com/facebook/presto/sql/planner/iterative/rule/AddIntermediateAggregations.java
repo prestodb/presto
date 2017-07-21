@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -66,7 +67,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class AddIntermediateAggregations
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern PATTERN = aggregation();
 
     @Override
     public Pattern getPattern()

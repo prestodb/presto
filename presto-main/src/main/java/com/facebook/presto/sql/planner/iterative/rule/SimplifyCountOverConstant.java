@@ -37,11 +37,12 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 
 public class SimplifyCountOverConstant
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern PATTERN = aggregation();
 
     @Override
     public Pattern getPattern()

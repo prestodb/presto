@@ -21,10 +21,12 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
+
 public class RemoveUnreferencedScalarApplyNodes
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ApplyNode.class);
+    private static final Pattern PATTERN = applyNode();
 
     @Override
     public Pattern getPattern()

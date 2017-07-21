@@ -26,12 +26,13 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneSemiJoinFilteringSourceColumns
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(SemiJoinNode.class);
+    private static final Pattern PATTERN = semiJoin();
 
     @Override
     public Pattern getPattern()

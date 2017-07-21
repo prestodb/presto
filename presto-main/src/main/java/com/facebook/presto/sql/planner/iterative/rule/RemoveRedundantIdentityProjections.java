@@ -21,13 +21,15 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
+
 /**
  * Removes projection nodes that only perform non-renaming identity projections
  */
 public class RemoveRedundantIdentityProjections
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
+    private static final Pattern PATTERN = project();
 
     @Override
     public Pattern getPattern()

@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
@@ -62,7 +63,7 @@ import static java.util.Objects.requireNonNull;
 public class TransformCorrelatedScalarAggregationToJoin
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(LateralJoinNode.class);
+    private static final Pattern PATTERN = lateralJoin();
 
     @Override
     public Pattern getPattern()

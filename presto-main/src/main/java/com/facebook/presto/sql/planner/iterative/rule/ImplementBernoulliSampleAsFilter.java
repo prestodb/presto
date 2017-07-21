@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.sample;
+
 /**
  * Transforms:
  * <pre>
@@ -42,7 +44,7 @@ import java.util.Optional;
 public class ImplementBernoulliSampleAsFilter
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(SampleNode.class);
+    private static final Pattern PATTERN = sample();
 
     @Override
     public Pattern getPattern()

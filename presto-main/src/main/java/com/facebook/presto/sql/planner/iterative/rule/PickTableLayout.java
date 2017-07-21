@@ -28,12 +28,12 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.filter;
-import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.tableScan;
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
 public class PickTableLayout
-            implements RuleSet
+        implements RuleSet
 {
     private final ImmutableSet<Rule> rules;
 
