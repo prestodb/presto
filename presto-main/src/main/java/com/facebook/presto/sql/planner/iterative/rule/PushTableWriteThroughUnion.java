@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
@@ -27,24 +28,30 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
+import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
+import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PushTableWriteThroughUnion
         implements Rule<TableWriterNode>
 {
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isPushTableWriteThroughUnion(session);
-    }
+    private static final Capture<UnionNode> CHILD = newCapture();
 
-    private static final Pattern<TableWriterNode> PATTERN = tableWriterNode();
+    private static final Pattern<TableWriterNode> PATTERN = tableWriterNode()
+            .with(source().matching(union().capturedAs(CHILD)));
 
     @Override
     public Pattern<TableWriterNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isPushTableWriteThroughUnion(session);
     }
 
     @Override
@@ -59,12 +66,7 @@ public class PushTableWriteThroughUnion
             return Optional.empty();
         }
 
-        PlanNode child = context.getLookup().resolve(tableWriterNode.getSource());
-        if (!(child instanceof UnionNode)) {
-            return Optional.empty();
-        }
-
-        UnionNode unionNode = (UnionNode) child;
+        UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
         for (int i = 0; i < unionNode.getSources().size(); i++) {

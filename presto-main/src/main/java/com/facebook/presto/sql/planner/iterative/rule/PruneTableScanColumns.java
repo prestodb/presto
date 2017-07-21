@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.collect.Maps.filterKeys;
 
@@ -29,7 +30,7 @@ public class PruneTableScanColumns
 {
     public PruneTableScanColumns()
     {
-        super(TableScanNode.class);
+        super(tableScan());
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
@@ -27,7 +28,10 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.topN;
+import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.PARTIAL;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Sets.intersection;
@@ -35,7 +39,10 @@ import static com.google.common.collect.Sets.intersection;
 public class PushTopNThroughUnion
         implements Rule<TopNNode>
 {
-    private static final Pattern<TopNNode> PATTERN = topN();
+    private static final Capture<UnionNode> CHILD = newCapture();
+
+    private static final Pattern<TopNNode> PATTERN = topN()
+            .with(source().matching(union().capturedAs(CHILD)));
 
     @Override
     public Pattern<TopNNode> getPattern()
@@ -50,11 +57,7 @@ public class PushTopNThroughUnion
             return Optional.empty();
         }
 
-        PlanNode child = context.getLookup().resolve(topNNode.getSource());
-        if (!(child instanceof UnionNode)) {
-            return Optional.empty();
-        }
-        UnionNode unionNode = (UnionNode) child;
+        UnionNode unionNode = captures.get(CHILD);
 
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
 

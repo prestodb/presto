@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
@@ -33,12 +34,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.planner.plan.Patterns.union;
 
 public class PushProjectionThroughUnion
         implements Rule<ProjectNode>
 {
-    private static final Pattern<ProjectNode> PATTERN = project();
+    private static final Capture<UnionNode> CHILD = newCapture();
+
+    private static final Pattern<ProjectNode> PATTERN = project()
+            .with(source().matching(union().capturedAs(CHILD)));
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -49,12 +56,7 @@ public class PushProjectionThroughUnion
     @Override
     public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
     {
-        PlanNode child = context.getLookup().resolve(parent.getSource());
-        if (!(child instanceof UnionNode)) {
-            return Optional.empty();
-        }
-
-        UnionNode source = (UnionNode) child;
+        UnionNode source = captures.get(CHILD);
 
         // OutputLayout of the resultant Union, will be same as the layout of the Project
         List<Symbol> outputLayout = parent.getOutputSymbols();
@@ -65,7 +67,7 @@ public class PushProjectionThroughUnion
         // sources for the resultant UnionNode
         ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
-        for (int i = 0; i < child.getSources().size(); i++) {
+        for (int i = 0; i < source.getSources().size(); i++) {
             Map<Symbol, SymbolReference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
             Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 

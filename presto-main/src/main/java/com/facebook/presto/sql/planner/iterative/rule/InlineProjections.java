@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
@@ -35,7 +36,9 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -47,7 +50,10 @@ import static java.util.stream.Collectors.toSet;
 public class InlineProjections
         implements Rule<ProjectNode>
 {
-    private static final Pattern<ProjectNode> PATTERN = project();
+    private static final Capture<ProjectNode> CHILD = newCapture();
+
+    private static final Pattern<ProjectNode> PATTERN = project()
+            .with(source().matching(project().capturedAs(CHILD)));
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -58,12 +64,7 @@ public class InlineProjections
     @Override
     public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
     {
-        PlanNode source = context.getLookup().resolve(parent.getSource());
-        if (!(source instanceof ProjectNode)) {
-            return Optional.empty();
-        }
-
-        ProjectNode child = (ProjectNode) source;
+        ProjectNode child = captures.get(CHILD);
 
         Sets.SetView<Symbol> targets = extractInliningTargets(parent, child);
         if (targets.isEmpty()) {

@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.topN;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneTopNColumns
@@ -30,7 +31,7 @@ public class PruneTopNColumns
 {
     public PruneTopNColumns()
     {
-        super(TopNNode.class);
+        super(topN());
     }
 
     @Override

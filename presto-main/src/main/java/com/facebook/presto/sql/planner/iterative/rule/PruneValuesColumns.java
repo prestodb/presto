@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 
 public class PruneValuesColumns
@@ -33,7 +34,7 @@ public class PruneValuesColumns
 {
     public PruneValuesColumns()
     {
-        super(ValuesNode.class);
+        super(values());
     }
 
     @Override

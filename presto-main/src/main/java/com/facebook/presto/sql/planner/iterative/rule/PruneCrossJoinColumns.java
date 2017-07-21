@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
 
 /**
  * Cross joins don't support output symbol selection, so push the project-off through the node.
@@ -31,7 +32,7 @@ public class PruneCrossJoinColumns
 {
     public PruneCrossJoinColumns()
     {
-        super(JoinNode.class);
+        super(join());
     }
 
     @Override
