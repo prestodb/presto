@@ -21,11 +21,12 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 
 public class MergeFilters
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(FilterNode.class);
+    private static final Pattern PATTERN = filter();
 
     @Override
     public Pattern getPattern()

@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.Expression;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Collections.emptyList;
@@ -30,7 +31,7 @@ import static java.util.Optional.empty;
 public class RemoveTrivialFilters
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(FilterNode.class);
+    private static final Pattern PATTERN = filter();
 
     @Override
     public Pattern getPattern()

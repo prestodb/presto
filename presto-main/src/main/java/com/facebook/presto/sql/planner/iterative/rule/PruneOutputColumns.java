@@ -22,11 +22,12 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.output;
 
 public class PruneOutputColumns
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(OutputNode.class);
+    private static final Pattern PATTERN = output();
 
     @Override
     public Pattern getPattern()

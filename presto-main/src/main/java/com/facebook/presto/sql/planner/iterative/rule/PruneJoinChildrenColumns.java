@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
 
 /**
  * Non-Cross joins support output symbol selection, so make any project-off of child columns explicit in project nodes.
@@ -32,7 +33,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildO
 public class PruneJoinChildrenColumns
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(JoinNode.class);
+    private static final Pattern PATTERN = join();
 
     @Override
     public Pattern getPattern()

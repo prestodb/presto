@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
 
 /**
  * @param <N> The node type to look for under the ProjectNode
@@ -34,7 +35,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
 public abstract class ProjectOffPushDownRule<N extends PlanNode>
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
+    private static final Pattern PATTERN = project();
     private final Class<N> targetNodeClass;
 
     protected ProjectOffPushDownRule(Class<N> targetNodeClass)

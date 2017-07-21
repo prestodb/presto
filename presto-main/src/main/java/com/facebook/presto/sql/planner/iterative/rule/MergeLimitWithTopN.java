@@ -21,10 +21,12 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+
 public class MergeLimitWithTopN
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(LimitNode.class);
+    private static final Pattern PATTERN = limit();
 
     @Override
     public Pattern getPattern()
