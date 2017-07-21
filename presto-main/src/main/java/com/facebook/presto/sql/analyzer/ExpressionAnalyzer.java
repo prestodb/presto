@@ -1555,8 +1555,34 @@ public class ExpressionAnalyzer
             String message,
             boolean isDescribe)
     {
-        return new ExpressionAnalyzer(functionRegistry, typeManager, node -> {
-            throw new SemanticException(errorCode, node, message);
-        }, session, ImmutableMap.of(), parameters, isDescribe);
+        return createWithoutSubqueries(
+                functionRegistry,
+                typeManager,
+                session,
+                ImmutableMap.of(),
+                parameters,
+                node -> new SemanticException(errorCode, node, message),
+                isDescribe);
+    }
+
+    public static ExpressionAnalyzer createWithoutSubqueries(
+            FunctionRegistry functionRegistry,
+            TypeManager typeManager,
+            Session session,
+            Map<Symbol, Type> symbolTypes,
+            List<Expression> parameters,
+            Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
+            boolean isDescribe)
+    {
+        return new ExpressionAnalyzer(
+                functionRegistry,
+                typeManager,
+                node -> {
+                    throw statementAnalyzerRejection.apply(node);
+                },
+                session,
+                symbolTypes,
+                parameters,
+                isDescribe);
     }
 }

@@ -33,14 +33,6 @@ public class ComparisonStatsCalculator
     private ComparisonStatsCalculator()
     {}
 
-    public static PlanNodeStatsEstimate comparisonSymbolToLiteralStats(PlanNodeStatsEstimate inputStatistics,
-            Symbol symbol,
-            OptionalDouble doubleLiteral,
-            ComparisonExpressionType type)
-    {
-        return comparisonExpressionToLiteralStats(inputStatistics, Optional.of(symbol), inputStatistics.getSymbolStatistics(symbol), doubleLiteral, type);
-    }
-
     public static PlanNodeStatsEstimate comparisonExpressionToLiteralStats(
             PlanNodeStatsEstimate inputStatistics,
             Optional<Symbol> symbol,
