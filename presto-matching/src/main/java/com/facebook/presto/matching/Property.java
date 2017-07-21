@@ -19,34 +19,50 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public interface Property<F, T>
+public class Property<F, T>
 {
-    static <F, T> Property<F, T> property(Function<F, T> property)
+    private final String name;
+    private final Function<F, Optional<T>> function;
+
+    public static <F, T> Property<F, T> property(String name, Function<F, T> function)
     {
-        return optionalProperty(source -> Optional.of(property.apply(source)));
+        return optionalProperty(name, source -> Optional.of(function.apply(source)));
     }
 
-    static <F, T> Property<F, T> optionalProperty(Function<F, Optional<T>> property)
+    public static <F, T> Property<F, T> optionalProperty(String name, Function<F, Optional<T>> function)
     {
-        return new Property<F, T>()
-        {
-            @Override
-            public <R> PropertyPattern<F, R> matching(Pattern<R> pattern)
-            {
-                return PropertyPattern.of(property, pattern);
-            }
-        };
+        return new Property<>(name, function);
     }
 
-    <R> PropertyPattern<F, R> matching(Pattern<R> pattern);
+    public Property(String name, Function<F, Optional<T>> function)
+    {
+        this.name = name;
+        this.function = function;
+    }
 
-    default PropertyPattern<F, T> capturedAs(Capture<T> capture)
+    public String getName()
+    {
+        return name;
+    }
+
+    public Function<F, Optional<?>> getFunction()
+    {
+        //without the ::apply below, the type system is unable to drop the R type from Optional
+        return function::apply;
+    }
+
+    public <R> PropertyPattern<F, R> matching(Pattern<R> pattern)
+    {
+        return PropertyPattern.of(this, pattern);
+    }
+
+    public PropertyPattern<F, T> capturedAs(Capture<T> capture)
     {
         Pattern<T> matchAll = (Pattern<T>) Pattern.any();
         return matching(matchAll.capturedAs(capture));
     }
 
-    default PropertyPattern<F, T> matching(Predicate<? super T> predicate)
+    public PropertyPattern<F, T> matching(Predicate<? super T> predicate)
     {
         return matching(new FilterPattern<>(predicate, null));
     }
