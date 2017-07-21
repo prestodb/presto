@@ -40,7 +40,7 @@ public class DefaultPrinter
     public void visitWith(WithPattern<?> pattern)
     {
         visitPrevious(pattern);
-        appendLine("with(%s)", pattern.getProperty()); //TODO provide actual name
+        appendLine("with(%s)", pattern.getProperty().getName());
         level += 1;
         pattern.getPattern().accept(this);
         level -= 1;

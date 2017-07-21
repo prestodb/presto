@@ -13,27 +13,23 @@
  */
 package com.facebook.presto.matching;
 
-import java.util.Optional;
-import java.util.function.Function;
-
 public class PropertyPattern<F, R>
 {
-    private final Function<F, Optional<?>> property;
+    private final Property<F, ?> property;
     private final Pattern<R> pattern;
 
-    public static <F, T, R> PropertyPattern<F, R> of(Function<F, Optional<T>> property, Pattern<R> pattern)
+    public static <F, T, R> PropertyPattern<F, R> of(Property<F, T> property, Pattern<R> pattern)
     {
-        //without the ::apply below, the type system is unable to drop the R type from Optional
-        return new PropertyPattern<>(property::apply, pattern);
+        return new PropertyPattern<>(property, pattern);
     }
 
-    private PropertyPattern(Function<F, Optional<?>> property, Pattern<R> pattern)
+    private PropertyPattern(Property<F, ?> property, Pattern<R> pattern)
     {
         this.property = property;
         this.pattern = pattern;
     }
 
-    public Function<F, Optional<?>> getProperty()
+    public Property<F, ?> getProperty()
     {
         return property;
     }
