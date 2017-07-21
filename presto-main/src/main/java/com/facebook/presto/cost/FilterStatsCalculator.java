@@ -54,6 +54,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
+import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -225,16 +226,19 @@ public class FilterStatsCalculator
                     .map(inValue -> process(new ComparisonExpression(EQUAL, node.getValue(), inValue)))
                     .reduce(filterForFalseExpression(), PlanNodeStatsEstimateMath::addStats);
 
-            Symbol inValueSymbol = Symbol.from(node.getValue());
-            SymbolStatsEstimate symbolStat = input.getSymbolStatistics(inValueSymbol);
-            double notNullValuesBeforeIn = input.getOutputRowCount() * (1 - symbolStat.getNullsFraction());
+            if (isNaN(statsSum.getOutputRowCount())) {
+                return visitExpression(node, context);
+            }
 
-            return statsSum.mapOutputRowCount(rowCount -> min(rowCount, notNullValuesBeforeIn))
-                    .mapSymbolColumnStatistics(inValueSymbol,
-                            symbolStats ->
-                                    symbolStats.mapNullsFraction(x -> 0.0)
-                                            .mapDistinctValuesCount(distinctValues ->
-                                                    min(distinctValues, input.getSymbolStatistics(inValueSymbol).getDistinctValuesCount())));
+            Symbol inValueSymbol = Symbol.from(node.getValue());
+            SymbolStatsEstimate symbolStats = input.getSymbolStatistics(inValueSymbol);
+            double notNullValuesBeforeIn = input.getOutputRowCount() * (1 - symbolStats.getNullsFraction());
+
+            SymbolStatsEstimate newSymbolStats = statsSum.getSymbolStatistics(inValueSymbol)
+                    .mapDistinctValuesCount(newDistinctValuesCount -> min(newDistinctValuesCount, symbolStats.getDistinctValuesCount()));
+
+            return input.mapOutputRowCount(rowCount -> min(statsSum.getOutputRowCount(), notNullValuesBeforeIn))
+                    .mapSymbolColumnStatistics(inValueSymbol, oldSymbolStats -> newSymbolStats);
         }
 
         @Override

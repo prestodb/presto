@@ -434,6 +434,13 @@ public class TestFilterStatsCalculator
                             .lowValue(1.5)
                             .highValue(7.5)
                             .nullsFraction(0.0);
+                })
+                .symbolStats("y", symbolStats -> {
+                    // Symbol not involved in the comparison should have stats basically unchanged
+                    symbolStats.distinctValuesCount(20.0)
+                            .lowValue(0.0)
+                            .highValue(5)
+                            .nullsFraction(0.5);
                 });
 
         // Multiple values some in some out of range
