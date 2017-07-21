@@ -143,20 +143,6 @@ public class ComparisonStatsCalculator
         return expressionToLiteralRangeComparison(inputStatistics, symbol, expressionStats, new StatisticRange(literal.orElse(NEGATIVE_INFINITY), POSITIVE_INFINITY, NaN));
     }
 
-    public static PlanNodeStatsEstimate comparisonSymbolToSymbolStats(PlanNodeStatsEstimate inputStatistics,
-            Symbol left,
-            Symbol right,
-            ComparisonExpressionType type)
-    {
-        return comparisonExpressionToExpressionStats(
-                inputStatistics,
-                Optional.of(left),
-                inputStatistics.getSymbolStatistics(left),
-                Optional.of(right),
-                inputStatistics.getSymbolStatistics(right),
-                type);
-    }
-
     public static PlanNodeStatsEstimate comparisonExpressionToExpressionStats(
             PlanNodeStatsEstimate inputStatistics,
             Optional<Symbol> left,

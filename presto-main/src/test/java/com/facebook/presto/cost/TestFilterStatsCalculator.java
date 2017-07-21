@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
@@ -38,6 +39,7 @@ import java.util.Map;
 
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Type.ADD;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -234,6 +236,14 @@ public class TestFilterStatsCalculator
                                 .highValue(0.0)
                                 .distinctValuesCount(15.0)
                                 .nullsFraction(0.0));
+
+       // Impossible, with symbol-to-expression comparisons
+        assertExpression(and(
+                new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral("0"), new DoubleLiteral("1"))),
+                new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral("0"), new DoubleLiteral("3")))))
+                .outputRowsCount(0)
+                .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange);
+        // TODO .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
     }
 
     @Test
