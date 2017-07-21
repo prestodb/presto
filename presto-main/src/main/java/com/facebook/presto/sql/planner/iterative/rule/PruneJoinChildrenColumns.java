@@ -27,6 +27,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.google.common.base.Predicates.not;
 
 /**
  * Non-Cross joins support output symbol selection, so make any project-off of child columns explicit in project nodes.
@@ -34,7 +35,8 @@ import static com.facebook.presto.sql.planner.plan.Patterns.join;
 public class PruneJoinChildrenColumns
         implements Rule<JoinNode>
 {
-    private static final Pattern<JoinNode> PATTERN = join();
+    private static final Pattern<JoinNode> PATTERN = join()
+            .matching(not(JoinNode::isCrossJoin));
 
     @Override
     public Pattern<JoinNode> getPattern()
@@ -45,10 +47,6 @@ public class PruneJoinChildrenColumns
     @Override
     public Optional<PlanNode> apply(JoinNode joinNode, Captures captures, Context context)
     {
-        if (joinNode.isCrossJoin()) {
-            return Optional.empty();
-        }
-
         Set<Symbol> globallyUsableInputs = ImmutableSet.<Symbol>builder()
                 .addAll(joinNode.getOutputSymbols())
                 .addAll(

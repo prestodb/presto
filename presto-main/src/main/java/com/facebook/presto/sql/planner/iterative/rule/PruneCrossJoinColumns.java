@@ -32,16 +32,12 @@ public class PruneCrossJoinColumns
 {
     public PruneCrossJoinColumns()
     {
-        super(join());
+        super(join().matching(JoinNode::isCrossJoin));
     }
 
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
     {
-        if (!joinNode.isCrossJoin()) {
-            return Optional.empty();
-        }
-
         return restrictChildOutputs(idAllocator, joinNode, referencedOutputs, referencedOutputs);
     }
 }

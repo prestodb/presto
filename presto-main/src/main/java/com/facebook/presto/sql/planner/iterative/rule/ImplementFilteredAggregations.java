@@ -55,7 +55,16 @@ import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 public class ImplementFilteredAggregations
         implements Rule<AggregationNode>
 {
-    private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .matching(aggregation -> hasFilters(aggregation));
+
+    private static boolean hasFilters(AggregationNode aggregation)
+    {
+        return aggregation.getAggregations()
+                .values().stream()
+                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
+                        !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -66,15 +75,6 @@ public class ImplementFilteredAggregations
     @Override
     public Optional<PlanNode> apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        boolean hasFilters = aggregation.getAggregations()
-                .values().stream()
-                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
-                        !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
-
-        if (!hasFilters) {
-            return Optional.empty();
-        }
-
         Assignments.Builder newAssignments = Assignments.builder();
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
 
