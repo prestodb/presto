@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.reflect.TypeToken;
@@ -61,8 +62,8 @@ public class RuleIndex
         public Builder register(Rule rule)
         {
             Pattern pattern = rule.getPattern();
-            if (pattern instanceof Pattern.TypeOf<?>) {
-                rulesByRootType.put(((Pattern.TypeOf<?>) pattern).getClass(), rule);
+            if (pattern instanceof TypeOfPattern<?>) {
+                rulesByRootType.put(((TypeOfPattern<?>) pattern).expectedClass(), rule);
             }
             else {
                 throw new IllegalArgumentException("Unexpected Pattern: " + pattern);

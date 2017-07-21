@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.matching.Match;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.matching.DefaultMatcher.DEFAULT_MATCHER;
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -125,7 +127,9 @@ public class IterativeOptimizer
 
                 Optional<PlanNode> transformed;
 
-                if (!rule.getPattern().matches(node)) {
+                Match<?> match = DEFAULT_MATCHER.match(rule.getPattern(), node);
+
+                if (match.isEmpty()) {
                     continue;
                 }
 
