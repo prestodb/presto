@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -29,6 +30,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.DoubleFunction;
 
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
@@ -54,6 +57,20 @@ public class TestComparisonStatsCalculator
         session = testSessionBuilder().build();
         filterStatsCalculator = new FilterStatsCalculator(MetadataManager.createTestMetadataManager());
 
+        SymbolStatsEstimate uStats = SymbolStatsEstimate.builder()
+                .setAverageRowSize(8.0)
+                .setDistinctValuesCount(300)
+                .setLowValue(0)
+                .setHighValue(20)
+                .setNullsFraction(0.1)
+                .build();
+        SymbolStatsEstimate wStats = SymbolStatsEstimate.builder()
+                .setAverageRowSize(8.0)
+                .setDistinctValuesCount(30)
+                .setLowValue(0)
+                .setHighValue(20)
+                .setNullsFraction(0.1)
+                .build();
         SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(40.0)
@@ -111,6 +128,8 @@ public class TestComparisonStatsCalculator
                 .setNullsFraction(0.1)
                 .build();
         standardInputStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("u"), uStats)
+                .addSymbolStatistics(new Symbol("w"), wStats)
                 .addSymbolStatistics(new Symbol("x"), xStats)
                 .addSymbolStatistics(new Symbol("y"), yStats)
                 .addSymbolStatistics(new Symbol("z"), zStats)
@@ -123,6 +142,8 @@ public class TestComparisonStatsCalculator
                 .build();
 
         types = ImmutableMap.<Symbol, Type>builder()
+                .put(new Symbol("u"), BigintType.BIGINT)
+                .put(new Symbol("w"), BigintType.BIGINT)
                 .put(new Symbol("x"), DoubleType.DOUBLE)
                 .put(new Symbol("y"), DoubleType.DOUBLE)
                 .put(new Symbol("z"), DoubleType.DOUBLE)
@@ -498,5 +519,98 @@ public class TestComparisonStatsCalculator
                             .emptyRange()
                             .nullsFraction(1.0);
                 });
+    }
+
+    @Test
+    public void symbolToSymbolEqualStats()
+    {
+        // z's stats should be unchanged when not involved, except NDV capping to row count
+        DoubleFunction<Consumer<SymbolStatsAssertion>> zUnchanged = rowCount -> symbolAssert -> {
+            symbolAssert.averageRowSize(4)
+                    .lowValue(-100)
+                    .highValue(100)
+                    .distinctValuesCount(5) // TODO min(5, rowCount))
+                    .nullsFraction(0.1);
+        };
+
+        // Equal ranges
+        double rowCount = 2.7;
+        assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("u"), new SymbolReference("w")))
+                .outputRowsCount(rowCount)
+                .symbolStats("u", symbolAssert -> {
+                    symbolAssert.averageRowSize(8)
+                            .lowValue(0)
+                            .highValue(20)
+                            .distinctValuesCount(30)
+                            .nullsFraction(0);
+                })
+                .symbolStats("w", symbolAssert -> {
+                    symbolAssert.averageRowSize(8)
+                            .lowValue(0)
+                            .highValue(20)
+                            .distinctValuesCount(30)
+                            .nullsFraction(0);
+                })
+                .symbolStats("z", zUnchanged.apply(rowCount));
+
+        // One symbol's range is within the other's
+        rowCount = 4.6875;
+        assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("y")))
+                .outputRowsCount(rowCount)
+                .symbolStats("x", symbolAssert -> {
+                    symbolAssert.averageRowSize(4)
+                            .lowValue(0)
+                            .highValue(5)
+                            .distinctValuesCount(10)
+                            .nullsFraction(0);
+                })
+                .symbolStats("y", symbolAssert -> {
+                    symbolAssert.averageRowSize(4)
+                            .lowValue(0)
+                            .highValue(5)
+                            .distinctValuesCount(10)
+                            .nullsFraction(0);
+                })
+                .symbolStats("z", zUnchanged.apply(rowCount));
+
+        // Partially overlapping ranges
+        rowCount = 8.4375;
+        assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("w")))
+                .outputRowsCount(rowCount)
+                .symbolStats("x", symbolAssert -> {
+                    symbolAssert.averageRowSize(4)
+                            .lowValue(0)
+                            .highValue(10)
+                            .distinctValuesCount(15)
+                            .nullsFraction(0);
+                })
+                .symbolStats("w", symbolAssert -> {
+                    symbolAssert.averageRowSize(8)
+                            .lowValue(0)
+                            .highValue(10)
+                            .distinctValuesCount(15)
+                            .nullsFraction(0);
+                })
+                .symbolStats("z", zUnchanged.apply(rowCount));
+
+        // None of the ranges is included in the other, and one symbol has much higher cardinality, so that it has bigger NDV in intersect than the other in total
+        rowCount = 1.125;
+        assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("u")))
+                .outputRowsCount(rowCount)
+                .symbolStats("x", symbolAssert -> {
+                    symbolAssert.averageRowSize(4)
+                            .lowValue(0)
+                            .highValue(10)
+                            .distinctValuesCount(20)
+                            .nullsFraction(0);
+                })
+                .symbolStats("u", symbolAssert -> {
+                    symbolAssert.averageRowSize(8)
+                            .lowValue(0)
+                            .highValue(10)
+                            .distinctValuesCount(20)
+                            .nullsFraction(0);
+                })
+                .symbolStats("z", zUnchanged.apply(rowCount));
     }
 }
