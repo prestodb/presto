@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -23,12 +24,18 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+import static com.facebook.presto.sql.planner.plan.Patterns.sort;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 public class MergeLimitWithSort
         implements Rule<LimitNode>
 {
-    private static final Pattern<LimitNode> PATTERN = limit();
+    private static final Capture<SortNode> CHILD = newCapture();
+
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .with(source().matching(sort().capturedAs(CHILD)));
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -39,12 +46,7 @@ public class MergeLimitWithSort
     @Override
     public Optional<PlanNode> apply(LimitNode parent, Captures captures, Context context)
     {
-        PlanNode source = context.getLookup().resolve(parent.getSource());
-        if (!(source instanceof SortNode)) {
-            return Optional.empty();
-        }
-
-        SortNode child = (SortNode) source;
+        SortNode child = captures.get(CHILD);
 
         return Optional.of(
                 new TopNNode(

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -25,8 +26,10 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 /**
  * @param <N> The node type to look for under the ProjectNode
@@ -36,31 +39,28 @@ import static com.facebook.presto.sql.planner.plan.Patterns.project;
 public abstract class ProjectOffPushDownRule<N extends PlanNode>
         implements Rule<ProjectNode>
 {
-    private static final Pattern PATTERN = project();
-    private final Class<N> targetNodeClass;
+    private final Capture<N> targetCapture = newCapture();
 
-    protected ProjectOffPushDownRule(Class<N> targetNodeClass)
+    private final Pattern<N> targetPattern;
+
+    protected ProjectOffPushDownRule(Pattern<N> targetPattern)
     {
-        this.targetNodeClass = targetNodeClass;
+        this.targetPattern = targetPattern;
     }
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ProjectNode> getPattern()
     {
-        return PATTERN;
+        return project()
+                .with(source().matching(targetPattern.capturedAs(targetCapture)));
     }
 
     @Override
     public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
     {
-        PlanNode child = context.getLookup().resolve(parent.getSource());
-        if (!targetNodeClass.isInstance(child)) {
-            return Optional.empty();
-        }
+        N targetNode = captures.get(targetCapture);
 
-        N targetNode = targetNodeClass.cast(child);
-
-        return pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions())
+        return pruneInputs(targetNode.getOutputSymbols(), parent.getAssignments().getExpressions())
                 .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), targetNode, prunedOutputs))
                 .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)));
     }

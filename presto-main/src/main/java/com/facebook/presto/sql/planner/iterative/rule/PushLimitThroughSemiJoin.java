@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -22,13 +23,19 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 public class PushLimitThroughSemiJoin
         implements Rule<LimitNode>
 {
-    private static final Pattern<LimitNode> PATTERN = limit();
+    private static final Capture<SemiJoinNode> CHILD = newCapture();
+
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .with(source().matching(semiJoin().capturedAs(CHILD)));
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -39,11 +46,6 @@ public class PushLimitThroughSemiJoin
     @Override
     public Optional<PlanNode> apply(LimitNode parent, Captures captures, Context context)
     {
-        PlanNode child = context.getLookup().resolve(parent.getSource());
-        if (!(child instanceof SemiJoinNode)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(transpose(parent, child));
+        return Optional.of(transpose(parent, captures.get(CHILD)));
     }
 }
