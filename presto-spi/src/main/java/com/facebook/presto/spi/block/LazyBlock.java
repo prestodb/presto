@@ -244,6 +244,11 @@ public class LazyBlock
         this.block = requireNonNull(block, "block is null");
     }
 
+    public boolean isLoaded()
+    {
+        return block != null;
+    }
+
     @Override
     public void assureLoaded()
     {
