@@ -16,6 +16,7 @@ package com.facebook.presto.operator.project;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -138,6 +139,43 @@ public class TestPageProcessor
         // output should be one page containing no columns (only a count)
         List<Page> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 0);
+    }
+
+    @Test
+    public void testSelectNoneFilterLazyLoad()
+            throws Exception
+    {
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(1, BIGINT)));
+
+        // if channel 1 is loaded, test will fail
+        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
+            throw new AssertionError("Lazy block should not be loaded");
+        }));
+
+        PageProcessorOutput output = pageProcessor.process(SESSION, inputPage);
+        assertEquals(output.getRetainedSizeInBytes(), 0);
+
+        List<Page> outputPages = ImmutableList.copyOf(output);
+        assertEquals(outputPages.size(), 0);
+    }
+
+    @Test
+    public void testProjectLazyLoad()
+            throws Exception
+    {
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()));
+
+        // if channel 1 is loaded, test will fail
+        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
+            throw new AssertionError("Lazy block should not be loaded");
+        }));
+
+        PageProcessorOutput output = pageProcessor.process(SESSION, inputPage);
+        assertEquals(output.getRetainedSizeInBytes(), createLongSequenceBlock(0, 100).getRetainedSizeInBytes());
+
+        List<Page> outputPages = ImmutableList.copyOf(output);
+        assertEquals(outputPages.size(), 1);
+        assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0), new Page(createLongSequenceBlock(0, 100)));
     }
 
     @Test
@@ -293,6 +331,36 @@ public class TestPageProcessor
         }
     }
 
+    public static class LazyPagePageProjection
+            implements PageProjection
+    {
+        @Override
+        public Type getType()
+        {
+            return BIGINT;
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return true;
+        }
+
+        @Override
+        public InputChannels getInputChannels()
+        {
+            return new InputChannels(0, 1);
+        }
+
+        @Override
+        public Block project(ConnectorSession session, Page page, SelectedPositions selectedPositions)
+        {
+            Block block = page.getBlock(0);
+            block.assureLoaded();
+            return block;
+        }
+    }
+
     private static class TestingPageFilter
             implements PageFilter
     {
@@ -312,7 +380,7 @@ public class TestPageProcessor
         @Override
         public InputChannels getInputChannels()
         {
-            return new InputChannels();
+            return new InputChannels(0);
         }
 
         @Override
@@ -322,7 +390,7 @@ public class TestPageProcessor
         }
     }
 
-    private static class SelectAllFilter
+    public static class SelectAllFilter
             implements PageFilter
     {
         @Override
@@ -334,7 +402,7 @@ public class TestPageProcessor
         @Override
         public InputChannels getInputChannels()
         {
-            return new InputChannels();
+            return new InputChannels(0);
         }
 
         @Override
@@ -356,7 +424,7 @@ public class TestPageProcessor
         @Override
         public InputChannels getInputChannels()
         {
-            return new InputChannels();
+            return new InputChannels(0);
         }
 
         @Override
