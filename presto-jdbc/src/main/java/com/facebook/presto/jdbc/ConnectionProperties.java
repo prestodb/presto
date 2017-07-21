@@ -96,7 +96,7 @@ final class ConnectionProperties
     {
         public User()
         {
-            super("user", REQUIRED, ALLOWED, STRING_CONVERTER);
+            super("user", REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
         }
     }
 
