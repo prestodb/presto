@@ -61,7 +61,7 @@ public class RuleIndex
 
         public Builder register(Rule<?> rule)
         {
-            Pattern pattern = rule.getPattern();
+            Pattern pattern = getFirstPattern(rule.getPattern());
             if (pattern instanceof TypeOfPattern<?>) {
                 rulesByRootType.put(((TypeOfPattern<?>) pattern).expectedClass(), rule);
             }
@@ -69,6 +69,14 @@ public class RuleIndex
                 throw new IllegalArgumentException("Unexpected Pattern: " + pattern);
             }
             return this;
+        }
+
+        private Pattern<?> getFirstPattern(Pattern<?> pattern)
+        {
+            while (pattern.previous() != null) {
+                pattern = pattern.previous();
+            }
+            return pattern;
         }
 
         public RuleIndex build()

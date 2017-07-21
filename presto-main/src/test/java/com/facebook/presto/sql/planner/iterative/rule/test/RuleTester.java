@@ -20,6 +20,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -32,7 +33,6 @@ import java.io.Closeable;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.matching.DefaultMatcher.DEFAULT_MATCHER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Optional.empty;
@@ -115,7 +115,10 @@ public class RuleTester
         @Override
         public Optional<PlanNode> apply(PlanNode node, Captures captures, Context context)
         {
-            Set<Rule> matching = ruleSet.rules().stream().filter(rule -> matches(rule.getPattern(), node)).collect(toSet());
+            PlanNodeMatcher planNodeMatcher = new PlanNodeMatcher(context.getLookup());
+            Set<Rule> matching = ruleSet.rules().stream()
+                    .filter(rule -> matches(rule.getPattern(), node, planNodeMatcher))
+                    .collect(toSet());
             if (matching.size() == 0) {
                 return empty();
             }
@@ -123,9 +126,9 @@ public class RuleTester
             return getOnlyElement(matching).apply(node, captures, context);
         }
 
-        private boolean matches(Pattern pattern, PlanNode node)
+        private boolean matches(Pattern pattern, PlanNode node, PlanNodeMatcher planNodeMatcher)
         {
-            return DEFAULT_MATCHER.match(pattern, node).isPresent();
+            return planNodeMatcher.match(pattern, node).isPresent();
         }
     }
 }
