@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -37,7 +38,7 @@ import static java.util.Objects.requireNonNull;
 public class PruneCountAggregationOverScalar
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern PATTERN = aggregation();
 
     @Override
     public Pattern getPattern()

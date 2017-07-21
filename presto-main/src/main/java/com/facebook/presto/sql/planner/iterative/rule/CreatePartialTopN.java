@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.topN;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.SINGLE;
@@ -27,7 +28,7 @@ import static com.facebook.presto.sql.planner.plan.TopNNode.Step.SINGLE;
 public class CreatePartialTopN
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(TopNNode.class);
+    private static final Pattern PATTERN = topN();
 
     @Override
     public Pattern getPattern()

@@ -20,10 +20,12 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+
 public class MergeLimits
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(LimitNode.class);
+    private static final Pattern PATTERN = limit();
 
     @Override
     public Pattern getPattern()

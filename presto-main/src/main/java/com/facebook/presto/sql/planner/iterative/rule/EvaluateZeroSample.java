@@ -22,13 +22,15 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.sample;
+
 /**
  * Replaces 0% sample node with empty values node.
  */
 public class EvaluateZeroSample
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(SampleNode.class);
+    private static final Pattern PATTERN = sample();
 
     @Override
     public Pattern getPattern()

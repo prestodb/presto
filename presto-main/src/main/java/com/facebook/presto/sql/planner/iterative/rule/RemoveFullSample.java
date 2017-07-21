@@ -20,13 +20,15 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.sample;
+
 /**
  * Removes 100% sample nodes.
  */
 public class RemoveFullSample
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(SampleNode.class);
+    private static final Pattern PATTERN = sample();
 
     @Override
     public Pattern getPattern()

@@ -42,6 +42,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -86,7 +87,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class PushAggregationThroughOuterJoin
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern PATTERN = aggregation();
 
     @Override
     public Pattern getPattern()

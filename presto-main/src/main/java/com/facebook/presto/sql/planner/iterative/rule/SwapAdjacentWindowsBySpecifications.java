@@ -24,11 +24,12 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
+import static com.facebook.presto.sql.planner.plan.Patterns.window;
 
 public class SwapAdjacentWindowsBySpecifications
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(WindowNode.class);
+    private static final Pattern PATTERN = window();
 
     @Override
     public Pattern getPattern()

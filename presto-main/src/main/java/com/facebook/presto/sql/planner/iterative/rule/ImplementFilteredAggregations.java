@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:
@@ -53,7 +54,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 public class ImplementFilteredAggregations
         implements Rule
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern PATTERN = aggregation();
 
     @Override
     public Pattern getPattern()
