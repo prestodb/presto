@@ -14,8 +14,11 @@
 package com.facebook.presto.matching;
 
 import com.facebook.presto.matching.pattern.CapturePattern;
+import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
+
+import java.util.function.Predicate;
 
 public abstract class Pattern<T>
 {
@@ -44,6 +47,11 @@ public abstract class Pattern<T>
     public Pattern<T> capturedAs(Capture<T> capture)
     {
         return new CapturePattern<>(capture, this);
+    }
+
+    public Pattern<T> matching(Predicate<? super T> predicate)
+    {
+        return new FilterPattern<>(predicate, this);
     }
 
     public Pattern<T> with(PropertyPattern<? super T, ?> pattern)
