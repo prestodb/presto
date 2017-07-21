@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 
 /**
@@ -31,7 +32,7 @@ public class PruneJoinColumns
 {
     public PruneJoinColumns()
     {
-        super(JoinNode.class);
+        super(join());
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
@@ -34,8 +35,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 /**
  * Transforms:
@@ -62,7 +66,10 @@ import static com.facebook.presto.sql.planner.plan.Patterns.project;
 public class PushProjectionThroughExchange
         implements Rule<ProjectNode>
 {
-    private static final Pattern<ProjectNode> PATTERN = project();
+    private static final Capture<ExchangeNode> CHILD = newCapture();
+
+    private static final Pattern<ProjectNode> PATTERN = project()
+            .with(source().matching(exchange().capturedAs(CHILD)));
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -73,16 +80,11 @@ public class PushProjectionThroughExchange
     @Override
     public Optional<PlanNode> apply(ProjectNode project, Captures captures, Context context)
     {
-        PlanNode child = context.getLookup().resolve(project.getSource());
-        if (!(child instanceof ExchangeNode)) {
-            return Optional.empty();
-        }
-
         if (isSymbolToSymbolProjection(project)) {
             return Optional.empty();
         }
 
-        ExchangeNode exchange = (ExchangeNode) child;
+        ExchangeNode exchange = captures.get(CHILD);
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
         ImmutableList.Builder<List<Symbol>> inputsBuilder = ImmutableList.builder();

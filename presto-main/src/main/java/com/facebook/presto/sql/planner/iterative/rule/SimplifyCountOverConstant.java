@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Signature;
@@ -36,14 +37,20 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 public class SimplifyCountOverConstant
         implements Rule<AggregationNode>
 {
-    private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private static final Capture<ProjectNode> CHILD = newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .with(source().matching(project().capturedAs(CHILD)));
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -54,12 +61,7 @@ public class SimplifyCountOverConstant
     @Override
     public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
     {
-        PlanNode input = context.getLookup().resolve(parent.getSource());
-        if (!(input instanceof ProjectNode)) {
-            return Optional.empty();
-        }
-
-        ProjectNode child = (ProjectNode) input;
+        ProjectNode child = captures.get(CHILD);
 
         boolean changed = false;
         Map<Symbol, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());

@@ -21,12 +21,14 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
+
 public class PruneProjectColumns
         extends ProjectOffPushDownRule<ProjectNode>
 {
     public PruneProjectColumns()
     {
-        super(ProjectNode.class);
+        super(project());
     }
 
     @Override

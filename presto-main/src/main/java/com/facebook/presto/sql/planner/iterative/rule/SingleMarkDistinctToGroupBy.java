@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
@@ -34,8 +35,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.markDistinct;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
@@ -53,7 +57,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class SingleMarkDistinctToGroupBy
         implements Rule<AggregationNode>
 {
-    private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private static final Capture<MarkDistinctNode> CHILD = newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .with(source().matching(markDistinct().capturedAs(CHILD)));
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -64,12 +71,7 @@ public class SingleMarkDistinctToGroupBy
     @Override
     public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
     {
-        PlanNode source = context.getLookup().resolve(parent.getSource());
-        if (!(source instanceof MarkDistinctNode)) {
-            return Optional.empty();
-        }
-
-        MarkDistinctNode child = (MarkDistinctNode) source;
+        MarkDistinctNode child = captures.get(CHILD);
 
         boolean hasFilters = parent.getAggregations().values().stream()
                 .map(Aggregation::getCall)
