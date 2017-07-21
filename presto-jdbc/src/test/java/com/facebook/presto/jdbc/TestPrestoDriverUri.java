@@ -53,7 +53,7 @@ public class TestPrestoDriverUri
         assertInvalid("jdbc:presto://localhost:8080/hive/default?ShoeSize=13", "Unrecognized connection property 'ShoeSize'");
 
         // empty property
-        assertInvalid("jdbc:presto://localhost:8080/hive/default?password=", "Connection property 'password' value is empty");
+        assertInvalid("jdbc:presto://localhost:8080/hive/default?SSL=", "Connection property 'SSL' value is empty");
 
         // property in url multiple times
         assertInvalid("presto://localhost:8080/blackhole?password=a&password=b", "Connection property 'password' is in URL multiple times");
@@ -89,6 +89,29 @@ public class TestPrestoDriverUri
             throws Exception
     {
         new PrestoDriverUri("jdbc:presto://localhost:8080", new Properties());
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' value is empty")
+    public void testEmptyUser()
+            throws Exception
+    {
+        new PrestoDriverUri("jdbc:presto://localhost:8080?user=", new Properties());
+    }
+
+    @Test
+    public void testEmptyPassword()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?password=");
+        assertEquals(parameters.getProperties().getProperty("password"), "");
+    }
+
+    @Test
+    public void testNonEmptyPassword()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?password=secret");
+        assertEquals(parameters.getProperties().getProperty("password"), "secret");
     }
 
     @Test
