@@ -12,8 +12,9 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.matching;
+package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.matching.Pattern;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.reflect.TypeToken;
@@ -21,19 +22,19 @@ import com.google.common.reflect.TypeToken;
 import java.util.Set;
 import java.util.stream.Stream;
 
-public class MatchingEngine<T extends Matchable>
+public class RuleIndex
 {
-    private final ListMultimap<Class, T> matchablesByClass;
+    private final ListMultimap<Class<?>, Rule> rulesByRootType;
 
-    private MatchingEngine(ListMultimap<Class, T> matchablesByClass)
+    private RuleIndex(ListMultimap<Class<?>, Rule> rulesByRootType)
     {
-        this.matchablesByClass = ImmutableListMultimap.copyOf(matchablesByClass);
+        this.rulesByRootType = ImmutableListMultimap.copyOf(rulesByRootType);
     }
 
-    public Stream<T> getCandidates(Object object)
+    public Stream<Rule> getCandidates(Object object)
     {
         return supertypes(object.getClass())
-                .flatMap(clazz -> matchablesByClass.get(clazz).stream());
+                .flatMap(clazz -> rulesByRootType.get(clazz).stream());
     }
 
     private static Stream<Class<?>> supertypes(Class<?> type)
@@ -42,26 +43,26 @@ public class MatchingEngine<T extends Matchable>
                 .map(TypeToken::getRawType);
     }
 
-    public static <T extends Matchable> Builder<T> builder()
+    public static Builder builder()
     {
-        return new Builder<T>();
+        return new Builder();
     }
 
-    public static class Builder<T extends Matchable>
+    public static class Builder
     {
-        private final ImmutableListMultimap.Builder<Class, T> matchablesByClass = ImmutableListMultimap.builder();
+        private final ImmutableListMultimap.Builder<Class<?>, Rule> rulesByRootType = ImmutableListMultimap.builder();
 
-        public Builder<T> register(Set<T> matchables)
+        public Builder register(Set<Rule> rules)
         {
-            matchables.forEach(this::register);
+            rules.forEach(this::register);
             return this;
         }
 
-        public Builder<T> register(T matchable)
+        public Builder register(Rule rule)
         {
-            Pattern pattern = matchable.getPattern();
-            if (pattern instanceof Pattern.TypeOf) {
-                matchablesByClass.put(((Pattern.TypeOf) pattern).getType(), matchable);
+            Pattern pattern = rule.getPattern();
+            if (pattern instanceof Pattern.TypeOf<?>) {
+                rulesByRootType.put(((Pattern.TypeOf<?>) pattern).getClass(), rule);
             }
             else {
                 throw new IllegalArgumentException("Unexpected Pattern: " + pattern);
@@ -69,9 +70,9 @@ public class MatchingEngine<T extends Matchable>
             return this;
         }
 
-        public MatchingEngine<T> build()
+        public RuleIndex build()
         {
-            return new MatchingEngine(matchablesByClass.build());
+            return new RuleIndex(rulesByRootType.build());
         }
     }
 }
