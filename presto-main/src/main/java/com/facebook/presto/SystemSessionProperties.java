@@ -70,6 +70,7 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String EXCHANGE_BELOW_OUTPUT = "exchange_below_output";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
@@ -305,6 +306,11 @@ public final class SystemSessionProperties
                         featuresConfig.isExchangeCompressionEnabled(),
                         false),
                 booleanSessionProperty(
+                        EXCHANGE_BELOW_OUTPUT,
+                        "Exchange node added below Output node in the plan",
+                        featuresConfig.isExchangeAddedBelowOutput(),
+                        true),
+                booleanSessionProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
                         featuresConfig.isEnableIntermediateAggregations(),
@@ -483,6 +489,11 @@ public final class SystemSessionProperties
     public static boolean isExchangeCompressionEnabled(Session session)
     {
         return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+    }
+
+    public static boolean isExchangeAddedBelowOutput(Session session)
+    {
+        return session.getSystemProperty(EXCHANGE_BELOW_OUTPUT, Boolean.class);
     }
 
     public static boolean isEnableIntermediateAggregations(Session session)

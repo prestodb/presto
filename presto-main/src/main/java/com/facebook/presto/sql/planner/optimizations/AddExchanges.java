@@ -99,6 +99,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.isExchangeAddedBelowOutput;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
@@ -234,7 +235,7 @@ public class AddExchanges
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
             }
-            else if (!child.getProperties().isCoordinatorOnly()) {
+            else if (!child.getProperties().isCoordinatorOnly() && isExchangeAddedBelowOutput(session)) {
                 // Avoid computation on coordinator
                 child = withDerivedProperties(
                         gatheringOrderSensitiveExchange(idAllocator.getNextId(), REMOTE, child.getNode()),

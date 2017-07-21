@@ -63,6 +63,7 @@ public class TestFeaturesConfig
                 .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setExchangeCompressionEnabled(false)
+                .setExchangeAddedBelowOutput(true)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughJoin(true));
     }
@@ -100,6 +101,7 @@ public class TestFeaturesConfig
                 .put("experimental.spiller-threads", "42")
                 .put("experimental.spiller-max-used-space-threshold", "0.8")
                 .put("exchange.compression-enabled", "true")
+                .put("exchange.added-below-output", "false")
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
@@ -132,6 +134,7 @@ public class TestFeaturesConfig
                 .put("experimental.spiller-threads", "42")
                 .put("experimental.spiller-max-used-space-threshold", "0.8")
                 .put("exchange.compression-enabled", "true")
+                .put("exchange.added-below-output", "false")
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .build();
 
@@ -165,6 +168,7 @@ public class TestFeaturesConfig
                 .setSpillMaxUsedSpaceThreshold(0.8)
                 .setLegacyOrderBy(true)
                 .setExchangeCompressionEnabled(true)
+                .setExchangeAddedBelowOutput(false)
                 .setEnableIntermediateAggregations(true);
 
         assertFullMapping(properties, expected);

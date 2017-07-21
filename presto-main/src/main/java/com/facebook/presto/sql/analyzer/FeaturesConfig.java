@@ -51,6 +51,7 @@ public class FeaturesConfig
     private boolean enableIntermediateAggregations = false;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled = false;
+    private boolean exchangeAddedBelowOutput = true;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
@@ -412,6 +413,18 @@ public class FeaturesConfig
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
         this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    public boolean isExchangeAddedBelowOutput()
+    {
+        return exchangeAddedBelowOutput;
+    }
+
+    @Config("exchange.added-below-output")
+    public FeaturesConfig setExchangeAddedBelowOutput(boolean exchangeAddedBelowOutput)
+    {
+        this.exchangeAddedBelowOutput = exchangeAddedBelowOutput;
         return this;
     }
 
