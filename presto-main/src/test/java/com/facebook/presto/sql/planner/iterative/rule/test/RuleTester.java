@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -30,6 +31,7 @@ import java.io.Closeable;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.matching.DefaultMatcher.DEFAULT_MATCHER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Optional.empty;
@@ -106,12 +108,17 @@ public class RuleTester
         @Override
         public Optional<PlanNode> apply(PlanNode node, Context context)
         {
-            Set<Rule> matching = ruleSet.rules().stream().filter(rule -> rule.getPattern().matches(node)).collect(toSet());
+            Set<Rule> matching = ruleSet.rules().stream().filter(rule -> matches(rule.getPattern(), node)).collect(toSet());
             if (matching.size() == 0) {
                 return empty();
             }
 
             return getOnlyElement(matching).apply(node, context);
+        }
+
+        private boolean matches(Pattern pattern, PlanNode node)
+        {
+            return DEFAULT_MATCHER.match(pattern, node).isPresent();
         }
     }
 }
