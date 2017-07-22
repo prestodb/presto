@@ -70,11 +70,13 @@ public class TestMatcher
         Property<String, Integer> length = Property.property("length", String::length);
         String string = "a";
 
+        assertMatch(aString.with(length.equalTo(1)), string);
         assertMatch(project().with(source().matching(scan())), new ProjectNode(new ScanNode("T")));
         assertMatch(aString.with(length.matching(any())), string);
         assertMatch(aString.with(length.matching(x -> x > 0)), string);
         assertMatch(aString.with(length.matching((Number x) -> x.intValue() > 0)), string);
 
+        assertNoMatch(aString.with(length.equalTo(0)), string);
         assertNoMatch(project().with(source().matching(scan())), new ProjectNode(new ProjectNode(new ScanNode("T"))));
         assertNoMatch(aString.with(length.matching(typeOf(Void.class))), string);
         assertNoMatch(aString.with(length.matching(x -> x < 1)), string);
