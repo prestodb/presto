@@ -14,6 +14,7 @@
 package com.facebook.presto.matching;
 
 import com.facebook.presto.matching.pattern.CapturePattern;
+import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
@@ -65,6 +66,12 @@ public class DefaultMatcher
     public <T> Match<T> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures)
     {
         return Match.of((T) object, captures.addAll(Captures.ofNullable(capturePattern.capture(), (T) object)));
+    }
+
+    @Override
+    public <T> Match<T> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures)
+    {
+        return Match.of((T) object, captures).filter(equalsPattern.expectedValue()::equals);
     }
 
     @Override

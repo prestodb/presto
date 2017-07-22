@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.matching;
 
+import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 
 import java.util.Optional;
@@ -60,6 +61,11 @@ public class Property<F, T>
     {
         Pattern<T> matchAll = (Pattern<T>) Pattern.any();
         return matching(matchAll.capturedAs(capture));
+    }
+
+    public PropertyPattern<F, T> equalTo(T expectedValue)
+    {
+        return matching(new EqualsPattern<>(expectedValue, null));
     }
 
     public PropertyPattern<F, T> matching(Predicate<? super T> predicate)

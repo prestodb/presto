@@ -14,6 +14,7 @@
 package com.facebook.presto.matching;
 
 import com.facebook.presto.matching.pattern.CapturePattern;
+import com.facebook.presto.matching.pattern.EqualsPattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
@@ -51,6 +52,13 @@ public class DefaultPrinter
     {
         visitPrevious(pattern);
         appendLine("capturedAs(%s)", pattern.capture().description());
+    }
+
+    @Override
+    public void visitEquals(EqualsPattern<?> pattern)
+    {
+        visitPrevious(pattern);
+        appendLine("equals(%s)", pattern.expectedValue());
     }
 
     @Override
