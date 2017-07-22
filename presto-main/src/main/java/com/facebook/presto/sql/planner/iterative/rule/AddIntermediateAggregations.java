@@ -37,7 +37,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
+import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingKeys;
+import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -68,7 +71,10 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class AddIntermediateAggregations
         implements Rule<AggregationNode>
 {
-    private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            // Only consider FINAL un-grouped aggregations
+            .with(step().equalTo(AggregationNode.Step.FINAL))
+            .with(empty(groupingKeys()));
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -88,11 +94,6 @@ public class AddIntermediateAggregations
         Lookup lookup = context.getLookup();
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
         Session session = context.getSession();
-
-        // Only consider FINAL un-grouped aggregations
-        if (aggregation.getStep() != AggregationNode.Step.FINAL || !aggregation.getGroupingKeys().isEmpty()) {
-            return Optional.empty();
-        }
 
         Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator);
 

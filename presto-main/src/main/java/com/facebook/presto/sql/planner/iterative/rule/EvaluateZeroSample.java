@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleRatio;
 import static com.facebook.presto.sql.planner.plan.Patterns.sample;
 
 /**
@@ -31,7 +32,8 @@ import static com.facebook.presto.sql.planner.plan.Patterns.sample;
 public class EvaluateZeroSample
         implements Rule<SampleNode>
 {
-    private static final Pattern<SampleNode> PATTERN = sample();
+    private static final Pattern<SampleNode> PATTERN = sample()
+            .with(sampleRatio().equalTo(0.0));
 
     @Override
     public Pattern<SampleNode> getPattern()
@@ -42,10 +44,6 @@ public class EvaluateZeroSample
     @Override
     public Optional<PlanNode> apply(SampleNode sample, Captures captures, Context context)
     {
-        if (sample.getSampleRatio() != 0) {
-            return Optional.empty();
-        }
-
         return Optional.of(new ValuesNode(sample.getId(), sample.getOutputSymbols(), ImmutableList.of()));
     }
 }
