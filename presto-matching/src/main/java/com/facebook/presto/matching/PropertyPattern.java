@@ -38,4 +38,11 @@ public class PropertyPattern<F, R>
     {
         return pattern;
     }
+
+    //This expresses the fact that PropertyPattern<F, T> is covariant on T.
+    @SuppressWarnings("unchecked cast")
+    public static <F, T> PropertyPattern<F, T> upcast(PropertyPattern<F, ? extends T> propertyPattern)
+    {
+        return (PropertyPattern<F, T>) propertyPattern;
+    }
 }
