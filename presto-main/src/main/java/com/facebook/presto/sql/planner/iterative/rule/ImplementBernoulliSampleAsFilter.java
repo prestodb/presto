@@ -28,7 +28,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleType;
 import static com.facebook.presto.sql.planner.plan.Patterns.sample;
+import static com.facebook.presto.sql.planner.plan.SampleNode.Type.BERNOULLI;
 
 /**
  * Transforms:
@@ -45,7 +47,8 @@ import static com.facebook.presto.sql.planner.plan.Patterns.sample;
 public class ImplementBernoulliSampleAsFilter
         implements Rule<SampleNode>
 {
-    private static final Pattern<SampleNode> PATTERN = sample();
+    private static final Pattern<SampleNode> PATTERN = sample()
+            .with(sampleType().equalTo(BERNOULLI));
 
     @Override
     public Pattern<SampleNode> getPattern()
@@ -56,10 +59,6 @@ public class ImplementBernoulliSampleAsFilter
     @Override
     public Optional<PlanNode> apply(SampleNode sample, Captures captures, Context context)
     {
-        if (sample.getSampleType() != SampleNode.Type.BERNOULLI) {
-            return Optional.empty();
-        }
-
         return Optional.of(new FilterNode(
                 sample.getId(),
                 sample.getSource(),

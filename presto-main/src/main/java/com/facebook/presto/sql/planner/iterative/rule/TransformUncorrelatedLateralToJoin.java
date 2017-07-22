@@ -24,13 +24,15 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Pattern.empty;
+import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 
 public class TransformUncorrelatedLateralToJoin
         implements Rule<LateralJoinNode>
 {
     private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
-            .matching(lateralJoin -> lateralJoin.getCorrelation().isEmpty());
+            .with(empty(correlation()));
 
     @Override
     public Pattern<LateralJoinNode> getPattern()
