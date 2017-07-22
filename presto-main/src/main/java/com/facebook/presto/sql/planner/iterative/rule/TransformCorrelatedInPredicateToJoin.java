@@ -62,10 +62,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -97,7 +99,7 @@ public class TransformCorrelatedInPredicateToJoin
         implements Rule<ApplyNode>
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode()
-            .matching(applyNode -> !applyNode.getCorrelation().isEmpty());
+            .with(nonEmpty(correlation()));
 
     @Override
     public Pattern<ApplyNode> getPattern()

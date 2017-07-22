@@ -27,8 +27,10 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +66,8 @@ import static java.util.Objects.requireNonNull;
 public class TransformCorrelatedScalarAggregationToJoin
         implements Rule<LateralJoinNode>
 {
-    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin();
+    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
+            .with(nonEmpty(correlation()));
 
     @Override
     public Pattern<LateralJoinNode> getPattern()
@@ -84,7 +87,7 @@ public class TransformCorrelatedScalarAggregationToJoin
     {
         PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
 
-        if (lateralJoinNode.getCorrelation().isEmpty() || !(isScalar(subquery, context.getLookup()))) {
+        if (!isScalar(subquery, context.getLookup())) {
             return Optional.empty();
         }
 

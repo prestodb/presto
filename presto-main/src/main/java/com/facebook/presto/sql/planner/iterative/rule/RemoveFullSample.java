@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleRatio;
 import static com.facebook.presto.sql.planner.plan.Patterns.sample;
 
 /**
@@ -29,7 +30,8 @@ import static com.facebook.presto.sql.planner.plan.Patterns.sample;
 public class RemoveFullSample
         implements Rule<SampleNode>
 {
-    private static final Pattern<SampleNode> PATTERN = sample();
+    private static final Pattern<SampleNode> PATTERN = sample()
+            .with(sampleRatio().equalTo(1.0));
 
     @Override
     public Pattern<SampleNode> getPattern()
@@ -40,11 +42,6 @@ public class RemoveFullSample
     @Override
     public Optional<PlanNode> apply(SampleNode sample, Captures captures, Context context)
     {
-        //noinspection FloatingPointEquality
-        if (sample.getSampleRatio() != 1.0) {
-            return Optional.empty();
-        }
-
         return Optional.of(sample.getSource());
     }
 }

@@ -23,12 +23,14 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.Limit.count;
 import static com.facebook.presto.sql.planner.plan.Patterns.limit;
 
 public class EvaluateZeroLimit
         implements Rule<LimitNode>
 {
-    private static final Pattern<LimitNode> PATTERN = limit();
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .with(count().equalTo(0L));
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -39,10 +41,6 @@ public class EvaluateZeroLimit
     @Override
     public Optional<PlanNode> apply(LimitNode limit, Captures captures, Context context)
     {
-        if (limit.getCount() != 0) {
-            return Optional.empty();
-        }
-
         return Optional.of(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
     }
 }

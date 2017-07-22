@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.plan.Patterns.TopN.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.topN;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
@@ -42,6 +43,7 @@ public class PushTopNThroughUnion
     private static final Capture<UnionNode> CHILD = newCapture();
 
     private static final Pattern<TopNNode> PATTERN = topN()
+            .with(step().equalTo(PARTIAL))
             .with(source().matching(union().capturedAs(CHILD)));
 
     @Override
@@ -53,10 +55,6 @@ public class PushTopNThroughUnion
     @Override
     public Optional<PlanNode> apply(TopNNode topNNode, Captures captures, Context context)
     {
-        if (!topNNode.getStep().equals(PARTIAL)) {
-            return Optional.empty();
-        }
-
         UnionNode unionNode = captures.get(CHILD);
 
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
