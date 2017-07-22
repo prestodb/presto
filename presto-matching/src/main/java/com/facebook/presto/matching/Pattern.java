@@ -17,8 +17,11 @@ import com.facebook.presto.matching.pattern.CapturePattern;
 import com.facebook.presto.matching.pattern.FilterPattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.matching.pattern.WithPattern;
+import com.google.common.collect.Iterables;
 
 import java.util.function.Predicate;
+
+import static com.google.common.base.Predicates.not;
 
 public abstract class Pattern<T>
 {
@@ -42,6 +45,19 @@ public abstract class Pattern<T>
     protected Pattern(Pattern<?> previous)
     {
         this.previous = previous;
+    }
+
+    //FIXME make sure there's a proper toString,
+    // like with(propName)\n\tfilter(isEmpty)
+    // or with(propName) map(isEmpty) equalTo(true)
+    public static <F, T extends Iterable<S>, S> PropertyPattern<F, T> empty(Property<F, T> property)
+    {
+        return PropertyPattern.upcast(property.matching(Iterables::isEmpty));
+    }
+
+    public static <F, T extends Iterable<S>, S> PropertyPattern<F, T> nonEmpty(Property<F, T> property)
+    {
+        return PropertyPattern.upcast(property.matching(not(Iterables::isEmpty)));
     }
 
     public Pattern<T> capturedAs(Capture<T> capture)
