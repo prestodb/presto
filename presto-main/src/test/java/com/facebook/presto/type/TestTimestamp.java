@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.joda.time.DateTimeZone.UTC;
@@ -74,6 +75,19 @@ public class TestTimestamp
     private void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
+    }
+
+    @Test
+    public void testSubstract()
+            throws Exception
+    {
+        functionAssertions.assertFunctionString("TIMESTAMP '2017-03-30 14:15:16.432' - TIMESTAMP '2016-03-29 03:04:05.321'",
+                INTERVAL_DAY_TIME,
+                "366 11:11:11.111");
+
+        functionAssertions.assertFunctionString("TIMESTAMP '2016-03-29 03:04:05.321' - TIMESTAMP '2017-03-30 14:15:16.432'",
+                INTERVAL_DAY_TIME,
+                "-366 11:11:11.111");
     }
 
     @Test
