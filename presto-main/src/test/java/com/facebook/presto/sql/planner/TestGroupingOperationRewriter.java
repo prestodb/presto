@@ -11,18 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar;
+package com.facebook.presto.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.scalar.GroupingOperationFunction.bigintGrouping;
-import static com.facebook.presto.operator.scalar.GroupingOperationFunction.integerGrouping;
+import static com.facebook.presto.sql.planner.GroupingOperationRewriter.calculateGrouping;
 import static org.testng.Assert.assertEquals;
 
-public class TestGroupingOperationFunction
+public class TestGroupingOperationRewriter
 {
     private static final List<Integer> fortyIntegers = ImmutableList.of(
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
@@ -37,8 +36,7 @@ public class TestGroupingOperationFunction
         List<List<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableList.of(1), ImmutableList.of(7, 3, 1), ImmutableList.of(9, 1));
 
         for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
-            assertEquals(bigintGrouping(groupId, groupingOrdinals, groupingSetOrdinals), 7L);
-            assertEquals(integerGrouping(groupId, groupingOrdinals, groupingSetOrdinals), 7L);
+            assertEquals(calculateGrouping(groupId, groupingOrdinals, groupingSetOrdinals), 7L);
         }
     }
 
@@ -49,8 +47,7 @@ public class TestGroupingOperationFunction
         List<List<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableList.of(4, 6));
 
         for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
-            assertEquals(bigintGrouping(groupId, groupingOrdinals, groupingSetOrdinals), 0L);
-            assertEquals(integerGrouping(groupId, groupingOrdinals, groupingSetOrdinals), 0L);
+            assertEquals(calculateGrouping(groupId, groupingOrdinals, groupingSetOrdinals), 0L);
         }
     }
 
@@ -62,8 +59,7 @@ public class TestGroupingOperationFunction
         List<Long> expectedResults = ImmutableList.of(23L, 11L, 6L, 29L);
 
         for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
-            assertEquals(Long.valueOf(bigintGrouping(groupId, groupingOrdinals, groupingSetOrdinals)), expectedResults.get(groupId));
-            assertEquals(Long.valueOf(integerGrouping(groupId, groupingOrdinals, groupingSetOrdinals)), expectedResults.get(groupId));
+            assertEquals(Long.valueOf(calculateGrouping(groupId, groupingOrdinals, groupingSetOrdinals)), expectedResults.get(groupId));
         }
     }
 
@@ -74,7 +70,7 @@ public class TestGroupingOperationFunction
         List<Long> expectedResults = ImmutableList.of(822283861886L, 995358664191L);
 
         for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
-            assertEquals(Long.valueOf(bigintGrouping(groupId, fortyIntegers, groupingSetOrdinals)), expectedResults.get(groupId));
+            assertEquals(Long.valueOf(calculateGrouping(groupId, fortyIntegers, groupingSetOrdinals)), expectedResults.get(groupId));
         }
     }
 }
