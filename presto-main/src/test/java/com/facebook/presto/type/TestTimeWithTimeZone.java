@@ -36,6 +36,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestTimeWithTimeZone
@@ -92,6 +93,18 @@ public class TestTimeWithTimeZone
                 new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
     }
 
+    @Test
+    public void testSubstract()
+            throws Exception
+    {
+        functionAssertions.assertFunctionString("TIME '14:15:16.432 +07:09' - TIME '03:04:05.321 +08:09'",
+                INTERVAL_DAY_TIME,
+                "0 12:11:11.111");
+
+        functionAssertions.assertFunctionString("TIME '03:04:05.321 +08:09' - TIME '14:15:16.432 +07:09'",
+                INTERVAL_DAY_TIME,
+                "-0 12:11:11.111");
+    }
     @Test
     public void testEqual()
     {
