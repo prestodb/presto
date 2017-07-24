@@ -178,7 +178,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
             List<Symbol> symbols = canonicalizeAndDistinct(node.getDistinctSymbols());
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, canonicalize(node.getHashSymbol()));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, node.getHashSymbol().map(this::canonicalize));
         }
 
         @Override
@@ -218,7 +218,7 @@ public class UnaliasSymbolReferences
                     source,
                     canonicalizeAndDistinct(node.getSpecification()),
                     functions.build(),
-                    canonicalize(node.getHashSymbol()),
+                    node.getHashSymbol().map(this::canonicalize),
                     canonicalize(node.getPrePartitionedInputs()),
                     node.getPreSortedOrderPrefix());
         }
@@ -226,8 +226,8 @@ public class UnaliasSymbolReferences
         private WindowNode.Frame canonicalize(WindowNode.Frame frame)
         {
             return new WindowNode.Frame(frame.getType(),
-                    frame.getStartType(), canonicalize(frame.getStartValue()),
-                    frame.getEndType(), canonicalize(frame.getEndValue()));
+                    frame.getStartType(), frame.getStartValue().map(this::canonicalize),
+                    frame.getEndType(), frame.getEndValue().map(this::canonicalize));
         }
 
         @Override
@@ -276,7 +276,7 @@ public class UnaliasSymbolReferences
             PartitioningScheme partitioningScheme = new PartitioningScheme(
                     node.getPartitioningScheme().getPartitioning().translate(this::canonicalize),
                     outputs.build(),
-                    canonicalize(node.getPartitioningScheme().getHashColumn()),
+                    node.getPartitioningScheme().getHashColumn().map(this::canonicalize),
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
                     node.getPartitioningScheme().getBucketToPartition());
 
@@ -344,7 +344,9 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctSymbols()), canonicalize(node.getHashSymbol()));
+            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctSymbols()), node
+                    .getHashSymbol()
+                    .map(this::canonicalize));
         }
 
         @Override
@@ -374,7 +376,9 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
-            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberSymbol()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashSymbol()));
+            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberSymbol()), node.getMaxRowCountPerPartition(), node
+                    .getHashSymbol()
+                    .map(this::canonicalize));
         }
 
         @Override
@@ -387,7 +391,7 @@ public class UnaliasSymbolReferences
                     canonicalize(node.getRowNumberSymbol()),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
-                    canonicalize(node.getHashSymbol()));
+                    node.getHashSymbol().map(this::canonicalize));
         }
 
         @Override
@@ -486,8 +490,8 @@ public class UnaliasSymbolReferences
 
             List<JoinNode.EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
             Optional<Expression> canonicalFilter = node.getFilter().map(this::canonicalize);
-            Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
-            Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
+            Optional<Symbol> canonicalLeftHashSymbol = node.getLeftHashSymbol().map(this::canonicalize);
+            Optional<Symbol> canonicalRightHashSymbol = node.getRightHashSymbol().map(this::canonicalize);
 
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
@@ -512,8 +516,8 @@ public class UnaliasSymbolReferences
                     canonicalize(node.getSourceJoinSymbol()),
                     canonicalize(node.getFilteringSourceJoinSymbol()),
                     canonicalize(node.getSemiJoinOutput()),
-                    canonicalize(node.getSourceHashSymbol()),
-                    canonicalize(node.getFilteringSourceHashSymbol()),
+                    node.getSourceHashSymbol().map(this::canonicalize),
+                    node.getFilteringSourceHashSymbol().map(this::canonicalize),
                     node.getDistributionType());
         }
 
@@ -529,7 +533,8 @@ public class UnaliasSymbolReferences
             PlanNode probeSource = context.rewrite(node.getProbeSource());
             PlanNode indexSource = context.rewrite(node.getIndexSource());
 
-            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), canonicalize(node.getProbeHashSymbol()), canonicalize(node.getIndexHashSymbol()));
+            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), node.getProbeHashSymbol()
+                    .map(this::canonicalize), node.getIndexHashSymbol().map(this::canonicalize));
         }
 
         @Override
@@ -624,14 +629,6 @@ public class UnaliasSymbolReferences
                 assignments.put(canonical, expression);
             }
             return assignments.build();
-        }
-
-        private Optional<Symbol> canonicalize(Optional<Symbol> symbol)
-        {
-            if (symbol.isPresent()) {
-                return Optional.of(canonicalize(symbol.get()));
-            }
-            return Optional.empty();
         }
 
         private Symbol canonicalize(Symbol symbol)
@@ -736,7 +733,7 @@ public class UnaliasSymbolReferences
             return new PartitioningScheme(
                     scheme.getPartitioning().translate(this::canonicalize),
                     outputs.build(),
-                    canonicalize(scheme.getHashColumn()),
+                    scheme.getHashColumn().map(this::canonicalize),
                     scheme.isReplicateNullsAndAny(),
                     scheme.getBucketToPartition());
         }
