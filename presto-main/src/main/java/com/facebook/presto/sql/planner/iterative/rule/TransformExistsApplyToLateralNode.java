@@ -98,7 +98,7 @@ public class TransformExistsApplyToLateralNode
                                 new AggregationNode(
                                         context.getIdAllocator().getNextId(),
                                         parent.getSubquery(),
-                                        ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
+                                        ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty(), ImmutableList.of(), ImmutableList.of())),
                                         ImmutableList.of(ImmutableList.of()),
                                         AggregationNode.Step.SINGLE,
                                         Optional.empty(),

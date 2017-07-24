@@ -184,7 +184,9 @@ public class ScalarAggregationToJoinRewriter
                         functionRegistry.resolveFunction(
                                 COUNT,
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
-                        entry.getValue().getMask()));
+                        entry.getValue().getMask(),
+                        entry.getValue().getOrderBy(),
+                        entry.getValue().getOrdering()));
             }
             else {
                 aggregations.put(symbol, entry.getValue());

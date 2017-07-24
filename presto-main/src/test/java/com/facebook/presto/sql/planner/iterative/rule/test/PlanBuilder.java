@@ -215,7 +215,7 @@ public class PlanBuilder
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
             Signature signature = metadata.getFunctionRegistry().resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(aggregation, signature, mask));
+            return addAggregation(output, new Aggregation(aggregation, signature, mask, ImmutableList.of(), ImmutableList.of()));
         }
 
         public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)

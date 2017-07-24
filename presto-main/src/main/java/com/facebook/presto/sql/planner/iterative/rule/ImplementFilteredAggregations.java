@@ -93,7 +93,9 @@ public class ImplementFilteredAggregations
             aggregations.put(output, new Aggregation(
                     new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.getOrderBy(), call.isDistinct(), call.getArguments()),
                     entry.getValue().getSignature(),
-                    mask));
+                    mask,
+                    entry.getValue().getOrderBy(),
+                    entry.getValue().getOrdering()));
         }
 
         // identity projection for all existing inputs

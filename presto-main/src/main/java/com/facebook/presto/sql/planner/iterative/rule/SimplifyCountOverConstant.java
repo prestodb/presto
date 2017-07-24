@@ -73,7 +73,9 @@ public class SimplifyCountOverConstant
                 aggregations.put(symbol, new AggregationNode.Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                         new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
-                        aggregation.getMask()));
+                        aggregation.getMask(),
+                        ImmutableList.of(),
+                        ImmutableList.of()));
             }
         }
 

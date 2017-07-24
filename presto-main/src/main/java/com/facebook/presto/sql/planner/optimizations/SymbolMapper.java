@@ -85,7 +85,12 @@ public class SymbolMapper
             Symbol symbol = entry.getKey();
             Aggregation aggregation = entry.getValue();
 
-            aggregations.put(map(symbol), new Aggregation((FunctionCall) map(aggregation.getCall()), aggregation.getSignature(), aggregation.getMask().map(this::map)));
+            aggregations.put(map(symbol), new Aggregation(
+                    (FunctionCall) map(aggregation.getCall()),
+                    aggregation.getSignature(),
+                    aggregation.getMask().map(this::map),
+                    aggregation.getOrderBy().stream().map(this::map).collect(toImmutableList()),
+                    aggregation.getOrdering()));
         }
 
         List<List<Symbol>> groupingSets = node.getGroupingSets().stream()

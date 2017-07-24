@@ -101,7 +101,7 @@ public class DesugaringOptimizer
             Map<Symbol, Aggregation> aggregations = node.getAggregations().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> {
                         Aggregation aggregation = entry.getValue();
-                        return new Aggregation((FunctionCall) desugar(aggregation.getCall()), aggregation.getSignature(), aggregation.getMask());
+                        return new Aggregation((FunctionCall) desugar(aggregation.getCall()), aggregation.getSignature(), aggregation.getMask(), aggregation.getOrderBy(), aggregation.getOrdering());
                     }));
             return new AggregationNode(
                     node.getId(),
