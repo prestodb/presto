@@ -50,6 +50,59 @@ public class AggregationNode
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputs;
 
+    @JsonCreator
+    public AggregationNode(
+            @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
+            @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
+            @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
+            @JsonProperty("step") Step step,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
+            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
+    {
+        super(id);
+
+        this.source = source;
+        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        requireNonNull(groupingSets, "groupingSets is null");
+        checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
+        this.groupingSets = listOfListsCopy(groupingSets);
+        this.step = step;
+        this.hashSymbol = hashSymbol;
+        this.groupIdSymbol = requireNonNull(groupIdSymbol);
+
+        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        outputs.addAll(getGroupingKeys());
+        hashSymbol.ifPresent(outputs::add);
+        outputs.addAll(aggregations.keySet());
+
+        this.outputs = outputs.build();
+    }
+
+    public List<Symbol> getGroupingKeys()
+    {
+        List<Symbol> symbols = new ArrayList<>(groupingSets.stream()
+                .flatMap(Collection::stream)
+                .distinct()
+                .collect(Collectors.toList()));
+
+        groupIdSymbol.ifPresent(symbols::add);
+        return symbols;
+    }
+
+    /**
+     * @return whether this node should produce default output in case of no input pages.
+     * For example for query:
+     * <p>
+     * SELECT count(*) FROM nation WHERE nationkey < 0
+     * <p>
+     * A default output of "0" is expected to be produced by FINAL aggregation operator.
+     */
+    public boolean hasDefaultOutput()
+    {
+        return hasEmptyGroupingSet() && (step.isOutputPartial() || step.equals(SINGLE));
+    }
+
     public boolean hasEmptyGroupingSet()
     {
         return groupingSets.stream().anyMatch(List::isEmpty);
@@ -58,6 +111,73 @@ public class AggregationNode
     public boolean hasNonEmptyGroupingSet()
     {
         return groupingSets.stream().anyMatch(symbols -> !symbols.isEmpty());
+    }
+
+    @Override
+    public List<PlanNode> getSources()
+    {
+        return ImmutableList.of(source);
+    }
+
+    @Override
+    public List<Symbol> getOutputSymbols()
+    {
+        return outputs;
+    }
+
+    @JsonProperty
+    public Map<Symbol, Aggregation> getAggregations()
+    {
+        return aggregations;
+    }
+
+    @JsonProperty("groupingSets")
+    public List<List<Symbol>> getGroupingSets()
+    {
+        return groupingSets;
+    }
+
+    @JsonProperty("source")
+    public PlanNode getSource()
+    {
+        return source;
+    }
+
+    @JsonProperty("step")
+    public Step getStep()
+    {
+        return step;
+    }
+
+    @JsonProperty("hashSymbol")
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
+    }
+
+    @JsonProperty("groupIdSymbol")
+    public Optional<Symbol> getGroupIdSymbol()
+    {
+        return groupIdSymbol;
+    }
+
+    @Override
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitAggregation(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol);
+    }
+
+    public boolean isDecomposable(FunctionRegistry functionRegistry)
+    {
+        return getAggregations().entrySet().stream()
+                .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
+                .allMatch(InternalAggregationFunction::isDecomposable);
     }
 
     public enum Step
@@ -105,126 +225,6 @@ public class AggregationNode
                 return Step.FINAL;
             }
         }
-    }
-
-    @JsonCreator
-    public AggregationNode(
-            @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("source") PlanNode source,
-            @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
-            @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
-            @JsonProperty("step") Step step,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
-            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
-    {
-        super(id);
-
-        this.source = source;
-        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
-        requireNonNull(groupingSets, "groupingSets is null");
-        checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
-        this.groupingSets = listOfListsCopy(groupingSets);
-        this.step = step;
-        this.hashSymbol = hashSymbol;
-        this.groupIdSymbol = requireNonNull(groupIdSymbol);
-
-        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-        outputs.addAll(getGroupingKeys());
-        hashSymbol.ifPresent(outputs::add);
-        outputs.addAll(aggregations.keySet());
-
-        this.outputs = outputs.build();
-    }
-
-    @Override
-    public List<PlanNode> getSources()
-    {
-        return ImmutableList.of(source);
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputs;
-    }
-
-    @JsonProperty
-    public Map<Symbol, Aggregation> getAggregations()
-    {
-        return aggregations;
-    }
-
-    public List<Symbol> getGroupingKeys()
-    {
-        List<Symbol> symbols = new ArrayList<>(groupingSets.stream()
-                .flatMap(Collection::stream)
-                .distinct()
-                .collect(Collectors.toList()));
-
-        groupIdSymbol.ifPresent(symbols::add);
-        return symbols;
-    }
-
-    @JsonProperty("groupingSets")
-    public List<List<Symbol>> getGroupingSets()
-    {
-        return groupingSets;
-    }
-
-    /**
-     * @return whether this node should produce default output in case of no input pages.
-     * For example for query:
-     * <p>
-     * SELECT count(*) FROM nation WHERE nationkey < 0
-     * <p>
-     * A default output of "0" is expected to be produced by FINAL aggregation operator.
-     */
-    public boolean hasDefaultOutput()
-    {
-        return hasEmptyGroupingSet() && (step.isOutputPartial() || step.equals(SINGLE));
-    }
-
-    @JsonProperty("source")
-    public PlanNode getSource()
-    {
-        return source;
-    }
-
-    @JsonProperty("step")
-    public Step getStep()
-    {
-        return step;
-    }
-
-    @JsonProperty("hashSymbol")
-    public Optional<Symbol> getHashSymbol()
-    {
-        return hashSymbol;
-    }
-
-    @JsonProperty("groupIdSymbol")
-    public Optional<Symbol> getGroupIdSymbol()
-    {
-        return groupIdSymbol;
-    }
-
-    @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAggregation(this, context);
-    }
-
-    @Override
-    public PlanNode replaceChildren(List<PlanNode> newChildren)
-    {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol);
-    }
-
-    public boolean isDecomposable(FunctionRegistry functionRegistry)
-    {
-        return getAggregations().entrySet().stream()
-                .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
-                .allMatch(InternalAggregationFunction::isDecomposable);
     }
 
     public static class Aggregation
