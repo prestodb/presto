@@ -221,7 +221,8 @@ public class TestAnnotationEngineForAggregates
     @Description("Aggregate with no @AggregationState annotations")
     public static class CustomStateSerializerAggregationFunction
     {
-        public static class CustomSerializer extends NullableDoubleStateSerializer
+        public static class CustomSerializer
+                extends NullableDoubleStateSerializer
         {
         }
 

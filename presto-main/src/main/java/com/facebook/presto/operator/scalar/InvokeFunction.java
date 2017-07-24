@@ -99,7 +99,8 @@ public final class InvokeFunction
     }
 
     @FunctionalInterface
-    public interface InvokeLambda extends LambdaFunctionInterface
+    public interface InvokeLambda
+            extends LambdaFunctionInterface
     {
         Object apply();
     }

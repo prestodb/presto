@@ -18,7 +18,8 @@ import org.apache.hive.common.util.BloomFilter;
 
 import java.util.List;
 
-public class HiveBloomFilter extends BloomFilter
+public class HiveBloomFilter
+        extends BloomFilter
 {
     // constructor that allows deserialization of a long list into the actual hive bloom filter
     public HiveBloomFilter(List<Long> bits, int numBits, int numHashFunctions)
