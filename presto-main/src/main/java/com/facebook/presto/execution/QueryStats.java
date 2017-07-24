@@ -448,7 +448,7 @@ public class QueryStats
     public OptionalDouble getProgressPercentage()
     {
         if (!scheduled || totalDrivers == 0) {
-             return OptionalDouble.empty();
+            return OptionalDouble.empty();
         }
         return OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
     }

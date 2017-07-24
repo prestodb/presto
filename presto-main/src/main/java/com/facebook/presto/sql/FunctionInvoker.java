@@ -45,7 +45,7 @@ public class FunctionInvoker
 
     /**
      * Arguments must be the native container type for the corresponding SQL types.
-     *
+     * <p>
      * Returns a value in the native container type corresponding to the declared SQL return type
      */
     public Object invoke(Signature function, ConnectorSession session, List<Object> arguments)

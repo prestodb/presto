@@ -68,12 +68,12 @@ public class TestOrcBloomFilters
     private static final String COLUMN_1 = "bigint_1";
 
     private static final Map<Object, Type> TEST_VALUES = ImmutableMap.<Object, Type>builder()
-        .put(utf8Slice(TEST_STRING), VARCHAR)
-        .put(wrappedBuffer(new byte[]{12, 34, 56}), VARBINARY)
-        .put(4312L, BIGINT)
-        .put(123, INTEGER)
-        .put(234.567, DOUBLE)
-        .build();
+            .put(utf8Slice(TEST_STRING), VARCHAR)
+            .put(wrappedBuffer(new byte[] {12, 34, 56}), VARBINARY)
+            .put(4312L, BIGINT)
+            .put(123, INTEGER)
+            .put(234.567, DOUBLE)
+            .build();
 
     @Test
     public void testHiveBloomFilterSerde()
@@ -288,14 +288,14 @@ public class TestOrcBloomFilters
         OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(hiveBloomFilter);
 
         Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
-                        null,
-                        null,
-                        new IntegerStatistics(10L, 2000L),
-                        null,
-                        null,
-                        null,
-                        null,
-                        toHiveBloomFilter(orcBloomFilter)));
+                null,
+                null,
+                new IntegerStatistics(10L, 2000L),
+                null,
+                null,
+                null,
+                null,
+                toHiveBloomFilter(orcBloomFilter)));
 
         Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
                 null,

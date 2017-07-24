@@ -52,14 +52,14 @@ public class CassandraTpchTableDefinitions
             .withDatabase(CONNECTOR_NAME)
             .withSchema(KEY_SPACE)
             .setCreateTableDDLTemplate("CREATE TABLE %NAME%(" +
-                            "   s_suppkey     BIGINT," +
-                            "   s_name        VARCHAR," +
-                            "   s_address     VARCHAR," +
-                            "   s_nationkey   BIGINT," +
-                            "   s_phone       VARCHAR," +
-                            "   s_acctbal     DOUBLE," +
-                            "   s_comment     VARCHAR," +
-                            "   primary key(s_suppkey))")
+                    "   s_suppkey     BIGINT," +
+                    "   s_name        VARCHAR," +
+                    "   s_address     VARCHAR," +
+                    "   s_nationkey   BIGINT," +
+                    "   s_phone       VARCHAR," +
+                    "   s_acctbal     DOUBLE," +
+                    "   s_comment     VARCHAR," +
+                    "   primary key(s_suppkey))")
             .setDataSource(new CassandraTpchDataSource(TpchTable.SUPPLIER, ImmutableList.of(0, 4, 2, 5, 6, 1, 3), SUPPLIER_TYPES, 1.0))
             .build();
 }

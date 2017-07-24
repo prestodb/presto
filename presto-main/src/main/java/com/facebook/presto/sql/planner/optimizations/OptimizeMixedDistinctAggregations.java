@@ -365,6 +365,7 @@ public class OptimizeMixedDistinctAggregations
                     ImmutableMap.of(),
                     groupSymbol);
         }
+
         /*
          * This method returns a new Aggregation node which has aggregations on non-distinct symbols from original plan. Generates
          *      SELECT a1, a2,..., an, F1(b1) as f1, F2(b2) as f2,...., Fm(bm) as fm, c, group

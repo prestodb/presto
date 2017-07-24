@@ -34,23 +34,23 @@ import static java.util.Objects.requireNonNull;
  * This class assumes that lessThanFunction is a superset of the whole filtering
  * condition used in a join. In other words, we can use SortedPositionLinks
  * with following join condition:
- *
- * filterFunction_1(...) AND filterFunction_2(....) AND ... AND filterFunction_n(...)
- *
+ * <p>
+ * {@code filterFunction_1(...) AND filterFunction_2(....) AND ... AND filterFunction_n(...)}
+ * <p>
  * by passing any of the filterFunction_i to the SortedPositionLinks. We could not
  * do that for join condition like:
- *
- * filterFunction_1(...) OR filterFunction_2(....) OR ... OR filterFunction_n(...)
- *
+ * <p>
+ * {@code filterFunction_1(...) OR filterFunction_2(....) OR ... OR filterFunction_n(...)}
+ * <p>
  * To use lessThanFunction in this class, it must be an expression in form of:
- *
- * f(probeColumn1, probeColumn2, ..., probeColumnN) COMPARE g(buildColumn1, ..., buildColumnN)
- *
- * where COMPARE is one of: < <= > >=
- *
+ * <p>
+ * {@code f(probeColumn1, probeColumn2, ..., probeColumnN) COMPARE g(buildColumn1, ..., buildColumnN)}
+ * <p>
+ * where {@code COMPARE} is one of: {@code < <= > >=}
+ * <p>
  * That allows us to define an order of the elements in positionLinks (this defining which
- * element is smaller) using g(...) function and to perform a binary search using
- * f(probePosition) value.
+ * element is smaller) using {@code g(...)} function and to perform a binary search using
+ * {@code f(probePosition)} value.
  */
 public final class SortedPositionLinks
         implements PositionLinks

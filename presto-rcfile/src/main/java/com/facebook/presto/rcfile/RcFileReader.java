@@ -286,7 +286,7 @@ public class RcFileReader
         rowGroupPosition = 0;
         rowGroupRowCount = 0;
         currentChunkRowCount = 0;
-        try  {
+        try {
             input.close();
         }
         finally {

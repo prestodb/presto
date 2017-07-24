@@ -29,6 +29,7 @@ public class TestResourceGroupId
         new ResourceGroupId("test.test");
         new ResourceGroupId(new ResourceGroupId("test"), "test");
     }
+
     @Test
     public void testCodec()
     {

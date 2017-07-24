@@ -39,7 +39,8 @@ public class MongoQueryRunner
     private final MongoServer server;
     private final InetSocketAddress address;
 
-    private MongoQueryRunner(Session session, int workers) throws Exception
+    private MongoQueryRunner(Session session, int workers)
+            throws Exception
     {
         super(session, workers);
 

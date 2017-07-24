@@ -57,9 +57,9 @@ public class ResourceGroupStateInfoResource
             try {
                 return resourceGroupManager.getResourceGroupStateInfo(
                         new ResourceGroupId(
-                            Arrays.stream(resourceGroupIdString.split("/"))
-                                    .map(ResourceGroupStateInfoResource::urlDecode)
-                                    .collect(toImmutableList())));
+                                Arrays.stream(resourceGroupIdString.split("/"))
+                                        .map(ResourceGroupStateInfoResource::urlDecode)
+                                        .collect(toImmutableList())));
             }
             catch (NoSuchElementException e) {
                 throw new WebApplicationException(NOT_FOUND);

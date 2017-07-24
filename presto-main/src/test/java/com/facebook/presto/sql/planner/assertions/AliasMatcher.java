@@ -26,7 +26,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AliasMatcher
-    implements Matcher
+        implements Matcher
 {
     private final Optional<String> alias;
     private final RvalueMatcher matcher;

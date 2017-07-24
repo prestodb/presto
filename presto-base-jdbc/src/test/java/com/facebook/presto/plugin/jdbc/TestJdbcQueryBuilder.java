@@ -195,16 +195,16 @@ public class TestJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(10), Domain.create(SortedRangeSet.copyOf(REAL,
-                                ImmutableList.of(
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
+                        ImmutableList.of(
+                                Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
+                                Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
+                                Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
                         false)
         ));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+                ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
             while (resultSet.next()) {

@@ -854,13 +854,13 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
-                            ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
-                                    .build(),
-                            ImmutableMultimap.of());
+                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                            .build(),
+                    ImmutableMultimap.of());
             Table oldTable = transaction.getMetastore(schemaName).getTable(schemaName, tableName).get();
             HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()

@@ -45,10 +45,11 @@ public final class ArrayContains
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean contains(@TypeParameter("T") Type elementType,
-                                   @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
-                                   @SqlType("array(T)") Block arrayBlock,
-                                   @SqlType("T") Block value)
+    public static Boolean contains(
+            @TypeParameter("T") Type elementType,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @SqlType("array(T)") Block arrayBlock,
+            @SqlType("T") Block value)
     {
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -74,10 +75,11 @@ public final class ArrayContains
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean contains(@TypeParameter("T") Type elementType,
-                                   @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
-                                   @SqlType("array(T)") Block arrayBlock,
-                                   @SqlType("T") Slice value)
+    public static Boolean contains(
+            @TypeParameter("T") Type elementType,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @SqlType("array(T)") Block arrayBlock,
+            @SqlType("T") Slice value)
     {
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -103,10 +105,11 @@ public final class ArrayContains
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean contains(@TypeParameter("T") Type elementType,
-                                   @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
-                                   @SqlType("array(T)") Block arrayBlock,
-                                   @SqlType("T") long value)
+    public static Boolean contains(
+            @TypeParameter("T") Type elementType,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @SqlType("array(T)") Block arrayBlock,
+            @SqlType("T") long value)
     {
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -132,10 +135,11 @@ public final class ArrayContains
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean contains(@TypeParameter("T") Type elementType,
-                                   @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
-                                   @SqlType("array(T)") Block arrayBlock,
-                                   @SqlType("T") boolean value)
+    public static Boolean contains(
+            @TypeParameter("T") Type elementType,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @SqlType("array(T)") Block arrayBlock,
+            @SqlType("T") boolean value)
     {
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -161,10 +165,11 @@ public final class ArrayContains
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean contains(@TypeParameter("T") Type elementType,
-                                   @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
-                                   @SqlType("array(T)") Block arrayBlock,
-                                   @SqlType("T") double value)
+    public static Boolean contains(
+            @TypeParameter("T") Type elementType,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @SqlType("array(T)") Block arrayBlock,
+            @SqlType("T") double value)
     {
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {

@@ -127,14 +127,14 @@ public class CursorProcessorCompiler
         ForLoop forLoop = new ForLoop()
                 .initialize(NOP)
                 .condition(new BytecodeBlock()
-                                .comment("completedPositions < count")
-                                .getVariable(completedPositionsVariable)
-                                .getVariable(count)
-                                .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
+                        .comment("completedPositions < count")
+                        .getVariable(completedPositionsVariable)
+                        .getVariable(count)
+                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
                 .update(new BytecodeBlock()
-                                .comment("completedPositions++")
-                                .incrementVariable(completedPositionsVariable, (byte) 1)
+                        .comment("completedPositions++")
+                        .incrementVariable(completedPositionsVariable, (byte) 1)
                 );
 
         BytecodeBlock forLoopBody = new BytecodeBlock()
@@ -180,11 +180,11 @@ public class CursorProcessorCompiler
             // project(block..., blockBuilder)gen
             ifStatement.ifTrue()
                     .invokeVirtual(classDefinition.getType(),
-                    "project_" + projectionIndex,
-                    type(void.class),
-                    type(ConnectorSession.class),
-                    type(RecordCursor.class),
-                    type(BlockBuilder.class));
+                            "project_" + projectionIndex,
+                            type(void.class),
+                            type(ConnectorSession.class),
+                            type(RecordCursor.class),
+                            type(BlockBuilder.class));
         }
         forLoopBody.append(ifStatement);
 

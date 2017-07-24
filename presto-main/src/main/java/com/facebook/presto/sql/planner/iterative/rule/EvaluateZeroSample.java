@@ -26,7 +26,7 @@ import java.util.Optional;
  * Replaces 0% sample node with empty values node.
  */
 public class EvaluateZeroSample
-    implements Rule
+        implements Rule
 {
     private static final Pattern PATTERN = Pattern.typeOf(SampleNode.class);
 

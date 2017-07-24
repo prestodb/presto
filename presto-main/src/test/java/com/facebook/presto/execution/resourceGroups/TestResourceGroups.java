@@ -307,7 +307,8 @@ public class TestResourceGroups
             int priority;
             do {
                 priority = random.nextInt(1_000_000) + 1;
-            } while (queries.containsKey(priority));
+            }
+            while (queries.containsKey(priority));
 
             MockQueryExecution query = new MockQueryExecution(0, "query_id", priority);
             if (random.nextBoolean()) {

@@ -58,7 +58,7 @@ import static java.lang.Math.toIntExact;
 public class OrcMetadataReader
         implements MetadataReader
 {
-    private static final Slice MAX_BYTE = Slices.wrappedBuffer(new byte[] { (byte) 0xFF });
+    private static final Slice MAX_BYTE = Slices.wrappedBuffer(new byte[] {(byte) 0xFF});
     private static final Logger log = Logger.get(OrcMetadataReader.class);
 
     private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());

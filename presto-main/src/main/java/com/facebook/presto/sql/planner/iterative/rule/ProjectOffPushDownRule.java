@@ -32,7 +32,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
  * Given that situation, invokes the pushDownProjectOff helper to possibly rewrite the child to produce fewer outputs.
  */
 public abstract class ProjectOffPushDownRule<N extends PlanNode>
-    implements Rule
+        implements Rule
 {
     private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
     private final Class<N> targetNodeClass;

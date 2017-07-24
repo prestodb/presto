@@ -138,7 +138,8 @@ public final class LongDecode
             }
             result |= (b & 0b0111_1111) << offset;
             offset += 7;
-        } while ((b & 0b1000_0000) != 0);
+        }
+        while ((b & 0b1000_0000) != 0);
         return result;
     }
 

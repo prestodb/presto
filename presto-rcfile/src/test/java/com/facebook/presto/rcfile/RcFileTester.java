@@ -189,6 +189,7 @@ import static org.testng.Assert.assertTrue;
 public class RcFileTester
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
     static {
         // associate TYPE_MANAGER with a function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());

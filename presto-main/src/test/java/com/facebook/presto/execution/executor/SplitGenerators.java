@@ -88,7 +88,7 @@ class SplitGenerators
     }
 
     public static class IntermediateSplitGenerator
-        implements SplitGenerator
+            implements SplitGenerator
     {
         private final ScheduledExecutorService wakeupExecutor;
 
@@ -101,7 +101,7 @@ class SplitGenerators
         {
             long numQuanta = generateIntermediateSplitNumQuanta(0, 1);
 
-            long wallNanos =  MILLISECONDS.toNanos(generateIntermediateSplitWallTimeMs(0, 1));
+            long wallNanos = MILLISECONDS.toNanos(generateIntermediateSplitWallTimeMs(0, 1));
             long scheduledNanos = MILLISECONDS.toNanos(generateIntermediateSplitScheduledTimeMs(0, 1));
 
             long blockedNanos = (long) (ThreadLocalRandom.current().nextDouble(0.97, 0.99) * wallNanos);
@@ -130,7 +130,7 @@ class SplitGenerators
     {
         public LeafSplitSpecification next()
         {
-            long totalNanos =  MILLISECONDS.toNanos(generateLeafSplitScheduledTimeMs(0, 0.75));
+            long totalNanos = MILLISECONDS.toNanos(generateLeafSplitScheduledTimeMs(0, 0.75));
             long quantaNanos = Math.min(totalNanos, MICROSECONDS.toNanos(generateLeafSplitPerCallMicros(0, 1)));
 
             return new LeafSplitSpecification(totalNanos, quantaNanos);

@@ -266,7 +266,7 @@ public class FileHiveMetastore
     private Table getRequiredTable(String databaseName, String tableName)
     {
         return getTable(databaseName, tableName)
-                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
     }
 
     private void verifyTableNotExists(String newDatabaseName, String newTableName)

@@ -46,6 +46,7 @@ public final class HiveTestUtils
             new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
+
     static {
         // associate TYPE_MANAGER with a function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());

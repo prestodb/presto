@@ -133,9 +133,9 @@ public class TestOrcPageSourceMemoryTracking
 
     private final Random random = new Random();
     private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder()
-             .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true))
-             .add(new TestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false))
-             .build();
+            .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true))
+            .add(new TestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false))
+            .build();
 
     private File tempFile;
     private TestPreparer testPreparer;
@@ -143,7 +143,7 @@ public class TestOrcPageSourceMemoryTracking
     @DataProvider(name = "rowCount")
     public static Object[][] rowCount()
     {
-        return new Object[][] { { 50_000 }, { 10_000 }, { 5_000 } };
+        return new Object[][] {{50_000}, {10_000}, {5_000}};
     }
 
     @BeforeClass

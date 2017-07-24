@@ -171,7 +171,8 @@ class SimulationController
                     }
                 }
             }
-        } while (moved);
+        }
+        while (moved);
     }
 
     private void createTask(TaskSpecification specification)
@@ -217,7 +218,8 @@ class SimulationController
 
     public static class TaskSpecification
     {
-        enum Type {
+        enum Type
+        {
             LEAF,
             INTERMEDIATE
         }

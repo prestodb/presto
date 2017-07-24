@@ -160,9 +160,9 @@ public class DbResourceGroupConfigurationManager
 
     // Populate temporary data structures to build resource group specs and selectors from db
     private synchronized void populateFromDbHelper(Map<Long, ResourceGroupSpecBuilder> recordMap,
-                                                   Set<Long> rootGroupIds,
-                                                   Map<Long, ResourceGroupIdTemplate> resourceGroupIdTemplateMap,
-                                                   Map<Long, Set<Long>> subGroupIdsToBuild)
+            Set<Long> rootGroupIds,
+            Map<Long, ResourceGroupIdTemplate> resourceGroupIdTemplateMap,
+            Map<Long, Set<Long>> subGroupIdsToBuild)
     {
         List<ResourceGroupSpecBuilder> records = dao.getResourceGroups();
         for (ResourceGroupSpecBuilder record : records) {

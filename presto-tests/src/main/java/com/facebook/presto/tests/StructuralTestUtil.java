@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public final class StructuralTestUtil
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
     static {
         // associate TYPE_MANAGER with a function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());

@@ -316,7 +316,7 @@ public final class SqlQueryExecution
         else if (statement instanceof Explain) {
             return Optional.of(EXPLAIN);
         }
-        else if (statement instanceof ShowCatalogs  || statement instanceof ShowCreate || statement instanceof ShowFunctions ||
+        else if (statement instanceof ShowCatalogs || statement instanceof ShowCreate || statement instanceof ShowFunctions ||
                 statement instanceof ShowGrants || statement instanceof ShowPartitions || statement instanceof ShowSchemas ||
                 statement instanceof ShowSession || statement instanceof ShowStats || statement instanceof ShowTables ||
                 statement instanceof ShowColumns || statement instanceof DescribeInput || statement instanceof DescribeOutput) {

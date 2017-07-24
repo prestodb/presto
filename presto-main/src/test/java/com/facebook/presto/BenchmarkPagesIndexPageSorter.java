@@ -93,10 +93,10 @@ public class BenchmarkPagesIndexPageSorter
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({ "2", "3", "4", "5" })
+        @Param({"2", "3", "4", "5"})
         private int numSortChannels;
 
-        @Param({ "BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN" })
+        @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String sortChannelType;
 
         private List<Page> pages;

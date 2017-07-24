@@ -53,8 +53,8 @@ public abstract class AbstractTestApproximateCountDistinct
     public Object[][] provideStandardErrors()
     {
         return new Object[][] {
-                { 0.0230 }, // 2k buckets
-                { 0.0115 }, // 8k buckets
+                {0.0230}, // 2k buckets
+                {0.0115}, // 8k buckets
         };
     }
 

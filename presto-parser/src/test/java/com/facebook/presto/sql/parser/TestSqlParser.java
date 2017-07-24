@@ -1581,7 +1581,7 @@ public class TestSqlParser
 
     @Test
     public void testShowGrants()
-        throws Exception
+            throws Exception
     {
         assertStatement("SHOW GRANTS ON TABLE t",
                 new ShowGrants(true, Optional.of(QualifiedName.of("t"))));
@@ -2051,14 +2051,14 @@ public class TestSqlParser
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
                                     new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
-                                        new ComparisonExpression(GREATER_THAN,
-                                                new Identifier("field"),
-                                                new LongLiteral("0")),
+                                            new ComparisonExpression(GREATER_THAN,
+                                                    new Identifier("field"),
+                                                    new LongLiteral("0")),
                                             new ComparisonExpression(LESS_THAN,
                                                     new Identifier("field"),
                                                     new LongLiteral("0"))
-                                            )
-                                    )));
+                                    )
+                            )));
         }
     }
 
@@ -2066,9 +2066,9 @@ public class TestSqlParser
     {
         return new ShowStats(
                 new TableSubquery(simpleQuery(new Select(false, selects),
-                            new Table(name),
-                            where,
-                            Optional.empty())));
+                        new Table(name),
+                        where,
+                        Optional.empty())));
     }
 
     @Test

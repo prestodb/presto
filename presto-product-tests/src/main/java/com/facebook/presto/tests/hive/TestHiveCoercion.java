@@ -212,10 +212,10 @@ public class TestHiveCoercion
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
         executeHiveQuery(format("INSERT INTO TABLE %s " +
-                "PARTITION (id=1) " +
-                "VALUES" +
-                "(-1, 2, -3, 100, -101, 2323, 12345, 0.5)," +
-                "(1, -2, null, -100, 101, -2323, -12345, -1.5)",
+                        "PARTITION (id=1) " +
+                        "VALUES" +
+                        "(-1, 2, -3, 100, -101, 2323, 12345, 0.5)," +
+                        "(1, -2, null, -100, 101, -2323, -12345, -1.5)",
                 tableName));
 
         alterTableColumnTypes(tableName);

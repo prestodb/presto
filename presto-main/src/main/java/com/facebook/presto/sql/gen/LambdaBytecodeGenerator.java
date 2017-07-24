@@ -208,9 +208,9 @@ public class LambdaBytecodeGenerator
         Type instantiatedMethodAsmType = getMethodType(
                 compiledLambda.getReturnType().getAsmType(),
                 compiledLambda.getParameterTypes().stream()
-                    .skip(captureExpressions.size() + 1) // skip capture variables and ConnectorSession
-                    .map(ParameterizedType::getAsmType)
-                    .collect(toImmutableList()).toArray(new Type[0]));
+                        .skip(captureExpressions.size() + 1) // skip capture variables and ConnectorSession
+                        .map(ParameterizedType::getAsmType)
+                        .collect(toImmutableList()).toArray(new Type[0]));
 
         block.append(
                 invokeDynamic(

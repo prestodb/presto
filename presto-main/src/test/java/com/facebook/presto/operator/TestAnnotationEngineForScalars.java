@@ -57,7 +57,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestAnnotationEngineForScalars
-    extends TestAnnotationEngine
+        extends TestAnnotationEngine
 {
     @ScalarFunction("single_implementation_parametric_scalar")
     @Description("Simple scalar with single implemenatation based on class")

@@ -935,7 +935,7 @@ public class TestBroadcastOutputBuffer
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
-               dataSize,
+                dataSize,
                 ignored -> { },
                 stateNotificationExecutor);
         buffer.setOutputBuffers(outputBuffers);

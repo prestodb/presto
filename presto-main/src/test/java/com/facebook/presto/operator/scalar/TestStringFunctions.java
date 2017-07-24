@@ -137,7 +137,7 @@ public class TestStringFunctions
 
     @Test
     public void testCharLength()
-        {
+    {
         assertFunction("LENGTH(CAST('hello' AS CHAR(5)))", BIGINT, 5L);
         assertFunction("LENGTH(CAST('Quadratically' AS CHAR(13)))", BIGINT, 13L);
         assertFunction("LENGTH(CAST('' AS CHAR(20)))", BIGINT, 20L);

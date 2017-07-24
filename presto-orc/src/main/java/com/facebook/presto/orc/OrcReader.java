@@ -254,7 +254,7 @@ public class OrcReader
             source.readFully(0, headerMagic);
 
             // if it isn't there, this isn't an ORC file
-            if  (!MAGIC.equals(Slices.wrappedBuffer(headerMagic))) {
+            if (!MAGIC.equals(Slices.wrappedBuffer(headerMagic))) {
                 throw new OrcCorruptionException(source.getId(), "Invalid postscript");
             }
         }

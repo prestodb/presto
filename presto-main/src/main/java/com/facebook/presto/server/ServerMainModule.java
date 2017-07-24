@@ -186,10 +186,10 @@ public class ServerMainModule
 
         if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toInstance(Optional.empty());
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toInstance(Optional.empty());
             // Install no-op resource group manager on workers, since only coordinators manage resource groups.
             binder.bind(ResourceGroupManager.class).to(NoOpResourceGroupManager.class).in(Scopes.SINGLETON);
 

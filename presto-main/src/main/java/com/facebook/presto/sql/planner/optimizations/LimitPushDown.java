@@ -120,8 +120,8 @@ public class LimitPushDown
             // return empty ValuesNode in case of limit 0
             if (count == 0) {
                 return new ValuesNode(idAllocator.getNextId(),
-                                        node.getOutputSymbols(),
-                                        ImmutableList.of());
+                        node.getOutputSymbols(),
+                        ImmutableList.of());
             }
 
             // default visitPlan logic will insert the limit node

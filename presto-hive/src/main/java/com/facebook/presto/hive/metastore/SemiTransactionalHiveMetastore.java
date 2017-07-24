@@ -1463,18 +1463,18 @@ public class SemiTransactionalHiveMetastore
 
     /**
      * Attempt to recursively remove eligible files and/or directories in {@code directory}.
-     *
+     * <p>
      * When {@code filePrefixes} is not present, all files (but not necessarily directories) will be
      * ineligible. If all files shall be deleted, you can use an empty string as {@code filePrefixes}.
-     *
+     * <p>
      * When {@code deleteEmptySubDirectory} is true, any empty directory (including directories that
      * were originally empty, and directories that become empty after files prefixed with
      * {@code filePrefixes} are deleted) will be eligible.
-     *
+     * <p>
      * This method will not delete anything that's neither a directory nor a file.
      *
-     * @param filePrefixes  prefix of files that should be deleted
-     * @param deleteEmptyDirectories  whether empty directories should be deleted
+     * @param filePrefixes prefix of files that should be deleted
+     * @param deleteEmptyDirectories whether empty directories should be deleted
      */
     private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, String user, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
     {
@@ -1654,7 +1654,8 @@ public class SemiTransactionalHiveMetastore
         FINISHED,
     }
 
-    public enum WriteMode {
+    public enum WriteMode
+    {
         STAGE_AND_MOVE_TO_TARGET_DIRECTORY, // common mode for new table or existing table (both new and existing partition)
         DIRECT_TO_TARGET_NEW_DIRECTORY, // for new table in S3
         DIRECT_TO_TARGET_EXISTING_DIRECTORY, // for existing table in S3 (both new and existing partition)

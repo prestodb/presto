@@ -57,7 +57,7 @@ public final class ShardStats
     }
 
     public static Optional<ColumnStats> computeColumnStats(OrcReader orcReader, long columnId, Type type)
-        throws IOException
+            throws IOException
     {
         return Optional.ofNullable(doComputeColumnStats(orcReader, columnId, type));
     }

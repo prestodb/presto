@@ -90,13 +90,13 @@ public class PageProcessorBenchmark
     private RecordSet recordSet;
     private List<Type> types;
 
-    @Param({ "2", "4", "8", "16", "32" })
+    @Param({"2", "4", "8", "16", "32"})
     int columnCount;
 
-    @Param({ "varchar", "bigint" })
+    @Param({"varchar", "bigint"})
     String type;
 
-    @Param({ "false", "true" })
+    @Param({"false", "true"})
     boolean dictionaryBlocks;
 
     @Setup

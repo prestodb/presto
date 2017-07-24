@@ -23,7 +23,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.Optional;
 
 public class MergeLimitWithDistinct
-    implements Rule
+        implements Rule
 {
     private static final Pattern PATTERN = Pattern.typeOf(LimitNode.class);
 
