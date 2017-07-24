@@ -37,10 +37,12 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.inject.Inject;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.IntUnaryOperator;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -520,6 +522,32 @@ public class PagesIndex
                         .toArray(Block[]::new);
                 pageCounter++;
                 return new Page(blocks);
+            }
+        };
+    }
+
+    // TODO: This is similar to what OrderByOperator does, look into reusing this logic in OrderByOperator as well.
+    public Iterator<Page> getSortedPages()
+    {
+        return new AbstractIterator<Page>() {
+            private int currentPosition = 0;
+            private PageBuilder pageBuilder = new PageBuilder(types);
+            private int[] outputChannels = new int[types.size()];
+
+            {
+                Arrays.setAll(outputChannels, IntUnaryOperator.identity());
+            }
+
+            @Override
+            public Page computeNext()
+            {
+                currentPosition = buildPage(currentPosition, outputChannels, pageBuilder);
+                if (pageBuilder.isEmpty()) {
+                    return endOfData();
+                }
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return page;
             }
         };
     }

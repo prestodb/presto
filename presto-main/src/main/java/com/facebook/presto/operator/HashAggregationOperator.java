@@ -369,7 +369,8 @@ public class HashAggregationOperator
         inputProcessed = true;
 
         if (aggregationBuilder == null) {
-            if (step.isOutputPartial() || !spillEnabled) {
+            // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause because ORDER BY is not yet implemented for spilling.
+            if (step.isOutputPartial() || !spillEnabled || hasOrderBy()) {
                 aggregationBuilder = new InMemoryHashAggregationBuilder(
                         accumulatorFactories,
                         step,
@@ -409,6 +410,11 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
         aggregationBuilder.updateMemory();
+    }
+
+    private boolean hasOrderBy()
+    {
+        return accumulatorFactories.stream().anyMatch(AccumulatorFactory::hasOrderBy);
     }
 
     @Override
