@@ -405,6 +405,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
+            addMappings(node.getAssignments());
             return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()));
         }
 
@@ -439,7 +440,7 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getInput());
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
-
+            addMappings(node.getSubqueryAssignments());
             return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation, node.getOriginSubquery());
         }
 
@@ -595,11 +596,10 @@ public class UnaliasSymbolReferences
             mapping.put(symbol, canonical);
         }
 
-        private Assignments canonicalize(Assignments oldAssignments)
+        private void addMappings(Assignments assignments)
         {
             Map<Expression, Symbol> computedExpressions = new HashMap<>();
-            Assignments.Builder assignments = Assignments.builder();
-            for (Map.Entry<Symbol, Expression> entry : oldAssignments.getMap().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 
                 if (expression instanceof SymbolReference) {
@@ -623,11 +623,16 @@ public class UnaliasSymbolReferences
                         addMapping(entry.getKey(), computedSymbol);
                     }
                 }
-
-                Symbol canonical = canonicalize(entry.getKey());
-                assignments.put(canonical, expression);
             }
-            return assignments.build();
+        }
+
+        private Assignments canonicalize(Assignments assignments)
+        {
+            Assignments.Builder builder = Assignments.builder();
+            for (Symbol symbol : assignments.getSymbols()) {
+                builder.put(canonicalize(symbol), canonicalize(assignments.get(symbol)));
+            }
+            return builder.build();
         }
 
         private Symbol canonicalize(Symbol symbol)
