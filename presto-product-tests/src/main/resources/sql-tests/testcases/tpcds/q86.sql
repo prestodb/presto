@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds, quarantine; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 --- quarantined as grouping is not yet supported, see https://github.com/prestodb/presto/pull/6704
 SELECT
   "sum"("ws_net_paid") "total_sum"
