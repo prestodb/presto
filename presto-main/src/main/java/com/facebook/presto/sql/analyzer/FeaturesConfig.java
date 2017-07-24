@@ -35,8 +35,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "resource-group-manager",
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
-        "optimizer.processing-optimization"
-})
+        "optimizer.processing-optimization"})
 public class FeaturesConfig
 {
     private boolean distributedIndexJoinsEnabled;

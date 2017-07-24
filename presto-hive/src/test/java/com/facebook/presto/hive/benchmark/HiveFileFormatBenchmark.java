@@ -109,15 +109,13 @@ public class HiveFileFormatBenchmark
             "LARGE_MAP_VARCHAR_DOUBLE",
             "MAP_INT_DOUBLE",
             "LARGE_MAP_INT_DOUBLE",
-            "LARGE_ARRAY_VARCHAR",
-    })
+            "LARGE_ARRAY_VARCHAR"})
     private DataSet dataSet;
 
     @Param({
             "NONE",
             "SNAPPY",
-            "GZIP",
-    })
+            "GZIP"})
     private HiveCompressionCodec compression;
 
     @Param({
@@ -130,8 +128,7 @@ public class HiveFileFormatBenchmark
             "HIVE_RCTEXT",
             "HIVE_ORC",
             "HIVE_DWRF",
-            "HIVE_PARQUET",
-    })
+            "HIVE_PARQUET"})
     private FileFormat fileFormat;
 
     private TestData data;
