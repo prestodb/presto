@@ -37,32 +37,25 @@ import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutput
 
 /**
  * Transforms:
- *
- *  <pre>
+ * <pre>
  *  Project(x = e1, y = e2)
  *    Exchange()
  *      Source(a, b, c)
  *  </pre>
- *
- *  to:
- *
- *  <pre>
+ * to:
+ * <pre>
  *  Exchange()
  *    Project(x = e1, y = e2)
  *      Source(a, b, c)
  *  </pre>
- *
- *  Or if Exchange needs symbols from Source for partitioning or as hash symbol to:
- *
- *  <pre>
+ * Or if Exchange needs symbols from Source for partitioning or as hash symbol to:
+ * <pre>
  *  Project(x, y)
  *    Exchange()
  *      Project(x = e1, y = e2, a)
  *        Source(a, b, c)
  *  </pre>
- *
- *
- *  To avoid looping this optimizer will not be fired if upper Project contains just symbol references.
+ * To avoid looping this optimizer will not be fired if upper Project contains just symbol references.
  */
 public class PushProjectionThroughExchange
         implements Rule

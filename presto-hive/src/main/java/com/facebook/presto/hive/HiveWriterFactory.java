@@ -199,7 +199,7 @@ public class HiveWriterFactory
         requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.sessionProperties = hiveSessionProperties.getSessionProperties().stream()
                 .collect(toImmutableMap(PropertyMetadata::getName,
-                                        entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
+                        entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
         Configuration conf = hdfsEnvironment.getConfiguration(writePath);
         this.conf = toJobConf(conf);

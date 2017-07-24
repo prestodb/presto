@@ -23,7 +23,7 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import java.util.Optional;
 
 public class MergeLimitWithSort
-    implements Rule
+        implements Rule
 {
     private static final Pattern PATTERN = Pattern.typeOf(LimitNode.class);
 

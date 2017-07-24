@@ -117,16 +117,16 @@ public class CassandraTestingUtils
 
     public static void createTableClusteringKeysInequality(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
     {
-         session.execute("DROP TABLE IF EXISTS " + table);
-         session.execute("CREATE TABLE " + table + " (" +
-                 "key text, " +
-                 "clust_one text, " +
-                 "clust_two int, " +
-                 "clust_three timestamp, " +
-                 "data text, " +
-                 "PRIMARY KEY((key), clust_one, clust_two, clust_three) " +
-                 ")");
-         insertIntoTableClusteringKeysInequality(session, table, date, rowsCount);
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
+                "key text, " +
+                "clust_one text, " +
+                "clust_two int, " +
+                "clust_three timestamp, " +
+                "data text, " +
+                "PRIMARY KEY((key), clust_one, clust_two, clust_three) " +
+                ")");
+        insertIntoTableClusteringKeysInequality(session, table, date, rowsCount);
     }
 
     public static void insertIntoTableClusteringKeysInequality(CassandraSession session, SchemaTableName table, Date date, int rowsCount)

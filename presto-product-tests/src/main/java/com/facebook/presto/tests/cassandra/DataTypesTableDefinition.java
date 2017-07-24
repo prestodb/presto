@@ -41,10 +41,10 @@ public class DataTypesTableDefinition
     private static final String ALL_TYPES_TABLE_NAME = "all_types";
 
     private static final String ALL_TYPES_DDL =
-           "CREATE TABLE %NAME% (a ascii, b bigint, bl blob, bo boolean, d decimal, do double," +
-           "f float, fr frozen<set<int>>, i inet, integer int, l list<int>, m map<text,int>," +
-           "s set<int>, t text, ti timestamp, tu timeuuid, u uuid, v varchar, vari varint," +
-           "PRIMARY KEY (a))";
+            "CREATE TABLE %NAME% (a ascii, b bigint, bl blob, bo boolean, d decimal, do double," +
+                    "f float, fr frozen<set<int>>, i inet, integer int, l list<int>, m map<text,int>," +
+                    "s set<int>, t text, ti timestamp, tu timeuuid, u uuid, v varchar, vari varint," +
+                    "PRIMARY KEY (a))";
 
     static {
         RelationalDataSource dataSource = () -> {

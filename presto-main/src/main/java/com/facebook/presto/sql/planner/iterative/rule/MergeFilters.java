@@ -23,7 +23,7 @@ import java.util.Optional;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 
 public class MergeFilters
-    implements Rule
+        implements Rule
 {
     private static final Pattern PATTERN = Pattern.typeOf(FilterNode.class);
 

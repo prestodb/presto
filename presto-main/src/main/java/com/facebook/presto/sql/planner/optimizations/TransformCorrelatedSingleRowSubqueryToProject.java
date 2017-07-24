@@ -100,9 +100,9 @@ public class TransformCorrelatedSingleRowSubqueryToProject
             }
             else if (subqueryProjections.size() == 1) {
                 Assignments assignments = Assignments.builder()
-                                                     .putIdentities(rewrittenLateral.getInput().getOutputSymbols())
-                                                     .putAll(subqueryProjections.get(0).getAssignments())
-                                                     .build();
+                        .putIdentities(rewrittenLateral.getInput().getOutputSymbols())
+                        .putAll(subqueryProjections.get(0).getAssignments())
+                        .build();
                 return projectNode(rewrittenLateral.getInput(), assignments);
             }
             return rewrittenLateral;

@@ -247,9 +247,9 @@ public class MongoPageSource
                 Map<?, ?> mapValue = (Map<?, ?>) value;
                 BlockBuilder builder = output.beginBlockEntry();
                 List<String> fieldNames = type.getTypeSignature().getParameters().stream()
-                                        .map(TypeSignatureParameter::getNamedTypeSignature)
-                                        .map(NamedTypeSignature::getName)
-                                        .collect(Collectors.toList());
+                        .map(TypeSignatureParameter::getNamedTypeSignature)
+                        .map(NamedTypeSignature::getName)
+                        .collect(Collectors.toList());
                 checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldName doesn't match with type size : %s", type);
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {
                     appendTo(type.getTypeParameters().get(index), mapValue.get(fieldNames.get(index).toString()), builder);
@@ -291,7 +291,8 @@ public class MongoPageSource
     }
 
     @Override
-    public void close() throws IOException
+    public void close()
+            throws IOException
     {
         cursor.close();
     }

@@ -51,6 +51,7 @@ public abstract class AbstractResourceConfigurationManager
     private long generalPoolBytes;
 
     protected abstract Optional<Duration> getCpuQuotaPeriod();
+
     protected abstract List<ResourceGroupSpec> getRootGroups();
 
     protected void validateRootGroups(ManagerSpec managerSpec)

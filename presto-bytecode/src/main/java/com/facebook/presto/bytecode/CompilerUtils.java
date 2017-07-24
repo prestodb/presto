@@ -74,7 +74,7 @@ public final class CompilerUtils
         return clazz.asSubclass(superType);
     }
 
-    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType,  Map<Long, MethodHandle> callSiteBindings, ClassLoader parentClassLoader)
+    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, Map<Long, MethodHandle> callSiteBindings, ClassLoader parentClassLoader)
     {
         Class<?> clazz = defineClass(classDefinition, superType, new DynamicClassLoader(parentClassLoader, callSiteBindings));
         return clazz.asSubclass(superType);

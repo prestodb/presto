@@ -134,7 +134,7 @@ public class TestHivePageSink
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
         int rows = 0;
-        for (LineItem lineItem :  new LineItemGenerator(0.01, 1, 1)) {
+        for (LineItem lineItem : new LineItemGenerator(0.01, 1, 1)) {
             rows++;
             if (rows >= NUM_ROWS) {
                 break;

@@ -311,7 +311,7 @@ public class TestShardCompactor
         int pageCount = 10;
 
         // some random values to start off the blocks
-        int[][] initialValues = { { 17, 15, 16, 18, 14 }, { 59, 55, 54, 53, 58 } };
+        int[][] initialValues = {{17, 15, 16, 18, 14}, {59, 55, 54, 53, 58}};
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         for (int i = 0; i < pageCount; i++) {

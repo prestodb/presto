@@ -50,9 +50,9 @@ public class ServerSecurityModule
                 binder -> {
                     configBinder(binder).bindConfig(LdapConfig.class);
                     Multibinder.newSetBinder(binder, Filter.class, TheServlet.class)
-                                    .addBinding()
-                                    .to(LdapFilter.class)
-                                    .in(Scopes.SINGLETON);
+                            .addBinding()
+                            .to(LdapFilter.class)
+                            .in(Scopes.SINGLETON);
                 });
     }
 

@@ -19,7 +19,7 @@ import java.util.zip.Inflater;
 import static java.util.Objects.requireNonNull;
 
 class OrcZlibDecompressor
-    implements OrcDecompressor
+        implements OrcDecompressor
 {
     private static final int EXPECTED_COMPRESSION_RATIO = 5;
 

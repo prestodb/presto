@@ -44,7 +44,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 
 public class TestAddIntermediateAggregations
-            extends BaseRuleTest
+        extends BaseRuleTest
 {
     @Test
     public void testBasic()

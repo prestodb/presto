@@ -110,7 +110,7 @@ public class TestHiveFileFormats
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
     {
-        return new Object[][] { { 0 }, { 1000 } };
+        return new Object[][] {{0}, {1000}};
     }
 
     @BeforeClass(alwaysRun = true)

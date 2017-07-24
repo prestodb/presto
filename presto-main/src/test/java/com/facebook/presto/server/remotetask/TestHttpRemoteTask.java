@@ -372,7 +372,7 @@ public class TestHttpRemoteTask
         private TaskStatus buildTaskStatus()
         {
             statusFetchCounter++;
-                // Change the task instance id after 10th fetch to simulate worker restart
+            // Change the task instance id after 10th fetch to simulate worker restart
             switch (testCase) {
                 case TASK_MISMATCH:
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:

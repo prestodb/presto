@@ -96,9 +96,9 @@ public class ShardOrganizerUtil
                 String shardIds = Joiner.on(",").join(nCopies(partitionedShards.size(), "?"));
 
                 String sql = format("" +
-                        "SELECT %s\n" +
-                        "FROM %s\n" +
-                        "WHERE shard_id IN (%s)",
+                                "SELECT %s\n" +
+                                "FROM %s\n" +
+                                "WHERE shard_id IN (%s)",
                         columnToSelect, shardIndexTable(tableId), shardIds);
 
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {

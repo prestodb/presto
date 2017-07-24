@@ -124,6 +124,7 @@ public class TestMatchingEngine
     }
 
     private interface A {}
+
     private interface B {}
 
     private static class AB

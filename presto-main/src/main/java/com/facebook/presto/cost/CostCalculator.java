@@ -23,7 +23,7 @@ import java.util.Map;
 
 /**
  * Interface of cost calculator.
- *
+ * <p>
  * It's responsibility is to provide approximation of cost of execution of plan node.
  * Example implementations may be based on table statistics or data samples.
  */

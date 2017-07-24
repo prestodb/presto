@@ -34,7 +34,7 @@ import static com.teradata.tempto.sql.SqlContexts.createViewAs;
 import static java.lang.String.format;
 
 public class TestGrantRevoke
-    extends ProductTest
+        extends ProductTest
 {
     private String tableName;
     private String viewName;

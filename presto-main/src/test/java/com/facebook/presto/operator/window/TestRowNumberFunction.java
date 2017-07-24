@@ -61,8 +61,8 @@ public class TestRowNumberFunction
         assertWindowQuery("row_number() OVER (ORDER BY orderkey)", expected);
 
         assertEquals(executeWindowQueryWithNulls("row_number() OVER ()").getMaterializedRows().stream()
-                .map(row -> row.getField(2))
-                .collect(Collectors.toList()),
+                        .map(row -> row.getField(2))
+                        .collect(Collectors.toList()),
                 ImmutableList.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L));
         assertWindowQueryWithNulls("row_number() OVER (ORDER BY orderkey, orderstatus)", expectedWithNulls);
     }

@@ -61,7 +61,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testQueryTypeConfiguration()
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
-        List<ResourceGroupSelector> selectors =  manager.getSelectors();
+        List<ResourceGroupSelector> selectors = manager.getSelectors();
         assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("select")), "global.select");
         assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("explain")), "global.explain");
         assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("insert")), "global.insert");

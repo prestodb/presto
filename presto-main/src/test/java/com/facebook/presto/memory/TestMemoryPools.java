@@ -94,7 +94,8 @@ public class TestMemoryPools
             }
             // query should not block
             assertTrue(progress);
-        } while (!drivers.stream().allMatch(Driver::isFinished));
+        }
+        while (!drivers.stream().allMatch(Driver::isFinished));
 
         localQueryRunner.close();
     }

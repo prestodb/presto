@@ -100,8 +100,8 @@ public class PushTableWriteThroughUnion
                         unionOriginalSource,
                         node.getTarget(),
                         node.getColumns().stream()
-                            .map(column -> unionNode.getSymbolMapping().get(column).get(index))
-                            .collect(Collectors.toList()),
+                                .map(column -> unionNode.getSymbolMapping().get(column).get(index))
+                                .collect(Collectors.toList()),
                         node.getColumnNames(),
                         newSymbols.build(),
                         node.getPartitioningScheme()));

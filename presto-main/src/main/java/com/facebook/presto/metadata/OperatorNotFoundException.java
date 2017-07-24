@@ -61,7 +61,7 @@ public class OperatorNotFoundException
             default:
                 operatorString = format("'%s'%s", operatorType.getOperator(), returnType.map(value -> ":" + value).orElse(""));
         }
-        return format("%s cannot be applied to %s", operatorString,  Joiner.on(", ").join(argumentTypes));
+        return format("%s cannot be applied to %s", operatorString, Joiner.on(", ").join(argumentTypes));
     }
 
     public OperatorType getOperatorType()

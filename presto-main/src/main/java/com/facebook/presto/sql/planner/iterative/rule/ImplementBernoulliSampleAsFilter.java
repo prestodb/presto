@@ -29,14 +29,11 @@ import java.util.Optional;
 
 /**
  * Transforms:
- *
  * <pre>
  * - Sample(BERNOULLI, p)
  *     - X
  * </pre>
- *
  * Into:
- *
  * <pre>
  * - Filter (rand() < p)
  *     - X

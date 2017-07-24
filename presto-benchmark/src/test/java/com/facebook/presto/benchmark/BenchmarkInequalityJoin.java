@@ -84,9 +84,9 @@ public class BenchmarkInequalityJoin
             // t1.bucket is in [0, 1000)
             queryRunner.execute(format(
                     "CREATE TABLE memory.default.t1 AS SELECT " +
-                        "orderkey %% %d bucket, " +
-                        "(orderkey * 13) %% 1000 val1 " +
-                    "FROM tpch.tiny.lineitem",
+                            "orderkey %% %d bucket, " +
+                            "(orderkey * 13) %% 1000 val1 " +
+                            "FROM tpch.tiny.lineitem",
                     buckets));
             // t2.val2 is in range [0, 10)
             // t2.bucket is in [0, 1000)

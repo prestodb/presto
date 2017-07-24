@@ -56,6 +56,7 @@ import static org.testng.Assert.fail;
 public class TestSignatureBinder
 {
     private final TypeManager typeRegistry = new TypeRegistry();
+
     {
         // associate typeRegistry with a function registry
         new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());

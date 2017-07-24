@@ -58,6 +58,7 @@ public class RcFileWriter
 
     static final String PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_RCFILE_WRITER_VERSION;
+
     static {
         String version = RcFileWriter.class.getPackage().getImplementationVersion();
         PRESTO_RCFILE_WRITER_VERSION = version == null ? "UNKNOWN" : version;

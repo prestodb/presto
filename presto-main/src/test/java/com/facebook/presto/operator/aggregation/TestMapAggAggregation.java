@@ -165,10 +165,10 @@ public class TestMapAggAggregation
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = mapType(DOUBLE, arrayType);
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
-                                                                                    AGGREGATE,
-                                                                                    mapType.getTypeSignature(),
-                                                                                    parseTypeSignature(StandardTypes.DOUBLE),
-                                                                                    arrayType.getTypeSignature()));
+                AGGREGATE,
+                mapType.getTypeSignature(),
+                parseTypeSignature(StandardTypes.DOUBLE),
+                arrayType.getTypeSignature()));
 
         assertAggregation(
                 aggFunc,

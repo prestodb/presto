@@ -387,7 +387,7 @@ public final class PlanMatchPattern
         return values(aliasToIndex, Optional.empty(), Optional.empty());
     }
 
-    public static PlanMatchPattern values(String ... aliases)
+    public static PlanMatchPattern values(String... aliases)
     {
         return values(ImmutableList.copyOf(aliases));
     }

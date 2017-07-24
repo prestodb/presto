@@ -28,7 +28,7 @@ public interface RvalueMatcher
      * based on the type of the node or the type of the value that is being assigned. For example,
      * TableScanNodes assign ColumnHandles to Symbols and AggregationNodes assign FunctionCalls
      * to Symbols.
-     *
+     * <p>
      * The assigned symbol is identified by matching the value on the right side of the assignment;
      * the rvalue. If no match is found in the node, getAssignedSymbol must return Optional.empty().
      */

@@ -20,7 +20,7 @@ import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 class OrcZstdDecompressor
-    implements OrcDecompressor
+        implements OrcDecompressor
 {
     private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;

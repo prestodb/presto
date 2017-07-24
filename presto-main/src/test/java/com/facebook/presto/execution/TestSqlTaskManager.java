@@ -94,7 +94,7 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withNoMoreBufferIds());
+                            .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -164,8 +164,8 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(OUT, 0)
-                        .withNoMoreBufferIds());
+                            .withBuffer(OUT, 0)
+                            .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
@@ -194,8 +194,8 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(OUT, 0)
-                        .withNoMoreBufferIds());
+                            .withBuffer(OUT, 0)
+                            .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
 
@@ -253,8 +253,8 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(),
                     createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(OUT, 0)
-                        .withNoMoreBufferIds());
+                            .withBuffer(OUT, 0)
+                            .withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.cancelTask(taskId);

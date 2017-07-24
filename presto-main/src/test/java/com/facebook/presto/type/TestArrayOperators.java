@@ -1163,7 +1163,8 @@ public class TestArrayOperators
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 
-    private static SqlTimestamp sqlTimestamp(String dateString) throws ParseException
+    private static SqlTimestamp sqlTimestamp(String dateString)
+            throws ParseException
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));

@@ -40,6 +40,7 @@ public class Revoke
     {
         this(Optional.of(location), grantOptionFor, privileges, table, tableName, grantee);
     }
+
     private Revoke(Optional<NodeLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, String grantee)
     {
         super(location);

@@ -111,7 +111,7 @@ public class ByteInputStream
     }
 
     public byte next()
-        throws IOException
+            throws IOException
     {
         if (offset == length) {
             readNextBlock();

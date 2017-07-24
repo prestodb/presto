@@ -514,7 +514,8 @@ public class BackgroundHiveSplitLoader
         if (splittable) {
             PeekingIterator<BlockLocation> blockLocationIterator = Iterators.peekingIterator(Arrays.stream(blockLocations).iterator());
 
-            return new AbstractIterator<HiveSplit>() {
+            return new AbstractIterator<HiveSplit>()
+            {
                 private long chunkOffset = 0;
 
                 @Override

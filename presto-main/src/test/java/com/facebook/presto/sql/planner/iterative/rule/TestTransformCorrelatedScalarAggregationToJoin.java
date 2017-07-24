@@ -88,10 +88,10 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                    p.aggregation(ab -> ab
-                        .source(p.values(p.symbol("a"), p.symbol("b")))
-                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addGroupingSet(p.symbol("b")))))
+                        p.aggregation(ab -> ab
+                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addGroupingSet(p.symbol("b")))))
                 .doesNotFire();
     }
 
@@ -102,10 +102,10 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                    p.aggregation(ab -> ab
-                        .source(p.values(p.symbol("a"), p.symbol("b")))
-                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .globalGrouping())))
+                        p.aggregation(ab -> ab
+                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .globalGrouping())))
                 .matches(
                         project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
@@ -125,10 +125,10 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
-                            p.aggregation(ab -> ab
-                                .source(p.values(p.symbol("a"), p.symbol("b")))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                .globalGrouping()))))
+                                p.aggregation(ab -> ab
+                                        .source(p.values(p.symbol("a"), p.symbol("b")))
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                        .globalGrouping()))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),

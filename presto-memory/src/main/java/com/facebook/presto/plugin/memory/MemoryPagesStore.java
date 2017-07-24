@@ -117,7 +117,7 @@ public class MemoryPagesStore
             // if activeTableIds is empty, we can not determine latestTableId...
             return;
         }
-        long latestTableId  = Collections.max(activeTableIds);
+        long latestTableId = Collections.max(activeTableIds);
 
         for (Iterator<Map.Entry<Long, TableData>> tableDataIterator = tables.entrySet().iterator(); tableDataIterator.hasNext(); ) {
             Map.Entry<Long, TableData> tablePagesEntry = tableDataIterator.next();

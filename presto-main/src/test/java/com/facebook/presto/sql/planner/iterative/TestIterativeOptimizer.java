@@ -81,6 +81,7 @@ public class TestIterativeOptimizer
             assertEquals(ex.getErrorCode(), OPTIMIZER_TIMEOUT.toErrorCode());
         }
     }
+
     private static class NonConvergingRule
             implements Rule
     {

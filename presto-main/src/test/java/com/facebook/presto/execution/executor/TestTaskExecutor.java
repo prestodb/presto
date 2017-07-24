@@ -324,7 +324,7 @@ public class TestTaskExecutor
                     globalPhaser.arriveAndAwaitAdvance();
 
                     int lowerLevelEnd = drivers[2].getCompletedPhases() + drivers[3].getCompletedPhases() + drivers[4].getCompletedPhases() + drivers[5].getCompletedPhases();
-                    int lowerLevelTime =  lowerLevelEnd - lowerLevelStart;
+                    int lowerLevelTime = lowerLevelEnd - lowerLevelStart;
                     int higherLevelEnd = drivers[0].getCompletedPhases() + drivers[1].getCompletedPhases();
                     int higherLevelTime = higherLevelEnd - higherLevelStart;
 
