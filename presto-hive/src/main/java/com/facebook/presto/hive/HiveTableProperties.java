@@ -41,6 +41,8 @@ public class HiveTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String BLOOM_FILTER_COLUMNS = "bloom_filter_columns";
+    public static final String BLOOM_FILTER_FPP = "bloom_filter_fpp";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -83,6 +85,26 @@ public class HiveTableProperties
                         value -> ImmutableList.copyOf(((Collection<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(Collectors.toList())),
+                        value -> value),
+                new PropertyMetadata<>(
+                        BLOOM_FILTER_COLUMNS,
+                        "orc bloom index columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(Collectors.toList())),
+                        value -> value),
+                new PropertyMetadata<>(
+                        BLOOM_FILTER_FPP,
+                        "orc bloom filter fpp",
+                        createUnboundedVarcharType(),
+                        Double.class,
+                        config.getOrcBloomFilterFpp(),
+                        false,
+                        value -> Double.valueOf((String) value),
                         value -> value),
                 integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
     }
