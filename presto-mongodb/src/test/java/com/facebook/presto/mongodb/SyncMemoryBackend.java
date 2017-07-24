@@ -29,7 +29,8 @@ public class SyncMemoryBackend
         return new SyncMemoryDatabase(this, databaseName);
     }
 
-    private static class SyncMemoryDatabase extends MemoryDatabase
+    private static class SyncMemoryDatabase
+            extends MemoryDatabase
     {
         public SyncMemoryDatabase(MongoBackend backend, String databaseName) throws MongoServerException
         {
