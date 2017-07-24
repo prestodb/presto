@@ -154,4 +154,14 @@ public class TestSymbolMapper
         assertEquals(mappedTopNNode.getOutputSymbols(), singletonList(A));
         assertEquals(mappedTopNNode.getOriginalConstraint(), A.toSymbolReference());
     }
+
+    @Test
+    public void testValuesNodeSymbolMapping()
+    {
+        PlanBuilder builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        ValuesNode values = builder.values(a, b);
+
+        ValuesNode mappedValues = SYMBOL_MAPPER.map(values);
+        assertEquals(mappedValues.getOutputSymbols(), singletonList(A));
+    }
 }

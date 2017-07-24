@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan.util;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +33,11 @@ public class ValueNodesSymbolsPrunner
     }
 
     public static PlanNode pruneValuesNode(ValuesNode node, Predicate<Symbol> predicate)
+    {
+        return pruneValuesNode(node, node.getId(), predicate);
+    }
+
+    public static PlanNode pruneValuesNode(ValuesNode node, PlanNodeId planNodeId, Predicate<Symbol> predicate)
     {
         ImmutableList.Builder<Symbol> rewrittenOutputSymbolsBuilder = ImmutableList.builder();
         ImmutableList.Builder<ImmutableList.Builder<Expression>> rowBuildersBuilder = ImmutableList.builder();
@@ -54,6 +60,6 @@ public class ValueNodesSymbolsPrunner
         List<List<Expression>> rewrittenRows = rowBuilders.stream()
                 .map((rowBuilder) -> rowBuilder.build())
                 .collect(toImmutableList());
-        return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
+        return new ValuesNode(planNodeId, rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
     }
 }
