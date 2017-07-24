@@ -79,6 +79,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.plan.util.ValueNodesSymbolsPrunner.pruneValuesNode;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -696,28 +697,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<Set<Symbol>> context)
         {
-            ImmutableList.Builder<Symbol> rewrittenOutputSymbolsBuilder = ImmutableList.builder();
-            ImmutableList.Builder<ImmutableList.Builder<Expression>> rowBuildersBuilder = ImmutableList.builder();
-            // Initialize builder for each row
-            for (int i = 0; i < node.getRows().size(); i++) {
-                rowBuildersBuilder.add(ImmutableList.builder());
-            }
-            ImmutableList<ImmutableList.Builder<Expression>> rowBuilders = rowBuildersBuilder.build();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                Symbol outputSymbol = node.getOutputSymbols().get(i);
-                // If output symbol is used
-                if (context.get().contains(outputSymbol)) {
-                    rewrittenOutputSymbolsBuilder.add(outputSymbol);
-                    // Add the value of the output symbol for each row
-                    for (int j = 0; j < node.getRows().size(); j++) {
-                        rowBuilders.get(j).add(node.getRows().get(j).get(i));
-                    }
-                }
-            }
-            List<List<Expression>> rewrittenRows = rowBuilders.stream()
-                    .map((rowBuilder) -> rowBuilder.build())
-                    .collect(toImmutableList());
-            return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
+            return pruneValuesNode(node, context.get()::contains);
         }
 
         @Override
