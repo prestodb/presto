@@ -32,6 +32,10 @@
         <property name="message" value="Blank line before end of file" />
     </module>
     <module name="RegexpSingleline">
+        <property name="format" value="(class|interface) ([a-zA-Z0-9_])+(&lt;.*&gt;)? (extends|implements)" />
+        <property name="message" value="No new line before extends/implements" />
+    </module>
+    <module name="RegexpSingleline">
         <property name="format" value="Preconditions\.checkNotNull" />
         <property name="message" value="Use java.util.Objects.requireNonNull instead of Preconditions\.checkNotNull" />
     </module>
