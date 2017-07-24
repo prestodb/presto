@@ -26,7 +26,8 @@ import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class OperatorNotFoundException extends PrestoException
+public class OperatorNotFoundException
+        extends PrestoException
 {
     private final OperatorType operatorType;
     private final TypeSignature returnType;

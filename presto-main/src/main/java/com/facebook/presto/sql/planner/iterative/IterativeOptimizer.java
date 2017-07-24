@@ -170,7 +170,8 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private static class Context implements Rule.Context
+    private static class Context
+            implements Rule.Context
     {
         private final Memo memo;
         private final Lookup lookup;
