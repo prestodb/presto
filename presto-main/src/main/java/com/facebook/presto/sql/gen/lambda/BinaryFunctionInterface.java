@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.gen.lambda;
 
 @FunctionalInterface
-public interface BinaryFunctionInterface extends LambdaFunctionInterface
+public interface BinaryFunctionInterface
+        extends LambdaFunctionInterface
 {
     Object apply(Object arg1, Object arg2);
 }

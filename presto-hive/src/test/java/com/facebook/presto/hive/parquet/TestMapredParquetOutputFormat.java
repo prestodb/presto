@@ -35,7 +35,8 @@ import static java.util.Objects.requireNonNull;
   we also want to test the cases were the backing type is INT32/INT64, which requires
   a custom Parquet schema.
 */
-public class TestMapredParquetOutputFormat extends MapredParquetOutputFormat
+public class TestMapredParquetOutputFormat
+        extends MapredParquetOutputFormat
 {
     private final Optional<MessageType> schema;
 
