@@ -70,7 +70,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
@@ -713,7 +712,9 @@ public class UnaliasSymbolReferences
             for (Map.Entry<Symbol, Collection<Symbol>> entry : setOperationSymbolMap.asMap().entrySet()) {
                 Symbol canonicalOutputSymbol = canonicalize(entry.getKey());
                 if (addedSymbols.add(canonicalOutputSymbol)) {
-                    builder.putAll(canonicalOutputSymbol, Iterables.transform(entry.getValue(), this::canonicalize));
+                    entry.getValue().stream()
+                            .map(this::canonicalize)
+                            .forEach(canonicalInputSymbol -> builder.put(canonicalOutputSymbol, canonicalInputSymbol));
                 }
             }
             return builder.build();
