@@ -68,7 +68,7 @@ public class PushTopNThroughUnion
                 Symbol unionInput = getLast(intersection(inputSymbols, sourceOutputSymbols));
                 symbolMapper.put(unionOutput, unionInput);
             }
-            sources.add(symbolMapper.build().map(topNNode, source, context.getIdAllocator().getNextId()));
+            sources.add(symbolMapper.build().map(topNNode, context.getIdAllocator(), source));
         }
 
         return Optional.of(new UnionNode(

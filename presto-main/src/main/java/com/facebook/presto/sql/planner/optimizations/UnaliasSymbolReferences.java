@@ -122,7 +122,7 @@ public class UnaliasSymbolReferences
 
         private Rewriter(Map<Symbol, Type> types)
         {
-            this.types = types;
+            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
