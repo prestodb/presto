@@ -345,7 +345,13 @@ public final class ExpressionFormatter
             }
 
             builder.append(formatQualifiedName(node.getName()))
-                    .append('(').append(arguments).append(')');
+                    .append('(').append(arguments);
+
+            if (node.getOrderBy().isPresent()) {
+                builder.append(' ').append(formatOrderBy(node.getOrderBy().get(), parameters));
+            }
+
+            builder.append(')');
 
             if (node.getFilter().isPresent()) {
                 builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), context));

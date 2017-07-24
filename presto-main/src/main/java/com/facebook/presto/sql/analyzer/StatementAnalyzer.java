@@ -1287,6 +1287,10 @@ class StatementAnalyzer
                     throw new SemanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
                 }
 
+                if (windowFunction.getOrderBy().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, windowFunction, "Window function with ORDER BY is not supported");
+                }
+
                 Window window = windowFunction.getWindow().get();
 
                 ImmutableList.Builder<Node> toExtract = ImmutableList.builder();

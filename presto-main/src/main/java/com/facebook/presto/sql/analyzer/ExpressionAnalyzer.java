@@ -808,6 +808,15 @@ public class ExpressionAnalyzer
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
             Signature function = resolveFunction(node, argumentTypes, functionRegistry);
 
+            if (node.getOrderBy().isPresent()) {
+                for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
+                    Type sortKeyType = process(sortItem.getSortKey(), context);
+                    if (!sortKeyType.isOrderable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
+                    }
+                }
+            }
+
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = typeManager.getType(function.getArgumentTypes().get(i));

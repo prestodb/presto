@@ -1305,6 +1305,11 @@ class AstBuilder
         Optional<Expression> filter = visitIfPresent(context.filter(), Expression.class);
         Optional<Window> window = visitIfPresent(context.over(), Window.class);
 
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
+        }
+
         QualifiedName name = getQualifiedName(context.qualifiedName());
 
         boolean distinct = isDistinct(context.setQuantifier());
@@ -1375,6 +1380,7 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 window,
                 filter,
+                orderBy,
                 distinct,
                 visit(context.expression(), Expression.class));
     }

@@ -250,6 +250,7 @@ public class TransformCorrelatedInPredicateToJoin
                 QualifiedName.of("count"),
                 Optional.<Window>empty(),
                 Optional.of(condition),
+                Optional.empty(),
                 false,
                 ImmutableList.<Expression>of()); /* arguments */
 

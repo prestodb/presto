@@ -546,7 +546,7 @@ public final class ExpressionTreeRewriter<C>
 
             if (!sameElements(node.getArguments(), arguments.build()) || !sameElements(rewrittenWindow, node.getWindow())
                     || !sameElements(filter, node.getFilter())) {
-                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.isDistinct(), arguments.build());
+                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), arguments.build());
             }
             return node;
         }
@@ -554,22 +554,27 @@ public final class ExpressionTreeRewriter<C>
         // Since OrderBy contains list of SortItems, we want to process each SortItem's key, which is an expression
         private OrderBy rewriteOrderBy(OrderBy orderBy, Context<C> context)
         {
-            ImmutableList.Builder<SortItem> sortItems = ImmutableList.builder();
-            for (SortItem sortItem : orderBy.getSortItems()) {
-                Expression sortKey = rewrite(sortItem.getSortKey(), context.get());
-                if (sortItem.getSortKey() != sortKey) {
-                    sortItems.add(new SortItem(sortKey, sortItem.getOrdering(), sortItem.getNullOrdering()));
-                }
-                else {
-                    sortItems.add(sortItem);
-                }
-            }
-            List<SortItem> rewrittenSortItems = sortItems.build();
+            List<SortItem> rewrittenSortItems = rewriteSortItems(orderBy.getSortItems(), context);
             if (sameElements(orderBy.getSortItems(), rewrittenSortItems)) {
                 return orderBy;
             }
 
             return new OrderBy(rewrittenSortItems);
+        }
+
+        private List<SortItem> rewriteSortItems(List<SortItem> sortItems, Context<C> context)
+        {
+            ImmutableList.Builder<SortItem> rewrittenSortItems = ImmutableList.builder();
+            for (SortItem sortItem : sortItems) {
+                Expression sortKey = rewrite(sortItem.getSortKey(), context.get());
+                if (sortItem.getSortKey() != sortKey) {
+                    rewrittenSortItems.add(new SortItem(sortKey, sortItem.getOrdering(), sortItem.getNullOrdering()));
+                }
+                else {
+                    rewrittenSortItems.add(sortItem);
+                }
+            }
+            return rewrittenSortItems.build();
         }
 
         @Override

@@ -2110,6 +2110,7 @@ public class TestSqlParser
                                                         ComparisonExpressionType.GREATER_THAN,
                                                         new Identifier("x"),
                                                         new LongLiteral("4"))),
+                                                Optional.empty(),
                                                 false,
                                                 ImmutableList.of(new Identifier("x")))),
                                 Optional.empty(),
@@ -2143,6 +2144,39 @@ public class TestSqlParser
                         QuantifiedComparisonExpression.Quantifier.SOME,
                         identifier("col1"),
                         new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))));
+    }
+
+    @Test
+    public void testAggregationWithOrderBy()
+    {
+        assertExpression("array_agg(x ORDER BY x DESC)",
+                new FunctionCall(
+                        QualifiedName.of("array_agg"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(identifier("x"), DESCENDING, UNDEFINED)))),
+                        false,
+                        ImmutableList.of(identifier("x"))));
+        assertStatement("SELECT array_agg(x ORDER BY t.y) FROM t",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new FunctionCall(
+                                                QualifiedName.of("array_agg"),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new DereferenceExpression(new Identifier("t"), identifier("y")), ASCENDING, UNDEFINED)))),
+                                                false,
+                                                ImmutableList.of(new Identifier("x")))),
+                                Optional.of(table(QualifiedName.of("t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     private static void assertCast(String type)
