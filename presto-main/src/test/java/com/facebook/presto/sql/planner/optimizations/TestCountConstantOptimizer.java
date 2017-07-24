@@ -53,7 +53,9 @@ public class TestCountConstantOptimizer
         ImmutableMap<Symbol, Aggregation> aggregations = ImmutableMap.of(countAggregationSymbol, new Aggregation(
                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new SymbolReference("expr"))),
                 countAggregationSignature,
-                Optional.empty()));
+                Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of()));
         ValuesNode valuesNode = new ValuesNode(planNodeIdAllocator.getNextId(), ImmutableList.of(new Symbol("col")), ImmutableList.of(ImmutableList.of()));
 
         AggregationNode eligiblePlan = new AggregationNode(

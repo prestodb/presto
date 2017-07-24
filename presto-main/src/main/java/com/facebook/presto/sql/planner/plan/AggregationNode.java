@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -36,6 +37,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -161,6 +163,14 @@ public class AggregationNode
         return groupIdSymbol;
     }
 
+    public List<Symbol> getOrderBySymbols()
+    {
+        return this.getAggregations().values().stream()
+                .map(Aggregation::getOrderBy)
+                .flatMap(List::stream)
+                .collect(toImmutableList());
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -232,16 +242,25 @@ public class AggregationNode
         private final FunctionCall call;
         private final Signature signature;
         private final Optional<Symbol> mask;
+        private final List<Symbol> orderBy;
+        private final List<SortOrder> ordering;
 
         @JsonCreator
         public Aggregation(
                 @JsonProperty("call") FunctionCall call,
                 @JsonProperty("signature") Signature signature,
-                @JsonProperty("mask") Optional<Symbol> mask)
+                @JsonProperty("mask") Optional<Symbol> mask,
+                @JsonProperty("orderBy") List<Symbol> orderBy,
+                @JsonProperty("ordering") List<SortOrder> ordering)
         {
             this.call = call;
             this.signature = signature;
             this.mask = mask;
+            requireNonNull(orderBy, "orderBy is null");
+            requireNonNull(ordering, "ordering is null");
+            checkArgument(orderBy.size() == ordering.size(), "orderBy and ordering have different size");
+            this.orderBy = ImmutableList.copyOf(orderBy);
+            this.ordering = ImmutableList.copyOf(ordering);
         }
 
         @JsonProperty
@@ -260,6 +279,18 @@ public class AggregationNode
         public Optional<Symbol> getMask()
         {
             return mask;
+        }
+
+        @JsonProperty
+        public List<Symbol> getOrderBy()
+        {
+            return orderBy;
+        }
+
+        @JsonProperty
+        public List<SortOrder> getOrdering()
+        {
+            return ordering;
         }
     }
 }

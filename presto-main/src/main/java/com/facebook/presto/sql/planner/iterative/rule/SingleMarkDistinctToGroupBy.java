@@ -133,6 +133,8 @@ public class SingleMarkDistinctToGroupBy
         return new AggregationNode.Aggregation(
                 new FunctionCall(call.getName(), call.getWindow(), false, call.getArguments()),
                 aggregation.getSignature(),
-                Optional.empty());
+                Optional.empty(),
+                aggregation.getOrderBy(),
+                aggregation.getOrdering());
     }
 }

@@ -42,6 +42,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARB
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingKeys;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -174,12 +175,15 @@ public class AddIntermediateAggregations
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
+            checkState(aggregation.getOrderBy().isEmpty() && aggregation.getOrdering().isEmpty(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
                     new AggregationNode.Aggregation(
                             new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
                             aggregation.getSignature(),
-                            Optional.empty())); // No mask for INTERMEDIATE
+                            Optional.empty(),  // No mask for INTERMEDIATE
+                            entry.getValue().getOrderBy(),
+                            entry.getValue().getOrdering()));
         }
         return builder.build();
     }

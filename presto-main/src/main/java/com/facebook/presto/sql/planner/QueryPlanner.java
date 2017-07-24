@@ -556,7 +556,7 @@ class QueryPlanner
                     argumentMarkers.put(args, marker.get());
                 }
             }
-            aggregations.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
+            aggregations.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker, ImmutableList.of(), ImmutableList.of()));
         }
 
         // 2.e. Mark distinct rows for each aggregate that has DISTINCT
