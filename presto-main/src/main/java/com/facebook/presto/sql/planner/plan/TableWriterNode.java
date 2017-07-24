@@ -130,8 +130,7 @@ public class TableWriterNode
     @JsonSubTypes({
             @JsonSubTypes.Type(value = CreateHandle.class, name = "CreateHandle"),
             @JsonSubTypes.Type(value = InsertHandle.class, name = "InsertHandle"),
-            @JsonSubTypes.Type(value = DeleteHandle.class, name = "DeleteHandle"),
-    })
+            @JsonSubTypes.Type(value = DeleteHandle.class, name = "DeleteHandle")})
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
