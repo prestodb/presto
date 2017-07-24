@@ -150,6 +150,9 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
@@ -864,21 +867,21 @@ public class TestSqlParser
                 new ShowPartitions(
                         QualifiedName.of("t"),
                         Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new Identifier("x"), new LongLiteral("1"))),
-                        ImmutableList.of(new SortItem(new Identifier("y"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
                         Optional.empty()));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT 10",
                 new ShowPartitions(
                         QualifiedName.of("t"),
                         Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new Identifier("x"), new LongLiteral("1"))),
-                        ImmutableList.of(new SortItem(new Identifier("y"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
                         Optional.of("10")));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT ALL",
                 new ShowPartitions(
                         QualifiedName.of("t"),
                         Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new Identifier("x"), new LongLiteral("1"))),
-                        ImmutableList.of(new SortItem(new Identifier("y"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)),
                         Optional.of("ALL")));
     }
 
@@ -1019,8 +1022,8 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(
                                         new Identifier("a"),
-                                        SortItem.Ordering.ASCENDING,
-                                        SortItem.NullOrdering.UNDEFINED)))),
+                                        ASCENDING,
+                                        UNDEFINED)))),
                                 Optional.empty()),
                         Optional.empty(),
                         Optional.empty()));
