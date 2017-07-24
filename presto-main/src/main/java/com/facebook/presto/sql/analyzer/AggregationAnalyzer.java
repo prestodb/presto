@@ -65,6 +65,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -81,6 +82,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_AGGREGATE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -340,6 +342,36 @@ class AggregationAnalyzer
                                 node);
                     }
 
+                    if (node.getOrderBy().isPresent()) {
+                        List<Expression> sortKeys = node.getOrderBy().get().getSortItems().stream()
+                                .map(SortItem::getSortKey)
+                                .collect(toImmutableList());
+                        if (node.isDistinct()) {
+                            List<FieldId> fieldIds = node.getArguments().stream()
+                                    .map(NodeRef::of)
+                                    .map(columnReferences::get)
+                                    .filter(Objects::nonNull)
+                                    .collect(toImmutableList());
+                            for (Expression sortKey : sortKeys) {
+                                if (!node.getArguments().contains(sortKey) && !fieldIds.contains(columnReferences.get(NodeRef.of(sortKey)))) {
+                                    throw new SemanticException(
+                                            ORDER_BY_MUST_BE_IN_AGGREGATE,
+                                            sortKey,
+                                            "For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+                                }
+                            }
+                        }
+                        // ensure that no output fields are referenced from ORDER BY clause
+                        if (orderByScope.isPresent()) {
+                            for (Expression sortKey : sortKeys) {
+                                verifyNoOrderByReferencesToOutputColumns(
+                                        sortKey,
+                                        REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION,
+                                        "ORDER BY clause in aggregation function must not reference query output columns");
+                            }
+                        }
+                    }
+
                     // ensure that no output fields are referenced from ORDER BY clause
                     if (orderByScope.isPresent()) {
                         node.getArguments().stream()
@@ -352,11 +384,16 @@ class AggregationAnalyzer
                     return true;
                 }
             }
-            else if (node.getFilter().isPresent()) {
-                throw new SemanticException(MUST_BE_AGGREGATION_FUNCTION,
-                        node,
-                        "Filter is only valid for aggregation functions",
-                        node);
+            else {
+                if (node.getFilter().isPresent()) {
+                    throw new SemanticException(MUST_BE_AGGREGATION_FUNCTION,
+                            node,
+                            "Filter is only valid for aggregation functions",
+                            node);
+                }
+                if (node.getOrderBy().isPresent()) {
+                    throw new SemanticException(MUST_BE_AGGREGATION_FUNCTION, node, "ORDER BY is only valid for aggregation functions");
+                }
             }
 
             if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {
