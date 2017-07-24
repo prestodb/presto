@@ -251,6 +251,9 @@ public class InMemoryHashAggregationBuilder
     @Override
     public Iterator<Page> buildResult()
     {
+        for (Aggregator aggregator : aggregators) {
+            aggregator.prepareFinal();
+        }
         return buildResult(consecutiveGroupIds());
     }
 
@@ -421,6 +424,11 @@ public class InMemoryHashAggregationBuilder
             else {
                 aggregation.addIntermediate(groupIds, page.getBlock(intermediateChannel));
             }
+        }
+
+        public void prepareFinal()
+        {
+            aggregation.prepareFinal();
         }
 
         public void evaluate(int groupId, BlockBuilder output)

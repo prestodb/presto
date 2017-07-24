@@ -9102,4 +9102,91 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT a, count(*) FROM (VALUES 2) t(a) GROUP BY a", "VALUES (2, 1)");
         assertQuery("SELECT count(*) FROM (VALUES 2) t(a) GROUP BY a+1", "VALUES 1");
     }
+
+    @Test
+    public void testAggregationWithOrderBy()
+    {
+        assertQuery(
+                "SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES ((4, 1, 3))");
+
+        assertQuery(
+                "SELECT array_agg(x ORDER BY y DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES ((3, 1, 4))");
+
+        assertQuery(
+                "SELECT array_agg(x ORDER BY x DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES ((4, 3, 1))");
+
+        assertQuery(
+                "SELECT array_agg(x ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)",
+                "VALUES (('a', 'abcd', 'bcd'))");
+
+        assertQuery(
+                "SELECT array_agg(y ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)",
+                "VALUES ((2, 1, 5))");
+
+        assertQuery(
+                "SELECT array_agg(y ORDER BY x) FROM (VALUES ((1, 2), 2), ((3, 4), 5), ((1, 1), 1)) t(x, y)",
+                "VALUES ((1, 2, 5))");
+
+        assertQuery(
+                "SELECT array_agg(z ORDER BY x, y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (1, 1, 1)) t(x, y, z)",
+                "VALUES ((2, 1, 5, 3, 4))");
+
+        assertQuery(
+                "SELECT x, array_agg(z ORDER BY y + z DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
+                "VALUES (1, (2, 1)), (2, (5, 3)), (3, (4, 1))");
+
+        assertQuery(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS FIRST) FROM (VALUES (1, 2, NULL), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY x, y",
+                "VALUES (1, 2, (NULL, 2, 1)), (2, 1, (NULL, 4, 3))");
+
+        assertQuery(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
+                "VALUES (1, 2, (3, 2, 1)), (1, NULL, (3, 2, 1)), (2, 1, (4, 3, NULL)), (2, NULL, (4, 3, NULL))");
+
+        assertQuery(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
+                "VALUES (1, 2, (3, 2, 1)), (1, NULL, (3, 2, 1)), (2, 1, (4, 3, NULL)), (2, NULL, (4, 3, NULL))");
+
+        assertQuery(
+                "SELECT x, array_agg(distinct z + y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
+                "VALUES (1, (4, 2)), (2, (9, 5)), (3, (8, 3))");
+
+        assertQuery(
+                "SELECT x, sum(cast(x AS double))\n" +
+                        "FROM (VALUES '1.0') t(x)\n" +
+                        "GROUP BY x\n" +
+                        "ORDER BY sum(cast(t.x AS double) ORDER BY t.x)",
+                "VALUES ('1.0', 1.0)");
+
+        assertQuery(
+                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
+                "VALUES (1, NULL, (1, 3)), (2, NULL, (3, 4)), (1, 2, (1, 3)), (2, 1, (3, 4))");
+
+        assertQueryFails(
+                "SELECT x, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY ROLLUP (x)",
+                ".* ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set is not supported");
+
+        assertQueryFails(
+                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY CUBE (x, y)",
+                ".* ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set is not supported");
+
+        assertQueryFails(
+                "SELECT array_agg(z ORDER BY z) OVER (PARTITION BY x) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY x, z",
+                ".* Window function with ORDER BY is not supported");
+
+        assertQueryFails(
+                "SELECT array_agg(DISTINCT x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+
+        assertQueryFails(
+                "SELECT array_agg(DISTINCT x+y ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+
+        assertQueryFails(
+                "SELECT x, array_agg(distinct y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
+                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+    }
 }

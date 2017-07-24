@@ -151,6 +151,9 @@ public class AccumulatorCompiler
             generateEvaluateFinal(definition, stateField, metadata.getOutputFunction(), callSiteBinder);
         }
 
+        if (grouped) {
+            generatePrepareFinal(definition);
+        }
         return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
     }
 
@@ -735,6 +738,15 @@ public class AccumulatorCompiler
         body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
 
         body.ret();
+    }
+
+    private static void generatePrepareFinal(ClassDefinition definition)
+    {
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC),
+                "prepareFinal",
+                type(void.class));
+        method.getBody().ret();
     }
 
     private static void generateConstructor(

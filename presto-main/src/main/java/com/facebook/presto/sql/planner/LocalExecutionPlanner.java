@@ -1965,22 +1965,23 @@ public class LocalExecutionPlanner
 
         private AccumulatorFactory buildAccumulatorFactory(
                 PhysicalOperation source,
-                Signature function,
-                FunctionCall call,
-                Optional<Symbol> mask)
+                Aggregation aggregation)
         {
             List<Integer> arguments = new ArrayList<>();
-            for (Expression argument : call.getArguments()) {
+            for (Expression argument : aggregation.getCall().getArguments()) {
                 Symbol argumentSymbol = Symbol.from(argument);
                 arguments.add(source.getLayout().get(argumentSymbol));
             }
 
             Optional<Integer> maskChannel = Optional.empty();
-            if (mask != null) {
-                maskChannel = mask.map(value -> source.getLayout().get(value));
+            if (aggregation.getMask() != null) {
+                maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
             }
 
-            return metadata.getFunctionRegistry().getAggregateFunctionImplementation(function).bind(arguments, maskChannel);
+            return metadata
+                    .getFunctionRegistry()
+                    .getAggregateFunctionImplementation(aggregation.getSignature())
+                    .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(aggregation.getOrderBy(), source.getLayout()), aggregation.getOrdering(), pagesIndexFactory);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)
@@ -1991,15 +1992,13 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                accumulatorFactories.add(buildAccumulatorFactory(source,
-                        aggregation.getSignature(),
-                        aggregation.getCall(),
-                        aggregation.getMask()));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
 
             OperatorFactory operatorFactory = new AggregationOperatorFactory(operatorId, node.getId(), node.getStep(), accumulatorFactories);
+
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
@@ -2018,11 +2017,7 @@ public class LocalExecutionPlanner
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
-                accumulatorFactories.add(buildAccumulatorFactory(
-                        source,
-                        aggregation.getSignature(),
-                        aggregation.getCall(),
-                        aggregation.getMask()));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
                 aggregationOutputSymbols.add(symbol);
             }
 

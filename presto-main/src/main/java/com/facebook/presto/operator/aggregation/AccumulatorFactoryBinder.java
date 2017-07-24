@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
+
 import java.util.List;
 import java.util.Optional;
 
 public interface AccumulatorFactoryBinder
 {
-    AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel);
+    AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, List<Type> sourceTypes, List<Integer> orderByChannels, List<SortOrder> orderings, PagesIndex.Factory pagesIndexFactory);
 }
