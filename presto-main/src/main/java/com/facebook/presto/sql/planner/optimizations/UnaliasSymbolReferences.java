@@ -155,7 +155,7 @@ public class UnaliasSymbolReferences
             for (Symbol output : node.getArgumentMappings().keySet()) {
                 Symbol canonicalOutput = canonicalize(output);
                 if (newArgumentMappings.containsKey(canonicalOutput)) {
-                    map(output, canonicalOutput);
+                    addMapping(output, canonicalOutput);
                 }
                 else {
                     newArgumentMappings.put(canonicalOutput, canonicalize(node.getArgumentMappings().get(output)));
@@ -302,7 +302,7 @@ public class UnaliasSymbolReferences
                     inputsToOutputs.put(canonicalInputs, canonicalOutput);
                 }
                 else {
-                    map(canonicalOutput, output);
+                    addMapping(canonicalOutput, output);
                 }
             }
         }
@@ -316,7 +316,7 @@ public class UnaliasSymbolReferences
                 Symbol canonicalInput = canonicalize(node.getInputs().get(0).get(symbolIndex));
 
                 if (!canonicalOutput.equals(canonicalInput)) {
-                    map(canonicalOutput, canonicalInput);
+                    addMapping(canonicalOutput, canonicalInput);
                 }
             }
         }
@@ -496,7 +496,7 @@ public class UnaliasSymbolReferences
                 canonicalCriteria.stream()
                         .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
                         .filter(clause -> node.getOutputSymbols().contains(clause.getLeft()))
-                        .forEach(clause -> map(clause.getRight(), clause.getLeft()));
+                        .forEach(clause -> addMapping(clause.getRight(), clause.getLeft()));
             }
 
             return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol, node.getDistributionType());
@@ -589,7 +589,7 @@ public class UnaliasSymbolReferences
             throw new UnsupportedOperationException("Unsupported plan node " + node.getClass().getSimpleName());
         }
 
-        private void map(Symbol symbol, Symbol canonical)
+        private void addMapping(Symbol symbol, Symbol canonical)
         {
             Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
             mapping.put(symbol, canonical);
@@ -606,7 +606,7 @@ public class UnaliasSymbolReferences
                     // Always map a trivial symbol projection
                     Symbol symbol = Symbol.from(expression);
                     if (!symbol.equals(entry.getKey())) {
-                        map(entry.getKey(), symbol);
+                        addMapping(entry.getKey(), symbol);
                     }
                 }
                 else if (DeterminismEvaluator.isDeterministic(expression) && !(expression instanceof NullLiteral)) {
@@ -620,7 +620,7 @@ public class UnaliasSymbolReferences
                     else {
                         // If we have seen the expression before and if it is deterministic
                         // then we can rewrite references to the current symbol in terms of the parallel computedSymbol in the projection
-                        map(entry.getKey(), computedSymbol);
+                        addMapping(entry.getKey(), computedSymbol);
                     }
                 }
 
