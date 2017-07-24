@@ -109,6 +109,11 @@
         <module name="GenericWhitespace" />
         <module name="WhitespaceAfter" />
         <module name="NoWhitespaceBefore" />
+        <module name="SingleSpaceSeparator" />
+        <module name="Indentation">
+            <property name="throwsIndent" value="8" />
+            <property name="lineWrappingIndentation" value="8" />
+        </module>
 
         <module name="UpperEll" />
         <module name="DefaultComesLast" />
