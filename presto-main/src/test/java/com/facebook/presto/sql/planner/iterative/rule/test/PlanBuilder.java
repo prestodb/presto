@@ -300,6 +300,11 @@ public class PlanBuilder
         return tableScan(tableHandle, symbols, assignments, originalConstraint);
     }
 
+    public TableScanNode tableScan(TableHandle tableHandle, Map<Symbol, ColumnHandle> assignments)
+    {
+        return tableScan(tableHandle, ImmutableList.copyOf(assignments.keySet()), assignments, null);
+    }
+
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
         return tableScan(tableHandle, symbols, assignments, null);

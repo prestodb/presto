@@ -18,9 +18,13 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -30,11 +34,13 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -170,6 +176,48 @@ public class SymbolMapper
                     node.getGroupIdSymbol().map(SymbolMapper.this::map));
         }
 
+        @Override
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
+        {
+            Expression originalConstraint = null;
+            if (node.getOriginalConstraint() != null) {
+                originalConstraint = map(node.getOriginalConstraint());
+            }
+            return new TableScanNode(
+                    planNodeIdGenerationStrategy.getPlanNodeId(node),
+                    node.getTable(),
+                    mapAndDistinct(node.getOutputSymbols()),
+                    mapAndDistinct(node.getAssignments()),
+                    node.getLayout(),
+                    node.getCurrentConstraint(),
+                    originalConstraint);
+        }
+
+        @Override
+        public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = getOnlyElement(recursionStrategy.process(node, context));
+            return new ProjectNode(
+                    planNodeIdGenerationStrategy.getPlanNodeId(node),
+                    source,
+                    mapAndDistinct(node.getAssignments()));
+        }
+
+        @Override
+        public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> sources = recursionStrategy.process(node, context);
+            checkState(sources.size() == 2, "Apply node expects two sources only, but got: %s", sources.size());
+
+            return new ApplyNode(
+                    planNodeIdGenerationStrategy.getPlanNodeId(node),
+                    sources.get(0),
+                    sources.get(1),
+                    mapAndDistinct(node.getSubqueryAssignments()),
+                    mapAndDistinct(node.getCorrelation()),
+                    node.getOriginSubquery());
+        }
+
         private List<Symbol> mapAndDistinct(List<Symbol> outputs)
         {
             Set<Symbol> added = new HashSet<>();
@@ -178,6 +226,31 @@ public class SymbolMapper
                 Symbol canonical = map(symbol);
                 if (added.add(canonical)) {
                     builder.add(canonical);
+                }
+            }
+            return builder.build();
+        }
+
+        private <T> Map<Symbol, T> mapAndDistinct(Map<Symbol, T> map)
+        {
+            Map<Symbol, T> result = new HashMap<>();
+            for (Symbol symbol : map.keySet()) {
+                Symbol canonical = map(symbol);
+                if (!result.containsKey(canonical)) {
+                    result.put(canonical, map.get(symbol));
+                }
+            }
+            return ImmutableMap.copyOf(result);
+        }
+
+        private Assignments mapAndDistinct(Assignments assignments)
+        {
+            Set<Symbol> added = new HashSet<>();
+            Assignments.Builder builder = Assignments.builder();
+            for (Symbol symbol : assignments.getSymbols()) {
+                Symbol canonical = map(symbol);
+                if (added.add(canonical)) {
+                    builder.put(canonical, map(assignments.get(symbol)));
                 }
             }
             return builder.build();

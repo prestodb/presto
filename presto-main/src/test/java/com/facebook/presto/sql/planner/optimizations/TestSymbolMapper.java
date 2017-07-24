@@ -15,22 +15,30 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.tpch.TpchColumnHandle;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.util.Collections.singleton;
@@ -107,5 +115,43 @@ public class TestSymbolMapper
         TopNNode mappedTopNNode = SYMBOL_MAPPER.map(topNNode, values);
         assertEquals(mappedTopNNode.getOrderBy(), singletonList(A));
         assertEquals(mappedTopNNode.getOrderings().keySet(), singleton(A));
+    }
+
+    @Test
+    public void testProjectNodeSymbolMapping()
+    {
+        PlanBuilder builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        ValuesNode values = builder.values(a, b);
+        ProjectNode project = builder.project(Assignments.identity(a, b), values);
+
+        ProjectNode mappedProjectNode = SYMBOL_MAPPER.map(project, values);
+        assertEquals(mappedProjectNode.getOutputSymbols(), singletonList(A));
+    }
+
+    @Test
+    public void testTableScanNodeSymbolMapping()
+    {
+        PlanBuilder builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        Symbol custkey = builder.symbol("custkey");
+        Symbol orderkey = builder.symbol("orderkey");
+
+        TableScanNode tableScanNode = builder.tableScan(
+                new TableHandle(
+                        new ConnectorId("local"),
+                        new TpchTableHandle("local", "orders", TINY_SCALE_FACTOR)),
+                ImmutableList.of(custkey, orderkey),
+                ImmutableMap.of(
+                        custkey, new TpchColumnHandle(custkey.getName(), BIGINT),
+                        orderkey, new TpchColumnHandle(orderkey.getName(), BIGINT)),
+                custkey.toSymbolReference());
+
+        SymbolMapper symbolMapper = SymbolMapper.builder()
+                .put(custkey, orderkey)
+                .put(orderkey, A)
+                .build();
+
+        TableScanNode mappedTopNNode = symbolMapper.map(tableScanNode);
+        assertEquals(mappedTopNNode.getOutputSymbols(), singletonList(A));
+        assertEquals(mappedTopNNode.getOriginalConstraint(), A.toSymbolReference());
     }
 }

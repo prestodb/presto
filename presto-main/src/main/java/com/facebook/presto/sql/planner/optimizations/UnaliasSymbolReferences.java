@@ -232,18 +232,18 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            Expression originalConstraint = null;
-            if (node.getOriginalConstraint() != null) {
-                originalConstraint = canonicalize(node.getOriginalConstraint());
-            }
-            return new TableScanNode(
-                    node.getId(),
-                    node.getTable(),
-                    node.getOutputSymbols(),
-                    node.getAssignments(),
-                    node.getLayout(),
-                    node.getCurrentConstraint(),
-                    originalConstraint);
+            return canonicalize(node, context);
+        }
+
+        // once all the mapping function are ported to SymbolMapper, this method should be called from visitPlan
+        private PlanNode canonicalize(PlanNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> sources = node.getSources().stream()
+                    .map(context::rewrite)
+                    .collect(toImmutableList());
+
+            SymbolMapper symbolMapper = new SymbolMapper(mapping);
+            return symbolMapper.map(node, sources);
         }
 
         @Override
@@ -404,9 +404,8 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            PlanNode source = context.rewrite(node.getSource());
             addMappings(node.getAssignments());
-            return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()));
+            return canonicalize(node, context);
         }
 
         @Override
@@ -437,11 +436,8 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
         {
-            PlanNode source = context.rewrite(node.getInput());
-            PlanNode subquery = context.rewrite(node.getSubquery());
-            List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
             addMappings(node.getSubqueryAssignments());
-            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation, node.getOriginSubquery());
+            return canonicalize(node, context);
         }
 
         @Override
@@ -457,10 +453,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTopN(TopNNode node, RewriteContext<Void> context)
         {
-            PlanNode source = context.rewrite(node.getSource());
-
-            SymbolMapper mapper = new SymbolMapper(mapping);
-            return mapper.map(node, source, node.getId());
+            return canonicalize(node, context);
         }
 
         @Override
@@ -624,15 +617,6 @@ public class UnaliasSymbolReferences
                     }
                 }
             }
-        }
-
-        private Assignments canonicalize(Assignments assignments)
-        {
-            Assignments.Builder builder = Assignments.builder();
-            for (Symbol symbol : assignments.getSymbols()) {
-                builder.put(canonicalize(symbol), canonicalize(assignments.get(symbol)));
-            }
-            return builder.build();
         }
 
         private Symbol canonicalize(Symbol symbol)
