@@ -86,6 +86,7 @@ import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
+import static com.facebook.presto.tests.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -109,7 +110,7 @@ public abstract class AbstractTestQueries
             .window(CustomRank.class)
             .scalars(CustomAdd.class)
             .scalars(CreateHll.class)
-            .functions(APPLY_FUNCTION, INVOKE_FUNCTION)
+            .functions(APPLY_FUNCTION, INVOKE_FUNCTION, STATEFUL_SLEEPING_SUM)
             .getFunctions();
 
     public static final List<PropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
