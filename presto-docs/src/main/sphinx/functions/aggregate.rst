@@ -11,6 +11,14 @@ and return null for no input rows or when all values are null. For example,
 values in the count. The ``coalesce`` function can be used to convert null into
 zero.
 
+Some aggregate functions such as :func:`array_agg` produce different results
+depending on the order of input values. This ordering can be specified by writing
+an :ref:`order-by-clause` within the aggregate function::
+
+    array_agg(x ORDER BY y DESC)
+    array_agg(x ORDER BY x, y, z)
+
+
 General Aggregate Functions
 ---------------------------
 

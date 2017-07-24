@@ -9139,6 +9139,10 @@ public abstract class AbstractTestQueries
                 "VALUES (1, (2, 1)), (2, (5, 3)), (3, (4, 1))");
 
         assertQuery(
+                "SELECT array_agg(y ORDER BY x.a DESC) FROM (VALUES (CAST(ROW(1) AS ROW(a BIGINT)), 1), (CAST(ROW(2) AS ROW(a BIGINT)), 2)) t(x, y)",
+                "VALUES ((2, 1))");
+
+        assertQuery(
                 "SELECT x, y, array_agg(z ORDER BY z DESC NULLS FIRST) FROM (VALUES (1, 2, NULL), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY x, y",
                 "VALUES (1, 2, (NULL, 2, 1)), (2, 1, (NULL, 4, 3))");
 
