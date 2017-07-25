@@ -334,7 +334,8 @@ public class AccumulatorCompiler
                     expressions.add(scope.getThis().getField(stateField));
                     break;
                 case BLOCK_INDEX:
-                    expressions.add(constantInt(0)); // index.getSingleValueBlock(channel, position) generates always a page with only one position
+                    // index.getSingleValueBlock(channel, position) generates always a page with only one position
+                    expressions.add(constantInt(0));
                     break;
                 case BLOCK_INPUT_CHANNEL:
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
