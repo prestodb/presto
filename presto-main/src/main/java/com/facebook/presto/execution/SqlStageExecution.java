@@ -20,12 +20,15 @@ import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
@@ -51,6 +54,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.StageState.RUNNING;
+import static com.facebook.presto.execution.StageState.SCHEDULED;
+import static com.facebook.presto.execution.StageState.SCHEDULING_SPLITS;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
@@ -83,6 +89,9 @@ public final class SqlStageExecution
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
+    private final DynamicFilterService dynamicFilterService;
+
+    private Boolean dynamicFilterSchedulingInfoPropagated = new Boolean(false);
 
     public SqlStageExecution(
             StageId stageId,
@@ -94,7 +103,8 @@ public final class SqlStageExecution
             NodeTaskMap nodeTaskMap,
             ExecutorService executor,
             FailureDetector failureDetector,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            DynamicFilterService dynamicFilterService)
     {
         this(new StageStateMachine(
                         requireNonNull(stageId, "stageId is null"),
@@ -106,16 +116,24 @@ public final class SqlStageExecution
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
-                failureDetector);
+                failureDetector,
+                dynamicFilterService);
     }
 
-    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, FailureDetector failureDetector)
+    public SqlStageExecution(
+            StageStateMachine stateMachine,
+            RemoteTaskFactory remoteTaskFactory,
+            NodeTaskMap nodeTaskMap,
+            boolean summarizeTaskInfo,
+            FailureDetector failureDetector,
+            DynamicFilterService dynamicFilterService)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.dynamicFilterService = dynamicFilterService;
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : stateMachine.getFragment().getRemoteSourceNodes()) {
@@ -124,6 +142,29 @@ public final class SqlStageExecution
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
+
+        addStateChangeListener(newState -> {
+            synchronized (dynamicFilterSchedulingInfoPropagated) {
+                if (dynamicFilterSchedulingInfoPropagated || !(newState == SCHEDULING_SPLITS || newState == SCHEDULED || newState == RUNNING)) {
+                    return;
+                }
+                dynamicFilterSchedulingInfoPropagated = true;
+            }
+
+            traverseNodesForDynamicFiltering(ImmutableList.of(stateMachine.getFragment().getRoot()));
+        });
+    }
+
+    private void traverseNodesForDynamicFiltering(List<PlanNode> nodes)
+    {
+        for (PlanNode node : nodes) {
+            if (node instanceof JoinNode) {
+                JoinNode joinNode = (JoinNode) node;
+                dynamicFilterService.registerTasks(joinNode.getId().toString(), allTasks);
+            }
+
+            traverseNodesForDynamicFiltering(node.getSources());
+        }
     }
 
     public StageId getStageId()

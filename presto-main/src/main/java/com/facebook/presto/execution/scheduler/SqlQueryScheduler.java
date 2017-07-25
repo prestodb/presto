@@ -28,6 +28,7 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.failureDetector.FailureDetector;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
@@ -99,6 +100,7 @@ public class SqlQueryScheduler
     private final SplitSchedulerStats schedulerStats;
     private final boolean summarizeTaskInfo;
     private final AtomicBoolean started = new AtomicBoolean();
+    private final DynamicFilterService dynamicFilterService;
 
     public SqlQueryScheduler(QueryStateMachine queryStateMachine,
             LocationFactory locationFactory,
@@ -114,11 +116,13 @@ public class SqlQueryScheduler
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            DynamicFilterService dynamicFilterService)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
 
         // todo come up with a better way to build this, or eliminate this map
@@ -218,7 +222,8 @@ public class SqlQueryScheduler
                 nodeTaskMap,
                 executor,
                 failureDetector,
-                schedulerStats);
+                schedulerStats,
+                dynamicFilterService);
 
         stages.add(stage);
 
