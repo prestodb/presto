@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DeferredSymbolReference;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -334,6 +335,16 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitSymbolReference(SymbolReference node, Void context)
         {
             return new VariableReferenceExpression(node.getName(), getType(node));
+        }
+
+        @Override
+        protected RowExpression visitDeferredSymbolReference(DeferredSymbolReference node, Void context)
+        {
+            // Hack!
+            // In order to make PushDown work for DynamicFilters, we have to make DeferredSymbolReferences comparable in context of ExpressionEquivalence
+            // To avoid implementing DeferredSymbolReference RowExpression we model DeferredSymbolReference as ConstantExpression,
+            // which for ExpressionEquivalence will work well enough.
+            return constant(node, getType(node));
         }
 
         @Override

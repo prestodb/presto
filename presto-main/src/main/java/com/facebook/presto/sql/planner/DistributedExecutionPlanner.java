@@ -18,6 +18,9 @@ import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.DynamicFilter;
+import com.facebook.presto.sql.DynamicFilterUtils;
+import com.facebook.presto.sql.DynamicFilterUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -53,12 +56,15 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -142,15 +148,31 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
+            return visitScanAndFilter(node, Optional.empty());
+        }
+
+        private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode scan, Optional<FilterNode> filter)
+        {
+            Set<DynamicFilter> dynamicFilters = filter
+                    .map(FilterNode::getPredicate)
+                    .map(DynamicFilterUtils::extractDynamicFilters)
+                    .map(ExtractDynamicFiltersResult::getDynamicFilters)
+                    .orElse(ImmutableSet.of());
+
+            // TODO: use dynamic filters
+            if (!dynamicFilters.isEmpty()) {
+                log.debug("Dynamic filters: %s", dynamicFilters);
+            }
+
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
-                    node.getLayout().get(),
+                    scan.getLayout().get(),
                     pipelineExecutionStrategy == GROUPED_EXECUTION ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
 
             splitSources.add(splitSource);
 
-            return ImmutableMap.of(node.getId(), splitSource);
+            return ImmutableMap.of(scan.getId(), splitSource);
         }
 
         @Override
@@ -198,6 +220,11 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
+            if (node.getSource() instanceof TableScanNode) {
+                TableScanNode scan = (TableScanNode) node.getSource();
+                return visitScanAndFilter(scan, Optional.of(node));
+            }
+
             return node.getSource().accept(this, context);
         }
 

@@ -38,6 +38,8 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.DynamicFilter;
+import com.facebook.presto.sql.DynamicFilterUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
@@ -111,6 +113,7 @@ import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -125,6 +128,7 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.DynamicFilterUtils.extractDynamicFilters;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregatePlanNodeStats;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
@@ -621,7 +625,14 @@ public class PlanPrinter
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(clause.toExpression());
             }
-            node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
+
+            Optional<Expression> filter = node.getFilter();
+            Set<DynamicFilter> dynamicFilters = ImmutableSet.of();
+            if (filter.isPresent()) {
+                ExtractDynamicFiltersResult extractResult = extractDynamicFilters(filter.get());
+                joinExpressions.add(extractResult.getStaticFilters());
+                dynamicFilters = extractResult.getDynamicFilters();
+            }
 
             if (node.isSpatialJoin()) {
                 print(indent, "- SpatialJoin[%s] => [%s]",
@@ -641,6 +652,14 @@ public class PlanPrinter
             }
 
             node.getDistributionType().ifPresent(distributionType -> print(indent + 2, "Distribution: %s", distributionType));
+            if (!dynamicFilters.isEmpty()) {
+                print(indent + 2, "dynamicFilter = %s", printDynamicFilter(dynamicFilters));
+            }
+
+            Assignments assignments = node.getDynamicFilterAssignments();
+            if (!assignments.isEmpty()) {
+                print(indent + 2, "dynamicFilterAssignments = %s", printDynamicFilterAssignments(assignments));
+            }
             node.getSortExpressionContext().ifPresent(context -> print(indent + 2, "SortExpression[%s]", context.getSortExpression()));
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
@@ -981,7 +1000,14 @@ public class PlanPrinter
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 format += "filterPredicate = %s";
-                arguments.add(filterNode.get().getPredicate());
+                Expression predicate = filterNode.get().getPredicate();
+                ExtractDynamicFiltersResult extractResult = extractDynamicFilters(predicate);
+                arguments.add(extractResult.getStaticFilters());
+                Set<DynamicFilter> dynamicFilters = extractResult.getDynamicFilters();
+                if (!dynamicFilters.isEmpty()) {
+                    format += ", dynamicFilter = %s";
+                    arguments.add(printDynamicFilter(dynamicFilters));
+                }
             }
 
             format += "] => [%s]";
@@ -1013,6 +1039,42 @@ public class PlanPrinter
 
             sourceNode.accept(this, indent + 1);
             return null;
+        }
+
+        private String printDynamicFilter(Set<DynamicFilter> filters)
+        {
+            StringBuilder result = new StringBuilder();
+            result.append("{");
+            Iterator<DynamicFilter> iterator = filters.iterator();
+            while (iterator.hasNext()) {
+                DynamicFilter filter = iterator.next();
+                result.append(filter.getTupleDomainName());
+                result.append(" -> ");
+                result.append(filter.getSourceExpression());
+                if (iterator.hasNext()) {
+                    result.append(", ");
+                }
+            }
+            result.append("}");
+            return result.toString();
+        }
+
+        private String printDynamicFilterAssignments(Assignments assignments)
+        {
+            StringBuilder result = new StringBuilder();
+            result.append("{");
+            Iterator<Map.Entry<Symbol, Expression>> iterator = assignments.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<Symbol, Expression> assignment = iterator.next();
+                result.append(assignment.getKey());
+                result.append(" <- ");
+                result.append(assignment.getValue());
+                if (iterator.hasNext()) {
+                    result.append(", ");
+                }
+            }
+            result.append("}");
+            return result.toString();
         }
 
         private void printTableScanInfo(TableScanNode node, int indent)

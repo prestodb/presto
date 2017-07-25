@@ -68,6 +68,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.DynamicFilterUtils.stripDynamicFilters;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
@@ -579,6 +580,9 @@ public class PredicatePushDown
 
             leftEffectivePredicate = filterDeterministicConjuncts(leftEffectivePredicate);
             rightEffectivePredicate = filterDeterministicConjuncts(rightEffectivePredicate);
+
+            leftEffectivePredicate = stripDynamicFilters(leftEffectivePredicate);
+            rightEffectivePredicate = stripDynamicFilters(rightEffectivePredicate);
 
             // Generate equality inferences
             EqualityInference allInference = createEqualityInference(inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate);

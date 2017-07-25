@@ -47,7 +47,8 @@ public final class PlanSanityChecker
                     new NoIdentifierLeftChecker(),
                     new VerifyOnlyOneOutputNode(),
                     new VerifyNoFilteredAggregations(),
-                    new VerifyNoDistinctAggregations())
+                    new VerifyNoDistinctAggregations(),
+                    new DynamicFiltersChecker())
             .build();
 
     private PlanSanityChecker() {}

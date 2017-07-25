@@ -86,7 +86,8 @@ public class TestFeaturesConfig
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(25, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)
-                .setHistogramGroupImplementation(NEW));
+                .setHistogramGroupImplementation(NEW)
+                .setDynamicFilteringEnabled(false));
     }
 
     @Test
@@ -138,6 +139,7 @@ public class TestFeaturesConfig
                 .put("experimental.filter-and-project-min-output-page-size", "1MB")
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
                 .put("histogram.implemenation", "LEGACY")
+                .put("experimental.dynamic-partition-pruning-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -185,7 +187,8 @@ public class TestFeaturesConfig
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
                 .setFilterAndProjectMinOutputPageRowCount(2048)
-                .setHistogramGroupImplementation(LEGACY);
+                .setHistogramGroupImplementation(LEGACY)
+                .setDynamicFilteringEnabled(true);
         assertFullMapping(properties, expected);
     }
 
