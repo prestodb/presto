@@ -72,10 +72,13 @@ import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.operator.DynamicFilterClientFactory;
+import com.facebook.presto.operator.DynamicFilterClientSupplier;
 import com.facebook.presto.operator.DynamicFilterSummary;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.ForDynamicFilterSummary;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.PagesIndex;
@@ -339,6 +342,16 @@ public class ServerMainModule
 
         // dynamic filter summary
         jsonCodecBinder(binder).bindJsonCodec(DynamicFilterSummary.class);
+        binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(DynamicFilterResource.class);
+
+        binder.bind(DynamicFilterClientSupplier.class).to(DynamicFilterClientFactory.class).in(Scopes.SINGLETON);
+        httpClientBinder(binder).bindHttpClient("dynamicFilter", ForDynamicFilterSummary.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(30, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                });
 
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
