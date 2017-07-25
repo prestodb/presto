@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 
 import java.util.Map;
 import java.util.Optional;
@@ -41,7 +40,7 @@ public class CanonicalizeExpressions
 {
     public static Expression canonicalizeExpression(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new CanonicalizeExpressionRewriter(), expression);
+        return CanonicalizeExpressionRewriter.rewrite(expression);
     }
 
     @Override

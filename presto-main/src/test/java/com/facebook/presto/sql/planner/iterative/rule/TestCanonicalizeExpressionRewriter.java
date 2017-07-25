@@ -14,16 +14,12 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
 public class TestCanonicalizeExpressionRewriter
 {
-    private static final CanonicalizeExpressionRewriter rewriter = new CanonicalizeExpressionRewriter();
-
     @Test
     public void testRewriteIsNotNullPredicate()
     {
@@ -51,11 +47,6 @@ public class TestCanonicalizeExpressionRewriter
 
     private static void assertRewritten(String from, String to)
     {
-        assertEquals(rewrite(PlanBuilder.expression(from)), PlanBuilder.expression(to));
-    }
-
-    private static Expression rewrite(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(rewriter, expression);
+        assertEquals(CanonicalizeExpressionRewriter.rewrite(PlanBuilder.expression(from)), PlanBuilder.expression(to));
     }
 }
