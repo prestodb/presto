@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -125,6 +126,24 @@ public class SimplifyExpressions
                 return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
             }
             return new FilterNode(node.getId(), source, simplified);
+        }
+
+        @Override
+        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
+        {
+            PlanNode left = context.rewrite(node.getLeft());
+            PlanNode right = context.rewrite(node.getRight());
+            return new JoinNode(
+                    node.getId(),
+                    node.getType(),
+                    left,
+                    right,
+                    node.getCriteria(),
+                    node.getOutputSymbols(),
+                    node.getFilter().map(this::simplifyExpression),
+                    node.getLeftHashSymbol(),
+                    node.getRightHashSymbol(),
+                    node.getDistributionType());
         }
 
         @Override
