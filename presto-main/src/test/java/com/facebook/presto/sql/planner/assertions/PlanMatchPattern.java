@@ -147,6 +147,15 @@ public final class PlanMatchPattern
         return result.addColumnReferences(expectedTableName, columnReferences);
     }
 
+    public static PlanMatchPattern constrainedTableScanWithTableLayout(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
+    {
+        PlanMatchPattern result = TableScanMatcher.builder(expectedTableName)
+                .expectedConstraint(constraint)
+                .hasTableLayout()
+                .build();
+        return result.addColumnReferences(expectedTableName, columnReferences);
+    }
+
     public static PlanMatchPattern constrainedIndexSource(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
     {
         return node(IndexSourceNode.class)
