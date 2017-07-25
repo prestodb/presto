@@ -147,14 +147,15 @@ public class SymbolMapper
     {
         private ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
 
+        public Builder put(Symbol from, Symbol to)
+        {
+            mappings.put(from, to);
+            return this;
+        }
+
         public SymbolMapper build()
         {
             return new SymbolMapper(mappings.build());
-        }
-
-        public void put(Symbol from, Symbol to)
-        {
-            mappings.put(from, to);
         }
     }
 }
