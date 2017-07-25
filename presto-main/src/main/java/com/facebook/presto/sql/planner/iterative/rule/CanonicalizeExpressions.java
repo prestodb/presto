@@ -13,20 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-
 public class CanonicalizeExpressions
         extends ExpressionRewriteRuleSet
 {
     public CanonicalizeExpressions()
     {
-        super(CanonicalizeExpressions::rewrite);
-    }
-
-    private static Expression rewrite(Expression expression, Rule.Context context)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new CanonicalizeExpressionRewriter(), expression);
+        super((expression, context) -> CanonicalizeExpressionRewriter.rewrite(expression));
     }
 }
