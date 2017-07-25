@@ -33,6 +33,11 @@ public interface Rule
         return Pattern.any();
     }
 
+    default boolean isEnabled(Session session)
+    {
+        return true;
+    }
+
     Optional<PlanNode> apply(PlanNode node, Context context);
 
     interface Context

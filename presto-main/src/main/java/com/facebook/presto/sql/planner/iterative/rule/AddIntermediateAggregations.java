@@ -75,15 +75,17 @@ public class AddIntermediateAggregations
     }
 
     @Override
+    public boolean isEnabled(Session session)
+    {
+        return SystemSessionProperties.isEnableIntermediateAggregations(session);
+    }
+
+    @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         Lookup lookup = context.getLookup();
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
         Session session = context.getSession();
-
-        if (!SystemSessionProperties.isEnableIntermediateAggregations(session)) {
-            return Optional.empty();
-        }
 
         if (!(node instanceof AggregationNode)) {
             return Optional.empty();
