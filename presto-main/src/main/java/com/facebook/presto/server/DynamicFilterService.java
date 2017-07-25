@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -55,6 +56,19 @@ public class DynamicFilterService
         if (mergedSummary != null) {
             futures.get(SourceDescriptor.of(queryId, source)).set(mergedSummary);
         }
+    }
+
+    public synchronized void registerTasks(String source, Set<TaskId> taskIds)
+    {
+        if (taskIds.isEmpty()) {
+            return;
+        }
+
+        String queryId = taskIds.iterator().next().getQueryId().getId();
+        checkArgument(taskIds.stream().allMatch(taskId -> taskId.getQueryId().getId().equals(queryId)), "All tasks have to belong to the same query");
+
+        checkState(!dynamicFilterSummaries.containsKey(SourceDescriptor.of(queryId, source)), "Tasks already registered");
+        dynamicFilterSummaries.put(SourceDescriptor.of(queryId, source), new DynamicFilterSummaryWithSenders(taskIds.stream().map(DynamicFilterSummaryWithSenders.StageTaskKey::of).collect(toImmutableSet())));
     }
 
     public synchronized ListenableFuture<DynamicFilterSummary> getSummary(String queryId, String source)
