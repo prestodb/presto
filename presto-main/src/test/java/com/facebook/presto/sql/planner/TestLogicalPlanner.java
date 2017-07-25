@@ -38,12 +38,14 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -404,5 +406,18 @@ public class TestLogicalPlanner
                 "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders GROUP BY custkey)",
                 anyTree(
                         tableScan("orders")));
+    }
+
+    @Test
+    public void testPickTableLayoutWithFilter()
+    {
+        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
+                .put("orderkey", singleValue(BIGINT, 5L))
+                .build();
+        assertPlan(
+                "SELECT orderkey FROM orders WHERE orderkey=5",
+                output(
+                        filter("orderkey = BIGINT '5'",
+                                constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderkey", "orderkey")))));
     }
 }
