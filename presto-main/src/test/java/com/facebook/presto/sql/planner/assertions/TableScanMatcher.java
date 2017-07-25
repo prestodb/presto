@@ -27,11 +27,11 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.Util.domainsMatch;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.empty;
 import static java.util.stream.Collectors.toMap;
 
 final class TableScanMatcher
@@ -40,21 +40,6 @@ final class TableScanMatcher
     private final String expectedTableName;
     private final Optional<Map<String, Domain>> expectedConstraint;
     private final Optional<Expression> expectedOriginalConstraint;
-
-    TableScanMatcher(String expectedTableName)
-    {
-        this(expectedTableName, empty(), empty());
-    }
-
-    public TableScanMatcher(String expectedTableName, Map<String, Domain> expectedConstraint)
-    {
-        this(expectedTableName, Optional.of(expectedConstraint), empty());
-    }
-
-    public TableScanMatcher(String expectedTableName, Expression originalConstraint)
-    {
-        this(expectedTableName, empty(), Optional.of(originalConstraint));
-    }
 
     private TableScanMatcher(String expectedTableName, Optional<Map<String, Domain>> expectedConstraint, Optional<Expression> originalConstraint)
     {
@@ -106,5 +91,49 @@ final class TableScanMatcher
                 .add("expectedConstraint", expectedConstraint.orElse(null))
                 .add("expectedOriginalConstraint", expectedOriginalConstraint.orElse(null))
                 .toString();
+    }
+
+    public static Builder builder(String expectedTableName)
+    {
+        return new Builder(expectedTableName);
+    }
+
+    public static PlanMatchPattern create(String expectedTableName)
+    {
+        return builder(expectedTableName).build();
+    }
+
+    public static class Builder
+    {
+        private final String expectedTableName;
+        private Optional<Map<String, Domain>> expectedConstraint = Optional.empty();
+        private Optional<Expression> expectedOriginalConstraint = Optional.empty();
+
+        private Builder(String expectedTableName)
+        {
+            this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
+        }
+
+        public Builder expectedConstraint(Map<String, Domain> expectedConstraint)
+        {
+            this.expectedConstraint = Optional.of(expectedConstraint);
+            return this;
+        }
+
+        public Builder expectedOriginalConstraint(Expression expression)
+        {
+            this.expectedOriginalConstraint = Optional.of(expression);
+            return this;
+        }
+
+        PlanMatchPattern build()
+        {
+            PlanMatchPattern result = node(TableScanNode.class).with(
+                    new TableScanMatcher(
+                            expectedTableName,
+                            expectedConstraint,
+                            expectedOriginalConstraint));
+            return result;
+        }
     }
 }
