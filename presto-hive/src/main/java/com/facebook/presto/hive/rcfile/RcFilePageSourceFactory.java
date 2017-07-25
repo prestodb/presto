@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
+import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.rcfile.RcFileEncoding;
 import com.facebook.presto.rcfile.RcFileReader;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
@@ -51,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
@@ -157,6 +159,9 @@ public class RcFilePageSourceFactory
                 throw (PrestoException) e;
             }
             String message = splitError(e, path, start, length);
+            if (e instanceof RcFileCorruptionException) {
+                throw new PrestoException(HIVE_BAD_DATA, message, e);
+            }
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
