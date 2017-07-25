@@ -210,7 +210,7 @@ public final class JsonExtract
                 return processJsonArray(jsonParser);
             }
 
-            throw new JsonParseException("Expected a JSON object or array", jsonParser.getCurrentLocation());
+            throw new JsonParseException(jsonParser, "Expected a JSON object or array");
         }
 
         public T processJsonObject(JsonParser jsonParser)
@@ -218,7 +218,7 @@ public final class JsonExtract
         {
             while (!jsonParser.nextFieldName(fieldName)) {
                 if (!jsonParser.hasCurrentToken()) {
-                    throw new JsonParseException("Unexpected end of object", jsonParser.getCurrentLocation());
+                    throw new JsonParseException(jsonParser, "Unexpected end of object");
                 }
                 if (jsonParser.getCurrentToken() == END_OBJECT) {
                     // Unable to find matching field
@@ -239,7 +239,7 @@ public final class JsonExtract
             while (true) {
                 JsonToken token = jsonParser.nextToken();
                 if (token == null) {
-                    throw new JsonParseException("Unexpected end of array", jsonParser.getCurrentLocation());
+                    throw new JsonParseException(jsonParser, "Unexpected end of array");
                 }
                 if (token == END_ARRAY) {
                     // Index out of bounds
@@ -268,7 +268,7 @@ public final class JsonExtract
         {
             JsonToken token = jsonParser.getCurrentToken();
             if (token == null) {
-                throw new JsonParseException("Unexpected end of value", jsonParser.getCurrentLocation());
+                throw new JsonParseException(jsonParser, "Unexpected end of value");
             }
             if (!token.isScalarValue() || token == VALUE_NULL) {
                 return null;
@@ -285,7 +285,7 @@ public final class JsonExtract
                 throws IOException
         {
             if (!jsonParser.hasCurrentToken()) {
-                throw new JsonParseException("Unexpected end of value", jsonParser.getCurrentLocation());
+                throw new JsonParseException(jsonParser, "Unexpected end of value");
             }
 
             DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
@@ -304,7 +304,7 @@ public final class JsonExtract
                 throws IOException
         {
             if (!jsonParser.hasCurrentToken()) {
-                throw new JsonParseException("Unexpected end of value", jsonParser.getCurrentLocation());
+                throw new JsonParseException(jsonParser, "Unexpected end of value");
             }
 
             if (jsonParser.getCurrentToken() == START_ARRAY) {
