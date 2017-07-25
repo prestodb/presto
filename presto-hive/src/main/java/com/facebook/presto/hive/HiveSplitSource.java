@@ -20,24 +20,36 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.DynamicFilterDescription;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
+import org.joda.time.DateTimeZone;
 
 import java.io.FileNotFoundException;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,9 +66,11 @@ import static com.facebook.presto.hive.HiveSplitSource.StateKind.FAILED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.INITIAL;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.NO_MORE_SPLITS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
@@ -83,9 +97,15 @@ class HiveSplitSource
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final AtomicInteger remainingInitialSplits;
+    //TODO: Make this configurable. May be a session property
+    public static final int DF_TIMEOUT = 500; // Microseconds to wait for DF summary
 
     private final HiveSplitLoader splitLoader;
     private final AtomicReference<State> stateReference;
+    private final List<Future<DynamicFilterDescription>> filters;
+    private final DateTimeZone timeZone;
+    private final TypeManager typeManager;
+    private volatile boolean closed;
 
     private final AtomicLong estimatedSplitSizeInBytes = new AtomicLong();
 
@@ -102,7 +122,10 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             AtomicReference<State> stateReference,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            List<Future<DynamicFilterDescription>> dynamicFilters,
+            DateTimeZone timeZone,
+            TypeManager typeManager)
     {
         requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
@@ -118,6 +141,9 @@ class HiveSplitSource
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
+        this.filters = ImmutableList.copyOf(dynamicFilters);
+        this.timeZone = timeZone;
+        this.typeManager = typeManager;
     }
 
     public static HiveSplitSource allAtOnce(
@@ -130,7 +156,10 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             Executor executor,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            List<Future<DynamicFilterDescription>> dynamicFilters,
+            DateTimeZone timeZone,
+            TypeManager typeManager)
     {
         AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
         return new HiveSplitSource(
@@ -173,7 +202,10 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 stateReference,
-                highMemorySplitSourceCounter);
+                highMemorySplitSourceCounter,
+                dynamicFilters,
+                timeZone,
+                typeManager);
     }
 
     public static HiveSplitSource bucketed(
@@ -186,7 +218,10 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             Executor executor,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            List<Future<DynamicFilterDescription>> dynamicFilters,
+            DateTimeZone timeZone,
+            TypeManager typeManager)
     {
         AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
         return new HiveSplitSource(
@@ -241,7 +276,10 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 stateReference,
-                highMemorySplitSourceCounter);
+                highMemorySplitSourceCounter,
+                dynamicFilters,
+                timeZone,
+                typeManager);
     }
 
     /**
@@ -384,7 +422,7 @@ class HiveSplitSource
 
             return new AsyncQueue.BorrowResult<>(splitsToInsert, result);
         });
-
+        Future<List<ConnectorSplit>> futureAfterDF = toCompletableFuture(future).thenApply(this::dynamicallyFilterSplits);
         ListenableFuture<ConnectorSplitBatch> transform = Futures.transform(future, splits -> {
             requireNonNull(splits, "splits is null");
             if (noMoreSplits) {
@@ -406,6 +444,98 @@ class HiveSplitSource
         });
 
         return toCompletableFuture(transform);
+    }
+
+    private List<ConnectorSplit> dynamicallyFilterSplits(List<ConnectorSplit> splits)
+    {
+        TupleDomain<HiveColumnHandle> runtimeTupleDomain = getRuntimeTupleDomains();
+
+        Optional<Map<HiveColumnHandle, Domain>> domains = runtimeTupleDomain.getDomains();
+        if (runtimeTupleDomain.isAll() || !domains.isPresent() || domains.get().size() == 0) {
+            return splits;
+        }
+
+        DomainsCache domainsCache = new DomainsCache(domains.get());
+
+        ImmutableList.Builder<ConnectorSplit> result = ImmutableList.builder();
+        for (ConnectorSplit split : splits) {
+            HiveSplit hiveSplit = (HiveSplit) split;
+            List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
+            boolean removeSplit = false;
+            for (HivePartitionKey partitionKey : partitionKeys) {
+                String partitionKeyName = partitionKey.getName().toLowerCase(Locale.ENGLISH);
+                Collection<Domain> relevantDomains = domainsCache.getDomains(partitionKeyName);
+                Type type = partitionKey.getHiveType().getType(typeManager);
+                Domain partitionValue;
+                try {
+                    Object objectToWrite = HiveUtil.parsePartitionValue(partitionKey.getName(), partitionKey.getValue(), type, timeZone).getValue();
+                    partitionValue = Domain.singleValue(type, objectToWrite);
+                }
+                catch (PrestoException e) {
+                    // if the type is not supported, skip pruning for that partition
+                    if (e.getErrorCode().equals(NOT_SUPPORTED)) {
+                        log.warn("Type " + type + " is not supported for Dynamic Partition Pruning");
+                        continue;
+                    }
+
+                    throw e;
+                }
+                Predicate<Domain> checkOverlap = d -> d.overlaps(partitionValue);
+                if (relevantDomains.stream().noneMatch(checkOverlap)) {
+                    log.info("Partition got pruned due to dynamic filters: "
+                            + hiveSplit.getPath() + " for table " + hiveSplit.getDatabase() + "." + hiveSplit.getTable());
+                    removeSplit = true;
+                }
+            }
+            if (!removeSplit) {
+                result.add(split);
+            }
+        }
+        return result.build();
+    }
+
+    class DomainsCache
+    {
+        private final Map<HiveColumnHandle, Domain> domains;
+        private final Map<String, Collection<Domain>> domainsCache = new HashMap<>();
+
+        public DomainsCache(Map<HiveColumnHandle, Domain> domains)
+        {
+            this.domains = ImmutableMap.copyOf(domains);
+        }
+
+        public Collection<Domain> getDomains(String partitionName)
+        {
+            String partitionNameLower = partitionName.toLowerCase(Locale.ENGLISH);
+            Collection<Domain> relevantDomains = domainsCache.get(partitionNameLower);
+            if (relevantDomains == null) {
+                relevantDomains = domains.entrySet().stream()
+                        .filter(entry -> entry.getKey().getName().equalsIgnoreCase(partitionNameLower))
+                        .map(Map.Entry::getValue)
+                        .collect(toImmutableList());
+                domainsCache.put(partitionNameLower, relevantDomains);
+            }
+
+            return relevantDomains;
+        }
+    }
+
+    private TupleDomain<HiveColumnHandle> getRuntimeTupleDomains()
+    {
+        // compute runtime filter
+        ImmutableList.Builder<DynamicFilterDescription> dynamicFilterDescriptionBuilder = ImmutableList.builder();
+        for (Future<DynamicFilterDescription> descriptionFuture : filters) {
+            final Optional<DynamicFilterDescription> description = MoreFutures.tryGetFutureValue(descriptionFuture);
+            description.ifPresent(dynamicFilterDescriptionBuilder::add);
+        }
+
+        final ImmutableList<DynamicFilterDescription> dynamicFilterDescriptions = dynamicFilterDescriptionBuilder.build();
+        TupleDomain runtimeFilter = dynamicFilterDescriptions.stream()
+                .map(DynamicFilterDescription::getTupleDomain)
+                .map(domain -> domain.transform(HiveColumnHandle.class::cast))
+                .reduce(TupleDomain.all(), TupleDomain::intersect);
+
+        return runtimeFilter;
     }
 
     @Override
