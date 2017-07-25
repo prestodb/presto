@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -56,13 +57,15 @@ public class EliminateCrossJoins
     }
 
     @Override
+    public boolean isEnabled(Session session)
+    {
+        return SystemSessionProperties.isJoinReorderingEnabled(session);
+    }
+
+    @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
         if (!(node instanceof JoinNode)) {
-            return Optional.empty();
-        }
-
-        if (!SystemSessionProperties.isJoinReorderingEnabled(context.getSession())) {
             return Optional.empty();
         }
 

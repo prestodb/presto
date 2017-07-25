@@ -146,7 +146,7 @@ public class RuleAssert
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(memo::resolve);
 
-        if (!rule.getPattern().matches(plan)) {
+        if (!rule.isEnabled(session) || !rule.getPattern().matches(plan)) {
             return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
         }
 

@@ -119,6 +119,11 @@ public class IterativeOptimizer
             Iterator<Rule> possiblyMatchingRules = ruleStore.getCandidates(node).iterator();
             while (possiblyMatchingRules.hasNext()) {
                 Rule rule = possiblyMatchingRules.next();
+
+                if (!rule.isEnabled(context.session)) {
+                    continue;
+                }
+
                 Optional<PlanNode> transformed;
 
                 if (!rule.getPattern().matches(node)) {
