@@ -15,7 +15,10 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -35,7 +38,7 @@ public class TestHiveSplitSource
     public void testOutstandingSplitCount()
             throws Exception
     {
-        HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5), ImmutableList.of(), DateTimeZone.UTC, new TypeRegistry());
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -60,7 +63,7 @@ public class TestHiveSplitSource
     public void testFail()
             throws Exception
     {
-        HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5), ImmutableList.of(), DateTimeZone.UTC, new TypeRegistry());
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -108,7 +111,7 @@ public class TestHiveSplitSource
     public void testReaderWaitsForSplits()
             throws Exception
     {
-        final HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        final HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5), ImmutableList.of(), DateTimeZone.UTC, new TypeRegistry());
 
         final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
