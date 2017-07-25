@@ -1,0 +1,20 @@
+package ${package};
+
+import static ${fqConnectorClass}.getSupplier;
+import ${fqTestBaseClass};
+
+public final class ${testClassName}
+    extends ${testBaseClass}
+{
+    public ${testClassName}()
+    {
+        super(getSupplier(), ${connectorTestCount});
+    }
+#foreach(${unsupportedTest} in ${unsupportedTests})
+
+    @Override
+    public void ${unsupportedTest}()
+    {
+    }
+#end
+}
