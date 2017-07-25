@@ -562,7 +562,8 @@ public class PlanBuilder
                         .build(),
                 filter,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                DynamicFilterSource.of());
     }
 
     public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> outputSymbols, Optional<Expression> filter)

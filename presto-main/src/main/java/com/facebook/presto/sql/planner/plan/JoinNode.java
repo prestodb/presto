@@ -68,7 +68,8 @@ public class JoinNode
     private final DynamicFilterSource dynamicFilterSource;
 
     @JsonCreator
-    public JoinNode(@JsonProperty("id") PlanNodeId id,
+    public JoinNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,

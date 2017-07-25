@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -321,6 +322,14 @@ public final class ExpressionFormatter
         protected String visitSymbolReference(SymbolReference node, Void context)
         {
             return formatIdentifier(node.getName());
+        }
+
+        protected String visitDynamicFilterExpression(DynamicFilterExpression node, Void context)
+        {
+            return "\"$INTERNAL$DYNAMIC_FILTER\"(" +
+                    node.getProbeExpression().toString() + ", " +
+                    formatIdentifier(node.getDynamicFilterSymbol()) + ", " +
+                    formatIdentifier(node.getSourceId()) + ")";
         }
 
         @Override
