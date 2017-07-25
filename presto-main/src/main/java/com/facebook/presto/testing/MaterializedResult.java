@@ -260,7 +260,7 @@ public class MaterializedResult
             type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) value));
         }
         else if (DATE.equals(type)) {
-            int days = ((SqlDate) value).getDays();
+            long days = ((SqlDate) value).getDays();
             type.writeLong(blockBuilder, days);
         }
         else if (TIME.equals(type)) {
@@ -337,7 +337,7 @@ public class MaterializedResult
             Object prestoValue = prestoRow.getField(field);
             Object jdbcValue;
             if (prestoValue instanceof SqlDate) {
-                int days = ((SqlDate) prestoValue).getDays();
+                long days = ((SqlDate) prestoValue).getDays();
                 jdbcValue = new Date(TimeUnit.DAYS.toMillis(days));
             }
             else if (prestoValue instanceof SqlTime) {

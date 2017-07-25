@@ -1090,7 +1090,7 @@ public class OrcTester
             return ((SqlVarbinary) value).getBytes();
         }
         else if (type.equals(DATE)) {
-            int days = ((SqlDate) value).getDays();
+            long days = ((SqlDate) value).getDays();
             LocalDate localDate = LocalDate.ofEpochDay(days);
             ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
 

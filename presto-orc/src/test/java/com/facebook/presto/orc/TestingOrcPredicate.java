@@ -88,7 +88,7 @@ public final class TestingOrcPredicate
         if (DATE.equals(type)) {
             return new DateOrcPredicate(
                     expectedValues.stream()
-                            .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
+                            .map(value -> value == null ? null : ((SqlDate) value).getDays())
                             .collect(toList()),
                     format == DWRF);
         }

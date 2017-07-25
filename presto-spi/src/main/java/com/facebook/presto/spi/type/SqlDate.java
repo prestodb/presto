@@ -16,19 +16,17 @@ package com.facebook.presto.spi.type;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.time.LocalDate;
-import java.util.Objects;
 
 public final class SqlDate
 {
-    private final int days;
+    private final long days;
 
-    // TODO accept long
-    public SqlDate(int days)
+    public SqlDate(long days)
     {
         this.days = days;
     }
 
-    public int getDays()
+    public long getDays()
     {
         return days;
     }
@@ -36,7 +34,7 @@ public final class SqlDate
     @Override
     public int hashCode()
     {
-        return days;
+        return Long.hashCode(days);
     }
 
     @Override
@@ -49,7 +47,7 @@ public final class SqlDate
             return false;
         }
         SqlDate other = (SqlDate) obj;
-        return Objects.equals(days, other.days);
+        return days == other.days;
     }
 
     @JsonValue
