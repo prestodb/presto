@@ -19,13 +19,16 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.DynamicFilterDescription;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -54,7 +57,7 @@ public class SplitManager
         splitManagers.remove(connectorId);
     }
 
-    public SplitSource getSplits(Session session, TableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public SplitSource getSplits(Session session, TableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy, List<Future<DynamicFilterDescription>> dynamicFilters)
     {
         ConnectorId connectorId = layout.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
@@ -65,7 +68,8 @@ public class SplitManager
                 layout.getTransactionHandle(),
                 connectorSession,
                 layout.getConnectorHandle(),
-                splitSchedulingStrategy);
+                splitSchedulingStrategy,
+                dynamicFilters);
 
         SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
         if (minScheduleSplitBatchSize > 1) {

@@ -16,9 +16,13 @@ package com.facebook.presto.spi.connector.classloader;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.DynamicFilterDescription;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+
+import java.util.List;
+import java.util.concurrent.Future;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +43,14 @@ public final class ClassLoaderSafeConnectorSplitManager
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSplits(transactionHandle, session, layout, splitSchedulingStrategy);
+        }
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy, List<Future<DynamicFilterDescription>> dynamicFilters)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSplits(transactionHandle, session, layout, splitSchedulingStrategy, dynamicFilters);
         }
     }
 }

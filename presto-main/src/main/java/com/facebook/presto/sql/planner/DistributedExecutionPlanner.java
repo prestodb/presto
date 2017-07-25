@@ -14,7 +14,13 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.operator.DynamicFilterSummary;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.server.DynamicFilterService;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.DynamicFilterDescription;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -54,9 +60,12 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
@@ -65,10 +74,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Future;
 
 import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -77,18 +88,20 @@ public class DistributedExecutionPlanner
     private static final Logger log = Logger.get(DistributedExecutionPlanner.class);
 
     private final SplitManager splitManager;
+    private final DynamicFilterService dynamicFilterService;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager)
+    public DistributedExecutionPlanner(SplitManager splitManager, DynamicFilterService dynamicFilterService)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
     }
 
     public StageExecutionPlan plan(SubPlan root, Session session)
     {
         ImmutableList.Builder<SplitSource> allSplitSources = ImmutableList.builder();
         try {
-            return doPlan(root, session, allSplitSources);
+            return doPlan(root, session, allSplitSources, new DynamicFilterDescriptionFutureSupplier(dynamicFilterService));
         }
         catch (Throwable t) {
             allSplitSources.build().forEach(DistributedExecutionPlanner::closeSplitSource);
@@ -106,17 +119,17 @@ public class DistributedExecutionPlanner
         }
     }
 
-    private StageExecutionPlan doPlan(SubPlan root, Session session, ImmutableList.Builder<SplitSource> allSplitSources)
+    private StageExecutionPlan doPlan(SubPlan root, Session session, ImmutableList.Builder<SplitSource> allSplitSources, DynamicFilterDescriptionFutureSupplier dfFutureSupplier)
     {
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getPipelineExecutionStrategy(), allSplitSources), null);
+        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getPipelineExecutionStrategy(), allSplitSources, dfFutureSupplier), null);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
         for (SubPlan childPlan : root.getChildren()) {
-            dependencies.add(doPlan(childPlan, session, allSplitSources));
+            dependencies.add(doPlan(childPlan, session, allSplitSources, dfFutureSupplier));
         }
 
         return new StageExecutionPlan(
@@ -131,12 +144,14 @@ public class DistributedExecutionPlanner
         private final Session session;
         private final PipelineExecutionStrategy pipelineExecutionStrategy;
         private final ImmutableList.Builder<SplitSource> splitSources;
+        private final DynamicFilterDescriptionFutureSupplier dynamicFilterDescriptionFutureSupplier;
 
-        private Visitor(Session session, PipelineExecutionStrategy pipelineExecutionStrategy, ImmutableList.Builder<SplitSource> allSplitSources)
+        private Visitor(Session session, PipelineExecutionStrategy pipelineExecutionStrategy, ImmutableList.Builder<SplitSource> allSplitSources, DynamicFilterDescriptionFutureSupplier dynamicFilterDescriptionFutureSupplier)
         {
             this.session = session;
             this.pipelineExecutionStrategy = pipelineExecutionStrategy;
             this.splitSources = allSplitSources;
+            this.dynamicFilterDescriptionFutureSupplier = dynamicFilterDescriptionFutureSupplier;
         }
 
         @Override
@@ -159,16 +174,17 @@ public class DistributedExecutionPlanner
                     .map(ExtractDynamicFiltersResult::getDynamicFilters)
                     .orElse(ImmutableSet.of());
 
-            // TODO: use dynamic filters
+            List<Future<DynamicFilterDescription>> futuresList = ImmutableList.of();
             if (!dynamicFilters.isEmpty()) {
                 log.debug("Dynamic filters: %s", dynamicFilters);
+                futuresList = dynamicFilterDescriptionFutureSupplier.get(session.getQueryId().toString(), dynamicFilters, scan.getAssignments());
             }
 
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     scan.getLayout().get(),
-                    pipelineExecutionStrategy == GROUPED_EXECUTION ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    pipelineExecutionStrategy == GROUPED_EXECUTION ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING, futuresList);
 
             splitSources.add(splitSource);
 
@@ -391,6 +407,61 @@ public class DistributedExecutionPlanner
         protected Map<PlanNodeId, SplitSource> visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+    }
+
+    private static class DynamicFilterDescriptionFutureSupplier
+    {
+        private final DynamicFilterService dynamicFilterService;
+
+        public DynamicFilterDescriptionFutureSupplier(DynamicFilterService dynamicFilterService)
+        {
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        }
+
+        public List<Future<DynamicFilterDescription>> get(String queryId, Set<DynamicFilter> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+        {
+            Set<String> sources = dynamicFilters.stream().map(DynamicFilter::getTupleDomainSourceId).collect(toImmutableSet());
+            ImmutableList.Builder<Future<DynamicFilterDescription>> futuresBuilder = ImmutableList.builder();
+            for (String source : sources) {
+                futuresBuilder.add(Futures.transform(dynamicFilterService.getSummary(queryId, source), summary -> translateSummaryIntoDescription(summary, dynamicFilters, columnHandles)));
+            }
+            return futuresBuilder.build();
+        }
+
+        private static DynamicFilterDescription translateSummaryIntoDescription(DynamicFilterSummary summary, Set<DynamicFilter> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+        {
+            if (!summary.getTupleDomain().getDomains().isPresent()) {
+                return new DynamicFilterDescription(TupleDomain.none());
+            }
+
+            Map<String, Symbol> sourceExpressionSymbols = extractSourceExpressionSymbols(dynamicFilters);
+            ImmutableMap.Builder<ColumnHandle, Domain> domainBuilder = ImmutableMap.builder();
+            for (Map.Entry<String, Domain> entry : summary.getTupleDomain().getDomains().get().entrySet()) {
+                Symbol actualSymbol = sourceExpressionSymbols.get(entry.getKey());
+                if (actualSymbol == null) {
+                    continue;
+                }
+                ColumnHandle columnHandle = columnHandles.get(actualSymbol);
+                if (columnHandle == null) {
+                    continue;
+                }
+                domainBuilder.put(columnHandle, entry.getValue());
+            }
+            return new DynamicFilterDescription(TupleDomain.withColumnDomains(domainBuilder.build()));
+        }
+
+        private static Map<String, Symbol> extractSourceExpressionSymbols(Set<DynamicFilter> dynamicFilters)
+        {
+            ImmutableMap.Builder<String, Symbol> resultBuilder = ImmutableMap.builder();
+            for (DynamicFilter dynamicFilter : dynamicFilters) {
+                Expression expression = dynamicFilter.getSourceExpression();
+                if (!(expression instanceof SymbolReference)) {
+                    continue;
+                }
+                resultBuilder.put(dynamicFilter.getTupleDomainName(), Symbol.from(expression));
+            }
+            return resultBuilder.build();
         }
     }
 }
