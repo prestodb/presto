@@ -32,6 +32,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tests</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
         </dependency>
@@ -39,6 +46,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-generation-annotation</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-generation-processor</artifactId>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>
