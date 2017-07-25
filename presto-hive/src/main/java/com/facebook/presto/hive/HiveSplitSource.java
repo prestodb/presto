@@ -146,14 +146,13 @@ class HiveSplitSource
 
         DomainsCache domainsCache = new DomainsCache(domains.get());
 
-        Iterator<ConnectorSplit> iter = splits.iterator();
-        while (iter.hasNext()) {
-            HiveSplit hiveSplit = (HiveSplit) iter.next();
+        ImmutableList.Builder<ConnectorSplit> result = ImmutableList.builder();
+        for (ConnectorSplit split : splits) {
+            HiveSplit hiveSplit = (HiveSplit) split;
             for (HivePartitionKey partitionKey : hiveSplit.getPartitionKeys()) {
                 String partitionKeyName = partitionKey.getName().toLowerCase(Locale.ENGLISH);
                 Collection<Domain> relevantDomains = domainsCache.getDomains(partitionKeyName);
 
-                boolean matched = false;
                 for (Domain predicateDomain : relevantDomains) {
                     Type type = partitionKey.getHiveType().getType(typeManager);
                     Object objectToWrite;
@@ -170,17 +169,28 @@ class HiveSplitSource
                         throw e;
                     }
                     if (predicateDomain.overlaps(Domain.singleValue(type, objectToWrite))) {
-                        matched = true;
+                        result.add(new HiveSplit(
+                                hiveSplit.getClientId(),
+                                hiveSplit.getDatabase(),
+                                hiveSplit.getTable(),
+                                hiveSplit.getPartitionName(),
+                                hiveSplit.getPath(),
+                                hiveSplit.getStart(),
+                                hiveSplit.getLength(),
+                                hiveSplit.getFileSize(),
+                                hiveSplit.getSchema(),
+                                hiveSplit.getPartitionKeys(),
+                                hiveSplit.getAddresses(),
+                                hiveSplit.getBucketNumber(),
+                                hiveSplit.isForceLocalScheduling(),
+                                hiveSplit.getEffectivePredicate().intersect(runtimeTupleDomain),
+                                hiveSplit.getColumnCoercions()));
                         break;
                     }
                 }
-                if (!matched) {
-                    // no relevant predicate matched, so remove that split
-                    iter.remove();
-                }
             }
         }
-        return splits;
+        return result.build();
     }
 
     class DomainsCache
