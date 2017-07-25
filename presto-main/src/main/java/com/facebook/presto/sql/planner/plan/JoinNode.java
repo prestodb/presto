@@ -59,7 +59,8 @@ public class JoinNode
     private final Assignments dynamicFilterAssignments;
 
     @JsonCreator
-    public JoinNode(@JsonProperty("id") PlanNodeId id,
+    public JoinNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,

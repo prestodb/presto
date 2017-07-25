@@ -840,6 +840,19 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitDeferredSymbolReference(DeferredSymbolReference node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteDeferredSymbolReference(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

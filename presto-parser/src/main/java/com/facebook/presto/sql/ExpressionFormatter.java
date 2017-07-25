@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DeferredSymbolReference;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -306,6 +307,14 @@ public final class ExpressionFormatter
         protected String visitSymbolReference(SymbolReference node, Void context)
         {
             return formatIdentifier(node.getName());
+        }
+
+        @Override
+        protected String visitDeferredSymbolReference(DeferredSymbolReference node, Void context)
+        {
+            return "\"$INTERNAL$DEFERRED_SYMBOL_REFERENCE\"(" +
+                    formatIdentifier(node.getSourceId()) + ", " +
+                    formatIdentifier(node.getSymbol()) + ")";
         }
 
         @Override

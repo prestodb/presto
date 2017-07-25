@@ -37,12 +37,14 @@ final class JoinMatcher
     private final JoinNode.Type joinType;
     private final List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria;
     private final Optional<Expression> filter;
+    private final Optional<DynamicFilterMatcher> dynamicFilter;
 
-    JoinMatcher(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria, Optional<Expression> filter)
+    JoinMatcher(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria, Optional<Expression> filter, Optional<DynamicFilterMatcher> dynamicFilter)
     {
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.equiCriteria = requireNonNull(equiCriteria, "equiCriteria is null");
         this.filter = requireNonNull(filter, "filter can not be null");
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
     }
 
     @Override
@@ -91,7 +93,15 @@ final class JoinMatcher
                         .map(maker -> maker.getExpectedValue(symbolAliases))
                         .collect(toImmutableSet());
 
-        return new MatchResult(expected.equals(actual));
+        if (!expected.equals(actual)) {
+            return NO_MATCH;
+        }
+
+        if (dynamicFilter.isPresent() && !dynamicFilter.get().match(joinNode, symbolAliases).isMatch()) {
+            return NO_MATCH;
+        }
+
+        return MatchResult.match();
     }
 
     @Override
@@ -101,6 +111,7 @@ final class JoinMatcher
                 .omitNullValues()
                 .add("equiCriteria", equiCriteria)
                 .add("filter", filter.orElse(null))
+                .add("dynamicFilter", dynamicFilter.map(DynamicFilterMatcher::getJoinExpectedMappings))
                 .toString();
     }
 }

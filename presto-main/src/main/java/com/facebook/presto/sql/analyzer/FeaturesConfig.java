@@ -74,6 +74,7 @@ public class FeaturesConfig
     private double memoryRevokingThreshold = 0.9;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
+    private boolean dynamicPartitionPruningEnabled = false;
 
     public boolean isResourceGroupsEnabled()
     {
@@ -408,6 +409,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillMaxUsedSpaceThreshold(double spillMaxUsedSpaceThreshold)
     {
         this.spillMaxUsedSpaceThreshold = spillMaxUsedSpaceThreshold;
+        return this;
+    }
+
+    public boolean isDynamicPartitionPruningEnabled()
+    {
+        return dynamicPartitionPruningEnabled;
+    }
+
+    @Config("experimental.dynamic-partition-pruning-enabled")
+    public FeaturesConfig setDynamicPartitionPruningEnabled(boolean value)
+    {
+        this.dynamicPartitionPruningEnabled = value;
         return this;
     }
 

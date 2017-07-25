@@ -51,6 +51,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DeferredSymbolReference;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -458,6 +459,12 @@ public class ExpressionInterpreter
         protected Object visitSymbolReference(SymbolReference node, Object context)
         {
             return ((SymbolResolver) context).getValue(Symbol.from(node));
+        }
+
+        @Override
+        protected Object visitDeferredSymbolReference(DeferredSymbolReference node, Object context)
+        {
+            return node;
         }
 
         @Override

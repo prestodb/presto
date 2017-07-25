@@ -350,7 +350,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new JoinNode(
-                            idAllocator.getNextId(),
+                            node.getId(),
                             node.getType(),
                             left.getNode(),
                             right.getNode(),
