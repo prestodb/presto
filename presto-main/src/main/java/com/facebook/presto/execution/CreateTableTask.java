@@ -39,6 +39,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -99,14 +100,15 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
+                String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type = metadata.getType(parseTypeSignature(column.getType()));
                 if ((type == null) || type.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, column, "Unknown type for column '%s' ", column.getName());
                 }
-                if (columns.containsKey(column.getName().toLowerCase())) {
+                if (columns.containsKey(name)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
                 }
-                columns.put(column.getName().toLowerCase(), new ColumnMetadata(column.getName(), type, column.getComment().orElse(null), false));
+                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), false));
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;

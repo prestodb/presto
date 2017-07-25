@@ -404,7 +404,7 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(base)) {
-                return new DereferenceExpression(toExpression(base, type), node.getFieldName());
+                return new DereferenceExpression(toExpression(base, type), node.getField());
             }
 
             RowType rowType = (RowType) type;
@@ -414,12 +414,12 @@ public class ExpressionInterpreter
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 RowField field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getFieldName())) {
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getField().getValue())) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }
             }
-            checkState(index >= 0, "could not find field name: %s", node.getFieldName());
+            checkState(index >= 0, "could not find field name: %s", node.getField());
             if (row.isNull(index)) {
                 return null;
             }
@@ -984,6 +984,7 @@ public class ExpressionInterpreter
             Expression body = node.getBody();
             List<String> argumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
+                    .map(Identifier::getValue)
                     .collect(toImmutableList());
             FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node));
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());

@@ -134,6 +134,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.query;
+import static com.facebook.presto.sql.QueryUtil.quotedIdentifier;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
@@ -808,8 +809,8 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.empty(), Optional.empty()));
-        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of("foo"), Optional.empty()));
-        assertStatement("SHOW SCHEMAS IN foo LIKE '%'", new ShowSchemas(Optional.of("foo"), Optional.of("%")));
+        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of(identifier("foo")), Optional.empty()));
+        assertStatement("SHOW SCHEMAS IN foo LIKE '%'", new ShowSchemas(Optional.of(identifier("foo")), Optional.of("%")));
     }
 
     @Test
@@ -943,10 +944,10 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new DereferenceExpression(new Identifier("col1"), "f1"),
+                                        new DereferenceExpression(new Identifier("col1"), identifier("f1")),
                                         new Identifier("col2"),
                                         new DereferenceExpression(
-                                                new DereferenceExpression(new DereferenceExpression(new Identifier("col3"), "f1"), "f2"), "f3")),
+                                                new DereferenceExpression(new DereferenceExpression(new Identifier("col3"), identifier("f1")), identifier("f2")), identifier("f3"))),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -961,9 +962,9 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new SubscriptExpression(new DereferenceExpression(new Identifier("col1"), "f1"), new LongLiteral("0")),
+                                        new SubscriptExpression(new DereferenceExpression(new Identifier("col1"), identifier("f1")), new LongLiteral("0")),
                                         new Identifier("col2"),
-                                        new DereferenceExpression(new DereferenceExpression(new SubscriptExpression(new Identifier("col3"), new LongLiteral("2")), "f2"), "f3"),
+                                        new DereferenceExpression(new DereferenceExpression(new SubscriptExpression(new Identifier("col3"), new LongLiteral("2")), identifier("f2")), identifier("f3")),
                                         new SubscriptExpression(new Identifier("col4"), new LongLiteral("4"))),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
@@ -979,7 +980,7 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), "col0")),
+                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), identifier("col0"))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -1184,13 +1185,13 @@ public class TestSqlParser
     public void testRenameSchema()
     {
         assertStatement("ALTER SCHEMA foo RENAME TO bar",
-                new RenameSchema(QualifiedName.of("foo"), "bar"));
+                new RenameSchema(QualifiedName.of("foo"), identifier("bar")));
 
         assertStatement("ALTER SCHEMA foo.bar RENAME TO baz",
-                new RenameSchema(QualifiedName.of("foo", "bar"), "baz"));
+                new RenameSchema(QualifiedName.of("foo", "bar"), identifier("baz")));
 
         assertStatement("ALTER SCHEMA \"awesome schema\".\"awesome table\" RENAME TO \"even more awesome table\"",
-                new RenameSchema(QualifiedName.of("awesome schema", "awesome table"), "even more awesome table"));
+                new RenameSchema(QualifiedName.of("awesome schema", "awesome table"), quotedIdentifier("even more awesome table")));
     }
 
     @Test
@@ -1235,15 +1236,15 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition("a", "VARCHAR", Optional.empty()),
-                                new ColumnDefinition("b", "BIGINT", Optional.of("hello world")),
-                                new ColumnDefinition("c", "IPADDRESS", Optional.empty())),
+                                new ColumnDefinition(identifier("a"), "VARCHAR", Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "IPADDRESS", Optional.empty())),
                         false,
                         ImmutableMap.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition("c", "TIMESTAMP", Optional.empty())),
+                        ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty())),
                         true,
                         ImmutableMap.of(),
                         Optional.empty()));
@@ -1260,7 +1261,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
+                                new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
@@ -1269,10 +1270,10 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
+                                new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty()),
-                                new ColumnDefinition("d", "DATE", Optional.empty())),
+                                new ColumnDefinition(identifier("d"), "DATE", Optional.empty())),
                         true,
                         ImmutableMap.of(),
                         Optional.empty()));
@@ -1287,7 +1288,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
+                                new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1296,7 +1297,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES) COMMENT 'test'",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
+                                new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1439,9 +1440,9 @@ public class TestSqlParser
         ImmutableMap<String, Expression> properties = ImmutableMap.<String, Expression>builder().build();
 
         Query query = new Query(Optional.of(new With(false, ImmutableList.of(
-                new WithQuery("t",
+                new WithQuery(identifier("t"),
                         query(new Values(ImmutableList.of(new LongLiteral("1")))),
-                        Optional.of(ImmutableList.of("x")))))),
+                        Optional.of(ImmutableList.of(identifier("x"))))))),
                 new Table(QualifiedName.of("t")),
                 Optional.empty(),
                 Optional.empty());
@@ -1488,7 +1489,7 @@ public class TestSqlParser
                 new Insert(table, Optional.empty(), query));
 
         assertStatement("INSERT INTO a (c1, c2) SELECT * FROM t",
-                new Insert(table, Optional.of(ImmutableList.of("c1", "c2")), query));
+                new Insert(table, Optional.of(ImmutableList.of(identifier("c1"), identifier("c2"))), query));
     }
 
     @Test
@@ -1514,22 +1515,22 @@ public class TestSqlParser
     public void testRenameColumn()
             throws Exception
     {
-        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), "a", "b"));
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b")));
     }
 
     @Test
     public void testAddColumn()
             throws Exception
     {
-        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition("c", "bigint", Optional.empty())));
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition(identifier("c"), "bigint", Optional.empty())));
     }
 
     @Test
     public void testDropColumn()
             throws Exception
     {
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), "c"));
-        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), "c d"));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c")));
+        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d")));
     }
 
     @Test
@@ -1551,13 +1552,13 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("GRANT INSERT, DELETE ON t TO u",
-                new Grant(Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), "u", false));
+                new Grant(Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), identifier("u"), false));
         assertStatement("GRANT SELECT ON t TO PUBLIC WITH GRANT OPTION",
-                new Grant(Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), "PUBLIC", true));
+                new Grant(Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), identifier("PUBLIC"), true));
         assertStatement("GRANT ALL PRIVILEGES ON t TO u",
-                new Grant(Optional.empty(), false, QualifiedName.of("t"), "u", false));
+                new Grant(Optional.empty(), false, QualifiedName.of("t"), identifier("u"), false));
         assertStatement("GRANT taco ON t TO PUBLIC WITH GRANT OPTION",
-                new Grant(Optional.of(ImmutableList.of("taco")), false, QualifiedName.of("t"), "PUBLIC", true));
+                new Grant(Optional.of(ImmutableList.of("taco")), false, QualifiedName.of("t"), identifier("PUBLIC"), true));
     }
 
     @Test
@@ -1565,13 +1566,13 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("REVOKE INSERT, DELETE ON t FROM u",
-                new Revoke(false, Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), "u"));
+                new Revoke(false, Optional.of(ImmutableList.of("INSERT", "DELETE")), false, QualifiedName.of("t"), identifier("u")));
         assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM PUBLIC",
-                new Revoke(true, Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), "PUBLIC"));
+                new Revoke(true, Optional.of(ImmutableList.of("SELECT")), false, QualifiedName.of("t"), identifier("PUBLIC")));
         assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM u",
-                new Revoke(false, Optional.empty(), true, QualifiedName.of("t"), "u"));
+                new Revoke(false, Optional.empty(), true, QualifiedName.of("t"), identifier("u")));
         assertStatement("REVOKE taco ON TABLE t FROM u",
-                new Revoke(false, Optional.of(ImmutableList.of("taco")), true, QualifiedName.of("t"), "u"));
+                new Revoke(false, Optional.of(ImmutableList.of("taco")), true, QualifiedName.of("t"), identifier("u")));
     }
 
     @Test
@@ -1592,15 +1593,15 @@ public class TestSqlParser
     {
         assertStatement("WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM y) TABLE z",
                 new Query(Optional.of(new With(false, ImmutableList.of(
-                        new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of("t", "u"))),
-                        new WithQuery("b", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), Optional.empty())))),
+                        new WithQuery(identifier("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of(identifier("t"), identifier("u")))),
+                        new WithQuery(identifier("b"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), Optional.empty())))),
                         new Table(QualifiedName.of("z")),
                         Optional.empty(),
                         Optional.empty()));
 
         assertStatement("WITH RECURSIVE a AS (SELECT * FROM x) TABLE y",
                 new Query(Optional.of(new With(true, ImmutableList.of(
-                        new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.empty())))),
+                        new WithQuery(identifier("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.empty())))),
                         new Table(QualifiedName.of("y")),
                         Optional.empty(),
                         Optional.empty()));
@@ -1771,7 +1772,7 @@ public class TestSqlParser
                         new Join(
                                 Join.Type.IMPLICIT,
                                 new Table(QualifiedName.of("t")),
-                                new AliasedRelation(lateralRelation, "a", ImmutableList.of("x")),
+                                new AliasedRelation(lateralRelation, identifier("a"), ImmutableList.of(identifier("x"))),
                                 Optional.empty())));
 
         assertStatement("SELECT * FROM t CROSS JOIN LATERAL (VALUES 1) ",
@@ -1872,11 +1873,11 @@ public class TestSqlParser
     {
         assertExpression("x -> sin(x)",
                 new LambdaExpression(
-                        ImmutableList.of(new LambdaArgumentDeclaration("x")),
+                        ImmutableList.of(new LambdaArgumentDeclaration(identifier("x"))),
                         new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new Identifier("x")))));
         assertExpression("(x, y) -> mod(x, y)",
                 new LambdaExpression(
-                        ImmutableList.of(new LambdaArgumentDeclaration("x"), new LambdaArgumentDeclaration("y")),
+                        ImmutableList.of(new LambdaArgumentDeclaration(identifier("x")), new LambdaArgumentDeclaration(identifier("y"))),
                         new FunctionCall(
                                 QualifiedName.of("mod"),
                                 ImmutableList.of(new Identifier("x"), new Identifier("y")))));
@@ -1936,7 +1937,7 @@ public class TestSqlParser
     public void testPrepare()
     {
         assertStatement("PREPARE myquery FROM select * from foo",
-                new Prepare("myquery", simpleQuery(
+                new Prepare(identifier("myquery"), simpleQuery(
                         selectList(new AllColumns()),
                         table(QualifiedName.of("foo")))));
     }
@@ -1945,7 +1946,7 @@ public class TestSqlParser
     public void testPrepareWithParameters()
     {
         assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo",
-                new Prepare("myquery", simpleQuery(
+                new Prepare(identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0), new Parameter(1)),
                         table(QualifiedName.of("foo")))));
     }
@@ -1953,20 +1954,20 @@ public class TestSqlParser
     @Test
     public void testDeallocatePrepare()
     {
-        assertStatement("DEALLOCATE PREPARE myquery", new Deallocate("myquery"));
+        assertStatement("DEALLOCATE PREPARE myquery", new Deallocate(identifier("myquery")));
     }
 
     @Test
     public void testExecute()
     {
-        assertStatement("EXECUTE myquery", new Execute("myquery", emptyList()));
+        assertStatement("EXECUTE myquery", new Execute(identifier("myquery"), emptyList()));
     }
 
     @Test
     public void testExecuteWithUsing()
     {
         assertStatement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']",
-                new Execute("myquery", ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello"))))));
+                new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello"))))));
     }
 
     @Test
@@ -2061,13 +2062,13 @@ public class TestSqlParser
     @Test
     public void testDescribeOutput()
     {
-        assertStatement("DESCRIBE OUTPUT myquery", new DescribeOutput("myquery"));
+        assertStatement("DESCRIBE OUTPUT myquery", new DescribeOutput(identifier("myquery")));
     }
 
     @Test
     public void testDescribeInput()
     {
-        assertStatement("DESCRIBE INPUT myquery", new DescribeInput("myquery"));
+        assertStatement("DESCRIBE INPUT myquery", new DescribeInput(identifier("myquery")));
     }
 
     @Test

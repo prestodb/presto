@@ -756,7 +756,7 @@ public final class ExpressionTreeRewriter<C>
 
             Expression base = rewrite(node.getBase(), context.get());
             if (base != node.getBase()) {
-                return new DereferenceExpression(base, node.getFieldName());
+                return new DereferenceExpression(base, node.getField());
             }
 
             return node;

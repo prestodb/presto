@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Isolation;
@@ -100,6 +101,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
@@ -228,7 +230,7 @@ public final class SqlFormatter
                 Iterator<WithQuery> queries = with.getQueries().iterator();
                 while (queries.hasNext()) {
                     WithQuery query = queries.next();
-                    append(indent, query.getName());
+                    append(indent, formatExpression(query.getName(), parameters));
                     query.getColumnNames().ifPresent(columnNames -> appendAliasColumns(builder, columnNames));
                     builder.append(" AS ");
                     process(new TableSubquery(query.getQuery()), indent);
@@ -335,9 +337,7 @@ public final class SqlFormatter
             builder.append(formatExpression(node.getExpression(), parameters));
             if (node.getAlias().isPresent()) {
                 builder.append(' ')
-                        .append('"')
-                        .append(node.getAlias().get())
-                        .append('"'); // TODO: handle quoting properly
+                        .append(formatExpression(node.getAlias().get(), parameters));
             }
 
             return null;
@@ -413,7 +413,7 @@ public final class SqlFormatter
             process(node.getRelation(), indent);
 
             builder.append(' ')
-                    .append(formatName(node.getAlias()));
+                    .append(formatExpression(node.getAlias(), parameters));
             appendAliasColumns(builder, node.getColumnNames());
 
             return null;
@@ -747,7 +747,7 @@ public final class SqlFormatter
             builder.append("ALTER SCHEMA ")
                     .append(formatName(node.getSource()))
                     .append(" RENAME TO ")
-                    .append(formatName(node.getTarget()));
+                    .append(formatExpression(node.getTarget(), parameters));
 
             return null;
         }
@@ -762,7 +762,7 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
 
             if (node.getColumnAliases().isPresent()) {
-                String columnList = node.getColumnAliases().get().stream().map(element -> formatName(element.getName())).collect(joining(", "));
+                String columnList = node.getColumnAliases().get().stream().map(element -> formatExpression(element, parameters)).collect(joining(", "));
                 builder.append(format("( %s )", columnList));
             }
 
@@ -797,7 +797,7 @@ public final class SqlFormatter
                     .map(element -> {
                         if (element instanceof ColumnDefinition) {
                             ColumnDefinition column = (ColumnDefinition) element;
-                            return elementIndent + formatName(column.getName()) + " " + column.getType() +
+                            return elementIndent + formatExpression(column.getName(), parameters) + " " + column.getType() +
                                     column.getComment()
                                             .map(comment -> " COMMENT " + formatStringLiteral(comment))
                                             .orElse("");
@@ -847,7 +847,7 @@ public final class SqlFormatter
             if (NAME_PATTERN.matcher(name).matches()) {
                 return name;
             }
-            return "\"" + name + "\"";
+            return "\"" + name.replace("\"", "\"\"") + "\"";
         }
 
         private static String formatName(QualifiedName name)
@@ -899,7 +899,7 @@ public final class SqlFormatter
             builder.append("ALTER TABLE ")
                     .append(formatName(node.getTable()))
                     .append(" DROP COLUMN ")
-                    .append(formatName(node.getColumn()));
+                    .append(formatExpression(node.getColumn(), parameters));
 
             return null;
         }
@@ -1144,12 +1144,16 @@ public final class SqlFormatter
         }
     }
 
-    private static void appendAliasColumns(StringBuilder builder, List<String> columns)
+    private static void appendAliasColumns(StringBuilder builder, List<Identifier> columns)
     {
         if ((columns != null) && (!columns.isEmpty())) {
-            builder.append(" (");
-            Joiner.on(", ").appendTo(builder, columns);
-            builder.append(')');
+            String formattedColumns = columns.stream()
+                    .map(name -> formatExpression(name, Optional.empty()))
+                    .collect(Collectors.joining(", "));
+
+            builder.append(" (")
+                    .append(formattedColumns)
+                    .append(')');
         }
     }
 }

@@ -288,13 +288,18 @@ public final class ExpressionFormatter
         @Override
         protected String visitIdentifier(Identifier node, Void context)
         {
-            return formatIdentifier(node.getName());
+            if (!node.isDelimited()) {
+                return node.getValue();
+            }
+            else {
+                return '"' + node.getValue().replace("\"", "\"\"") + '"';
+            }
         }
 
         @Override
         protected String visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, Void context)
         {
-            return formatIdentifier(node.getName());
+            return formatExpression(node.getName(), parameters);
         }
 
         @Override
@@ -307,7 +312,7 @@ public final class ExpressionFormatter
         protected String visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             String baseString = process(node.getBase(), context);
-            return baseString + "." + formatIdentifier(node.getFieldName());
+            return baseString + "." + process(node.getField());
         }
 
         private static String formatQualifiedName(QualifiedName name)

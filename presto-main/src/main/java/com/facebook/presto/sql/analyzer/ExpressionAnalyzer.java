@@ -361,14 +361,14 @@ public class ExpressionAnalyzer
         protected Type visitIdentifier(Identifier node, StackableAstVisitorContext<Context> context)
         {
             if (context.getContext().isInLambda()) {
-                LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getNameToLambdaArgumentDeclarationMap().get(node.getName());
+                LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getNameToLambdaArgumentDeclarationMap().get(node.getValue());
                 if (lambdaArgumentDeclaration != null) {
                     lambdaArgumentReferences.put(NodeRef.of(node), lambdaArgumentDeclaration);
                     Type result = getExpressionType(lambdaArgumentDeclaration);
                     return setExpressionType(node, result);
                 }
             }
-            return handleResolvedField(node, scope.resolveField(node, QualifiedName.of(node.getName())));
+            return handleResolvedField(node, scope.resolveField(node, QualifiedName.of(node.getValue())));
         }
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField)
@@ -410,7 +410,7 @@ public class ExpressionAnalyzer
 
             Type rowFieldType = null;
             for (RowField rowField : rowType.getFields()) {
-                if (node.getFieldName().equalsIgnoreCase(rowField.getName().orElse(null))) {
+                if (node.getField().getValue().equalsIgnoreCase(rowField.getName().orElse(null))) {
                     rowFieldType = rowField.getType();
                     break;
                 }
@@ -1074,7 +1074,7 @@ public class ExpressionAnalyzer
             }
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
-                nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName(), lambdaArgument);
+                nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName().getValue(), lambdaArgument);
                 setExpressionType(lambdaArgument, types.get(i));
             }
             Type returnType = process(node.getBody(), new StackableAstVisitorContext<Context>(Context.inLambda(nameToLambdaArgumentDeclarationMap)));

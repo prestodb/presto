@@ -397,7 +397,7 @@ public class LogicalPlanner
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         int aliasPosition = 0;
         for (Field field : plan.getDescriptor().getVisibleFields()) {
-            String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getName() : field.getName().get();
+            String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
             columns.add(new ColumnMetadata(columnName, field.getType()));
             aliasPosition++;
         }

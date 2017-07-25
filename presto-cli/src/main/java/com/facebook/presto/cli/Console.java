@@ -20,6 +20,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.parser.StatementSplitter;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Use;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -290,7 +291,7 @@ public class Console
     {
         if (parsedStatement instanceof Use) {
             Use use = (Use) parsedStatement;
-            session = withCatalogAndSchema(session, use.getCatalog().orElse(session.getCatalog()), use.getSchema());
+            session = withCatalogAndSchema(session, use.getCatalog().map(Identifier::getValue).orElse(session.getCatalog()), use.getSchema().getValue());
             session = withProperties(session, existingProperties);
             session = withPreparedStatements(session, existingPreparedStatements);
         }

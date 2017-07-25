@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -345,6 +346,7 @@ public final class SqlToRowExpressionTranslator
             List<Type> argumentTypes = typeParameters.subList(0, typeParameters.size() - 1);
             List<String> argumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
+                    .map(Identifier::getValue)
                     .collect(toImmutableList());
 
             return new LambdaDefinitionExpression(argumentTypes, argumentNames, body);
@@ -554,12 +556,12 @@ public final class SqlToRowExpressionTranslator
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 RowField field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getFieldName())) {
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getField().getValue())) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }
             }
-            checkState(index >= 0, "could not find field name: %s", node.getFieldName());
+            checkState(index >= 0, "could not find field name: %s", node.getField());
             Type returnType = getType(node);
             return call(dereferenceSignature(returnType, rowType), returnType, process(node.getBase(), context), constant(index, INTEGER));
         }

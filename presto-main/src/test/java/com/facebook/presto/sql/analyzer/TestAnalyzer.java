@@ -245,17 +245,17 @@ public class TestAnalyzer
 
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:16: Subquery uses '\"u\".\"a\"' which must appear in GROUP BY clause",
+                "line 1:16: Subquery uses 'u.a' which must appear in GROUP BY clause",
                 "SELECT (SELECT u.a from (values 1) x(a)) FROM t1 u GROUP BY b");
 
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:16: Subquery uses '\"a\"' which must appear in GROUP BY clause",
+                "line 1:16: Subquery uses 'a' which must appear in GROUP BY clause",
                 "SELECT (SELECT a+2) FROM t1 GROUP BY a+1");
 
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:36: Subquery uses '\"u\".\"a\"' which must appear in GROUP BY clause",
+                "line 1:36: Subquery uses 'u.a' which must appear in GROUP BY clause",
                 "SELECT (SELECT 1 FROM t1 WHERE a = u.a) FROM t1 u GROUP BY b");
 
         // (t1.)a is not part of GROUP BY
@@ -278,17 +278,17 @@ public class TestAnalyzer
 
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:22: Subquery uses '\"u\".\"a\"' which must appear in GROUP BY clause",
+                "line 1:22: Subquery uses 'u.a' which must appear in GROUP BY clause",
                 "SELECT EXISTS(SELECT u.a from (values 1) x(a)) FROM t1 u GROUP BY b");
 
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:22: Subquery uses '\"a\"' which must appear in GROUP BY clause",
+                "line 1:22: Subquery uses 'a' which must appear in GROUP BY clause",
                 "SELECT EXISTS(SELECT a+2) FROM t1 GROUP BY a+1");
 
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:42: Subquery uses '\"u\".\"a\"' which must appear in GROUP BY clause",
+                "line 1:42: Subquery uses 'u.a' which must appear in GROUP BY clause",
                 "SELECT EXISTS(SELECT 1 FROM t1 WHERE a = u.a) FROM t1 u GROUP BY b");
 
         // (t1.)a is not part of GROUP BY
@@ -307,7 +307,7 @@ public class TestAnalyzer
 
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:16: Subquery uses '\"t\".\"a\"' which must appear in GROUP BY clause",
+                "line 1:16: Subquery uses 't.a' which must appear in GROUP BY clause",
                 "SELECT (SELECT t.a.someField) " +
                         "FROM (VALUES ROW(CAST(ROW(1) AS ROW(someField BIGINT)), 2)) t(a, b) " +
                         "GROUP BY b");
@@ -523,7 +523,7 @@ public class TestAnalyzer
 
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:46: Subquery uses '\"b\"' which must appear in GROUP BY clause",
+                "line 1:46: Subquery uses 'b' which must appear in GROUP BY clause",
                 "SELECT a FROM t1 GROUP BY a ORDER BY (SELECT b)");
 
         analyze("SELECT a AS b FROM t1 GROUP BY t1.a ORDER BY (SELECT b)");
@@ -1297,7 +1297,7 @@ public class TestAnalyzer
         // non-GROUP BY column captured in lambda
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:34: Subquery uses '\"a\"' which must appear in GROUP BY clause",
+                "line 1:34: Subquery uses 'a' which must appear in GROUP BY clause",
                 "SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
                         "FROM t1 u GROUP BY b");
         // TODO #7784
@@ -1321,7 +1321,7 @@ public class TestAnalyzer
         analyze("SELECT count(*) AS output_column FROM t1 GROUP BY a ORDER BY (SELECT apply(0, x -> x + output_column))");
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
-                "line 1:71: Subquery uses '\"b\"' which must appear in GROUP BY clause",
+                "line 1:71: Subquery uses 'b' which must appear in GROUP BY clause",
                 "SELECT count(*) FROM t1 GROUP BY a ORDER BY (SELECT apply(0, x -> x + b))");
     }
 

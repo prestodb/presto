@@ -117,7 +117,7 @@ public class Scope
     {
         QualifiedName name = null;
         if (expression instanceof Identifier) {
-            name = QualifiedName.of(((Identifier) expression).getName());
+            name = QualifiedName.of(((Identifier) expression).getValue());
         }
         else if (expression instanceof DereferenceExpression) {
             name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);

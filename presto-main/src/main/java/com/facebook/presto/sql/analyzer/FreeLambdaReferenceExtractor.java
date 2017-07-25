@@ -67,7 +67,7 @@ public class FreeLambdaReferenceExtractor
         @Override
         protected Void visitIdentifier(Identifier node, Set<String> lambdaArgumentNames)
         {
-            if (analysis.getLambdaArgumentReferences().containsKey(NodeRef.of(node)) && !lambdaArgumentNames.contains(node.getName())) {
+            if (analysis.getLambdaArgumentReferences().containsKey(NodeRef.of(node)) && !lambdaArgumentNames.contains(node.getValue())) {
                 freeReferencesToLambdaArgument.add(node);
             }
             return null;
@@ -80,6 +80,7 @@ public class FreeLambdaReferenceExtractor
                     .addAll(lambdaArgumentNames)
                     .addAll(node.getArguments().stream()
                             .map(LambdaArgumentDeclaration::getName)
+                            .map(Identifier::getValue)
                             .collect(toImmutableSet()))
                     .build());
         }

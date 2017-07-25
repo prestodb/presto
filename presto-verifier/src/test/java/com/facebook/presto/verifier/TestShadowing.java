@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.verifier.QueryType.READ;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -81,8 +82,8 @@ public class TestShadowing
         assertEquals(PrestoVerifier.statementToQueryType(parser, rewrittenQuery.getQuery()), READ);
 
         Table table = new Table(createTableAs.getName());
-        SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("column1"))));
-        SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("column2"), new LongLiteral("1"))))));
+        SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("COLUMN1"))));
+        SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("COLUMN2"), new LongLiteral("1"))))));
         Select select = new Select(false, ImmutableList.of(column1, column2));
         QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new com.facebook.presto.sql.tree.Query(Optional.empty(), querySpecification, Optional.empty(), Optional.empty()));
@@ -126,7 +127,7 @@ public class TestShadowing
 
         Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1));
         assertEquals(insert.getTarget(), createTable.getName());
-        assertEquals(insert.getColumns(), Optional.of(ImmutableList.of("b", "a", "c")));
+        assertEquals(insert.getColumns(), Optional.of(ImmutableList.of(identifier("b"), identifier("a"), identifier("c"))));
 
         Table table = new Table(createTable.getName());
         SingleColumn columnA = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("A"))));

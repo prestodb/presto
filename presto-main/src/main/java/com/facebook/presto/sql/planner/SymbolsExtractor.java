@@ -126,7 +126,7 @@ public final class SymbolsExtractor
         @Override
         protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<QualifiedName> builder)
         {
-            builder.add(QualifiedName.of(node.getName()));
+            builder.add(QualifiedName.of(node.getValue()));
             return null;
         }
     }

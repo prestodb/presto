@@ -69,14 +69,14 @@ public class ExpressionSymbolInliner
         public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                String argumentName = argument.getName();
+                String argumentName = argument.getName().getValue();
                 // Symbol names are unique. As a result, a symbol should never be excluded multiple times.
                 checkArgument(!excludedNames.contains(argumentName));
                 excludedNames.add(argumentName);
             }
             Expression result = treeRewriter.defaultRewrite(node, context);
             for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                excludedNames.remove(argument.getName());
+                excludedNames.remove(argument.getName().getValue());
             }
             return result;
         }

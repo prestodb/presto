@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
@@ -91,7 +92,7 @@ public class TestCreateTableTask
             throws Exception
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
-                ImmutableList.of(new ColumnDefinition("a", "BIGINT", Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", Optional.empty())),
                 true,
                 ImmutableMap.of(),
                 Optional.empty());
@@ -105,7 +106,7 @@ public class TestCreateTableTask
             throws Exception
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
-                ImmutableList.of(new ColumnDefinition("a", "BIGINT", Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", Optional.empty())),
                 false,
                 ImmutableMap.of(),
                 Optional.empty());

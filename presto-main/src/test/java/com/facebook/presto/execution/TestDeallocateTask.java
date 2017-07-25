@@ -21,6 +21,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.tree.Deallocate;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
@@ -81,7 +82,7 @@ public class TestDeallocateTask
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata);
-        Deallocate deallocate = new Deallocate(statementName);
+        Deallocate deallocate = new Deallocate(new Identifier(statementName));
         new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getDeallocatedPreparedStatements();
     }
