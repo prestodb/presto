@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
@@ -61,15 +62,20 @@ public class DomainConverter
 
     public OptionalDouble translateToDouble(Object object)
     {
-        if (!isDoubleTranslationSupported(type)) {
-            return OptionalDouble.empty();
+        if (convertibleToDoubleWithCast(type)) {
+            FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
+            Signature castSignature = functionRegistry.getCoercion(type, DoubleType.DOUBLE);
+            return OptionalDouble.of((double) functionInvoker.invoke(castSignature, session, singletonList(object)));
         }
-        FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
-        Signature castSignature = functionRegistry.getCoercion(type, DoubleType.DOUBLE);
-        return OptionalDouble.of((double) functionInvoker.invoke(castSignature, session, singletonList(object)));
+
+        if (DateType.DATE.equals(type)) {
+            return OptionalDouble.of(((Long) object).doubleValue());
+        }
+
+        return OptionalDouble.empty();
     }
 
-    private boolean isDoubleTranslationSupported(Type type)
+    private boolean convertibleToDoubleWithCast(Type type)
     {
         return type instanceof DecimalType
                 || DoubleType.DOUBLE.equals(type)
