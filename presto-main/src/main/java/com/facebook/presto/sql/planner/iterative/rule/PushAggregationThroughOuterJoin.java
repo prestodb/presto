@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -94,12 +95,14 @@ public class PushAggregationThroughOuterJoin
     }
 
     @Override
+    public boolean isEnabled(Session session)
+    {
+        return shouldPushAggregationThroughJoin(session);
+    }
+
+    @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        if (!shouldPushAggregationThroughJoin(context.getSession())) {
-            return Optional.empty();
-        }
-
         if (!(node instanceof AggregationNode)) {
             return Optional.empty();
         }

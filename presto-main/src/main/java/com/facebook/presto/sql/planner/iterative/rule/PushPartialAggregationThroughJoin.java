@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -52,12 +53,14 @@ public class PushPartialAggregationThroughJoin
     }
 
     @Override
+    public boolean isEnabled(Session session)
+    {
+        return isPushAggregationThroughJoin(session);
+    }
+
+    @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        if (!isPushAggregationThroughJoin(context.getSession())) {
-            return Optional.empty();
-        }
-
         AggregationNode aggregationNode = (AggregationNode) node;
 
         if (aggregationNode.getStep() != PARTIAL || aggregationNode.getGroupingSets().size() != 1) {
