@@ -72,6 +72,7 @@ import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.operator.DynamicFilterSummary;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -335,6 +336,9 @@ public class ServerMainModule
 
         // execution
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
+
+        // dynamic filter summary
+        jsonCodecBinder(binder).bindJsonCodec(DynamicFilterSummary.class);
 
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
