@@ -433,14 +433,10 @@ qualifiedName
 
 identifier
     : IDENTIFIER             #unquotedIdentifier
-    | quotedIdentifier       #quotedIdentifierAlternative
+    | QUOTED_IDENTIFIER      #quotedIdentifier
     | nonReserved            #unquotedIdentifier
     | BACKQUOTED_IDENTIFIER  #backQuotedIdentifier
     | DIGIT_IDENTIFIER       #digitIdentifier
-    ;
-
-quotedIdentifier
-    : QUOTED_IDENTIFIER
     ;
 
 number

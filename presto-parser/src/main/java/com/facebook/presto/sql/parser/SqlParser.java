@@ -155,21 +155,6 @@ public class SqlParser
         }
 
         @Override
-        public void exitQuotedIdentifier(SqlBaseParser.QuotedIdentifierContext context)
-        {
-            // Remove quotes
-            context.getParent().removeLastChild();
-
-            Token token = (Token) context.getChild(0).getPayload();
-            context.getParent().addChild(new CommonToken(
-                    new Pair<>(token.getTokenSource(), token.getInputStream()),
-                    SqlBaseLexer.IDENTIFIER,
-                    token.getChannel(),
-                    token.getStartIndex() + 1,
-                    token.getStopIndex() - 1));
-        }
-
-        @Override
         public void exitNonReserved(SqlBaseParser.NonReservedContext context)
         {
             // we can't modify the tree during rule enter/exit event handling unless we're dealing with a terminal.

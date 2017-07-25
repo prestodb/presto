@@ -95,7 +95,7 @@ final class DescribeInputRewrite
         protected Node visitDescribeInput(DescribeInput node, Void context)
                 throws SemanticException
         {
-            String sqlString = session.getPreparedStatement(node.getName());
+            String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString);
 
             // create  analysis for the query we are describing.

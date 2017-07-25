@@ -52,7 +52,7 @@ public class DropColumnTask
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
 
-        String column = statement.getColumn().toLowerCase(ENGLISH);
+        String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
 
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);

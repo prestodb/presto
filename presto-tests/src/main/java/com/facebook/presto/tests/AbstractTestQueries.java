@@ -518,7 +518,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT a.col0, count(*) FROM (VALUES ROW(cast(ROW(1, 1) as ROW(col0 integer, col1 integer)))) t(a)",
-                "line 1:8: '\"a\".\"col0\"' must be an aggregate expression or appear in GROUP BY clause");
+                "line 1:8: 'a.col0' must be an aggregate expression or appear in GROUP BY clause");
     }
 
     @Test
@@ -8520,7 +8520,7 @@ public abstract class AbstractTestQueries
             assertEquals(e.getCode(), MUST_BE_AGGREGATE_OR_GROUP_BY);
         }
         catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "line 1:10: '(\"a\" + ?)' must be an aggregate expression or appear in GROUP BY clause");
+            assertEquals(e.getMessage(), "line 1:10: '(a + ?)' must be an aggregate expression or appear in GROUP BY clause");
         }
     }
 

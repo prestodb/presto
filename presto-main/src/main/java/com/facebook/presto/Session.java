@@ -225,7 +225,7 @@ public final class Session
 
     public String getPreparedStatementFromExecute(Execute execute)
     {
-        return getPreparedStatement(execute.getName());
+        return getPreparedStatement(execute.getName().getValue());
     }
 
     public String getPreparedStatement(String name)
