@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -426,7 +426,7 @@ public class OptimizeMixedDistinctAggregations
             return metadata.getFunctionRegistry()
                     .resolveFunction(
                             functionName,
-                            ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature())));
+                            ImmutableList.of(new PlainTypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature())));
         }
 
         // creates if clause specific to use case here, default value always null

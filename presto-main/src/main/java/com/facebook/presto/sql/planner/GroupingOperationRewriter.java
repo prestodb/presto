@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.FieldId;
+import com.facebook.presto.sql.analyzer.PlainTypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -104,9 +105,9 @@ public final class GroupingOperationRewriter
                     shouldUseIntegerReturnType(expression) ? QualifiedName.of(INTEGER_GROUPING) : QualifiedName.of(BIGINT_GROUPING),
                     newGroupingArguments);
             List<TypeSignatureProvider> functionArgumentTypes = Arrays.asList(
-                    new TypeSignatureProvider(BIGINT.getTypeSignature()),
-                    new TypeSignatureProvider(ListLiteralType.LIST_LITERAL.getTypeSignature()),
-                    new TypeSignatureProvider(ListLiteralType.LIST_LITERAL.getTypeSignature())
+                    new PlainTypeSignatureProvider(BIGINT.getTypeSignature()),
+                    new PlainTypeSignatureProvider(ListLiteralType.LIST_LITERAL.getTypeSignature()),
+                    new PlainTypeSignatureProvider(ListLiteralType.LIST_LITERAL.getTypeSignature())
             );
             resolveFunction(rewritten, functionArgumentTypes, metadata.getFunctionRegistry());
 

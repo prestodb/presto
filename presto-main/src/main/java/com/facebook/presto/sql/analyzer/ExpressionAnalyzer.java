@@ -133,6 +133,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
@@ -354,6 +355,9 @@ public class ExpressionAnalyzer
                 }
             }
             Type type = symbolTypes.get(Symbol.from(node));
+            if (type == null) {
+                throw new SemanticException(MISSING_ATTRIBUTE, node, "Unknown identifier: %s", node);
+            }
             return setExpressionType(node, type);
         }
 
@@ -781,7 +785,7 @@ public class ExpressionAnalyzer
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
                 if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(
+                    argumentTypesBuilder.add(new LambdaTypeSignatureProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                         functionRegistry,
@@ -800,7 +804,7 @@ public class ExpressionAnalyzer
                             }));
                 }
                 else {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, context).getTypeSignature()));
+                    argumentTypesBuilder.add(new PlainTypeSignatureProvider(process(expression, context).getTypeSignature()));
                 }
             }
 
@@ -819,7 +823,7 @@ public class ExpressionAnalyzer
                     process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
                 }
                 else {
-                    Type actualType = typeManager.getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = typeManager.getType(argumentTypes.get(i).getTypeSignature(ImmutableList.of()));
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }

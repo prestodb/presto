@@ -7770,7 +7770,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT greatest(rgb(255, 0, 0))",
-                "\\Qline 1:8: Unexpected parameters (color) for function greatest. Expected: greatest(E) E:orderable\\E.*");
+                "\\Qline 1:8: Unexpected parameters (color) for function greatest. Expected: greatest(E) for type(s): E:orderable\\E.*");
     }
 
     @Test
