@@ -43,7 +43,7 @@ import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.aggrega
 import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.filter;
 import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.join;
 import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.project;
-import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.tablesScan;
+import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.tableScan;
 import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.values;
 
 public class ExpressionRewriteRuleSet
@@ -159,7 +159,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public Pattern getPattern()
         {
-            return tablesScan();
+            return tableScan();
         }
 
         @Override
