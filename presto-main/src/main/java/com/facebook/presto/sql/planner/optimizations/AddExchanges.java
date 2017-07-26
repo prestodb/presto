@@ -490,16 +490,18 @@ public class AddExchanges
                 List<Symbol> orderBy = node.getOrderBy();
                 Map<Symbol, SortOrder> orderings = node.getOrderings();
 
+                PlanNode source = child.getNode();
+                if (SystemSessionProperties.isRedistributeSort(session)) {
+                    source = roundRobinExchange(idAllocator.getNextId(), REMOTE, source);
+                }
+
                 return withDerivedProperties(
                         mergingExchange(
                                 idAllocator.getNextId(),
                                 REMOTE,
                                 new SortNode(
                                         idAllocator.getNextId(),
-                                        roundRobinExchange(
-                                                idAllocator.getNextId(),
-                                                REMOTE,
-                                                child.getNode()),
+                                        source,
                                         orderBy,
                                         orderings),
                                 new OrderingScheme(orderBy, orderings)),

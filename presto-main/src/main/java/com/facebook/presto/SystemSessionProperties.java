@@ -74,6 +74,7 @@ public final class SystemSessionProperties
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String DISTRIBUTED_SORT = "distributed_sort";
+    public static final String REDISTRIBUTE_SORT = "redistribute_sort";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -324,6 +325,11 @@ public final class SystemSessionProperties
                         DISTRIBUTED_SORT,
                         "Parallelize sort across multiple nodes",
                         featuresConfig.isDistributedSortEnabled(),
+                        false),
+                booleanSessionProperty(
+                        REDISTRIBUTE_SORT,
+                        "Force data redistribution before partial sort",
+                        featuresConfig.isRedistributeSort(),
                         false));
     }
 
@@ -509,5 +515,10 @@ public final class SystemSessionProperties
     public static boolean isDistributedSortEnabled(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
+    }
+
+    public static boolean isRedistributeSort(Session session)
+    {
+        return session.getSystemProperty(REDISTRIBUTE_SORT, Boolean.class);
     }
 }
