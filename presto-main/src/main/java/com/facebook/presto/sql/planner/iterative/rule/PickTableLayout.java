@@ -29,7 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.filter;
-import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.tablesScan;
+import static com.facebook.presto.sql.planner.iterative.PlanNodePatterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
 public class PickTableLayout
@@ -109,7 +109,7 @@ public class PickTableLayout
         @Override
         public Pattern getPattern()
         {
-            return tablesScan();
+            return tableScan();
         }
 
         @Override

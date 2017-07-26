@@ -49,7 +49,7 @@ public class PlanNodePatterns
         return FILTER;
     }
 
-    public static Pattern tablesScan()
+    public static Pattern tableScan()
     {
         return TABLE_SCAN;
     }
