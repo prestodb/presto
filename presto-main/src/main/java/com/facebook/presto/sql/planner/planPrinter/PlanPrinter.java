@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.execution.StageInfo;
@@ -34,6 +35,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -1011,8 +1013,15 @@ public class PlanPrinter
         public Void visitSort(SortNode node, Integer indent)
         {
             Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
+            boolean isPartial = false;
+            if (SystemSessionProperties.isDistributedSortEnabled(session)) {
+                isPartial = true;
+            }
 
-            print(indent, "- Sort[%s] => [%s]", Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- %sSort[%s] => [%s]",
+                    isPartial ? "Partial" : "",
+                    Joiner.on(", ").join(keys),
+                    formatOutputs(node.getOutputSymbols()));
             printCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             return processChildren(node, indent + 1);
@@ -1021,7 +1030,10 @@ public class PlanPrinter
         @Override
         public Void visitRemoteSource(RemoteSourceNode node, Integer indent)
         {
-            print(indent, "- RemoteSource[%s] => [%s]", Joiner.on(',').join(node.getSourceFragmentIds()), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- Remote%s[%s] => [%s]",
+                    node.getOrderingScheme().isPresent() ? "Merge" : "Source",
+                    Joiner.on(',').join(node.getSourceFragmentIds()),
+                    formatOutputs(node.getOutputSymbols()));
             printCost(indent + 2, node);
             printStats(indent + 2, node.getId());
 
@@ -1096,7 +1108,19 @@ public class PlanPrinter
         @Override
         public Void visitExchange(ExchangeNode node, Integer indent)
         {
-            if (node.getScope() == Scope.LOCAL) {
+            if (node.getOrderingScheme().isPresent()) {
+                OrderingScheme orderingScheme = node.getOrderingScheme().get();
+                List<String> orderBy = orderingScheme.getOrderBy()
+                        .stream()
+                        .map(input -> input + " " + orderingScheme.getOrderings().get(input))
+                        .collect(toImmutableList());
+
+                print(indent, "- %sMerge[%s] => [%s]",
+                        UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString()),
+                        Joiner.on(", ").join(orderBy),
+                        formatOutputs(node.getOutputSymbols()));
+            }
+            else if (node.getScope() == Scope.LOCAL) {
                 print(indent, "- LocalExchange[%s%s]%s (%s) => %s",
                         node.getPartitioningScheme().getPartitioning().getHandle(),
                         node.getPartitioningScheme().isReplicateNullsAndAny() ? " - REPLICATE NULLS AND ANY" : "",
