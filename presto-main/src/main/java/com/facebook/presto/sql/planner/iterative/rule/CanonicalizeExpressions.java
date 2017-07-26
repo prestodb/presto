@@ -18,6 +18,6 @@ public class CanonicalizeExpressions
 {
     public CanonicalizeExpressions()
     {
-        super((expression, context) -> CanonicalizeExpressionRewriter.rewrite(expression));
+        super((expression, context) -> CanonicalizeExpressionRewriter.canonicalizeExpression(expression));
     }
 }
