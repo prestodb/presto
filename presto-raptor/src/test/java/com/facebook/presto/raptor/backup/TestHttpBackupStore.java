@@ -66,6 +66,7 @@ public class TestHttpBackupStore
                 .strictConfig()
                 .setRequiredConfigurationProperties(properties)
                 .doNotInitializeLogging()
+                .quiet()
                 .initialize();
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
