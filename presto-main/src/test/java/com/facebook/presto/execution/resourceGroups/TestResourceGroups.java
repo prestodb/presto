@@ -37,6 +37,7 @@ import java.util.TreeMap;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
@@ -44,6 +45,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.reverse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -480,18 +482,18 @@ public class TestResourceGroups
     public void testGetResourceGroupStateInfo()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> { }, directExecutor());
-        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
         root.setMaxQueuedQueries(40);
         root.setMaxRunningQueries(10);
         root.setSchedulingPolicy(WEIGHTED);
 
         InternalResourceGroup rootA = root.getOrCreateSubGroup("a");
-        rootA.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootA.setSoftMemoryLimit(new DataSize(10, MEGABYTE));
         rootA.setMaxQueuedQueries(20);
         rootA.setMaxRunningQueries(0);
 
         InternalResourceGroup rootB = root.getOrCreateSubGroup("b");
-        rootB.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        rootB.setSoftMemoryLimit(new DataSize(5, MEGABYTE));
         rootB.setMaxQueuedQueries(20);
         rootB.setMaxRunningQueries(1);
         rootB.setSchedulingWeight(2);
@@ -518,7 +520,25 @@ public class TestResourceGroups
         assertEquals(stateInfo.getMemoryUsage(), new DataSize(0, BYTE));
         assertEquals(stateInfo.getSubGroups().size(), 2);
         assertEquals(stateInfo.getSubGroups().get(0).getId(), rootA.getId());
+        assertEquals(stateInfo.getSubGroups().get(0).getState(), CAN_QUEUE);
+        assertEquals(stateInfo.getSubGroups().get(0).getSoftMemoryLimit(), rootA.getSoftMemoryLimit());
+        assertEquals(stateInfo.getSubGroups().get(0).getRunningTimeLimit(), rootA.getRunningTimeLimit());
+        assertEquals(stateInfo.getSubGroups().get(0).getQueuedTimeLimit(), rootA.getQueuedTimeLimit());
+        assertEquals(stateInfo.getSubGroups().get(0).getMaxRunningQueries(), rootA.getMaxRunningQueries());
+        assertEquals(stateInfo.getSubGroups().get(0).getMaxQueuedQueries(), rootA.getMaxQueuedQueries());
+        assertEquals(stateInfo.getSubGroups().get(0).getNumEligibleSubGroups(), 2);
+        assertEquals(stateInfo.getSubGroups().get(0).getNumAggregatedRunningQueries(), 0);
+        assertEquals(stateInfo.getSubGroups().get(0).getNumAggregatedQueuedQueries(), 10);
         assertEquals(stateInfo.getSubGroups().get(1).getId(), rootB.getId());
+        assertEquals(stateInfo.getSubGroups().get(1).getState(), CAN_QUEUE);
+        assertEquals(stateInfo.getSubGroups().get(1).getSoftMemoryLimit(), rootB.getSoftMemoryLimit());
+        assertEquals(stateInfo.getSubGroups().get(1).getRunningTimeLimit(), rootA.getRunningTimeLimit());
+        assertEquals(stateInfo.getSubGroups().get(1).getQueuedTimeLimit(), rootA.getQueuedTimeLimit());
+        assertEquals(stateInfo.getSubGroups().get(1).getMaxRunningQueries(), rootB.getMaxRunningQueries());
+        assertEquals(stateInfo.getSubGroups().get(1).getMaxQueuedQueries(), rootB.getMaxQueuedQueries());
+        assertEquals(stateInfo.getSubGroups().get(1).getNumEligibleSubGroups(), 0);
+        assertEquals(stateInfo.getSubGroups().get(1).getNumAggregatedRunningQueries(), 1);
+        assertEquals(stateInfo.getSubGroups().get(1).getNumAggregatedQueuedQueries(), 9);
         assertEquals(stateInfo.getMaxRunningQueries(), root.getMaxRunningQueries());
         assertEquals(stateInfo.getRunningTimeLimit(), new Duration(Long.MAX_VALUE, MILLISECONDS));
         assertEquals(stateInfo.getMaxQueuedQueries(), root.getMaxQueuedQueries());
