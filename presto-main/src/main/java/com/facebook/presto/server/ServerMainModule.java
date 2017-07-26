@@ -19,9 +19,10 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.LocationFactory;
@@ -130,7 +131,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.node.NodeInfo;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
 import io.airlift.units.DataSize;
@@ -185,10 +186,10 @@ public class ServerMainModule
 
         if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toProvider(QueryPerformanceFetcherProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>(){}).toInstance(Optional.empty());
+            binder.bind(new TypeLiteral<Optional<QueryPerformanceFetcher>>() {}).toInstance(Optional.empty());
             // Install no-op resource group manager on workers, since only coordinators manage resource groups.
             binder.bind(ResourceGroupManager.class).to(NoOpResourceGroupManager.class).in(Scopes.SINGLETON);
 
@@ -197,6 +198,12 @@ public class ServerMainModule
                 throw new UnsupportedOperationException();
             }));
         }
+
+        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
+        configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+            config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
+            config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
+        });
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
@@ -341,6 +348,9 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
+        // statistics calculator
+        binder.bind(CostCalculator.class).to(CoefficientBasedCostCalculator.class).in(Scopes.SINGLETON);
+
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
@@ -435,13 +445,6 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
-    }
-
-    @Provides
-    @Singleton
-    public static ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig)
-    {
-        return new ServerInfo(nodeVersion, nodeInfo.getEnvironment(), serverConfig.isCoordinator());
     }
 
     @Provides

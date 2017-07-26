@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.matching.MatchingEngine;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -24,9 +25,9 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,7 +42,7 @@ public class IterativeOptimizer
         implements PlanOptimizer
 {
     private final List<PlanOptimizer> legacyRules;
-    private final Set<Rule> rules;
+    private final MatchingEngine<Rule> ruleStore;
     private final StatsRecorder stats;
 
     public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
@@ -52,10 +53,13 @@ public class IterativeOptimizer
     public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
-        this.rules = ImmutableSet.copyOf(newRules);
+        this.ruleStore = MatchingEngine.<Rule>builder()
+                .register(newRules)
+                .build();
+
         this.stats = stats;
 
-        stats.registerAll(rules);
+        stats.registerAll(newRules);
     }
 
     @Override
@@ -71,14 +75,7 @@ public class IterativeOptimizer
         }
 
         Memo memo = new Memo(idAllocator, plan);
-
-        Lookup lookup = node -> {
-            if (node instanceof GroupReference) {
-                return memo.getNode(((GroupReference) node).getGroupId());
-            }
-
-            return node;
-        };
+        Lookup lookup = Lookup.from(memo::resolve);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session));
@@ -119,12 +116,19 @@ public class IterativeOptimizer
             }
 
             done = true;
-            for (Rule rule : rules) {
+            Iterator<Rule> possiblyMatchingRules = ruleStore.getCandidates(node).iterator();
+            while (possiblyMatchingRules.hasNext()) {
+                Rule rule = possiblyMatchingRules.next();
                 Optional<PlanNode> transformed;
+
+                if (!rule.getPattern().matches(node)) {
+                    continue;
+                }
+
                 long duration;
                 try {
                     long start = System.nanoTime();
-                    transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator(), context.getSession());
+                    transformed = rule.apply(node, context);
                     duration = System.nanoTime() - start;
                 }
                 catch (RuntimeException e) {
@@ -167,6 +171,7 @@ public class IterativeOptimizer
     }
 
     private static class Context
+            implements Rule.Context
     {
         private final Memo memo;
         private final Lookup lookup;
@@ -201,16 +206,19 @@ public class IterativeOptimizer
             return memo;
         }
 
+        @Override
         public Lookup getLookup()
         {
             return lookup;
         }
 
+        @Override
         public PlanNodeIdAllocator getIdAllocator()
         {
             return idAllocator;
         }
 
+        @Override
         public SymbolAllocator getSymbolAllocator()
         {
             return symbolAllocator;
@@ -226,6 +234,7 @@ public class IterativeOptimizer
             return timeoutInMilliseconds;
         }
 
+        @Override
         public Session getSession()
         {
             return session;

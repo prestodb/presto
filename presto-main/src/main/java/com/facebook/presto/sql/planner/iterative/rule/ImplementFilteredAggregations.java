@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -34,16 +32,13 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:
- *
  * <pre>
  * - Aggregation
  *        F1(...) FILTER (WHERE C1(...)),
  *        F2(...) FILTER (WHERE C2(...))
  *     - X
  * </pre>
- *
  * into
- *
  * <pre>
  * - Aggregation
  *        F1(...) mask ($0)
@@ -58,47 +53,48 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 public class ImplementFilteredAggregations
         implements Rule
 {
-    @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
-    {
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
+    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
 
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
+    @Override
+    public Optional<PlanNode> apply(PlanNode node, Context context)
+    {
         AggregationNode aggregation = (AggregationNode) node;
 
         boolean hasFilters = aggregation.getAggregations()
-                .entrySet().stream()
-                .anyMatch(e -> e.getValue().getFilter().isPresent() &&
-                        !aggregation.getMasks().containsKey(e.getKey())); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
+                .values().stream()
+                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
+                        !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
 
         if (!hasFilters) {
             return Optional.empty();
         }
 
         Assignments.Builder newAssignments = Assignments.builder();
-        ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.<Symbol, Symbol>builder()
-                .putAll(aggregation.getMasks());
-        ImmutableMap.Builder<Symbol, FunctionCall> calls = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
 
-        for (Map.Entry<Symbol, FunctionCall> entry : aggregation.getAggregations().entrySet()) {
+        for (Map.Entry<Symbol, Aggregation> entry : aggregation.getAggregations().entrySet()) {
             Symbol output = entry.getKey();
 
             // strip the filters
-            FunctionCall call = entry.getValue();
-            calls.put(output, new FunctionCall(
-                    call.getName(),
-                    call.getWindow(),
-                    Optional.empty(),
-                    call.isDistinct(),
-                    call.getArguments()));
+            FunctionCall call = entry.getValue().getCall();
+            Optional<Symbol> mask = entry.getValue().getMask();
 
             if (call.getFilter().isPresent()) {
-                Expression filter = entry.getValue().getFilter().get();
-                Symbol symbol = symbolAllocator.newSymbol(filter, BOOLEAN);
+                Expression filter = call.getFilter().get();
+                Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
                 newAssignments.put(symbol, filter);
-                masks.put(output, symbol);
+                mask = Optional.of(symbol);
             }
+            aggregations.put(output, new Aggregation(
+                    new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.isDistinct(), call.getArguments()),
+                    entry.getValue().getSignature(),
+                    mask));
         }
 
         // identity projection for all existing inputs
@@ -106,14 +102,12 @@ public class ImplementFilteredAggregations
 
         return Optional.of(
                 new AggregationNode(
-                        idAllocator.getNextId(),
+                        context.getIdAllocator().getNextId(),
                         new ProjectNode(
-                                idAllocator.getNextId(),
+                                context.getIdAllocator().getNextId(),
                                 aggregation.getSource(),
                                 newAssignments.build()),
-                        calls.build(),
-                        aggregation.getFunctions(),
-                        masks.build(),
+                        aggregations.build(),
                         aggregation.getGroupingSets(),
                         aggregation.getStep(),
                         aggregation.getHashSymbol(),

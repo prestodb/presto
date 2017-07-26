@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.util;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapred.JobConf;
 
 import java.util.Map;
 
@@ -26,5 +27,13 @@ public final class ConfigurationUtils
         for (Map.Entry<String, String> entry : from) {
             to.set(entry.getKey(), entry.getValue());
         }
+    }
+
+    public static JobConf toJobConf(Configuration conf)
+    {
+        if (conf instanceof JobConf) {
+            return (JobConf) conf;
+        }
+        return new JobConf(conf);
     }
 }

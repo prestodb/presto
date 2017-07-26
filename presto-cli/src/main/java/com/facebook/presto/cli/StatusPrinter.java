@@ -99,7 +99,7 @@ Parallelism: 2.5
                     // check for keyboard input
                     int key = readKey();
                     if (key == CTRL_P) {
-                        partialCancel();
+                        client.cancelLeafStage();
                     }
                     else if (key == CTRL_C) {
                         updateScreen();
@@ -403,16 +403,6 @@ Parallelism: 2.5
 
         for (StageStats subStage : stage.getSubStages()) {
             printStageTree(subStage, indent + "  ", stageNumberCounter);
-        }
-    }
-
-    private void partialCancel()
-    {
-        try {
-            client.cancelLeafStage(new Duration(1, SECONDS));
-        }
-        catch (RuntimeException e) {
-            log.debug(e, "error canceling leaf stage");
         }
     }
 

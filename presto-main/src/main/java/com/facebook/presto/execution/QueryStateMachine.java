@@ -304,6 +304,7 @@ public class QueryStateMachine
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int runningDrivers = 0;
+        int blockedDrivers = 0;
         int completedDrivers = 0;
 
         long cumulativeMemory = 0;
@@ -338,6 +339,7 @@ public class QueryStateMachine
             totalDrivers += stageStats.getTotalDrivers();
             queuedDrivers += stageStats.getQueuedDrivers();
             runningDrivers += stageStats.getRunningDrivers();
+            blockedDrivers += stageStats.getBlockedDrivers();
             completedDrivers += stageStats.getCompletedDrivers();
 
             cumulativeMemory += stageStats.getCumulativeMemory();
@@ -393,6 +395,7 @@ public class QueryStateMachine
                 totalDrivers,
                 queuedDrivers,
                 runningDrivers,
+                blockedDrivers,
                 completedDrivers,
 
                 cumulativeMemory,
@@ -610,13 +613,7 @@ public class QueryStateMachine
 
     private boolean transitionToFinished()
     {
-        try {
-            metadata.cleanupQuery(session);
-        }
-        catch (Throwable t) {
-            log.error("Error during cleanupQuery: %s", t);
-        }
-
+        cleanupQueryQuietly();
         recordDoneStats();
 
         return queryState.setIf(FINISHED, currentState -> !currentState.isDone());
@@ -624,20 +621,13 @@ public class QueryStateMachine
 
     public boolean transitionToFailed(Throwable throwable)
     {
-        try {
-            metadata.cleanupQuery(session);
-        }
-        catch (Throwable t) {
-            log.error("Error during cleanupQuery: %s", t);
-        }
-
-        requireNonNull(throwable, "throwable is null");
-
+        cleanupQueryQuietly();
         recordDoneStats();
 
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause
         // can only be observed if the transition to FAILED is successful.
+        requireNonNull(throwable, "throwable is null");
         failureCause.compareAndSet(null, toFailure(throwable));
 
         boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
@@ -654,6 +644,7 @@ public class QueryStateMachine
 
     public boolean transitionToCanceled()
     {
+        cleanupQueryQuietly();
         recordDoneStats();
 
         // NOTE: The failure cause must be set before triggering the state change, so
@@ -667,6 +658,16 @@ public class QueryStateMachine
         }
 
         return canceled;
+    }
+
+    private void cleanupQueryQuietly()
+    {
+        try {
+            metadata.cleanupQuery(session);
+        }
+        catch (Throwable t) {
+            log.error("Error cleaning up query: %s", t);
+        }
     }
 
     private void recordDoneStats()

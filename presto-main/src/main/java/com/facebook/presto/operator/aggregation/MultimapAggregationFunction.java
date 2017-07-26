@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -21,14 +20,13 @@ import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.MultiKeyValuePairStateSerializer;
 import com.facebook.presto.operator.aggregation.state.MultiKeyValuePairsState;
 import com.facebook.presto.operator.aggregation.state.MultiKeyValuePairsStateFactory;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -42,11 +40,9 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 
 public class MultimapAggregationFunction
         extends SqlAggregationFunction
@@ -122,12 +118,7 @@ public class MultimapAggregationFunction
         }
 
         long startSize = pairs.estimatedInMemorySize();
-        try {
-            pairs.add(key, value, position, position);
-        }
-        catch (ExceededMemoryLimitException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_agg may not exceed %s", e.getMaxMemory()));
-        }
+        pairs.add(key, value, position, position);
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
 
@@ -139,12 +130,7 @@ public class MultimapAggregationFunction
             MultiKeyValuePairs pairs = state.get();
             long startSize = pairs.estimatedInMemorySize();
             for (int i = 0; i < keys.getPositionCount(); i++) {
-                try {
-                    pairs.add(keys, values, i, i);
-                }
-                catch (ExceededMemoryLimitException e) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_agg may not exceed %s", e.getMaxMemory()));
-                }
+                pairs.add(keys, values, i, i);
             }
             state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
         }
@@ -160,9 +146,7 @@ public class MultimapAggregationFunction
             out.appendNull();
         }
         else {
-            Block block = pairs.toMultimapNativeEncoding();
-            out.writeObject(block);
-            out.closeEntry();
+            pairs.toMultimapNativeEncoding(out);
         }
     }
 }

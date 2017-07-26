@@ -79,7 +79,7 @@ public class PrestoCliLauncher
     protected ProcessBuilder getProcessBuilder(List<String> arguments)
     {
         ImmutableList command = ImmutableList.builder()
-                .add(new String[]{JAVA_BIN, "-cp", CLASSPATH, Presto.class.getCanonicalName()})
+                .add(new String[] {JAVA_BIN, "-cp", CLASSPATH, Presto.class.getCanonicalName()})
                 .addAll(arguments)
                 .build();
         return new ProcessBuilder(command);

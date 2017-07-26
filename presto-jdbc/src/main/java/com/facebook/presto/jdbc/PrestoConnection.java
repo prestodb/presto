@@ -38,6 +38,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -72,7 +73,7 @@ public class PrestoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
 
-    PrestoConnection(PrestoDriverUri uri, String user, QueryExecutor queryExecutor)
+    PrestoConnection(PrestoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
     {
         requireNonNull(uri, "uri is null");
@@ -80,9 +81,10 @@ public class PrestoConnection
         this.httpUri = uri.getHttpUri();
         this.schema.set(uri.getSchema());
         this.catalog.set(uri.getCatalog());
+        this.user = uri.getUser();
 
-        this.user = requireNonNull(user, "user is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+
         timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
     }
@@ -580,9 +582,12 @@ public class PrestoConnection
         return serverInfo.get();
     }
 
-    StatementClient startQuery(String sql)
+    StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+
+        Map<String, String> allProperties = new HashMap<>(sessionProperties);
+        allProperties.putAll(sessionPropertiesOverride);
 
         ClientSession session = new ClientSession(
                 httpUri,
@@ -593,7 +598,7 @@ public class PrestoConnection
                 schema.get(),
                 timeZoneId.get(),
                 locale.get(),
-                ImmutableMap.copyOf(sessionProperties),
+                ImmutableMap.copyOf(allProperties),
                 transactionId.get(),
                 false,
                 new Duration(2, MINUTES));

@@ -34,12 +34,15 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.math.BigInteger;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -198,6 +201,28 @@ public abstract class AbstractTestFunctions
         }
     }
 
+    public void assertCachedInstanceHasBoundedRetainedSize(String projection)
+    {
+        functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
+    }
+
+    protected void assertNotSupported(String projection, String message)
+    {
+        try {
+            functionAssertions.executeProjectionWithFullEngine(projection);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
+    }
+
+    protected void tryEvaluateWithAll(String projection, Type expectedType)
+    {
+        functionAssertions.tryEvaluateWithAll(projection, expectedType);
+    }
+
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
     {
         Metadata metadata = functionAssertions.getMetadata();
@@ -239,6 +264,22 @@ public abstract class AbstractTestFunctions
     {
         final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
         return decimal(String.format(maxPrecisionFormat, value));
+    }
+
+    // this help function should only be used when the map contains null value
+    // otherwise, use ImmutableMap.of()
+    protected static Map asMap(List keyList, List valueList)
+    {
+        if (keyList.size() != valueList.size()) {
+            fail("keyList should have same size with valueList");
+        }
+        Map map = new HashMap<>();
+        for (int i = 0; i < keyList.size(); i++) {
+            if (map.put(keyList.get(i), valueList.get(i)) != null) {
+                fail("keyList should have same size with valueList");
+            }
+        }
+        return map;
     }
 
     private void evaluateInvalid(String projection)

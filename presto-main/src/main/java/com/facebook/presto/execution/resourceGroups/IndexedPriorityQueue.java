@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterators.transform;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -109,6 +110,12 @@ final class IndexedPriorityQueue<E>
     public boolean isEmpty()
     {
         return queue.isEmpty();
+    }
+
+    @Override
+    public Iterator<E> iterator()
+    {
+        return transform(queue.iterator(), Entry::getValue);
     }
 
     private static final class Entry<E>

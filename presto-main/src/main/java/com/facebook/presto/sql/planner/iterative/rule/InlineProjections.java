@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -28,6 +25,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
@@ -47,16 +45,20 @@ import static java.util.stream.Collectors.toSet;
 public class InlineProjections
         implements Rule
 {
-    @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
-    {
-        if (!(node instanceof ProjectNode)) {
-            return Optional.empty();
-        }
+    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
 
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
+    @Override
+    public Optional<PlanNode> apply(PlanNode node, Context context)
+    {
         ProjectNode parent = (ProjectNode) node;
 
-        PlanNode source = lookup.resolve(parent.getSource());
+        PlanNode source = context.getLookup().resolve(parent.getSource());
         if (!(source instanceof ProjectNode)) {
             return Optional.empty();
         }
@@ -84,7 +86,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .flatMap(entry -> DependencyExtractor.extractAll(entry).stream())
+                .flatMap(entry -> SymbolsExtractor.extractAll(entry).stream())
                 .collect(toSet());
 
         Assignments.Builder childAssignments = Assignments.builder();
@@ -129,10 +131,14 @@ public class InlineProjections
         //      a. are not inputs to try() expressions
         //      b. appear only once across all expressions
         //      c. are not identity projections
+        // which come from the child, as opposed to an enclosing scope.
+
+        Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
                 .getExpressions().stream()
-                .flatMap(expression -> DependencyExtractor.extractAll(expression).stream())
+                .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
+                .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants
@@ -162,7 +168,7 @@ public class InlineProjections
         return AstUtils.preOrder(expression)
                 .filter(TryExpression.class::isInstance)
                 .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> DependencyExtractor.extractAll(tryExpression).stream())
+                .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())
                 .collect(toSet());
     }
 }

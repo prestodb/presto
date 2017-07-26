@@ -87,6 +87,7 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
@@ -123,6 +124,7 @@ public class ParquetHiveRecordCursor
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
@@ -162,6 +164,7 @@ public class ParquetHiveRecordCursor
                 path,
                 start,
                 length,
+                fileSize,
                 columns,
                 useParquetColumnNames,
                 predicatePushdownEnabled,
@@ -319,6 +322,7 @@ public class ParquetHiveRecordCursor
             Path path,
             long start,
             long length,
+            long fileSize,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
             boolean predicatePushdownEnabled,
@@ -327,7 +331,7 @@ public class ParquetHiveRecordCursor
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
+            dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length, fileSize);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -371,7 +375,7 @@ public class ParquetHiveRecordCursor
             });
         }
         catch (Exception e) {
-            Throwables.propagateIfInstanceOf(e, PrestoException.class);
+            throwIfInstanceOf(e, PrestoException.class);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
                 throw Throwables.propagate(e);

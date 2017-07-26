@@ -24,11 +24,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -90,12 +90,21 @@ public final class MapConstructor
         MethodHandle keyHashCode = functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
         MethodHandle keyEqual = functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), ImmutableList.of(false, false), METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode), Optional.of(instanceFactory), isDeterministic());
+
+        return new ScalarFunctionImplementation(
+                false,
+                ImmutableList.of(false, false),
+                ImmutableList.of(false, false),
+                ImmutableList.of(Optional.empty(), Optional.empty()),
+                METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode),
+                Optional.of(instanceFactory),
+                isDeterministic());
     }
 
     @UsedByGeneratedCode
     public static Block createMap(MapType mapType, MethodHandle keyEqual, MethodHandle keyHashCode, State state, Block keyBlock, Block valueBlock)
     {
+        checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
         PageBuilder pageBuilder = state.getPageBuilder();
         if (pageBuilder.isFull()) {
             pageBuilder.reset();
@@ -103,9 +112,11 @@ public final class MapConstructor
 
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
-        checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
         for (int i = 0; i < keyBlock.getPositionCount(); i++) {
             if (keyBlock.isNull(i)) {
+                // close block builder before throwing as we may be in a TRY() call
+                // so that subsequent calls do not find it in an inconsistent state
+                mapBlockBuilder.closeEntry();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
             mapType.getKeyType().appendTo(keyBlock, i, blockBuilder);

@@ -46,7 +46,7 @@ public class HistogramStateSerializer
             out.appendNull();
         }
         else {
-            serializedType.writeObject(out, state.get().serialize());
+            state.get().serialize(out);
         }
     }
 

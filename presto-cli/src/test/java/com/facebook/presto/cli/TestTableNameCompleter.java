@@ -27,7 +27,12 @@ public class TestTableNameCompleter
     public void testAutoCompleteWithoutSchema()
     {
         ClientSession session = new ClientOptions().toClientSession();
-        QueryRunner runner = QueryRunner.create(session,
+        QueryRunner runner = new QueryRunner(
+                session,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -38,7 +43,7 @@ public class TestTableNameCompleter
                 Optional.empty(),
                 Optional.empty(),
                 false,
-                null);
+                false);
         TableNameCompleter completer = new TableNameCompleter(runner);
         assertEquals(completer.complete("SELECT is_infi", 14, ImmutableList.of()), 7);
     }

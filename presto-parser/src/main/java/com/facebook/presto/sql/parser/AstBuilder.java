@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.parser.SqlBaseParser.ColumnAliasesContext;
 import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertiesContext;
 import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertyContext;
 import com.facebook.presto.sql.tree.AddColumn;
@@ -48,6 +49,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -66,6 +68,7 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
@@ -83,6 +86,7 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -123,6 +127,7 @@ import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
@@ -164,6 +169,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -230,7 +236,15 @@ class AstBuilder
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
         }
-        return new CreateTableAsSelect(getLocation(context), getQualifiedName(context.qualifiedName()), (Query) visit(context.query()), context.EXISTS() != null, processTableProperties(context.tableProperties()), context.NO() == null, comment);
+        return new CreateTableAsSelect(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (Query) visit(context.query()),
+                context.EXISTS() != null,
+                processTableProperties(context.tableProperties()),
+                context.NO() == null,
+                processColumnAliases(context.columnAliases()),
+                comment);
     }
 
     @Override
@@ -252,6 +266,18 @@ class AstBuilder
             }
         }
         return properties.build();
+    }
+
+    private Optional<List<Identifier>> processColumnAliases(ColumnAliasesContext columnAliasesContext)
+    {
+        if (columnAliasesContext == null) {
+            return Optional.empty();
+        }
+        ImmutableList.Builder<Identifier> columnAliases = ImmutableList.builder();
+        for (SqlBaseParser.IdentifierContext identifierContext : columnAliasesContext.identifier()) {
+            columnAliases.add(new Identifier(getLocation(identifierContext), identifierContext.getText()));
+        }
+        return Optional.of(columnAliases.build());
     }
 
     @Override
@@ -306,6 +332,12 @@ class AstBuilder
     public Node visitAddColumn(SqlBaseParser.AddColumnContext context)
     {
         return new AddColumn(getLocation(context), getQualifiedName(context.qualifiedName()), (ColumnDefinition) visit(context.columnDefinition()));
+    }
+
+    @Override
+    public Node visitDropColumn(SqlBaseParser.DropColumnContext context)
+    {
+        return new DropColumn(getLocation(context), getQualifiedName(context.tableName), context.column.getText());
     }
 
     @Override
@@ -612,7 +644,7 @@ class AstBuilder
     @Override
     public Node visitExplain(SqlBaseParser.ExplainContext context)
     {
-        return new Explain(getLocation(context), context.ANALYZE() != null, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
+        return new Explain(getLocation(context), context.ANALYZE() != null, context.VERBOSE() != null, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
     }
 
     @Override
@@ -676,6 +708,20 @@ class AstBuilder
     public Node visitShowColumns(SqlBaseParser.ShowColumnsContext context)
     {
         return new ShowColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitShowStats(SqlBaseParser.ShowStatsContext context)
+    {
+        return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedName(context.qualifiedName())));
+    }
+
+    @Override
+    public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
+    {
+        QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
+        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty());
+        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
     }
 
     @Override
@@ -893,6 +939,12 @@ class AstBuilder
     public Node visitUnnest(SqlBaseParser.UnnestContext context)
     {
         return new Unnest(getLocation(context), visit(context.expression(), Expression.class), context.ORDINALITY() != null);
+    }
+
+    @Override
+    public Node visitLateral(SqlBaseParser.LateralContext context)
+    {
+        return new Lateral(getLocation(context), (Query) visit(context.query()));
     }
 
     @Override
@@ -1262,14 +1314,20 @@ class AstBuilder
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
         }
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
-            check(context.expression().size() == 2, "The '$internal$bind' function must have exactly two arguments", context);
+            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
             check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
 
+            int numValues = context.expression().size() - 1;
+            List<Expression> arguments = context.expression().stream()
+                    .map(this::visit)
+                    .map(Expression.class::cast)
+                    .collect(toImmutableList());
+
             return new BindExpression(
                     getLocation(context),
-                    (Expression) visit(context.expression(0)),
-                    (Expression) visit(context.expression(1)));
+                    arguments.subList(0, numValues),
+                    arguments.get(numValues));
         }
 
         return new FunctionCall(
@@ -1291,7 +1349,7 @@ class AstBuilder
 
         Expression body = (Expression) visit(context.expression());
 
-        return new LambdaExpression(arguments, body);
+        return new LambdaExpression(getLocation(context), arguments, body);
     }
 
     @Override
@@ -1375,6 +1433,16 @@ class AstBuilder
     public Node visitCurrentRowBound(SqlBaseParser.CurrentRowBoundContext context)
     {
         return new FrameBound(getLocation(context), FrameBound.Type.CURRENT_ROW);
+    }
+
+    @Override
+    public Node visitGroupingOperation(SqlBaseParser.GroupingOperationContext context)
+    {
+        List<QualifiedName> arguments = context.qualifiedName().stream()
+                .map(AstBuilder::getQualifiedName)
+                .collect(toList());
+
+        return new GroupingOperation(Optional.of(getLocation(context)), arguments);
     }
 
     // ************** literals **************

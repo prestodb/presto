@@ -25,8 +25,8 @@ import io.airlift.units.Duration;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -54,10 +54,9 @@ class PrioritizedSplitRunner
 
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
-    private final AtomicInteger priorityLevel = new AtomicInteger();
-    private final AtomicLong taskScheduledNanos = new AtomicLong();
+    protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
 
-    private final AtomicLong lastRun = new AtomicLong();
+    protected final AtomicLong lastRun = new AtomicLong();
     private final AtomicLong lastReady = new AtomicLong();
     private final AtomicLong start = new AtomicLong();
 
@@ -90,6 +89,8 @@ class PrioritizedSplitRunner
         this.globalScheduledTimeMicros = globalScheduledTimeMicros;
         this.blockedQuantaWallTime = blockedQuantaWallTime;
         this.unblockedQuantaWallTime = unblockedQuantaWallTime;
+
+        this.updateLevelPriority();
     }
 
     public TaskHandle getTaskHandle()
@@ -162,21 +163,14 @@ class PrioritizedSplitRunner
             ListenableFuture<?> blocked = split.processFor(SPLIT_RUN_QUANTA);
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
-            // update priority level base on total thread usage of task
-            long quantaScheduledNanos = elapsed.getWall().roundTo(NANOSECONDS);
+            long quantaScheduledNanos = ticker.read() - startNanos;
             scheduledNanos.addAndGet(quantaScheduledNanos);
 
-            long taskScheduledTimeNanos = taskHandle.addThreadUsageNanos(quantaScheduledNanos);
-            taskScheduledNanos.set(taskScheduledTimeNanos);
-
-            priorityLevel.set(calculatePriorityLevel(taskScheduledTimeNanos));
-
-            // record last run for prioritization within a level
+            priority.set(taskHandle.addScheduledNanos(quantaScheduledNanos));
             lastRun.set(ticker.read());
 
             if (blocked == NOT_BLOCKED) {
                 unblockedQuantaWallTime.add(elapsed.getWall());
-                setReady();
             }
             else {
                 blockedQuantaWallTime.add(elapsed.getWall());
@@ -196,34 +190,39 @@ class PrioritizedSplitRunner
         }
     }
 
-    public boolean updatePriorityLevel()
+    public void setReady()
     {
-        int newPriority = calculatePriorityLevel(taskHandle.getThreadUsageNanos());
-        if (newPriority == priorityLevel.getAndSet(newPriority)) {
-            return false;
-        }
+        lastReady.set(ticker.read());
+    }
 
-        // update thread usage while if level changed
-        taskScheduledNanos.set(taskHandle.getThreadUsageNanos());
-        return true;
+    /**
+     * Updates the (potentially stale) priority value cached in this object.
+     * This should be called when this object is outside the queue.
+     *
+     * @return true if the level changed.
+     */
+    public boolean updateLevelPriority()
+    {
+        Priority newPriority = taskHandle.getPriority();
+        Priority oldPriority = priority.getAndSet(newPriority);
+        return newPriority.getLevel() != oldPriority.getLevel();
+    }
+
+    /**
+     * Updates the task level priority to be greater than or equal to the minimum
+     * priority within that level. This ensures that tasks that spend time blocked do
+     * not return and starve already-running tasks. Also updates the cached priority
+     * object.
+     */
+    public void resetLevelPriority()
+    {
+        priority.set(taskHandle.resetLevelPriority());
     }
 
     @Override
     public int compareTo(PrioritizedSplitRunner o)
     {
-        int level = priorityLevel.get();
-
-        int result = Integer.compare(level, o.priorityLevel.get());
-        if (result != 0) {
-            return result;
-        }
-
-        if (level < 4) {
-            result = Long.compare(taskScheduledNanos.get(), o.taskScheduledNanos.get());
-        }
-        else {
-            result = Long.compare(lastRun.get(), o.lastRun.get());
-        }
+        int result = Long.compare(priority.get().getLevelPriority(), o.getPriority().getLevelPriority());
         if (result != 0) {
             return result;
         }
@@ -236,37 +235,9 @@ class PrioritizedSplitRunner
         return splitId;
     }
 
-    public void setReady()
+    public Priority getPriority()
     {
-        lastReady.set(ticker.read());
-    }
-
-    public AtomicInteger getPriorityLevel()
-    {
-        return priorityLevel;
-    }
-
-    public static int calculatePriorityLevel(long threadUsageNanos)
-    {
-        long millis = NANOSECONDS.toMillis(threadUsageNanos);
-
-        int priorityLevel;
-        if (millis < 1000) {
-            priorityLevel = 0;
-        }
-        else if (millis < 10_000) {
-            priorityLevel = 1;
-        }
-        else if (millis < 60_000) {
-            priorityLevel = 2;
-        }
-        else if (millis < 300_000) {
-            priorityLevel = 3;
-        }
-        else {
-            priorityLevel = 4;
-        }
-        return priorityLevel;
+        return priority.get();
     }
 
     public String getInfo()

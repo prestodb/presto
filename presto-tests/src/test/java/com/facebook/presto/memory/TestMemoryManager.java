@@ -124,6 +124,7 @@ public class TestMemoryManager
             while (!queryDone) {
                 for (QueryInfo info : queryRunner.getCoordinator().getQueryManager().getAllQueryInfo()) {
                     if (info.getState().isDone()) {
+                        assertNotNull(info.getErrorCode());
                         assertEquals(info.getErrorCode().getCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode());
                         queryDone = true;
                         break;

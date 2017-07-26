@@ -23,9 +23,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.airlift.tpch.OrderColumn;
@@ -91,7 +91,6 @@ public class HiveFileFormatBenchmark
 
     @SuppressWarnings("deprecation")
     private static final HiveClientConfig CONFIG = new HiveClientConfig()
-            .setRcfileOptimizedReaderEnabled(true)
             .setParquetOptimizedReaderEnabled(true);
 
     private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG)
@@ -110,15 +109,13 @@ public class HiveFileFormatBenchmark
             "LARGE_MAP_VARCHAR_DOUBLE",
             "MAP_INT_DOUBLE",
             "LARGE_MAP_INT_DOUBLE",
-            "LARGE_ARRAY_VARCHAR",
-    })
+            "LARGE_ARRAY_VARCHAR"})
     private DataSet dataSet;
 
     @Param({
             "NONE",
             "SNAPPY",
-            "GZIP",
-    })
+            "GZIP"})
     private HiveCompressionCodec compression;
 
     @Param({
@@ -131,8 +128,7 @@ public class HiveFileFormatBenchmark
             "HIVE_RCTEXT",
             "HIVE_ORC",
             "HIVE_DWRF",
-            "HIVE_PARQUET",
-    })
+            "HIVE_PARQUET"})
     private FileFormat fileFormat;
 
     private TestData data;

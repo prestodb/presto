@@ -17,7 +17,6 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
@@ -119,14 +118,14 @@ public final class LongDecode
         }
     }
 
-    public static long readSignedVInt(InputStream inputStream)
+    public static long readSignedVInt(OrcInputStream inputStream)
             throws IOException
     {
         long result = readUnsignedVInt(inputStream);
         return (result >>> 1) ^ -(result & 1);
     }
 
-    public static long readUnsignedVInt(InputStream inputStream)
+    public static long readUnsignedVInt(OrcInputStream inputStream)
             throws IOException
     {
         long result = 0;
@@ -135,15 +134,16 @@ public final class LongDecode
         do {
             b = inputStream.read();
             if (b == -1) {
-                throw new OrcCorruptionException("EOF while reading unsigned vint");
+                throw new OrcCorruptionException(inputStream.getOrcDataSourceId(), "EOF while reading unsigned vint");
             }
             result |= (b & 0b0111_1111) << offset;
             offset += 7;
-        } while ((b & 0b1000_0000) != 0);
+        }
+        while ((b & 0b1000_0000) != 0);
         return result;
     }
 
-    public static long readVInt(boolean signed, InputStream inputStream)
+    public static long readVInt(boolean signed, OrcInputStream inputStream)
             throws IOException
     {
         if (signed) {
@@ -159,7 +159,7 @@ public final class LongDecode
         return (value >>> 1) ^ -(value & 1);
     }
 
-    public static long readDwrfLong(InputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
+    public static long readDwrfLong(OrcInputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
             throws IOException
     {
         if (usesVInt) {

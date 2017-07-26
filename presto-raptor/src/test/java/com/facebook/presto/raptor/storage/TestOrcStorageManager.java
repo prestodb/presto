@@ -56,6 +56,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -68,6 +69,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
+import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -96,6 +98,7 @@ import static java.lang.String.format;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertDirectory;
@@ -199,6 +202,7 @@ public class TestOrcStorageManager
 
         assertEquals(shardInfo.getRowCount(), 2);
         assertEquals(shardInfo.getCompressedSize(), file.length());
+        assertEquals(shardInfo.getXxhash64(), xxhash64(file));
 
         // verify primary and backup shard exist
         assertFile(file, "primary shard");
@@ -211,7 +215,7 @@ public class TestOrcStorageManager
         assertTrue(file.getParentFile().delete());
         assertFalse(file.exists());
 
-        recoveryManager.restoreFromBackup(shardUuid, OptionalLong.empty());
+        recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
         try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_ATTRIBUTES)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
@@ -254,7 +258,7 @@ public class TestOrcStorageManager
                 {885L, "max", null, null, null, Double.MAX_VALUE},
                 {886L, "pzero", null, null, null, 0.0},
                 {887L, "nzero", null, null, null, -0.0},
-                };
+        };
 
         List<Page> pages = rowPagesBuilder(columnTypes)
                 .row(123L, "hello", wrappedBuffer(bytes1), sqlDate(2001, 8, 22).getDays(), true, 123.45)
@@ -377,13 +381,18 @@ public class TestOrcStorageManager
 
         // verify shard exists in staging
         String[] files = staging.list();
-        assertEquals(files.length, 1);
-        assertTrue(files[0].endsWith(".orc"));
+        assertNotNull(files);
+        String stagingFile = Arrays.stream(files)
+                .filter(file -> file.endsWith(".orc"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("file not found in staging"));
 
         // rollback should cleanup staging files
         sink.rollback();
 
-        assertEquals(staging.list(), new String[] {});
+        files = staging.list();
+        assertNotNull(files);
+        assertTrue(Arrays.stream(files).noneMatch(stagingFile::equals));
     }
 
     @Test
@@ -601,7 +610,7 @@ public class TestOrcStorageManager
                 storageService,
                 backupStore,
                 READER_ATTRIBUTES,
-                new BackupManager(backupStore, 1),
+                new BackupManager(backupStore, storageService, 1),
                 recoveryManager,
                 shardRecorder,
                 new TypeRegistry(),

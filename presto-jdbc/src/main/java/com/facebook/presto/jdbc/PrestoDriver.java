@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Throwables;
+import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -27,10 +28,9 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.facebook.presto.client.OkHttpUtil.userAgent;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 
 public class PrestoDriver
         implements Driver, Closeable
@@ -40,13 +40,11 @@ public class PrestoDriver
     static final int DRIVER_VERSION_MAJOR;
     static final int DRIVER_VERSION_MINOR;
 
-    private static final DriverPropertyInfo[] DRIVER_PROPERTY_INFOS = {};
-
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
-    private static final String USER_PROPERTY = "user";
-
-    private final QueryExecutor queryExecutor;
+    private final OkHttpClient httpClient = new OkHttpClient().newBuilder()
+            .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION))
+            .build();
 
     static {
         String version = nullToEmpty(PrestoDriver.class.getPackage().getImplementationVersion());
@@ -70,15 +68,11 @@ public class PrestoDriver
         }
     }
 
-    public PrestoDriver()
-    {
-        this.queryExecutor = QueryExecutor.create(DRIVER_NAME + "/" + DRIVER_VERSION);
-    }
-
     @Override
     public void close()
     {
-        queryExecutor.close();
+        httpClient.dispatcher().executorService().shutdown();
+        httpClient.connectionPool().evictAll();
     }
 
     @Override
@@ -89,12 +83,13 @@ public class PrestoDriver
             return null;
         }
 
-        String user = info.getProperty(USER_PROPERTY);
-        if (isNullOrEmpty(user)) {
-            throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
-        }
+        PrestoDriverUri uri = new PrestoDriverUri(url, info);
 
-        return new PrestoConnection(new PrestoDriverUri(url), user, queryExecutor);
+        OkHttpClient.Builder builder = httpClient.newBuilder();
+        uri.setupClient(builder);
+        QueryExecutor executor = new QueryExecutor(builder.build());
+
+        return new PrestoConnection(uri, executor);
     }
 
     @Override
@@ -108,7 +103,11 @@ public class PrestoDriver
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
             throws SQLException
     {
-        return DRIVER_PROPERTY_INFOS;
+        Properties properties = new PrestoDriverUri(url, info).getProperties();
+
+        return ConnectionProperties.allProperties().stream()
+                .map(property -> property.getDriverPropertyInfo(properties))
+                .toArray(DriverPropertyInfo[]::new);
     }
 
     @Override

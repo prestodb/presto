@@ -97,12 +97,12 @@ public class ExpressionCompiler
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
+    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
     {
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata);
         Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(pageFunctionCompiler::compileFilter);
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
-                .map(pageFunctionCompiler::compileProjection)
+                .map(projection -> pageFunctionCompiler.compileProjection(projection, classNameSuffix))
                 .collect(toImmutableList());
 
         return () -> {
@@ -114,7 +114,12 @@ public class ExpressionCompiler
         };
     }
 
-    private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
+    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
+    {
+        return compilePageProcessor(filter, projections, Optional.empty());
+    }
+
+    private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)
     {
         // create filter and project page iterator class
         try {
@@ -128,7 +133,7 @@ public class ExpressionCompiler
     private <T> Class<? extends T> compileProcessor(
             RowExpression filter,
             List<RowExpression> projections,
-            BodyCompiler<T> bodyCompiler,
+            BodyCompiler bodyCompiler,
             Class<? extends T> superType)
     {
         ClassDefinition classDefinition = new ClassDefinition(

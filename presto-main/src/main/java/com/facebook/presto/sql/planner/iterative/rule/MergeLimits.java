@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -24,18 +21,22 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.Optional;
 
 public class MergeLimits
-    implements Rule
+        implements Rule
 {
-    @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
-    {
-        if (!(node instanceof LimitNode)) {
-            return Optional.empty();
-        }
+    private static final Pattern PATTERN = Pattern.typeOf(LimitNode.class);
 
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
+    @Override
+    public Optional<PlanNode> apply(PlanNode node, Context context)
+    {
         LimitNode parent = (LimitNode) node;
 
-        PlanNode source = lookup.resolve(parent.getSource());
+        PlanNode source = context.getLookup().resolve(parent.getSource());
         if (!(source instanceof LimitNode)) {
             return Optional.empty();
         }

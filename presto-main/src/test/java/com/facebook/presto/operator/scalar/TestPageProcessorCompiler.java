@@ -20,13 +20,13 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -192,7 +192,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

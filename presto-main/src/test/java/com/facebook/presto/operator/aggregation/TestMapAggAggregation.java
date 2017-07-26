@@ -17,10 +17,10 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -165,10 +165,10 @@ public class TestMapAggAggregation
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = mapType(DOUBLE, arrayType);
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
-                                                                                    AGGREGATE,
-                                                                                    mapType.getTypeSignature(),
-                                                                                    parseTypeSignature(StandardTypes.DOUBLE),
-                                                                                    arrayType.getTypeSignature()));
+                AGGREGATE,
+                mapType.getTypeSignature(),
+                parseTypeSignature(StandardTypes.DOUBLE),
+                arrayType.getTypeSignature()));
 
         assertAggregation(
                 aggFunc,

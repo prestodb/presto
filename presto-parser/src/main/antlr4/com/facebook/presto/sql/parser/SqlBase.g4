@@ -34,7 +34,7 @@ statement
         (WITH tableProperties)?                                        #createSchema
     | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
-    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
+    | CREATE TABLE (IF NOT EXISTS)? qualifiedName columnAliases?
         (COMMENT string)?
         (WITH tableProperties)? AS (query | '('query')')
         (WITH (NO)? DATA)?                                             #createTableAsSelect
@@ -48,6 +48,8 @@ statement
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | ALTER TABLE tableName=qualifiedName
         RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
+    | ALTER TABLE tableName=qualifiedName
+        DROP COLUMN column=qualifiedName                               #dropColumn
     | ALTER TABLE tableName=qualifiedName
         ADD COLUMN column=columnDefinition                             #addColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
@@ -63,7 +65,7 @@ statement
         ON TABLE? qualifiedName FROM grantee=identifier                #revoke
     | SHOW GRANTS
         (ON TABLE? qualifiedName)?                                     #showGrants
-    | EXPLAIN ANALYZE?
+    | EXPLAIN ANALYZE? VERBOSE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
@@ -71,6 +73,8 @@ statement
     | SHOW SCHEMAS ((FROM | IN) identifier)? (LIKE pattern=string)?    #showSchemas
     | SHOW CATALOGS (LIKE pattern=string)?                             #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
+    | SHOW STATS (FOR | ON) qualifiedName                              #showStats
+    | SHOW STATS FOR '(' querySpecification ')'                        #showStatsForQuery
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions
@@ -217,7 +221,6 @@ sampledRelation
 sampleType
     : BERNOULLI
     | SYSTEM
-    | POISSONIZED
     ;
 
 aliasedRelation
@@ -232,6 +235,7 @@ relationPrimary
     : qualifiedName                                                   #tableName
     | '(' query ')'                                                   #subqueryRelation
     | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
+    | LATERAL '(' query ')'                                           #lateral
     | '(' relation ')'                                                #parenthesizedRelation
     ;
 
@@ -310,6 +314,7 @@ primaryExpression
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     | '(' expression ')'                                                                  #parenthesizedExpression
+    | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
     ;
 
 string
@@ -340,6 +345,10 @@ interval
 
 intervalField
     : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
+    ;
+
+normalForm
+    : NFD | NFC | NFKD | NFKC
     ;
 
 type
@@ -440,217 +449,212 @@ number
     ;
 
 nonReserved
-    : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
-    | ADD
-    | FILTER
-    | AT
-    | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
-    | TINYINT | SMALLINT | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
-    | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
-    | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED | VALIDATE
-    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
-    | SET | RESET
-    | VIEW | REPLACE
-    | IF | NULLIF | COALESCE
-    | normalForm
-    | POSITION
-    | NO | DATA
-    | START | TRANSACTION | COMMIT | ROLLBACK | WORK | ISOLATION | LEVEL
-    | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ | WRITE | ONLY
-    | COMMENT
-    | CALL
-    | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION | GRANTS
-    | SUBSTRING
-    | SCHEMA | CASCADE | RESTRICT
-    | INPUT | OUTPUT
-    | INCLUDING | EXCLUDING | PROPERTIES
-    | ALL | SOME | ANY
+    // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
+    : ADD | ALL | ANALYZE | ANY | ARRAY | ASC | AT
+    | BERNOULLI
+    | CALL | CASCADE | CATALOGS | COALESCE | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT
+    | DATA | DATE | DAY | DESC | DISTRIBUTED
+    | EXCLUDING | EXPLAIN
+    | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTIONS
+    | GRANT | GRANTS | GRAPHVIZ
+    | HOUR
+    | IF | INCLUDING | INPUT | INTEGER | INTERVAL | ISOLATION
+    | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
+    | MAP | MINUTE | MONTH
+    | NFC | NFD | NFKC | NFKD | NO | NULLIF | NULLS
+    | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
+    | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES | PUBLIC
+    | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESTRICT | REVOKE | ROLLBACK | ROW | ROWS
+    | SCHEMA | SCHEMAS | SECOND | SERIALIZABLE | SESSION | SET | SETS
+    | SHOW | SMALLINT | SOME | START | STATS | SUBSTRING | SYSTEM
+    | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TINYINT | TO | TRANSACTION | TRY_CAST | TYPE
+    | UNBOUNDED | UNCOMMITTED | USE
+    | VALIDATE | VERBOSE | VIEW
+    | WORK | WRITE
+    | YEAR
+    | ZONE
     ;
 
-normalForm
-    : NFD | NFC | NFKD | NFKC
-    ;
-
-SELECT: 'SELECT';
-FROM: 'FROM';
 ADD: 'ADD';
-AS: 'AS';
 ALL: 'ALL';
-SOME: 'SOME';
-ANY: 'ANY';
-DISTINCT: 'DISTINCT';
-WHERE: 'WHERE';
-GROUP: 'GROUP';
-BY: 'BY';
-GROUPING: 'GROUPING';
-SETS: 'SETS';
-CUBE: 'CUBE';
-ROLLUP: 'ROLLUP';
-ORDER: 'ORDER';
-HAVING: 'HAVING';
-LIMIT: 'LIMIT';
-AT: 'AT';
-OR: 'OR';
+ALTER: 'ALTER';
+ANALYZE: 'ANALYZE';
 AND: 'AND';
-IN: 'IN';
-NOT: 'NOT';
-NO: 'NO';
-EXISTS: 'EXISTS';
-BETWEEN: 'BETWEEN';
-LIKE: 'LIKE';
-IS: 'IS';
-NULL: 'NULL';
-TRUE: 'TRUE';
-FALSE: 'FALSE';
-NULLS: 'NULLS';
-FIRST: 'FIRST';
-LAST: 'LAST';
-ESCAPE: 'ESCAPE';
+ANY: 'ANY';
+ARRAY: 'ARRAY';
+AS: 'AS';
 ASC: 'ASC';
-DESC: 'DESC';
-SUBSTRING: 'SUBSTRING';
-POSITION: 'POSITION';
-FOR: 'FOR';
-TINYINT: 'TINYINT';
-SMALLINT: 'SMALLINT';
-INTEGER: 'INTEGER';
-DATE: 'DATE';
-TIME: 'TIME';
-TIMESTAMP: 'TIMESTAMP';
-INTERVAL: 'INTERVAL';
-YEAR: 'YEAR';
-MONTH: 'MONTH';
-DAY: 'DAY';
-HOUR: 'HOUR';
-MINUTE: 'MINUTE';
-SECOND: 'SECOND';
-ZONE: 'ZONE';
+AT: 'AT';
+BERNOULLI: 'BERNOULLI';
+BETWEEN: 'BETWEEN';
+BY: 'BY';
+CALL: 'CALL';
+CASCADE: 'CASCADE';
+CASE: 'CASE';
+CAST: 'CAST';
+CATALOGS: 'CATALOGS';
+COALESCE: 'COALESCE';
+COLUMN: 'COLUMN';
+COLUMNS: 'COLUMNS';
+COMMENT: 'COMMENT';
+COMMIT: 'COMMIT';
+COMMITTED: 'COMMITTED';
+CONSTRAINT: 'CONSTRAINT';
+CREATE: 'CREATE';
+CROSS: 'CROSS';
+CUBE: 'CUBE';
+CURRENT: 'CURRENT';
 CURRENT_DATE: 'CURRENT_DATE';
 CURRENT_TIME: 'CURRENT_TIME';
 CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP';
-LOCALTIME: 'LOCALTIME';
-LOCALTIMESTAMP: 'LOCALTIMESTAMP';
-EXTRACT: 'EXTRACT';
-CASE: 'CASE';
-WHEN: 'WHEN';
-THEN: 'THEN';
+DATA: 'DATA';
+DATE: 'DATE';
+DAY: 'DAY';
+DEALLOCATE: 'DEALLOCATE';
+DELETE: 'DELETE';
+DESC: 'DESC';
+DESCRIBE: 'DESCRIBE';
+DISTINCT: 'DISTINCT';
+DISTRIBUTED: 'DISTRIBUTED';
+DROP: 'DROP';
 ELSE: 'ELSE';
 END: 'END';
-JOIN: 'JOIN';
-CROSS: 'CROSS';
-OUTER: 'OUTER';
-INNER: 'INNER';
-LEFT: 'LEFT';
-RIGHT: 'RIGHT';
-FULL: 'FULL';
-NATURAL: 'NATURAL';
-USING: 'USING';
-ON: 'ON';
+ESCAPE: 'ESCAPE';
+EXCEPT: 'EXCEPT';
+EXCLUDING: 'EXCLUDING';
+EXECUTE: 'EXECUTE';
+EXISTS: 'EXISTS';
+EXPLAIN: 'EXPLAIN';
+EXTRACT: 'EXTRACT';
+FALSE: 'FALSE';
 FILTER: 'FILTER';
+FIRST: 'FIRST';
+FOLLOWING: 'FOLLOWING';
+FOR: 'FOR';
+FORMAT: 'FORMAT';
+FROM: 'FROM';
+FULL: 'FULL';
+FUNCTIONS: 'FUNCTIONS';
+GRANT: 'GRANT';
+GRANTS: 'GRANTS';
+GRAPHVIZ: 'GRAPHVIZ';
+GROUP: 'GROUP';
+GROUPING: 'GROUPING';
+HAVING: 'HAVING';
+HOUR: 'HOUR';
+IF: 'IF';
+IN: 'IN';
+INCLUDING: 'INCLUDING';
+INNER: 'INNER';
+INPUT: 'INPUT';
+INSERT: 'INSERT';
+INTEGER: 'INTEGER';
+INTERSECT: 'INTERSECT';
+INTERVAL: 'INTERVAL';
+INTO: 'INTO';
+IS: 'IS';
+ISOLATION: 'ISOLATION';
+JOIN: 'JOIN';
+LAST: 'LAST';
+LATERAL: 'LATERAL';
+LEFT: 'LEFT';
+LEVEL: 'LEVEL';
+LIKE: 'LIKE';
+LIMIT: 'LIMIT';
+LOCALTIME: 'LOCALTIME';
+LOCALTIMESTAMP: 'LOCALTIMESTAMP';
+LOGICAL: 'LOGICAL';
+MAP: 'MAP';
+MINUTE: 'MINUTE';
+MONTH: 'MONTH';
+NATURAL: 'NATURAL';
+NFC : 'NFC';
+NFD : 'NFD';
+NFKC : 'NFKC';
+NFKD : 'NFKD';
+NO: 'NO';
+NORMALIZE: 'NORMALIZE';
+NOT: 'NOT';
+NULL: 'NULL';
+NULLIF: 'NULLIF';
+NULLS: 'NULLS';
+ON: 'ON';
+ONLY: 'ONLY';
+OPTION: 'OPTION';
+OR: 'OR';
+ORDER: 'ORDER';
+ORDINALITY: 'ORDINALITY';
+OUTER: 'OUTER';
+OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
-RANGE: 'RANGE';
-ROWS: 'ROWS';
-UNBOUNDED: 'UNBOUNDED';
-PRECEDING: 'PRECEDING';
-FOLLOWING: 'FOLLOWING';
-CURRENT: 'CURRENT';
-ROW: 'ROW';
-WITH: 'WITH';
-RECURSIVE: 'RECURSIVE';
-VALUES: 'VALUES';
-CREATE: 'CREATE';
-SCHEMA: 'SCHEMA';
-TABLE: 'TABLE';
-COMMENT: 'COMMENT';
-VIEW: 'VIEW';
-REPLACE: 'REPLACE';
-INSERT: 'INSERT';
-DELETE: 'DELETE';
-INTO: 'INTO';
-CONSTRAINT: 'CONSTRAINT';
-DESCRIBE: 'DESCRIBE';
-GRANT: 'GRANT';
-REVOKE: 'REVOKE';
-PRIVILEGES: 'PRIVILEGES';
-PUBLIC: 'PUBLIC';
-OPTION: 'OPTION';
-GRANTS: 'GRANTS';
-EXPLAIN: 'EXPLAIN';
-ANALYZE: 'ANALYZE';
-FORMAT: 'FORMAT';
-TYPE: 'TYPE';
-TEXT: 'TEXT';
-GRAPHVIZ: 'GRAPHVIZ';
-LOGICAL: 'LOGICAL';
-DISTRIBUTED: 'DISTRIBUTED';
-VALIDATE: 'VALIDATE';
-CAST: 'CAST';
-TRY_CAST: 'TRY_CAST';
-SHOW: 'SHOW';
-TABLES: 'TABLES';
-SCHEMAS: 'SCHEMAS';
-CATALOGS: 'CATALOGS';
-COLUMNS: 'COLUMNS';
-COLUMN: 'COLUMN';
-USE: 'USE';
 PARTITIONS: 'PARTITIONS';
-FUNCTIONS: 'FUNCTIONS';
-DROP: 'DROP';
-UNION: 'UNION';
-EXCEPT: 'EXCEPT';
-INTERSECT: 'INTERSECT';
-TO: 'TO';
-SYSTEM: 'SYSTEM';
-BERNOULLI: 'BERNOULLI';
-POISSONIZED: 'POISSONIZED';
-TABLESAMPLE: 'TABLESAMPLE';
-ALTER: 'ALTER';
-RENAME: 'RENAME';
-UNNEST: 'UNNEST';
-ORDINALITY: 'ORDINALITY';
-ARRAY: 'ARRAY';
-MAP: 'MAP';
-SET: 'SET';
-RESET: 'RESET';
-SESSION: 'SESSION';
-DATA: 'DATA';
-START: 'START';
-TRANSACTION: 'TRANSACTION';
-COMMIT: 'COMMIT';
-ROLLBACK: 'ROLLBACK';
-WORK: 'WORK';
-ISOLATION: 'ISOLATION';
-LEVEL: 'LEVEL';
-SERIALIZABLE: 'SERIALIZABLE';
-REPEATABLE: 'REPEATABLE';
-COMMITTED: 'COMMITTED';
-UNCOMMITTED: 'UNCOMMITTED';
-READ: 'READ';
-WRITE: 'WRITE';
-ONLY: 'ONLY';
-CALL: 'CALL';
+POSITION: 'POSITION';
+PRECEDING: 'PRECEDING';
 PREPARE: 'PREPARE';
-DEALLOCATE: 'DEALLOCATE';
-EXECUTE: 'EXECUTE';
-INPUT: 'INPUT';
-OUTPUT: 'OUTPUT';
-CASCADE: 'CASCADE';
-RESTRICT: 'RESTRICT';
-INCLUDING: 'INCLUDING';
-EXCLUDING: 'EXCLUDING';
+PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
+PUBLIC: 'PUBLIC';
+RANGE: 'RANGE';
+READ: 'READ';
+RECURSIVE: 'RECURSIVE';
+RENAME: 'RENAME';
+REPEATABLE: 'REPEATABLE';
+REPLACE: 'REPLACE';
+RESET: 'RESET';
+RESTRICT: 'RESTRICT';
+REVOKE: 'REVOKE';
+RIGHT: 'RIGHT';
+ROLLBACK: 'ROLLBACK';
+ROLLUP: 'ROLLUP';
+ROW: 'ROW';
+ROWS: 'ROWS';
+SCHEMA: 'SCHEMA';
+SCHEMAS: 'SCHEMAS';
+SECOND: 'SECOND';
+SELECT: 'SELECT';
+SERIALIZABLE: 'SERIALIZABLE';
+SESSION: 'SESSION';
+SET: 'SET';
+SETS: 'SETS';
+SHOW: 'SHOW';
+SMALLINT: 'SMALLINT';
+SOME: 'SOME';
+START: 'START';
+STATS: 'STATS';
+SUBSTRING: 'SUBSTRING';
+SYSTEM: 'SYSTEM';
+TABLE: 'TABLE';
+TABLES: 'TABLES';
+TABLESAMPLE: 'TABLESAMPLE';
+TEXT: 'TEXT';
+THEN: 'THEN';
+TIME: 'TIME';
+TIMESTAMP: 'TIMESTAMP';
+TINYINT: 'TINYINT';
+TO: 'TO';
+TRANSACTION: 'TRANSACTION';
+TRUE: 'TRUE';
+TRY_CAST: 'TRY_CAST';
+TYPE: 'TYPE';
 UESCAPE: 'UESCAPE';
-
-NORMALIZE: 'NORMALIZE';
-NFD : 'NFD';
-NFC : 'NFC';
-NFKD : 'NFKD';
-NFKC : 'NFKC';
-
-IF: 'IF';
-NULLIF: 'NULLIF';
-COALESCE: 'COALESCE';
+UNBOUNDED: 'UNBOUNDED';
+UNCOMMITTED: 'UNCOMMITTED';
+UNION: 'UNION';
+UNNEST: 'UNNEST';
+USE: 'USE';
+USING: 'USING';
+VALIDATE: 'VALIDATE';
+VALUES: 'VALUES';
+VERBOSE: 'VERBOSE';
+VIEW: 'VIEW';
+WHEN: 'WHEN';
+WHERE: 'WHERE';
+WITH: 'WITH';
+WORK: 'WORK';
+WRITE: 'WRITE';
+YEAR: 'YEAR';
+ZONE: 'ZONE';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

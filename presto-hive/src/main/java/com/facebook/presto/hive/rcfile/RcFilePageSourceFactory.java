@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
+import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.rcfile.RcFileEncoding;
 import com.facebook.presto.rcfile.RcFileReader;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
@@ -51,9 +52,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static com.facebook.presto.hive.HiveSessionProperties.isRcfileOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
@@ -95,15 +96,12 @@ public class RcFilePageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isRcfileOptimizedReaderEnabled(session)) {
-            return Optional.empty();
-        }
-
         RcFileEncoding rcFileEncoding;
         String deserializerClassName = getDeserializerClassName(schema);
         if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {
@@ -116,11 +114,9 @@ public class RcFilePageSourceFactory
             return Optional.empty();
         }
 
-        long size;
         FSDataInputStream inputStream;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            size = fileSystem.getFileStatus(path).getLen();
             inputStream = fileSystem.open(path);
         }
         catch (Exception e) {
@@ -138,7 +134,7 @@ public class RcFilePageSourceFactory
             }
 
             RcFileReader rcFileReader = new RcFileReader(
-                    new HdfsRcFileDataSource(path.toString(), inputStream, size, stats),
+                    new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats),
                     rcFileEncoding,
                     readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
@@ -163,6 +159,9 @@ public class RcFilePageSourceFactory
                 throw (PrestoException) e;
             }
             String message = splitError(e, path, start, length);
+            if (e instanceof RcFileCorruptionException) {
+                throw new PrestoException(HIVE_BAD_DATA, message, e);
+            }
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }

@@ -21,6 +21,7 @@ public interface OrcDecompressor
     interface OutputBuffer
     {
         byte[] initialize(int size);
+
         byte[] grow(int size);
     }
 }

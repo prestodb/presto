@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -57,7 +58,7 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int positionOffset, int length)
+    public long getRegionSizeInBytes(int positionOffset, int length)
     {
         return block.getRegionSizeInBytes(positionOffset, length);
     }
@@ -171,15 +172,22 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return block.getSizeInBytes();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + block.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(block, block.getRetainedSizeInBytes());
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

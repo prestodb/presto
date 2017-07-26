@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -54,8 +53,8 @@ public class KeyValuePairs
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.valueType = requireNonNull(valueType, "valueType is null");
-        keyBlockBuilder = this.keyType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
-        valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
+        keyBlockBuilder = this.keyType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
+        valueBlockBuilder = this.valueType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
         hashCapacity = arraySize(EXPECTED_ENTRIES, FILL_RATIO);
         this.maxFill = calculateMaxFill(hashCapacity);
         this.hashMask = hashCapacity - 1;

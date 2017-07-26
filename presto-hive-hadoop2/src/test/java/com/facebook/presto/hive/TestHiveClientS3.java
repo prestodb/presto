@@ -27,8 +27,7 @@ public class TestHiveClientS3
             "hive.hadoop2.databaseName",
             "hive.hadoop2.s3.awsAccessKey",
             "hive.hadoop2.s3.awsSecretKey",
-            "hive.hadoop2.s3.writableBucket",
-    })
+            "hive.hadoop2.s3.writableBucket"})
     @BeforeClass
     @Override
     public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)

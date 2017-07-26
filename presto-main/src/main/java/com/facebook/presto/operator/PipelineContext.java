@@ -30,6 +30,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -338,6 +339,7 @@ public class PipelineContext
         int queuedPartitionedDrivers = 0;
         int runningDrivers = 0;
         int runningPartitionedDrivers = 0;
+        int blockedDrivers = 0;
         int completedDrivers = this.completedDrivers.get();
 
         Distribution queuedTime = new Distribution(this.queuedTime);
@@ -369,6 +371,9 @@ public class PipelineContext
                 if (driverContext.isPartitioned()) {
                     queuedPartitionedDrivers++;
                 }
+            }
+            else if (driverStats.isFullyBlocked()) {
+                blockedDrivers++;
             }
             else {
                 runningDrivers++;
@@ -413,13 +418,15 @@ public class PipelineContext
             operatorSummaries.put(entry.getKey(), current);
         }
 
-        ImmutableSet<BlockedReason> blockedReasons = drivers.stream()
+        Set<DriverStats> runningDriverStats = drivers.stream()
                 .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
+                .collect(toImmutableSet());
+        ImmutableSet<BlockedReason> blockedReasons = runningDriverStats.stream()
                 .flatMap(driver -> driver.getBlockedReasons().stream())
                 .collect(toImmutableSet());
-        boolean fullyBlocked = drivers.stream()
-                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
-                .allMatch(DriverStats::isFullyBlocked);
+
+        boolean fullyBlocked = !runningDriverStats.isEmpty() && runningDriverStats.stream().allMatch(DriverStats::isFullyBlocked);
+
         return new PipelineStats(
                 pipelineId,
 
@@ -435,6 +442,7 @@ public class PipelineContext
                 queuedPartitionedDrivers,
                 runningDrivers,
                 runningPartitionedDrivers,
+                blockedDrivers,
                 completedDrivers,
 
                 succinctBytes(memoryReservation.get()),
@@ -447,7 +455,7 @@ public class PipelineContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
+                fullyBlocked,
                 blockedReasons,
 
                 succinctBytes(rawInputDataSize),

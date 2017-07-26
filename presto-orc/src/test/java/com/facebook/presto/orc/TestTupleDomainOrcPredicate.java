@@ -203,7 +203,7 @@ public class TestTupleDomainOrcPredicate
 
     @Test
     public void testChar()
-        throws Exception
+            throws Exception
     {
         assertEquals(getDomain(CHAR, 0, null), none(CHAR));
         assertEquals(getDomain(CHAR, 10, null), all(CHAR));

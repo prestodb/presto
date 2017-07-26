@@ -28,6 +28,6 @@ public class MinByNAggregationFunction
     @Override
     public String getDescription()
     {
-        return  "Returns the values of the first argument associated with the minimum values of the second argument";
+        return "Returns the values of the first argument associated with the minimum values of the second argument";
     }
 }

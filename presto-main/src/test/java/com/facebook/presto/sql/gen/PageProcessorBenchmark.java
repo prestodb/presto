@@ -29,8 +29,8 @@ import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingSession;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -90,13 +90,13 @@ public class PageProcessorBenchmark
     private RecordSet recordSet;
     private List<Type> types;
 
-    @Param({ "2", "4", "8", "16", "32" })
+    @Param({"2", "4", "8", "16", "32"})
     int columnCount;
 
-    @Param({ "varchar", "bigint" })
+    @Param({"varchar", "bigint"})
     String type;
 
-    @Param({ "false", "true" })
+    @Param({"false", "true"})
     boolean dictionaryBlocks;
 
     @Setup
@@ -174,7 +174,7 @@ public class PageProcessorBenchmark
         }
         Map<Integer, Type> types = builder.build();
 
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, METADATA, SQL_PARSER, types, inputReferenceExpression, emptyList());
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, METADATA, SQL_PARSER, types, inputReferenceExpression, emptyList());
         return SqlToRowExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true);
     }
 

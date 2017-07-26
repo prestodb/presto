@@ -14,16 +14,23 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
@@ -31,12 +38,15 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
 public class RuleAssert
 {
     private final Metadata metadata;
+    private final CostCalculator costCalculator;
     private Session session;
     private final Rule rule;
 
@@ -44,12 +54,17 @@ public class RuleAssert
 
     private Map<Symbol, Type> symbols;
     private PlanNode plan;
+    private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, Session session, Rule rule)
+    public RuleAssert(Metadata metadata, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
+        this.costCalculator = costCalculator;
         this.session = session;
         this.rule = rule;
+        this.transactionManager = transactionManager;
+        this.accessControl = accessControl;
     }
 
     public RuleAssert setSystemProperty(String key, String value)
@@ -77,37 +92,35 @@ public class RuleAssert
 
     public void doesNotFire()
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator, session);
+        RuleApplication ruleApplication = applyRule();
 
-        if (result.isPresent()) {
+        if (ruleApplication.wasRuleApplied()) {
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    PlanPrinter.textLogicalPlan(plan, symbolAllocator.getTypes(), metadata, session, 2)));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, costCalculator, session, 2))));
         }
     }
 
     public void matches(PlanMatchPattern pattern)
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Optional<PlanNode> result = rule.apply(plan, x -> x, idAllocator, symbolAllocator, session);
-        Map<Symbol, Type> types = symbolAllocator.getTypes();
+        RuleApplication ruleApplication = applyRule();
+        Map<Symbol, Type> types = ruleApplication.types;
 
-        if (!result.isPresent()) {
+        if (!ruleApplication.wasRuleApplied()) {
             fail(String.format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
-                    PlanPrinter.textLogicalPlan(plan, types, metadata, session, 2)));
+                    formatPlan(plan, types)));
         }
 
-        PlanNode actual = result.get();
+        PlanNode actual = ruleApplication.getResult();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
             fail(String.format(
                     "%s: rule fired but return the original plan:\n%s",
                     rule.getClass().getName(),
-                    PlanPrinter.textLogicalPlan(plan, types, metadata, session, 2)));
+                    formatPlan(plan, types)));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
@@ -120,6 +133,95 @@ public class RuleAssert
                     actual.getOutputSymbols()));
         }
 
-        assertPlan(session, metadata, new Plan(actual, types), pattern);
+        inTransaction(session -> {
+            Map<PlanNodeId, PlanNodeCost> planNodeCosts = costCalculator.calculateCostForPlan(session, types, actual);
+            assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), ruleApplication.lookup, pattern);
+            return null;
+        });
+    }
+
+    private RuleApplication applyRule()
+    {
+        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
+        Memo memo = new Memo(idAllocator, plan);
+        Lookup lookup = Lookup.from(memo::resolve);
+
+        if (!rule.getPattern().matches(plan)) {
+            return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
+        }
+
+        Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), ruleContext(symbolAllocator, lookup, session)));
+
+        return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
+    }
+
+    private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
+    {
+        return inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2));
+    }
+
+    private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
+    {
+        return transaction(transactionManager, accessControl)
+                .singleStatement()
+                .execute(session, session -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
+                    return transactionSessionConsumer.apply(session);
+                });
+    }
+
+    private Rule.Context ruleContext(SymbolAllocator symbolAllocator, Lookup lookup, Session session)
+    {
+        return new Rule.Context()
+        {
+            @Override
+            public Lookup getLookup()
+            {
+                return lookup;
+            }
+
+            @Override
+            public PlanNodeIdAllocator getIdAllocator()
+            {
+                return idAllocator;
+            }
+
+            @Override
+            public SymbolAllocator getSymbolAllocator()
+            {
+                return symbolAllocator;
+            }
+
+            @Override
+            public Session getSession()
+            {
+                return session;
+            }
+        };
+    }
+
+    private static class RuleApplication
+    {
+        private final Lookup lookup;
+        private final Map<Symbol, Type> types;
+        private final Optional<PlanNode> result;
+
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        {
+            this.lookup = requireNonNull(lookup, "lookup is null");
+            this.types = requireNonNull(types, "types is null");
+            this.result = requireNonNull(result, "result is null");
+        }
+
+        private boolean wasRuleApplied()
+        {
+            return result.isPresent();
+        }
+
+        public PlanNode getResult()
+        {
+            return result.orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+        }
     }
 }

@@ -47,8 +47,10 @@ public class MapBlockEncoding
     public MapBlockEncoding(Type keyType, MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode, BlockEncoding keyBlockEncoding, BlockEncoding valueBlockEncoding)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
-        this.keyNativeHashCode = requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
-        this.keyBlockNativeEquals = requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals");
+        // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
+        this.keyNativeHashCode = keyNativeHashCode;
+        // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
+        this.keyBlockNativeEquals = keyBlockNativeEquals;
         this.keyBlockEncoding = requireNonNull(keyBlockEncoding, "keyBlockEncoding is null");
         this.valueBlockEncoding = requireNonNull(valueBlockEncoding, "valueBlockEncoding is null");
     }

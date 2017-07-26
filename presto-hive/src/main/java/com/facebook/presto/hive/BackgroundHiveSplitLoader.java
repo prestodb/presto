@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
@@ -259,6 +260,7 @@ public class BackgroundHiveSplitLoader
                         file.getBlockLocations(),
                         0,
                         file.getLen(),
+                        file.getLen(),
                         files.getSchema(),
                         files.getPartitionKeys(),
                         splittable,
@@ -301,7 +303,7 @@ public class BackgroundHiveSplitLoader
                 TextInputFormat targetInputFormat = new TextInputFormat();
                 // get the configuration for the target path -- it may be a different hdfs instance
                 Configuration targetConfiguration = hdfsEnvironment.getConfiguration(targetPath);
-                JobConf targetJob = new JobConf(targetConfiguration);
+                JobConf targetJob = toJobConf(targetConfiguration);
                 targetJob.setInputFormat(TextInputFormat.class);
                 targetInputFormat.configure(targetJob);
                 FileInputFormat.setInputPaths(targetJob, targetPath);
@@ -317,7 +319,7 @@ public class BackgroundHiveSplitLoader
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
         if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
-            JobConf jobConf = new JobConf(configuration);
+            JobConf jobConf = toJobConf(configuration);
             FileInputFormat.setInputPaths(jobConf, path);
             InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
 
@@ -342,6 +344,7 @@ public class BackgroundHiveSplitLoader
                         file.getPath().toString(),
                         file.getBlockLocations(),
                         0,
+                        file.getLen(),
                         file.getLen(),
                         iterator.getSchema(),
                         iterator.getPartitionKeys(),
@@ -372,6 +375,7 @@ public class BackgroundHiveSplitLoader
                         file.getPath().toString(),
                         file.getBlockLocations(),
                         0,
+                        file.getLen(),
                         file.getLen(),
                         iterator.getSchema(),
                         iterator.getPartitionKeys(),
@@ -408,6 +412,7 @@ public class BackgroundHiveSplitLoader
                     targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
                     split.getStart(),
                     split.getLength(),
+                    file.getLen(),
                     schema,
                     partitionKeys,
                     false,
@@ -494,6 +499,7 @@ public class BackgroundHiveSplitLoader
             BlockLocation[] blockLocations,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             boolean splittable,
@@ -508,7 +514,8 @@ public class BackgroundHiveSplitLoader
         if (splittable) {
             PeekingIterator<BlockLocation> blockLocationIterator = Iterators.peekingIterator(Arrays.stream(blockLocations).iterator());
 
-            return new AbstractIterator<HiveSplit>() {
+            return new AbstractIterator<HiveSplit>()
+            {
                 private long chunkOffset = 0;
 
                 @Override
@@ -548,6 +555,7 @@ public class BackgroundHiveSplitLoader
                             path,
                             blockLocation.getOffset() + chunkOffset,
                             chunkLength,
+                            fileSize,
                             schema,
                             partitionKeys,
                             addresses,
@@ -583,6 +591,7 @@ public class BackgroundHiveSplitLoader
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
                     partitionKeys,
                     addresses,

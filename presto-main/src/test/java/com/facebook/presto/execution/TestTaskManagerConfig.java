@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -51,7 +52,10 @@ public class TestTaskManagerConfig
                 .setTaskConcurrency(16)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
-                .setTaskNotificationThreads(5));
+                .setTaskNotificationThreads(5)
+                .setLevelAbsolutePriority(true)
+                .setLevelTimeMultiplier(new BigDecimal("2"))
+                .setLegacySchedulingBehavior(true));
     }
 
     @Test
@@ -78,6 +82,9 @@ public class TestTaskManagerConfig
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
+                .put("task.level-absolute-priority", "false")
+                .put("task.level-time-multiplier", "2.1")
+                .put("task.legacy-scheduling-behavior", "false")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -100,7 +107,10 @@ public class TestTaskManagerConfig
                 .setTaskConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
-                .setTaskNotificationThreads(13);
+                .setTaskNotificationThreads(13)
+                .setLevelAbsolutePriority(false)
+                .setLevelTimeMultiplier(new BigDecimal("2.1"))
+                .setLegacySchedulingBehavior(false);
 
         assertFullMapping(properties, expected);
     }

@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -47,6 +48,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
@@ -75,6 +77,7 @@ import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.StartTransaction;
@@ -105,6 +108,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public final class SqlFormatter
@@ -151,6 +155,15 @@ public final class SqlFormatter
         protected Void visitUnnest(Unnest node, Integer indent)
         {
             builder.append(node.toString());
+            return null;
+        }
+
+        @Override
+        protected Void visitLateral(Lateral node, Integer indent)
+        {
+            append(indent, "LATERAL (");
+            process(node.getQuery(), indent + 1);
+            append(indent, ")");
             return null;
         }
 
@@ -638,6 +651,15 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitShowStats(ShowStats node, Integer context)
+        {
+            builder.append("SHOW STATS FOR ");
+            process(node.getRelation(), 0);
+            builder.append("");
+            return null;
+        }
+
+        @Override
         protected Void visitShowPartitions(ShowPartitions node, Integer context)
         {
             builder.append("SHOW PARTITIONS FROM ")
@@ -738,6 +760,11 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatName(node.getName()));
+
+            if (node.getColumnAliases().isPresent()) {
+                String columnList = node.getColumnAliases().get().stream().map(element -> formatName(element.getName())).collect(joining(", "));
+                builder.append(format("( %s )", columnList));
+            }
 
             if (node.getComment().isPresent()) {
                 builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
@@ -862,6 +889,17 @@ public final class SqlFormatter
                     .append(node.getSource())
                     .append(" TO ")
                     .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropColumn(DropColumn node, Integer context)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(formatName(node.getTable()))
+                    .append(" DROP COLUMN ")
+                    .append(formatName(node.getColumn()));
 
             return null;
         }

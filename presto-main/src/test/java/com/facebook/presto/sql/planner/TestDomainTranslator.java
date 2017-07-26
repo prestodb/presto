@@ -51,6 +51,7 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
@@ -149,7 +150,7 @@ public class TestDomainTranslator
             .build();
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
-    private static final long DATE_VALUE = new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis();
+    private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
     private static final long COLOR_VALUE_1 = 1;
     private static final long COLOR_VALUE_2 = 2;
 
@@ -799,6 +800,42 @@ public class TestDomainTranslator
     }
 
     @Test
+    void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
+    {
+        Expression originalExpression = equal(
+                new Cast(C_DECIMAL_12_2.toSymbolReference(), DOUBLE.toString()),
+                LiteralInterpreter.toExpression(12345.56, DOUBLE));
+
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+
+        originalExpression = equal(
+                new Cast(C_BIGINT.toSymbolReference(), DOUBLE.toString()),
+                LiteralInterpreter.toExpression(12345.56, DOUBLE));
+
+        result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+
+        originalExpression = equal(
+                new Cast(C_BIGINT.toSymbolReference(), REAL.toString()),
+                LiteralInterpreter.toExpression(realValue(12345.56f), REAL));
+
+        result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+
+        originalExpression = equal(
+                new Cast(C_INTEGER.toSymbolReference(), REAL.toString()),
+                LiteralInterpreter.toExpression(realValue(12345.56f), REAL));
+
+        result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+    }
+
+    @Test
     public void testFromComparisonsWithCoercions()
             throws Exception
     {
@@ -814,73 +851,73 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_VARCHAR, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("test"))), false))));
 
-        // A is a long column. Check that it can be compared against doubles
-        originalExpression = greaterThan(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0));
+        // A is a integer column. Check that it can be compared against doubles
+        originalExpression = greaterThan(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 2L)), false))));
 
-        originalExpression = greaterThan(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1));
+        originalExpression = greaterThan(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 2L)), false))));
 
-        originalExpression = greaterThanOrEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0));
+        originalExpression = greaterThanOrEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(INTEGER, 2L)), false))));
 
-        originalExpression = greaterThanOrEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1));
+        originalExpression = greaterThanOrEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 2L)), false))));
 
-        originalExpression = lessThan(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0));
+        originalExpression = lessThan(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L)), false))));
 
-        originalExpression = lessThan(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1));
+        originalExpression = lessThan(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(INTEGER, 2L)), false))));
 
-        originalExpression = lessThanOrEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0));
+        originalExpression = lessThanOrEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(INTEGER, 2L)), false))));
 
-        originalExpression = lessThanOrEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1));
+        originalExpression = lessThanOrEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(INTEGER, 2L)), false))));
 
-        originalExpression = equal(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0));
+        originalExpression = equal(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 2L)), false))));
 
-        originalExpression = equal(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1));
+        originalExpression = equal(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.none(BIGINT))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.none(INTEGER))));
 
-        originalExpression = notEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0));
+        originalExpression = notEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), false))));
 
-        originalExpression = notEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1));
+        originalExpression = notEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.notNull(BIGINT))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.notNull(INTEGER))));
 
-        originalExpression = isDistinctFrom(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0));
+        originalExpression = isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), true))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), true))));
 
-        originalExpression = isDistinctFrom(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1));
+        originalExpression = isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertTrue(result.getTupleDomain().isAll());
@@ -899,73 +936,73 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_VARCHAR, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, utf8Slice("test"))), false))));
 
-        // A is a long column. Check that it can be compared against doubles
-        originalExpression = not(greaterThan(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0)));
+        // A is a integer column. Check that it can be compared against doubles
+        originalExpression = not(greaterThan(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(INTEGER, 2L)), false))));
 
-        originalExpression = not(greaterThan(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1)));
+        originalExpression = not(greaterThan(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(INTEGER, 2L)), false))));
 
-        originalExpression = not(greaterThanOrEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0)));
+        originalExpression = not(greaterThanOrEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L)), false))));
 
-        originalExpression = not(greaterThanOrEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1)));
+        originalExpression = not(greaterThanOrEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(INTEGER, 2L)), false))));
 
-        originalExpression = not(lessThan(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0)));
+        originalExpression = not(lessThan(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(INTEGER, 2L)), false))));
 
-        originalExpression = not(lessThan(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1)));
+        originalExpression = not(lessThan(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 2L)), false))));
 
-        originalExpression = not(lessThanOrEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0)));
+        originalExpression = not(lessThanOrEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 2L)), false))));
 
-        originalExpression = not(lessThanOrEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1)));
+        originalExpression = not(lessThanOrEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 2L)), false))));
 
-        originalExpression = not(equal(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0)));
+        originalExpression = not(equal(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 2L), Range.greaterThan(INTEGER, 2L)), false))));
 
-        originalExpression = not(equal(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1)));
+        originalExpression = not(equal(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.notNull(BIGINT))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.notNull(INTEGER))));
 
-        originalExpression = not(notEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0)));
+        originalExpression = not(notEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 2L)), false))));
 
-        originalExpression = not(notEqual(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1)));
+        originalExpression = not(notEqual(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.none(BIGINT))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.none(INTEGER))));
 
-        originalExpression = not(isDistinctFrom(cast(C_BIGINT, DOUBLE), doubleLiteral(2.0)));
+        originalExpression = not(isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.0)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 2L)), false))));
 
-        originalExpression = not(isDistinctFrom(cast(C_BIGINT, DOUBLE), doubleLiteral(2.1)));
+        originalExpression = not(isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertTrue(result.getTupleDomain().isNone());
@@ -1062,10 +1099,10 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 2L, true)), false))));
 
-        originalExpression = between(cast(C_BIGINT, DOUBLE), cast(bigintLiteral(1L), DOUBLE), doubleLiteral(2.1));
+        originalExpression = between(cast(C_INTEGER, DOUBLE), cast(bigintLiteral(1L), DOUBLE), doubleLiteral(2.1));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 2L, true)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 2L, true)), false))));
 
         originalExpression = between(C_BIGINT, bigintLiteral(1L), nullLiteral(BIGINT));
         result = fromPredicate(originalExpression);
@@ -1078,10 +1115,10 @@ public class TestDomainTranslator
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L), Range.greaterThan(BIGINT, 2L)), false))));
 
-        originalExpression = not(between(cast(C_BIGINT, DOUBLE), cast(bigintLiteral(1L), DOUBLE), doubleLiteral(2.1)));
+        originalExpression = not(between(cast(C_INTEGER, DOUBLE), cast(bigintLiteral(1L), DOUBLE), doubleLiteral(2.1)));
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L), Range.greaterThan(BIGINT, 2L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 1L), Range.greaterThan(INTEGER, 2L)), false))));
 
         originalExpression = not(between(C_BIGINT, bigintLiteral(1L), nullLiteral(BIGINT)));
         result = fromPredicate(originalExpression);
@@ -1197,19 +1234,17 @@ public class TestDomainTranslator
     void testMultipleCoercionsOnSymbolSide()
             throws Exception
     {
-        ComparisonExpression originalExpression = comparison(GREATER_THAN, cast(cast(C_BIGINT, REAL), DOUBLE), doubleLiteral(3.7));
+        ComparisonExpression originalExpression = comparison(GREATER_THAN, cast(cast(C_SMALLINT, REAL), DOUBLE), doubleLiteral(3.7));
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 3L)), false))));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_SMALLINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(SMALLINT, 3L)), false))));
     }
 
     @Test
     public void testNumericTypeTranslation()
             throws Exception
     {
-        List<NumericValues> translationChain = ImmutableList.of(
-                new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.5556836, 23.0, 44.5556789, Double.MAX_VALUE),
-                new NumericValues<>(C_REAL, realValue(-1.0f * Float.MAX_VALUE), realValue(-22.0f), realValue(-44.555687f), realValue(23.0f), realValue(44.555676f), realValue(Float.MAX_VALUE)),
+        testNumericTypeTranslationChain(
                 new NumericValues<>(C_DECIMAL_26_5, longDecimal("-999999999999999999999.99999"), longDecimal("-22.00000"), longDecimal("-44.55569"), longDecimal("23.00000"), longDecimal("44.55567"), longDecimal("999999999999999999999.99999")),
                 new NumericValues<>(C_DECIMAL_23_4, longDecimal("-9999999999999999999.9999"), longDecimal("-22.0000"), longDecimal("-44.5557"), longDecimal("23.0000"), longDecimal("44.5556"), longDecimal("9999999999999999999.9999")),
                 new NumericValues<>(C_BIGINT, Long.MIN_VALUE, -22L, -45L, 23L, 44L, Long.MAX_VALUE),
@@ -1220,13 +1255,20 @@ public class TestDomainTranslator
                 new NumericValues<>(C_SMALLINT, (long) Short.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Short.MAX_VALUE),
                 new NumericValues<>(C_DECIMAL_3_0, shortDecimal("-999"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("999")),
                 new NumericValues<>(C_TINYINT, (long) Byte.MIN_VALUE, -22L, -45L, 23L, 44L, (long) Byte.MAX_VALUE),
-                new NumericValues<>(C_DECIMAL_2_0, shortDecimal("-99"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("99"))
-        );
+                new NumericValues<>(C_DECIMAL_2_0, shortDecimal("-99"), shortDecimal("-22"), shortDecimal("-45"), shortDecimal("23"), shortDecimal("44"), shortDecimal("99")));
 
-        for (int literalIndex = 0; literalIndex < translationChain.size(); literalIndex++) {
-            for (int columnIndex = literalIndex + 1; columnIndex < translationChain.size(); columnIndex++) {
-                NumericValues literal = translationChain.get(literalIndex);
-                NumericValues column = translationChain.get(columnIndex);
+        testNumericTypeTranslationChain(
+                new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.5556836, 23.0, 44.5556789, Double.MAX_VALUE),
+                new NumericValues<>(C_REAL, realValue(-1.0f * Float.MAX_VALUE), realValue(-22.0f), realValue(-44.555687f), realValue(23.0f), realValue(44.555676f), realValue(Float.MAX_VALUE))
+        );
+    }
+
+    private void testNumericTypeTranslationChain(NumericValues... translationChain)
+    {
+        for (int literalIndex = 0; literalIndex < translationChain.length; literalIndex++) {
+            for (int columnIndex = literalIndex + 1; columnIndex < translationChain.length; columnIndex++) {
+                NumericValues literal = translationChain[literalIndex];
+                NumericValues column = translationChain[columnIndex];
                 testNumericTypeTranslation(column, literal);
             }
         }
@@ -1336,23 +1378,25 @@ public class TestDomainTranslator
     public void testVarcharComparedToCharExpression()
             throws Exception
     {
+        String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
+
         // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
         testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Range.greaterThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
         testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // greater than
-        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
         testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
         testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // less than or equal
-        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
         testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
         testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // less than
-        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
         testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("1234567890", VARCHAR)), C_CHAR, Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")));
         testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
 

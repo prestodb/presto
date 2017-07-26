@@ -22,11 +22,13 @@ import java.util.Collections;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -57,6 +59,16 @@ public interface SystemAccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetSystemSessionProperty(Identity identity, String propertyName);
+
+    /**
+     * Check if identity is allowed to access the specified catalog
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAccessCatalog(Identity identity, String catalogName)
+    {
+        denyCatalogAccess(catalogName);
+    }
 
     /**
      * Filter the list of catalogs to those visible to the identity.
@@ -98,7 +110,7 @@ public interface SystemAccessControl
 
     /**
      * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
-     *
+     * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterSchemas} method must filter all results for unauthorized users,
      * since there are multiple ways to list schemas.
@@ -150,7 +162,7 @@ public interface SystemAccessControl
 
     /**
      * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
-     *
+     * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterTables} method must filter all results for unauthorized users,
      * since there are multiple ways to list tables.
@@ -178,6 +190,16 @@ public interface SystemAccessControl
     default void checkCanAddColumn(Identity identity, CatalogSchemaTableName table)
     {
         denyAddColumn(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop columns from the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDropColumn(Identity identity, CatalogSchemaTableName table)
+    {
+        denyDropColumn(table.toString());
     }
 
     /**
@@ -281,21 +303,21 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to grant to any other user the specified privilege on the specified table.
+     * Check if identity is allowed to grant the specified privilege to the grantee on the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
+    default void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, String grantee, boolean withGrantOption)
     {
         denyGrantTablePrivilege(privilege.toString(), table.toString());
     }
 
     /**
-     * Check if identity is allowed to revoke the specified privilege on the specified table from any user.
+     * Check if identity is allowed to revoke the specified privilege on the specified table from the revokee.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
+    default void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, String revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
     }

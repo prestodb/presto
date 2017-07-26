@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -36,12 +36,14 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
+import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -70,7 +72,7 @@ class SubqueryPlanner
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
-    private final IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
+    private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
     private final Metadata metadata;
     private final Session session;
     private final List<Expression> parameters;
@@ -79,7 +81,7 @@ class SubqueryPlanner
             Analysis analysis,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
-            IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap,
+            Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
             Session session,
             List<Expression> parameters)
@@ -221,23 +223,35 @@ class SubqueryPlanner
         subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot()));
         subqueryPlan = subqueryPlan.appendProjections(coercions, symbolAllocator, idAllocator);
 
-        Assignments.Builder subqueryAssignments = Assignments.builder();
         Symbol uncoercedScalarSubquerySymbol = subqueryPlan.translate(uncoercedScalarSubquery);
         subPlan.getTranslations().put(uncoercedScalarSubquery, uncoercedScalarSubquerySymbol);
-        subqueryAssignments.put(uncoercedScalarSubquerySymbol, uncoercedScalarSubquerySymbol.toSymbolReference());
 
         for (Expression coercion : coercions) {
             Symbol coercionSymbol = subqueryPlan.translate(coercion);
             subPlan.getTranslations().put(coercion, coercionSymbol);
-            subqueryAssignments.put(coercionSymbol, coercionSymbol.toSymbolReference());
         }
 
-        return appendApplyNode(
-                subPlan,
-                scalarSubquery.getQuery(),
-                subqueryPlan,
-                subqueryAssignments.build(),
-                correlationAllowed);
+        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed);
+    }
+
+    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed)
+    {
+        PlanNode subqueryNode = subqueryPlan.getRoot();
+        Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
+        if (!correlationAllowed && !correlation.isEmpty()) {
+            throw notSupportedException(query, "Correlated subquery in given context");
+        }
+        subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
+
+        return new PlanBuilder(
+                subPlan.copyTranslations(),
+                new LateralJoinNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        subqueryNode,
+                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
+                        LateralJoinNode.Type.INNER),
+                analysis.getParameters());
     }
 
     private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates, boolean correlationAllowed)
@@ -385,7 +399,7 @@ class SubqueryPlanner
     private static boolean isAggregationWithEmptyGroupBy(PlanNode planNode)
     {
         return searchFrom(planNode)
-                .skipOnlyWhen(Predicates.isInstanceOfAny(ProjectNode.class))
+                .recurseOnlyWhen(MorePredicates.isInstanceOfAny(ProjectNode.class))
                 .where(AggregationNode.class::isInstance)
                 .findFirst()
                 .map(AggregationNode.class::cast)
@@ -406,6 +420,7 @@ class SubqueryPlanner
     private List<Expression> coercionsFor(Expression expression)
     {
         return analysis.getCoercions().keySet().stream()
+                .map(NodeRef::getNode)
                 .filter(coercionExpression -> coercionExpression.equals(expression))
                 .collect(toImmutableList());
     }
@@ -432,7 +447,7 @@ class SubqueryPlanner
                         root,
                         subqueryNode,
                         subqueryAssignments,
-                        ImmutableList.copyOf(DependencyExtractor.extractUnique(correlation.values()))),
+                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values()))),
                 analysis.getParameters());
     }
 
@@ -492,7 +507,7 @@ class SubqueryPlanner
                 .collect(toImmutableSet());
     }
 
-    private static Set<Expression> extractColumnReferences(Expression expression, Set<Expression> columnReferences)
+    private static Set<Expression> extractColumnReferences(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
         ImmutableSet.Builder<Expression> expressionColumnReferences = ImmutableSet.builder();
         new ColumnReferencesExtractor(columnReferences).process(expression, expressionColumnReferences);
@@ -511,9 +526,9 @@ class SubqueryPlanner
     private static class ColumnReferencesExtractor
             extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<Expression>>
     {
-        private final Set<Expression> columnReferences;
+        private final Set<NodeRef<Expression>> columnReferences;
 
-        private ColumnReferencesExtractor(Set<Expression> columnReferences)
+        private ColumnReferencesExtractor(Set<NodeRef<Expression>> columnReferences)
         {
             this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
         }
@@ -521,7 +536,7 @@ class SubqueryPlanner
         @Override
         protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<Expression> builder)
         {
-            if (columnReferences.contains(node)) {
+            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
                 builder.add(node);
             }
             else {

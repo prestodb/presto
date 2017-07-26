@@ -23,9 +23,17 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.invoke.MethodType.methodType;
 
 public final class MethodHandleUtil
 {
+    private static final MethodHandle GET_LONG = methodHandle(Type.class, "getLong", Block.class, int.class);
+    private static final MethodHandle GET_DOUBLE = methodHandle(Type.class, "getDouble", Block.class, int.class);
+    private static final MethodHandle GET_BOOLEAN = methodHandle(Type.class, "getBoolean", Block.class, int.class);
+    private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
+    private static final MethodHandle GET_BLOCK = methodHandle(Type.class, "getObject", Block.class, int.class).asType(methodType(Block.class, Type.class, Block.class, int.class));
+    private static final MethodHandle GET_UNKNOWN = methodHandle(MethodHandleUtil.class, "unknownGetter", Type.class, Block.class, int.class);
+
     private MethodHandleUtil()
     {
     }
@@ -93,6 +101,14 @@ public final class MethodHandleUtil
         return MethodHandles.foldArguments(fhUST, g);
     }
 
+    /**
+     * Returns a MethodHandle corresponding to the specified method.
+     * <p>
+     * Warning: The way Oracle JVM implements producing MethodHandle for a method involves creating
+     * JNI global weak references. G1 processes such references serially. As a result, calling this
+     * method in a tight loop can create significant GC pressure and significantly increase
+     * application pause time.
+     */
     public static MethodHandle methodHandle(Class<?> clazz, String name, Class<?>... parameterTypes)
     {
         try {
@@ -109,23 +125,22 @@ public final class MethodHandleUtil
 
         MethodHandle methodHandle;
         if (javaType == long.class) {
-            methodHandle = methodHandle(Type.class, "getLong", Block.class, int.class);
+            methodHandle = GET_LONG;
         }
         else if (javaType == double.class) {
-            methodHandle = methodHandle(Type.class, "getDouble", Block.class, int.class);
+            methodHandle = GET_DOUBLE;
         }
         else if (javaType == boolean.class) {
-            methodHandle = methodHandle(Type.class, "getBoolean", Block.class, int.class);
+            methodHandle = GET_BOOLEAN;
         }
         else if (javaType == Slice.class) {
-            methodHandle = methodHandle(Type.class, "getSlice", Block.class, int.class);
+            methodHandle = GET_SLICE;
         }
         else if (javaType == Block.class) {
-            MethodHandle getObjectMethodHandle = methodHandle(Type.class, "getObject", Block.class, int.class);
-            methodHandle = getObjectMethodHandle.asType(getObjectMethodHandle.type().changeReturnType(Block.class));
+            methodHandle = GET_BLOCK;
         }
         else if (javaType == void.class) {
-            methodHandle = methodHandle(MethodHandleUtil.class, "unknownGetter", Type.class, Block.class, int.class);
+            methodHandle = GET_UNKNOWN;
         }
         else {
             throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);

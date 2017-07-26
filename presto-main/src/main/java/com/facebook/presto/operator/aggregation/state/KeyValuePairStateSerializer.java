@@ -17,8 +17,8 @@ import com.facebook.presto.operator.aggregation.KeyValuePairs;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.MapType;
 
 public class KeyValuePairStateSerializer
         implements AccumulatorStateSerializer<KeyValuePairsState>

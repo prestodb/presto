@@ -20,8 +20,8 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.FunctionCall;
 
 import java.util.Map;
 
@@ -35,15 +35,15 @@ public final class VerifyNoFilteredAggregations
     }
 
     private static class Visitor
-        extends SimplePlanVisitor<Void>
+            extends SimplePlanVisitor<Void>
     {
         @Override
         public Void visitAggregation(AggregationNode node, Void context)
         {
             super.visitAggregation(node, context);
 
-            for (FunctionCall call : node.getAggregations().values()) {
-                if (call.getFilter().isPresent()) {
+            for (Aggregation aggregation : node.getAggregations().values()) {
+                if (aggregation.getCall().getFilter().isPresent()) {
                     throw new IllegalStateException("Generated plan contains unimplemented filtered aggregations");
                 }
             }

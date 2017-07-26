@@ -15,11 +15,14 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.spi.Page;
-import it.unimi.dsi.fastutil.ints.IntComparator;
+import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
+import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
@@ -31,16 +34,16 @@ public class TestPositionLinks
     @Test
     public void testArrayPositionLinks()
     {
-        PositionLinks.Builder builder = ArrayPositionLinks.builder(1000);
+        PositionLinks.FactoryBuilder factoryBuilder = ArrayPositionLinks.builder(1000);
 
-        assertEquals(builder.link(1, 0), 1);
-        assertEquals(builder.link(2, 1), 2);
-        assertEquals(builder.link(3, 2), 3);
+        assertEquals(factoryBuilder.link(1, 0), 1);
+        assertEquals(factoryBuilder.link(2, 1), 2);
+        assertEquals(factoryBuilder.link(3, 2), 3);
 
-        assertEquals(builder.link(11, 10), 11);
-        assertEquals(builder.link(12, 11), 12);
+        assertEquals(factoryBuilder.link(11, 10), 11);
+        assertEquals(factoryBuilder.link(12, 11), 12);
 
-        PositionLinks positionLinks = builder.build().apply(Optional.empty());
+        PositionLinks positionLinks = factoryBuilder.build().create(Optional.empty());
 
         assertEquals(positionLinks.start(3, 0, TEST_PAGE), 3);
         assertEquals(positionLinks.next(3, 0, TEST_PAGE), 2);
@@ -73,8 +76,8 @@ public class TestPositionLinks
             }
         };
 
-        PositionLinks.Builder builder = buildSortedPositionLinks();
-        PositionLinks positionLinks = builder.build().apply(Optional.of(filterFunction));
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().create(Optional.of(filterFunction));
 
         assertEquals(positionLinks.start(0, 0, TEST_PAGE), 5);
         assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
@@ -104,8 +107,8 @@ public class TestPositionLinks
             }
         };
 
-        PositionLinks.Builder builder = buildSortedPositionLinks();
-        PositionLinks positionLinks = builder.build().apply(Optional.of(filterFunction));
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().create(Optional.of(filterFunction));
 
         assertEquals(positionLinks.start(0, 0, TEST_PAGE), 0);
         assertEquals(positionLinks.next(0, 0, TEST_PAGE), 1);
@@ -116,23 +119,12 @@ public class TestPositionLinks
         assertEquals(positionLinks.start(10, 0, TEST_PAGE), -1);
     }
 
-    private static PositionLinks.Builder buildSortedPositionLinks()
+    private static PositionLinks.FactoryBuilder buildSortedPositionLinks()
     {
-        SortedPositionLinks.Builder builder = SortedPositionLinks.builder(
+        SortedPositionLinks.FactoryBuilder builder = SortedPositionLinks.builder(
                 1000,
-                new IntComparator() {
-                    @Override
-                    public int compare(int left, int right)
-                    {
-                        return BIGINT.compareTo(TEST_PAGE.getBlock(0), left, TEST_PAGE.getBlock(0), right);
-                    }
-
-                    @Override
-                    public int compare(Integer left, Integer right)
-                    {
-                        return compare(left.intValue(), right.intValue());
-                    }
-                });
+                pagesHashStrategy(),
+                addresses());
 
         assertEquals(builder.link(4, 5), 4);
         assertEquals(builder.link(6, 4), 4);
@@ -145,5 +137,25 @@ public class TestPositionLinks
         assertEquals(builder.link(12, 10), 10);
 
         return builder;
+    }
+
+    private static PagesHashStrategy pagesHashStrategy()
+    {
+        return new SimplePagesHashStrategy(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(),
+                ImmutableList.of(ImmutableList.of(TEST_PAGE.getBlock(0))),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.of(new SortExpression(0)));
+    }
+
+    private static LongArrayList addresses()
+    {
+        LongArrayList addresses = new LongArrayList();
+        for (int i = 0; i < TEST_PAGE.getPositionCount(); ++i) {
+            addresses.add(encodeSyntheticAddress(0, i));
+        }
+        return addresses;
     }
 }

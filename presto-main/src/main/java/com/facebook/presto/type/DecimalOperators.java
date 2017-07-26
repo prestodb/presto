@@ -455,8 +455,8 @@ public final class DecimalOperators
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
                 .implementation(b -> b
-                    .methods("modulusShortShortShort", "modulusLongLongLong", "modulusShortLongLong", "modulusShortLongShort", "modulusLongShortShort", "modulusLongShortLong")
-                    .withExtraParameters(DecimalOperators::modulusRescaleParameters)
+                        .methods("modulusShortShortShort", "modulusLongLongLong", "modulusShortLongLong", "modulusShortLongShort", "modulusLongShortShort", "modulusLongShortLong")
+                        .withExtraParameters(DecimalOperators::modulusRescaleParameters)
                 )
                 .build();
     }

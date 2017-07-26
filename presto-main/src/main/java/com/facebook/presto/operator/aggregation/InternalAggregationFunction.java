@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -73,5 +74,11 @@ public final class InternalAggregationFunction
     public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)
     {
         return factory.bind(inputChannels, maskChannel);
+    }
+
+    @VisibleForTesting
+    public AccumulatorFactoryBinder getAccumulatorFactoryBinder()
+    {
+        return factory;
     }
 }

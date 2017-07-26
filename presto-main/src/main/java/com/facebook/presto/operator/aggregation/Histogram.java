@@ -156,8 +156,7 @@ public class Histogram
             out.appendNull();
         }
         else {
-            Block block = typedHistogram.serialize();
-            type.writeObject(out, block);
+            typedHistogram.serialize(out);
         }
     }
 }

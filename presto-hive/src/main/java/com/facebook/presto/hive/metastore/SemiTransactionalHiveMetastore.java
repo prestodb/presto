@@ -144,6 +144,65 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    public synchronized Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        checkReadable();
+        Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
+        if (tableAction == null) {
+            return delegate.getTableColumnStatistics(databaseName, tableName, columnNames);
+        }
+        switch (tableAction.getType()) {
+            case ADD:
+            case ALTER:
+            case INSERT_EXISTING:
+            case DROP:
+                return Optional.empty();
+            default:
+                throw new IllegalStateException("Unknown action type");
+        }
+    }
+
+    public synchronized Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        checkReadable();
+        Optional<Table> table = getTable(databaseName, tableName);
+        if (!table.isPresent()) {
+            return Optional.empty();
+        }
+        TableSource tableSource = getTableSource(databaseName, tableName);
+        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
+        ImmutableSet.Builder<String> partitionNamesToQuery = ImmutableSet.builder();
+        ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> resultBuilder = ImmutableMap.builder();
+        for (String partitionName : partitionNames) {
+            List<String> partitionValues = toPartitionValues(partitionName);
+            Action<PartitionAndMore> partitionAction = partitionActionsOfTable.get(partitionValues);
+            if (partitionAction == null) {
+                switch (tableSource) {
+                    case PRE_EXISTING_TABLE:
+                        partitionNamesToQuery.add(partitionName);
+                        break;
+                    case CREATED_IN_THIS_TRANSACTION:
+                        resultBuilder.put(partitionName, ImmutableMap.of());
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("unknown table source");
+                }
+            }
+            else {
+                resultBuilder.put(partitionName, ImmutableMap.of());
+            }
+        }
+
+        Optional<Map<String, Map<String, HiveColumnStatistics>>> delegateResult = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesToQuery.build(), columnNames);
+        if (delegateResult.isPresent()) {
+            resultBuilder.putAll(delegateResult.get());
+        }
+        else {
+            partitionNamesToQuery.build().forEach(partionName -> resultBuilder.put(partionName, ImmutableMap.of()));
+        }
+        return Optional.of(resultBuilder.build());
+    }
+
     /**
      * This method can only be called when the table is known to exist
      */
@@ -288,6 +347,11 @@ public class SemiTransactionalHiveMetastore
     public synchronized void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.renameColumn(databaseName, tableName, oldColumnName, newColumnName));
+    }
+
+    public synchronized void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.dropColumn(databaseName, tableName, columnName));
     }
 
     public synchronized void finishInsertIntoExistingTable(ConnectorSession session, String databaseName, String tableName, Path currentLocation, List<String> fileNames)
@@ -1399,18 +1463,18 @@ public class SemiTransactionalHiveMetastore
 
     /**
      * Attempt to recursively remove eligible files and/or directories in {@code directory}.
-     *
+     * <p>
      * When {@code filePrefixes} is not present, all files (but not necessarily directories) will be
      * ineligible. If all files shall be deleted, you can use an empty string as {@code filePrefixes}.
-     *
+     * <p>
      * When {@code deleteEmptySubDirectory} is true, any empty directory (including directories that
      * were originally empty, and directories that become empty after files prefixed with
      * {@code filePrefixes} are deleted) will be eligible.
-     *
+     * <p>
      * This method will not delete anything that's neither a directory nor a file.
      *
-     * @param filePrefixes  prefix of files that should be deleted
-     * @param deleteEmptyDirectories  whether empty directories should be deleted
+     * @param filePrefixes prefix of files that should be deleted
+     * @param deleteEmptyDirectories whether empty directories should be deleted
      */
     private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, String user, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
     {
@@ -1590,7 +1654,8 @@ public class SemiTransactionalHiveMetastore
         FINISHED,
     }
 
-    public enum WriteMode {
+    public enum WriteMode
+    {
         STAGE_AND_MOVE_TO_TARGET_DIRECTORY, // common mode for new table or existing table (both new and existing partition)
         DIRECT_TO_TARGET_NEW_DIRECTORY, // for new table in S3
         DIRECT_TO_TARGET_EXISTING_DIRECTORY, // for existing table in S3 (both new and existing partition)

@@ -101,6 +101,10 @@ Array Functions
 
     See :func:`reduce`.
 
+.. function:: repeat(element, count) -> array
+
+    Repeat ``element`` for ``count`` times.
+
 .. function:: reverse(x) -> array
     :noindex:
 

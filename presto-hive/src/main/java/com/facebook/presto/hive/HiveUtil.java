@@ -92,11 +92,12 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpaces;
+import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -153,7 +154,7 @@ public final class HiveUtil
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSS").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSSSS").getParser(),
-                };
+        };
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
         HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
     }
@@ -172,7 +173,7 @@ public final class HiveUtil
         setReadColumns(configuration, readHiveColumnIndexes);
 
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
-        JobConf jobConf = new JobConf(configuration);
+        JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
         // propagate serialization configuration to getRecordReader
@@ -216,7 +217,7 @@ public final class HiveUtil
     {
         String inputFormatName = getInputFormatName(schema);
         try {
-            JobConf jobConf = new JobConf(configuration);
+            JobConf jobConf = toJobConf(configuration);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
@@ -703,7 +704,7 @@ public final class HiveUtil
 
     public static Slice charPartitionKey(String value, String name, Type columnType)
     {
-        Slice partitionKey = trimSpaces(Slices.utf8Slice(value));
+        Slice partitionKey = trimTrailingSpaces(Slices.utf8Slice(value));
         CharType charType = (CharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
@@ -766,11 +767,6 @@ public final class HiveUtil
         }
 
         return columns.build();
-    }
-
-    public static Slice base64Decode(byte[] bytes)
-    {
-        return Slices.wrappedBuffer(Base64.getDecoder().decode(bytes));
     }
 
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)

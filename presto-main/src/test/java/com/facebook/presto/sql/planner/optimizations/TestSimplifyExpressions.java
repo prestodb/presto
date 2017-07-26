@@ -15,10 +15,10 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -139,7 +139,7 @@ public class TestSimplifyExpressions
 
     private static Map<Symbol, Type> booleanSymbolTypeMapFor(Expression expression)
     {
-        return DependencyExtractor.extractUnique(expression).stream()
+        return SymbolsExtractor.extractUnique(expression).stream()
                 .collect(Collectors.toMap(symbol -> symbol, symbol -> BOOLEAN));
     }
 

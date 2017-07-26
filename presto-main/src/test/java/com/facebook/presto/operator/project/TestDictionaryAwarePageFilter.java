@@ -32,6 +32,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryAwarePageFilter
@@ -71,6 +72,15 @@ public class TestDictionaryAwarePageFilter
     }
 
     @Test
+    public void testRleBlockWithFailure()
+            throws Exception
+    {
+        DictionaryAwarePageFilter filter = createDictionaryAwarePageFilter(true, LongArrayBlock.class);
+        RunLengthEncodedBlock fail = new RunLengthEncodedBlock(createLongSequenceBlock(-10, -9), 100);
+        assertThrows(NegativeValueException.class, () -> testFilter(filter, fail, true));
+    }
+
+    @Test
     public void testDictionaryBlock()
             throws Exception
     {
@@ -81,7 +91,14 @@ public class TestDictionaryAwarePageFilter
         testFilter(createDictionaryBlock(20, 0), LongArrayBlock.class);
 
         // match all
-        testFilter(new DictionaryBlock(100, createLongSequenceBlock(4, 5), new int[100]), LongArrayBlock.class);
+        testFilter(new DictionaryBlock(createLongSequenceBlock(4, 5), new int[100]), LongArrayBlock.class);
+    }
+
+    @Test
+    public void testDictionaryBlockWithFailure()
+            throws Exception
+    {
+        assertThrows(NegativeValueException.class, () -> testFilter(createDictionaryBlockWithFailure(20, 100), LongArrayBlock.class));
     }
 
     @Test
@@ -95,7 +112,7 @@ public class TestDictionaryAwarePageFilter
         testFilter(createDictionaryBlockWithUnusedEntries(20, 0), DictionaryBlock.class);
 
         // match all
-        testFilter(new DictionaryBlock(100, createLongsBlock(4, 5, -1), new int[100]), DictionaryBlock.class);
+        testFilter(new DictionaryBlock(createLongsBlock(4, 5, -1), new int[100]), DictionaryBlock.class);
     }
 
     @Test
@@ -130,7 +147,15 @@ public class TestDictionaryAwarePageFilter
         Block dictionary = createLongSequenceBlock(0, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> index % dictionarySize);
-        return new DictionaryBlock(blockSize, dictionary, ids);
+        return new DictionaryBlock(dictionary, ids);
+    }
+
+    private static DictionaryBlock createDictionaryBlockWithFailure(int dictionarySize, int blockSize)
+    {
+        Block dictionary = createLongSequenceBlock(-10, dictionarySize - 10);
+        int[] ids = new int[blockSize];
+        Arrays.setAll(ids, index -> index % dictionarySize);
+        return new DictionaryBlock(dictionary, ids);
     }
 
     private static DictionaryBlock createDictionaryBlockWithUnusedEntries(int dictionarySize, int blockSize)
@@ -138,7 +163,7 @@ public class TestDictionaryAwarePageFilter
         Block dictionary = createLongSequenceBlock(-10, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> (index % dictionarySize) + 10);
-        return new DictionaryBlock(blockSize, dictionary, ids);
+        return new DictionaryBlock(dictionary, ids);
     }
 
     private static void testFilter(Block block, Class<? extends Block> expectedType)
@@ -257,6 +282,7 @@ public class TestDictionaryAwarePageFilter
             IntArrayList selectedPositions = new IntArrayList();
             for (int position = 0; position < block.getPositionCount(); position++) {
                 long value = block.getLong(position, 0);
+                verifyPositive(value);
 
                 boolean selected = isSelected(filterRange, value);
                 if (selected) {
@@ -285,6 +311,23 @@ public class TestDictionaryAwarePageFilter
             assertTrue(expectedType.isInstance(block));
 
             return SelectedPositions.positionsList(selectedPositions.elements(), 3, selectedPositions.size() - 6);
+        }
+
+        private static long verifyPositive(long value)
+        {
+            if (value < 0) {
+                throw new NegativeValueException(value);
+            }
+            return value;
+        }
+    }
+
+    private static class NegativeValueException
+            extends RuntimeException
+    {
+        public NegativeValueException(long value)
+        {
+            super("value is negative: " + value);
         }
     }
 }

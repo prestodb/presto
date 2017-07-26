@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
@@ -62,6 +63,33 @@ public class TestUnion
 
         assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
         assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
+        assertPlanIsFullyDistributed(plan);
+    }
+
+    @Test
+    public void testUnionUnderTopN()
+    {
+        Plan plan = plan(
+                "SELECT * FROM (" +
+                        "   SELECT regionkey FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT nationkey FROM nation" +
+                        ") t(a) " +
+                        "ORDER BY a LIMIT 1",
+                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                false);
+
+        List<PlanNode> remotes = searchFrom(plan.getRoot())
+                .where(TestUnion::isRemoteExchange)
+                .findAll();
+
+        assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
+        assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
+
+        int numberOfpartialTopN = searchFrom(plan.getRoot())
+                .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep().equals(TopNNode.Step.PARTIAL))
+                .count();
+        assertEquals(numberOfpartialTopN, 2, "There should be exactly two partial TopN nodes");
         assertPlanIsFullyDistributed(plan);
     }
 
@@ -136,11 +164,11 @@ public class TestUnion
     {
         assertTrue(
                 searchFrom(plan.getRoot())
-                        .skipOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
+                        .recurseOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
                         .findAll()
                         .stream()
-                        .noneMatch(planNode -> planNode instanceof AggregationNode || planNode instanceof JoinNode),
-                "There is an Aggregation or Join between output and first REMOTE GATHER ExchangeNode");
+                        .noneMatch(this::shouldBeDistributed),
+                "There is a node that should be distributed between output and first REMOTE GATHER ExchangeNode");
 
         List<PlanNode> gathers = searchFrom(plan.getRoot())
                 .where(TestUnion::isRemoteGatheringExchange)
@@ -149,6 +177,21 @@ public class TestUnion
                 .collect(toList());
 
         assertEquals(gathers.size(), 1, "Only a single REMOTE GATHER was expected");
+    }
+
+    private boolean shouldBeDistributed(PlanNode planNode)
+    {
+        if (planNode instanceof JoinNode) {
+            return true;
+        }
+        if (planNode instanceof AggregationNode) {
+            // TODO: differentiate aggregation with empty grouping set
+            return true;
+        }
+        if (planNode instanceof TopNNode) {
+            return ((TopNNode) planNode).getStep() == TopNNode.Step.PARTIAL;
+        }
+        return false;
     }
 
     private static void assertAtMostOneAggregationBetweenRemoteExchanges(Plan plan)
@@ -163,7 +206,7 @@ public class TestUnion
         for (PlanNode fragment : fragments) {
             List<PlanNode> aggregations = searchFrom(fragment)
                     .where(AggregationNode.class::isInstance)
-                    .skipOnlyWhen(TestUnion::isNotRemoteExchange)
+                    .recurseOnlyWhen(TestUnion::isNotRemoteExchange)
                     .findAll();
 
             assertFalse(aggregations.size() > 1, "More than a single AggregationNode between remote exchanges");

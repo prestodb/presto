@@ -30,6 +30,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
@@ -294,6 +295,19 @@ public class SqlQueryManager
     }
 
     @Override
+    public Plan getQueryPlan(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query == null) {
+            throw new NoSuchElementException();
+        }
+
+        return query.getQueryPlan();
+    }
+
+    @Override
     public Optional<QueryState> getQueryState(QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");
@@ -390,15 +404,15 @@ public class SqlQueryManager
         queryMonitor.queryCreatedEvent(queryInfo);
 
         queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
-                try {
-                    QueryInfo info = queryExecution.getQueryInfo();
-                    stats.queryFinished(info);
-                    queryMonitor.queryCompletedEvent(info);
-                }
-                finally {
-                    // execution MUST be added to the expiration queue or there will be a leak
-                    expirationQueue.add(queryExecution);
-                }
+            try {
+                QueryInfo info = queryExecution.getQueryInfo();
+                stats.queryFinished(info);
+                queryMonitor.queryCompletedEvent(info);
+            }
+            finally {
+                // execution MUST be added to the expiration queue or there will be a leak
+                expirationQueue.add(queryExecution);
+            }
         });
 
         addStatsListener(queryExecution);

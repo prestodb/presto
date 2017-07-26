@@ -59,6 +59,7 @@ public class TestMetastoreUtil
             "view original text",
             "view extended text",
             "MANAGED_TABLE");
+
     static {
         TEST_TABLE.setPrivileges(new PrincipalPrivilegeSet(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()));
     }
@@ -115,7 +116,7 @@ public class TestMetastoreUtil
     {
         Table table = MetastoreUtil.fromMetastoreApiTable(TEST_TABLE);
         PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
-        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable =  MetastoreUtil.toMetastoreApiTable(table, privileges);
+        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = MetastoreUtil.toMetastoreApiTable(table, privileges);
         assertEquals(metastoreApiTable, TEST_TABLE);
     }
 

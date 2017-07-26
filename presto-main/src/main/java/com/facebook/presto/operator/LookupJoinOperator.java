@@ -40,6 +40,8 @@ public class LookupJoinOperator
     private final JoinProbeFactory joinProbeFactory;
     private final Runnable onClose;
 
+    private final JoinStatisticsCounter statisticsCounter;
+
     private final PageBuilder pageBuilder;
 
     private final boolean probeOnOuterSide;
@@ -50,6 +52,7 @@ public class LookupJoinOperator
     private boolean closed;
     private boolean finishing;
     private long joinPosition = -1;
+    private int joinSourcePositions = 0;
 
     private boolean currentProbePositionProducedRow;
 
@@ -71,6 +74,9 @@ public class LookupJoinOperator
         this.lookupSourceFuture = requireNonNull(lookupSourceFuture, "lookupSourceFuture is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.onClose = requireNonNull(onClose, "onClose is null");
+
+        this.statisticsCounter = new JoinStatisticsCounter(joinType);
+        operatorContext.setInfoSupplier(this.statisticsCounter);
 
         this.pageBuilder = new PageBuilder(types);
     }
@@ -165,6 +171,8 @@ public class LookupJoinOperator
                 if (!advanceProbePosition()) {
                     break;
                 }
+                statisticsCounter.recordProbe(joinSourcePositions);
+                joinSourcePositions = 0;
             }
         }
 
@@ -215,6 +223,7 @@ public class LookupJoinOperator
                 probe.appendTo(pageBuilder);
                 // write build columns
                 lookupSource.appendTo(joinPosition, pageBuilder, probe.getOutputChannelCount());
+                joinSourcePositions++;
             }
 
             // get next position on lookup side for this probe row

@@ -472,8 +472,49 @@ public class RaptorMetadata
     }
 
     @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        RaptorTableHandle table = (RaptorTableHandle) tableHandle;
+        RaptorColumnHandle raptorColumn = (RaptorColumnHandle) column;
+
+        List<TableColumn> existingColumns = dao.listTableColumns(table.getSchemaName(), table.getTableName());
+        if (existingColumns.size() <= 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
+        }
+        long maxColumnId = existingColumns.stream().mapToLong(TableColumn::getColumnId).max().getAsLong();
+        if (raptorColumn.getColumnId() == maxColumnId) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the column which has the largest column ID in the table");
+        }
+
+        if (getBucketColumnHandles(table.getTableId()).contains(column)) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop bucket columns");
+        }
+
+        Optional.ofNullable(dao.getTemporalColumnId(table.getTableId())).ifPresent(tempColumnId -> {
+            if (raptorColumn.getColumnId() == tempColumnId) {
+                throw new PrestoException(NOT_SUPPORTED, "Cannot drop the temporal column");
+            }
+        });
+
+        if (getSortColumnHandles(table.getTableId()).contains(raptorColumn)) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop sort columns");
+        }
+
+        daoTransaction(dbi, MetadataDao.class, dao -> {
+            dao.dropColumn(table.getTableId(), raptorColumn.getColumnId());
+            dao.updateTableVersion(table.getTableId(), session.getStartTime());
+        });
+
+        // TODO: drop column from index table
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        if (viewExists(session, tableMetadata.getTable())) {
+            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
+        }
+
         Optional<RaptorPartitioningHandle> partitioning = layout
                 .map(ConnectorNewTableLayout::getPartitioning)
                 .map(RaptorPartitioningHandle.class::cast);
@@ -692,7 +733,9 @@ public class RaptorMetadata
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
         long updateTime = session.getStartTime();
 
-        shardManager.commitShards(transactionId, tableId, columns, parseFragments(fragments), externalBatchId, updateTime);
+        Collection<ShardInfo> shards = parseFragments(fragments);
+        log.info("Committing insert into tableId %s (queryId: %s, shards: %s, columns: %s)", handle.getTableId(), session.getQueryId(), shards.size(), columns.size());
+        shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, updateTime);
 
         clearRollback();
 
@@ -771,6 +814,10 @@ public class RaptorMetadata
     {
         String schemaName = viewName.getSchemaName();
         String tableName = viewName.getTableName();
+
+        if (getTableHandle(viewName) != null) {
+            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+        }
 
         if (replace) {
             daoTransaction(dbi, MetadataDao.class, dao -> {

@@ -22,7 +22,7 @@ import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsByPartitionsOrder;
+import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -138,17 +138,17 @@ public class TestReorderWindows
 
         PlanMatchPattern pattern =
                 anyTree(
-                        window(windowAp,
-                                ImmutableList.of(
-                                        functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
-                                window(windowA,
-                                        ImmutableList.of(
-                                                functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowAp)
+                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
                                         anyTree(
-                                        window(windowB,
-                                                ImmutableList.of(
-                                                        functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                anyTree(LINEITEM_TABLESCAN_DOQPRSST))))));
+                                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                .specification(windowB)
+                                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        anyTree(LINEITEM_TABLESCAN_DOQPRSST))))));
 
         assertPlan(sql, pattern);
     }
@@ -164,15 +164,15 @@ public class TestReorderWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(windowAp,
-                                ImmutableList.of(
-                                        functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
-                                window(windowA,
-                                        ImmutableList.of(
-                                                functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                        window(windowB,
-                                                ImmutableList.of(
-                                                        functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowAp)
+                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(windowB)
+                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
                                                 LINEITEM_TABLESCAN_DOQPRSST))))); // should be anyTree(LINEITEM_TABLESCANE_DOQPRSST) but anyTree does not handle zero nodes case correctly
     }
 
@@ -186,13 +186,14 @@ public class TestReorderWindows
                     "from lineitem";
 
             assertUnitPlan(sql,
-                    anyTree(window(windowApp,
-                            ImmutableList.of(
-                                    functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                            window(windowA,
-                                    ImmutableList.of(
-                                            functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                    LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+                    anyTree(
+                            window(windowMatcherBuilder -> windowMatcherBuilder
+                                            .specification(windowApp)
+                                            .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                    window(windowMatcherBuilder -> windowMatcherBuilder
+                                                    .specification(windowA)
+                                                    .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                            LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
         }
 
         {
@@ -202,13 +203,14 @@ public class TestReorderWindows
                     "from lineitem";
 
             assertUnitPlan(sql,
-                    anyTree(window(windowApp,
-                            ImmutableList.of(
-                                    functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                            window(windowA,
-                                    ImmutableList.of(
-                                            functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                    LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+                    anyTree(
+                            window(windowMatcherBuilder -> windowMatcherBuilder
+                                            .specification(windowApp)
+                                            .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                    window(windowMatcherBuilder -> windowMatcherBuilder
+                                                    .specification(windowA)
+                                                    .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                            LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
         }
     }
 
@@ -221,14 +223,15 @@ public class TestReorderWindows
                 "from lineitem";
 
         assertUnitPlan(sql,
-                anyTree(window(windowA,
-                        ImmutableList.of(
-                                functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
-                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
-                        window(windowApp,
-                                ImmutableList.of(
-                                        functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowA)
+                                        .addFunction(functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
+                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
+                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(windowApp)
+                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
     @Test
@@ -253,19 +256,20 @@ public class TestReorderWindows
                 "from lineitem";
 
         assertUnitPlan(sql,
-                anyTree(window(windowD,
-                        ImmutableList.of(
-                                functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                window(windowA,
-                                ImmutableList.of(
-                                        functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                        window(windowC,
-                                        ImmutableList.of(
-                                                functionCall("sum", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                window(windowE,
-                                                ImmutableList.of(
-                                                        functionCall("sum", commonFrame, ImmutableList.of(TAX_ALIAS))),
-                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowD)
+                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(windowC)
+                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                .specification(windowE)
+                                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
@@ -276,11 +280,11 @@ public class TestReorderWindows
                 new IterativeOptimizer(new StatsRecorder(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new SwapAdjacentWindowsByPartitionsOrder())),
+                                new SwapAdjacentWindowsBySpecifications())),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
             return null;
         });
     }

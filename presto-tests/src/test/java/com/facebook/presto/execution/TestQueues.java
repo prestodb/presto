@@ -17,13 +17,17 @@ import com.facebook.presto.Session;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.tpch.TpchQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
@@ -32,7 +36,9 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunne
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 // run single threaded to avoid creating multiple query runners at once
 @Test(singleThreaded = true)
@@ -193,6 +199,32 @@ public class TestQueues
             throws Exception
     {
         testRejection(true);
+    }
+
+    @Test(timeOut = 240_000)
+    public void testQueryTypeBasedSelection()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunner.createQueryRunner(ImmutableMap.of(), ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));
+            assertResourceGroup(queryRunner, LONG_LASTING_QUERY, "global.select");
+            assertResourceGroup(queryRunner, "SHOW TABLES", "global.describe");
+            assertResourceGroup(queryRunner, "EXPLAIN " + LONG_LASTING_QUERY, "global.explain");
+            assertResourceGroup(queryRunner, "DESCRIBE lineitem", "global.describe");
+            assertResourceGroup(queryRunner, "RESET SESSION " + HASH_PARTITION_COUNT, "global.data_definition");
+        }
+    }
+
+    private void assertResourceGroup(DistributedQueryRunner queryRunner, String query, String expectedResourceGroup)
+            throws InterruptedException
+    {
+        QueryId queryId = createQuery(queryRunner, newSession(), query);
+        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
+        Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
+        assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
+        assertEquals(resourceGroupName.get().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupName.get()));
     }
 
     private void testRejection(boolean resourceGroups)

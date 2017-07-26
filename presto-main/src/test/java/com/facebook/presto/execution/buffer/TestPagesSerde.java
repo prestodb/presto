@@ -103,7 +103,7 @@ public class TestPagesSerde
         VARCHAR.writeString(builder, "bob");
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 4  + 3); // length + "bob" (null shared with first entry)
+        assertEquals(secondValueSize, 4 + 3); // length + "bob" (null shared with first entry)
     }
 
     private static int serializedSize(List<? extends Type> types, Page expectedPage)

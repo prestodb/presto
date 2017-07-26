@@ -25,11 +25,12 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig({"query.max-pending-splits-per-node",
-                "experimental.big-query-initial-hash-partitions",
-                "experimental.max-concurrent-big-queries",
-                "experimental.max-queued-big-queries",
-                "query.remote-task.max-consecutive-error-count"})
+@DefunctConfig({
+        "query.max-pending-splits-per-node",
+        "experimental.big-query-initial-hash-partitions",
+        "experimental.max-concurrent-big-queries",
+        "experimental.max-queued-big-queries",
+        "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
     private int scheduleSplitBatchSize = 1000;

@@ -970,7 +970,7 @@ public class PrestoDatabaseMetaData
                 "  CHAR_OCTET_LENGTH, ORDINAL_POSITION, IS_NULLABLE,\n" +
                 "  SCOPE_CATALOG, SCOPE_SCHEMA, SCOPE_TABLE,\n" +
                 "  SOURCE_DATA_TYPE, IS_AUTOINCREMENT, IS_GENERATEDCOLUMN\n" +
-                "FROM system.jdbc.columns\n");
+                "FROM system.jdbc.columns");
 
         List<String> filters = new ArrayList<>();
         emptyStringEqualsFilter(filters, "TABLE_CAT", catalog);

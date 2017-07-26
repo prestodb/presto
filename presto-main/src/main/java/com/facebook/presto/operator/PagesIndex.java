@@ -89,6 +89,8 @@ public class PagesIndex
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new Block[1024], 0);
         }
+
+        estimatedSize = calculateEstimatedSize();
     }
 
     public interface Factory
@@ -153,9 +155,12 @@ public class PagesIndex
     {
         for (ObjectArrayList<Block> channel : channels) {
             channel.clear();
+            channel.trim();
         }
         valueAddresses.clear();
+        valueAddresses.trim();
         positionCount = 0;
+        nextBlockToCompact = 0;
         pagesMemorySize = 0;
 
         estimatedSize = calculateEstimatedSize();

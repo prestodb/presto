@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hive.benchmark;
 
-import com.facebook.presto.hive.ColumnarBinaryHiveRecordCursorProvider;
-import com.facebook.presto.hive.ColumnarTextHiveRecordCursorProvider;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.GenericHiveRecordCursorProvider;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -198,7 +196,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment);
+            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
             return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCBINARY);
         }
 
@@ -219,7 +217,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment);
+            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
             return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCTEXT);
         }
 
@@ -362,6 +360,7 @@ public enum FileFormat
                         new Path(targetFile.getAbsolutePath()),
                         0,
                         targetFile.length(),
+                        targetFile.length(),
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
                         TupleDomain.all(),
@@ -393,6 +392,7 @@ public enum FileFormat
                         session,
                         new Path(targetFile.getAbsolutePath()),
                         0,
+                        targetFile.length(),
                         targetFile.length(),
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,

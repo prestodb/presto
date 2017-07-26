@@ -23,7 +23,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class GenericSpillerFactory
-    implements SpillerFactory
+        implements SpillerFactory
 {
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
 

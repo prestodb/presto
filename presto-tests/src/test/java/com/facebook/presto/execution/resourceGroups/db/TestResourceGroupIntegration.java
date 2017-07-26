@@ -17,7 +17,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.execution.resourceGroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
-import static com.facebook.presto.execution.resourceGroups.db.TestQueues.getSimpleQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
 
 public class TestResourceGroupIntegration
 {

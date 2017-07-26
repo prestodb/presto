@@ -31,8 +31,8 @@ public class TestMetadataConfig
     {
         assertRecordedDefaults(recordDefaults(MetadataConfig.class)
                 .setStartupGracePeriod(new Duration(5, MINUTES))
-        .setReassignmentDelay(new Duration(0, MINUTES))
-        .setReassignmentInterval(new Duration(0, MINUTES)));
+                .setReassignmentDelay(new Duration(0, MINUTES))
+                .setReassignmentInterval(new Duration(0, MINUTES)));
     }
 
     @Test

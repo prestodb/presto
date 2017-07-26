@@ -49,6 +49,7 @@ public class TestFeaturesConfig
                 .setDictionaryAggregation(false)
                 .setLegacyArrayAgg(false)
                 .setLegacyMapSubscript(false)
+                .setNewMapBlock(true)
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
@@ -62,7 +63,8 @@ public class TestFeaturesConfig
                 .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setExchangeCompressionEnabled(false)
-                .setEnableIntermediateAggregations(false));
+                .setEnableIntermediateAggregations(false)
+                .setPushAggregationThroughJoin(true));
     }
 
     @Test
@@ -75,6 +77,7 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-order-by", "true")
                 .put("deprecated.legacy-map-subscript", "true")
+                .put("deprecated.new-map-block", "false")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("fast-inequality-joins", "false")
@@ -87,6 +90,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("optimizer.push-aggregation-through-join", "false")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
@@ -105,6 +109,7 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-order-by", "true")
                 .put("deprecated.legacy-map-subscript", "true")
+                .put("deprecated.new-map-block", "false")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("fast-inequality-joins", "false")
@@ -117,6 +122,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("optimizer.push-aggregation-through-join", "false")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
@@ -145,8 +151,10 @@ public class TestFeaturesConfig
                 .setOptimizeMixedDistinctAggregations(true)
                 .setPushTableWriteThroughUnion(false)
                 .setDictionaryAggregation(true)
+                .setPushAggregationThroughJoin(false)
                 .setLegacyArrayAgg(true)
                 .setLegacyMapSubscript(true)
+                .setNewMapBlock(false)
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)

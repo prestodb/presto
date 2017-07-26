@@ -27,6 +27,7 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 @DefunctConfig({
@@ -63,6 +64,11 @@ public class TaskManagerConfig
     private int httpTimeoutThreads = 3;
 
     private int taskNotificationThreads = 5;
+
+    private boolean levelAbsolutePriority = true;
+    private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
+
+    private boolean legacySchedulingBehavior = true;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -155,6 +161,35 @@ public class TaskManagerConfig
     public TaskManagerConfig setShareIndexLoading(boolean shareIndexLoading)
     {
         this.shareIndexLoading = shareIndexLoading;
+        return this;
+    }
+
+    @Deprecated
+    @NotNull
+    public boolean isLevelAbsolutePriority()
+    {
+        return levelAbsolutePriority;
+    }
+
+    @Deprecated
+    @Config("task.level-absolute-priority")
+    public TaskManagerConfig setLevelAbsolutePriority(boolean levelAbsolutePriority)
+    {
+        this.levelAbsolutePriority = levelAbsolutePriority;
+        return this;
+    }
+
+    public BigDecimal getLevelTimeMultiplier()
+    {
+        return levelTimeMultiplier;
+    }
+
+    @Config("task.level-time-multiplier")
+    @ConfigDescription("Factor that determines the target scheduled time for a level relative to the next")
+    @Min(0)
+    public TaskManagerConfig setLevelTimeMultiplier(BigDecimal levelTimeMultiplier)
+    {
+        this.levelTimeMultiplier = levelTimeMultiplier;
         return this;
     }
 
@@ -337,6 +372,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
     {
         this.taskNotificationThreads = taskNotificationThreads;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacySchedulingBehavior()
+    {
+        return legacySchedulingBehavior;
+    }
+
+    @Deprecated
+    @Config("task.legacy-scheduling-behavior")
+    public TaskManagerConfig setLegacySchedulingBehavior(boolean legacySchedulingBehavior)
+    {
+        this.legacySchedulingBehavior = legacySchedulingBehavior;
         return this;
     }
 }

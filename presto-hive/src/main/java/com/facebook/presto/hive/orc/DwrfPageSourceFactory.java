@@ -35,6 +35,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
@@ -61,6 +62,7 @@ public class DwrfPageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -78,6 +80,7 @@ public class DwrfPageSourceFactory
                 path,
                 start,
                 length,
+                fileSize,
                 columns,
                 false,
                 effectivePredicate,
@@ -86,6 +89,7 @@ public class DwrfPageSourceFactory
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
+                getOrcMaxReadBlockSize(session),
                 false,
                 stats));
     }

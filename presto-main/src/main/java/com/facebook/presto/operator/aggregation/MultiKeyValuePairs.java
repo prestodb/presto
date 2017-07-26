@@ -16,15 +16,9 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.RowType;
-import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
-
-import java.util.Optional;
 
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static java.util.Objects.requireNonNull;
@@ -41,15 +35,12 @@ public class MultiKeyValuePairs
     private final BlockBuilder valueBlockBuilder;
     private final Type valueType;
 
-    private final RowType serializedRowType;
-
     public MultiKeyValuePairs(Type keyType, Type valueType)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.valueType = requireNonNull(valueType, "valueType is null");
-        keyBlockBuilder = this.keyType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
-        valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
-        serializedRowType = new RowType(ImmutableList.of(keyType, valueType), Optional.empty());
+        keyBlockBuilder = this.keyType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
+        valueBlockBuilder = this.valueType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
     }
 
     public MultiKeyValuePairs(Block serialized, Type keyType, Type valueType)
@@ -91,13 +82,13 @@ public class MultiKeyValuePairs
     /**
      * Serialize as a multimap: map(key, array(value)), each key can be associated with multiple values
      */
-    public Block toMultimapNativeEncoding()
+    public void toMultimapNativeEncoding(BlockBuilder blockBuilder)
     {
         Block keys = keyBlockBuilder.build();
         Block values = valueBlockBuilder.build();
 
         // Merge values of the same key into an array
-        BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), keys.getPositionCount(), expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
+        BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, keys.getPositionCount(), expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
         ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
         valueArrayBlockBuilders.ensureCapacity(keys.getPositionCount());
         TypedSet keySet = new TypedSet(keyType, keys.getPositionCount());
@@ -105,7 +96,7 @@ public class MultiKeyValuePairs
             if (!keySet.contains(keys, keyValueIndex)) {
                 keySet.add(keys, keyValueIndex);
                 keyType.appendTo(keys, keyValueIndex, distinctKeyBlockBuilder);
-                BlockBuilder valueArrayBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), 10, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
+                BlockBuilder valueArrayBuilder = valueType.createBlockBuilder(null, 10, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
                 valueArrayBlockBuilders.set(keySet.positionOf(keys, keyValueIndex), valueArrayBuilder);
             }
             valueType.appendTo(values, keyValueIndex, valueArrayBlockBuilders.get(keySet.positionOf(keys, keyValueIndex)));
@@ -114,13 +105,12 @@ public class MultiKeyValuePairs
         // Write keys and value arrays into one Block
         Block distinctKeys = distinctKeyBlockBuilder.build();
         Type valueArrayType = new ArrayType(valueType);
-        BlockBuilder multimapBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueArrayType), new BlockBuilderStatus(), distinctKeyBlockBuilder.getPositionCount());
+        BlockBuilder multimapBlockBuilder = blockBuilder.beginBlockEntry();
         for (int i = 0; i < distinctKeys.getPositionCount(); i++) {
             keyType.appendTo(distinctKeys, i, multimapBlockBuilder);
             valueArrayType.writeObject(multimapBlockBuilder, valueArrayBlockBuilders.get(i).build());
         }
-
-        return multimapBlockBuilder.build();
+        blockBuilder.closeEntry();
     }
 
     public long estimatedInMemorySize()

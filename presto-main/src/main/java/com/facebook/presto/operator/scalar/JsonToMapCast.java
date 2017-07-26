@@ -22,35 +22,42 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.type.MapType;
+import com.facebook.presto.util.JsonCastException;
+import com.facebook.presto.util.JsonUtil.BlockBuilderAppender;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
-import static com.facebook.presto.type.TypeJsonUtils.canCastFromJson;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.facebook.presto.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
+import static com.facebook.presto.util.JsonUtil.HashTable;
+import static com.facebook.presto.util.JsonUtil.JSON_FACTORY;
+import static com.facebook.presto.util.JsonUtil.canCastFromJson;
+import static com.facebook.presto.util.JsonUtil.createJsonParser;
+import static com.facebook.presto.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public class JsonToMapCast
         extends SqlOperator
 {
     public static final JsonToMapCast JSON_TO_MAP = new JsonToMapCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", Type.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
     private JsonToMapCast()
     {
@@ -67,31 +74,55 @@ public class JsonToMapCast
         checkArgument(arity == 1, "Expected arity to be 1");
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
+        MapType mapType = (MapType) typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
         checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", mapType);
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType);
+
+        BlockBuilderAppender keyAppender = createBlockBuilderAppender(mapType.getKeyType());
+        BlockBuilderAppender valueAppender = createBlockBuilderAppender(mapType.getValueType());
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(keyAppender).bindTo(valueAppender);
         return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
     @UsedByGeneratedCode
-    public static Block toMap(Type mapType, ConnectorSession connectorSession, Slice json)
+    public static Block toMap(MapType mapType, BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender, ConnectorSession connectorSession, Slice json)
     {
-        try {
-            Map<?, ?> map = (Map<?, ?>) stackRepresentationToObject(connectorSession, json, mapType);
-            if (map == null) {
+        try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
+            jsonParser.nextToken();
+            if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 return null;
             }
-            Type keyType = ((MapType) mapType).getKeyType();
-            Type valueType = ((MapType) mapType).getValueType();
-            BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), map.size() * 2);
-            for (Map.Entry<?, ?> entry : map.entrySet()) {
-                appendToBlockBuilder(keyType, entry.getKey(), blockBuilder);
-                appendToBlockBuilder(valueType, entry.getValue(), blockBuilder);
+
+            if (jsonParser.getCurrentToken() != START_OBJECT) {
+                throw new JsonCastException(format("Expected a json object, but got %s", jsonParser.getText()));
             }
-            return blockBuilder.build();
+            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder singleMapBlockBuilder = mapBlockBuilder.beginBlockEntry();
+            HashTable hashTable = new HashTable(mapType.getKeyType(), singleMapBlockBuilder);
+            int position = 0;
+            while (jsonParser.nextToken() != JsonToken.END_OBJECT) {
+                keyAppender.append(jsonParser, singleMapBlockBuilder);
+                jsonParser.nextToken();
+                valueAppender.append(jsonParser, singleMapBlockBuilder);
+
+                // Duplicate key detection is required even if the JSON is valid.
+                // For example: CAST(JSON '{"1": 1, "01": 2}' AS MAP<INTEGER, INTEGER>).
+                if (!hashTable.addIfAbsent(position)) {
+                    throw new JsonCastException("Duplicate keys are not allowed");
+                }
+                position += 2;
+            }
+            if (jsonParser.nextToken() != null) {
+                throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+            }
+
+            mapBlockBuilder.closeEntry();
+            return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
         }
-        catch (RuntimeException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to " + mapType, e);
+        catch (PrestoException | JsonCastException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", mapType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }

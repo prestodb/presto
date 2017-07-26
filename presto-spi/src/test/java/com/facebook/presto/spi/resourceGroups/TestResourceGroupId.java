@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.AssertJUnit.assertTrue;
 
@@ -23,8 +25,20 @@ public class TestResourceGroupId
     @Test
     public void testBasic()
     {
+        new ResourceGroupId("test_test");
         new ResourceGroupId("test.test");
         new ResourceGroupId(new ResourceGroupId("test"), "test");
+    }
+
+    @Test
+    public void testCodec()
+    {
+        JsonCodec<ResourceGroupId> codec = JsonCodec.jsonCodec(ResourceGroupId.class);
+        ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("test.test"), "foo");
+        assertEquals(codec.fromJson(codec.toJson(resourceGroupId)), resourceGroupId);
+
+        assertEquals(codec.toJson(resourceGroupId), "[ \"test.test\", \"foo\" ]");
+        assertEquals(codec.fromJson("[\"test.test\", \"foo\"]"), resourceGroupId);
     }
 
     @Test

@@ -23,7 +23,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class MongoHandleResolver
-    implements ConnectorHandleResolver
+        implements ConnectorHandleResolver
 {
     public MongoHandleResolver()
     {

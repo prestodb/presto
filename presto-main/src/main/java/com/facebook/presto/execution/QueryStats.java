@@ -56,6 +56,7 @@ public class QueryStats
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int runningDrivers;
+    private final int blockedDrivers;
     private final int completedDrivers;
 
     private final double cumulativeMemory;
@@ -96,6 +97,7 @@ public class QueryStats
         this.finishingTime = null;
         this.totalTasks = 0;
         this.runningTasks = 0;
+        this.blockedDrivers = 0;
         this.completedTasks = 0;
         this.totalDrivers = 0;
         this.queuedDrivers = 0;
@@ -141,6 +143,7 @@ public class QueryStats
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeMemory") double cumulativeMemory,
@@ -191,6 +194,8 @@ public class QueryStats
         this.queuedDrivers = queuedDrivers;
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
+        checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
+        this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
@@ -326,6 +331,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public int getBlockedDrivers()
+    {
+        return blockedDrivers;
+    }
+
+    @JsonProperty
     public int getCompletedDrivers()
     {
         return completedDrivers;
@@ -437,7 +448,7 @@ public class QueryStats
     public OptionalDouble getProgressPercentage()
     {
         if (!scheduled || totalDrivers == 0) {
-             return OptionalDouble.empty();
+            return OptionalDouble.empty();
         }
         return OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
     }

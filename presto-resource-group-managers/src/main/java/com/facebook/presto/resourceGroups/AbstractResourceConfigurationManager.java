@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
@@ -39,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
+import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
         implements ResourceGroupConfigurationManager
@@ -48,7 +50,8 @@ public abstract class AbstractResourceConfigurationManager
     @GuardedBy("generalPoolMemoryFraction")
     private long generalPoolBytes;
 
-    protected abstract Optional<Duration> getCpuQuotaPeriodMillis();
+    protected abstract Optional<Duration> getCpuQuotaPeriod();
+
     protected abstract List<ResourceGroupSpec> getRootGroups();
 
     protected void validateRootGroups(ManagerSpec managerSpec)
@@ -83,14 +86,16 @@ public abstract class AbstractResourceConfigurationManager
     {
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
-            validateSelectors(managerSpec.getRootGroups(), spec.getGroup().getSegments());
-            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getGroup()));
+            validateSelectors(managerSpec.getRootGroups(), spec);
+            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getQueryType(), spec.getGroup()));
         }
         return selectors.build();
     }
 
-    private void validateSelectors(List<ResourceGroupSpec> groups, List<ResourceGroupNameTemplate> selectorGroups)
+    private void validateSelectors(List<ResourceGroupSpec> groups, SelectorSpec spec)
     {
+        spec.getQueryType().ifPresent(this::validateQueryType);
+        List<ResourceGroupNameTemplate> selectorGroups = spec.getGroup().getSegments();
         StringBuilder fullyQualifiedGroupName = new StringBuilder();
         while (!selectorGroups.isEmpty()) {
             ResourceGroupNameTemplate groupName = selectorGroups.get(0);
@@ -105,6 +110,16 @@ public abstract class AbstractResourceConfigurationManager
             fullyQualifiedGroupName.append(".");
             groups = match.get().getSubGroups();
             selectorGroups = selectorGroups.subList(1, selectorGroups.size());
+        }
+    }
+
+    private void validateQueryType(String queryType)
+    {
+        try {
+            QueryType.valueOf(queryType.toUpperCase());
+        }
+        catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(format("Selector specifies an invalid query type: %s", queryType));
         }
     }
 
@@ -177,18 +192,16 @@ public abstract class AbstractResourceConfigurationManager
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setMaxRunningQueries(match.getMaxRunning());
-        if (match.getSchedulingPolicy().isPresent()) {
-            group.setSchedulingPolicy(match.getSchedulingPolicy().get());
-        }
-        if (match.getSchedulingWeight().isPresent()) {
-            group.setSchedulingWeight(match.getSchedulingWeight().get());
-        }
-        if (match.getJmxExport().isPresent()) {
-            group.setJmxExport(match.getJmxExport().get());
-        }
+        match.getQueuedTimeLimit().ifPresent(group::setQueuedTimeLimit);
+        match.getRunningTimeLimit().ifPresent(group::setRunningTimeLimit);
+        match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
+        match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
+        match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
+        match.getSoftCpuLimit().ifPresent(group::setSoftCpuLimit);
+        match.getHardCpuLimit().ifPresent(group::setHardCpuLimit);
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
-            // This will never throw an exception if the validateManagerSpec method succeeds
-            checkState(getCpuQuotaPeriodMillis().isPresent(), "Must specify hard CPU limit in addition to soft limit");
+            // This will never throw an exception if the validateRootGroups method succeeds
+            checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");
             Duration limit;
             if (match.getHardCpuLimit().isPresent()) {
                 limit = match.getHardCpuLimit().get();
@@ -196,15 +209,9 @@ public abstract class AbstractResourceConfigurationManager
             else {
                 limit = match.getSoftCpuLimit().get();
             }
-            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriodMillis().get().toMillis(), Long.MAX_VALUE);
+            long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
-        }
-        if (match.getSoftCpuLimit().isPresent()) {
-            group.setSoftCpuLimit(match.getSoftCpuLimit().get());
-        }
-        if (match.getHardCpuLimit().isPresent()) {
-            group.setHardCpuLimit(match.getHardCpuLimit().get());
         }
     }
 }

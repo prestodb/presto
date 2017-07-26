@@ -35,10 +35,10 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
-import com.facebook.presto.type.RowType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -72,11 +72,11 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNumber;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.defaultValue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -403,21 +403,12 @@ public class StateCompiler
                 type(Object.class),
                 type(clazz));
 
-        // Store class size in static field
-        FieldDefinition classSize = definition.declareField(a(PRIVATE, STATIC, FINAL), "CLASS_SIZE", long.class);
-        definition.getClassInitializer()
-                .getBody()
-                .comment("CLASS_SIZE = ClassLayout.parseClass(%s.class).instanceSize()", definition.getName())
-                .push(definition.getType())
-                .invokeStatic(ClassLayout.class, "parseClass", ClassLayout.class, Class.class)
-                .invokeVirtual(ClassLayout.class, "instanceSize", int.class)
-                .intToLong()
-                .putStaticField(classSize);
+        FieldDefinition instanceSize = generateInstanceSize(definition);
 
         // Add getter for class size
         definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
                 .getBody()
-                .getStaticField(classSize)
+                .getStaticField(instanceSize)
                 .retLong();
 
         // Generate constructor
@@ -439,6 +430,21 @@ public class StateCompiler
         return defineClass(definition, clazz, classLoader);
     }
 
+    private static FieldDefinition generateInstanceSize(ClassDefinition definition)
+    {
+        // Store instance size in static field
+        FieldDefinition instanceSize = definition.declareField(a(PRIVATE, STATIC, FINAL), "INSTANCE_SIZE", long.class);
+        definition.getClassInitializer()
+                .getBody()
+                .comment("INSTANCE_SIZE = ClassLayout.parseClass(%s.class).instanceSize()", definition.getName())
+                .push(definition.getType())
+                .invokeStatic(ClassLayout.class, "parseClass", ClassLayout.class, Class.class)
+                .invokeVirtual(ClassLayout.class, "instanceSize", int.class)
+                .intToLong()
+                .putStaticField(instanceSize);
+        return instanceSize;
+    }
+
     private static <T> Class<? extends T> generateGroupedStateClass(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
     {
         ClassDefinition definition = new ClassDefinition(
@@ -447,6 +453,8 @@ public class StateCompiler
                 type(AbstractGroupedAccumulatorState.class),
                 type(clazz),
                 type(GroupedAccumulator.class));
+
+        FieldDefinition instanceSize = generateInstanceSize(definition);
 
         List<StateField> fields = enumerateFields(clazz, fieldTypes);
 
@@ -474,8 +482,8 @@ public class StateCompiler
 
         Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
 
-        // initialize size to 0L
-        body.append(size.set(constantLong(0)));
+        // initialize size to the size of the instance
+        body.append(size.set(getStatic(instanceSize)));
 
         // add field to size
         for (FieldDefinition field : fieldDefinitions) {

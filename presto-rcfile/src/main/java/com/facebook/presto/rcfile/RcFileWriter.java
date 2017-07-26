@@ -58,6 +58,7 @@ public class RcFileWriter
 
     static final String PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_RCFILE_WRITER_VERSION;
+
     static {
         String version = RcFileWriter.class.getPackage().getImplementationVersion();
         PRESTO_RCFILE_WRITER_VERSION = version == null ? "UNKNOWN" : version;
@@ -188,11 +189,15 @@ public class RcFileWriter
     public void close()
             throws IOException
     {
-        writeRowGroup();
-        output.close();
-        keySectionOutput.destroy();
-        for (ColumnEncoder columnEncoder : columnEncoders) {
-            columnEncoder.destroy();
+        try {
+            writeRowGroup();
+            output.close();
+        }
+        finally {
+            keySectionOutput.destroy();
+            for (ColumnEncoder columnEncoder : columnEncoders) {
+                columnEncoder.destroy();
+            }
         }
     }
 
@@ -285,21 +290,24 @@ public class RcFileWriter
         }
 
         // build key section
-        keySectionOutput = keySectionOutput.createRecycledCompressedSliceOutput();
-        writeVInt(keySectionOutput, bufferedRows);
-        recordValidation(validation -> validation.addRowGroup(bufferedRows));
-
         int valueLength = 0;
-        for (ColumnEncoder columnEncoder : columnEncoders) {
-            valueLength += columnEncoder.getCompressedSize();
-            writeVInt(keySectionOutput, columnEncoder.getCompressedSize());
-            writeVInt(keySectionOutput, columnEncoder.getUncompressedSize());
+        keySectionOutput = keySectionOutput.createRecycledCompressedSliceOutput();
+        try {
+            writeVInt(keySectionOutput, bufferedRows);
+            recordValidation(validation -> validation.addRowGroup(bufferedRows));
+            for (ColumnEncoder columnEncoder : columnEncoders) {
+                valueLength += columnEncoder.getCompressedSize();
+                writeVInt(keySectionOutput, columnEncoder.getCompressedSize());
+                writeVInt(keySectionOutput, columnEncoder.getUncompressedSize());
 
-            Slice lengthData = columnEncoder.getLengthData();
-            writeVInt(keySectionOutput, lengthData.length());
-            keySectionOutput.writeBytes(lengthData);
+                Slice lengthData = columnEncoder.getLengthData();
+                writeVInt(keySectionOutput, lengthData.length());
+                keySectionOutput.writeBytes(lengthData);
+            }
         }
-        keySectionOutput.close();
+        finally {
+            keySectionOutput.close();
+        }
 
         // write the sum of the uncompressed key length and compressed value length
         // this number is useless to the reader

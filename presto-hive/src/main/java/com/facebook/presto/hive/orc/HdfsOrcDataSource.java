@@ -15,6 +15,7 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.orc.AbstractOrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -33,7 +34,7 @@ public class HdfsOrcDataSource
     private final FileFormatDataSourceStats stats;
 
     public HdfsOrcDataSource(
-            String name,
+            OrcDataSourceId id,
             long size,
             DataSize maxMergeDistance,
             DataSize maxReadSize,
@@ -41,7 +42,7 @@ public class HdfsOrcDataSource
             FSDataInputStream inputStream,
             FileFormatDataSourceStats stats)
     {
-        super(name, size, maxMergeDistance, maxReadSize, streamBufferSize);
+        super(id, size, maxMergeDistance, maxReadSize, streamBufferSize);
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
         this.stats = requireNonNull(stats, "stats is null");
     }

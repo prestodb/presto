@@ -75,11 +75,12 @@ public class MongoPageSink
     private final List<MongoColumnHandle> columns;
     private final String implicitPrefix;
 
-    public MongoPageSink(MongoClientConfig config,
-                         MongoSession mongoSession,
-                         ConnectorSession session,
-                         SchemaTableName schemaTableName,
-                         List<MongoColumnHandle> columns)
+    public MongoPageSink(
+            MongoClientConfig config,
+            MongoSession mongoSession,
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            List<MongoColumnHandle> columns)
     {
         this.mongoSession = mongoSession;
         this.session = session;

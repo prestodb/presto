@@ -16,15 +16,19 @@ package com.facebook.presto.orc;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
+import static java.util.Objects.requireNonNull;
+
 class OrcZlibDecompressor
-    implements OrcDecompressor
+        implements OrcDecompressor
 {
     private static final int EXPECTED_COMPRESSION_RATIO = 5;
 
+    private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;
 
-    public OrcZlibDecompressor(int maxBufferSize)
+    public OrcZlibDecompressor(OrcDataSourceId orcDataSourceId, int maxBufferSize)
     {
+        this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
         this.maxBufferSize = maxBufferSize;
     }
 
@@ -50,13 +54,13 @@ class OrcZlibDecompressor
             }
 
             if (!inflater.finished()) {
-                throw new OrcCorruptionException("Could not decompress all input (output buffer too small?)");
+                throw new OrcCorruptionException(orcDataSourceId, "Could not decompress all input (output buffer too small?)");
             }
 
             return uncompressedLength;
         }
         catch (DataFormatException e) {
-            throw new OrcCorruptionException(e, "Invalid compressed stream");
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid compressed stream");
         }
         finally {
             inflater.end();

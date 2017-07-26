@@ -23,12 +23,12 @@ import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -46,6 +46,7 @@ public final class HiveTestUtils
             new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
+
     static {
         // associate TYPE_MANAGER with a function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
@@ -70,8 +71,6 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
                 .add(new ParquetRecordCursorProvider(hiveClientConfig, testHdfsEnvironment))
-                .add(new ColumnarTextHiveRecordCursorProvider(testHdfsEnvironment))
-                .add(new ColumnarBinaryHiveRecordCursorProvider(testHdfsEnvironment))
                 .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
                 .build();
     }

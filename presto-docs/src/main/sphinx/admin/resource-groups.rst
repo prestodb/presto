@@ -68,6 +68,15 @@ Selector Properties
 
 * ``source`` (optional): regex to match against source string. Defaults to ``.*``
 
+* ``queryType`` (optional): string to match against the type of the query submitted. The query type can be:
+    * ``DATA_DEFINITION``: Queries that alter/create/drop the metadata of schemas/tables/views, and that manage
+      prepared statements, privileges, sessions, and transactions.
+    * ``DELETE``: ``DELETE`` queries.
+    * ``DESCRIBE``: ``DESCRIBE``, ``DESCRIBE INPUT``, ``DESCRIBE OUTPUT``, and ``SHOW`` queries.
+    * ``EXPLAIN``: ``EXPLAIN`` queries.
+    * ``INSERT``: ``INSERT`` and ``CREATE TABLE AS SELECT`` queries.
+    * ``SELECT``: ``SELECT`` queries.
+
 * ``group`` (required): the group these queries will run in.
 
 Global Properties
@@ -89,14 +98,18 @@ There are three selectors that define which queries run in which resource group:
 
   * The first selector places queries from ``bob`` into the admin group.
 
-  * The second selector states that all queries that come from a source that includes "pipeline"
+  * The second selector states that all data definition queries that come from a source that includes "pipeline"
+    should run in the user's personal data definition group, which belongs to the
+    ``globa.data_definition`` parent group.
+
+  * The third selector states that all queries that come from a source that includes "pipeline"
     should run in the user's personal pipeline group, which belongs to the ``global.pipeline``
     parent group.
 
   * The last selector is a catch all, which puts all queries into the user's adhoc group.
 
 All together these selectors implement the policy that ``bob`` is an admin and
-all other users are subject to the follow limits:
+all other users are subject to the following limits:
 
   * Users are allowed to have up to 2 adhoc queries running. Additionally, they may run one pipeline.
 
@@ -116,6 +129,13 @@ all other users are subject to the follow limits:
           "schedulingPolicy": "weighted",
           "jmxExport": true,
           "subGroups": [
+            {
+              "name": "data_definition_${USER}",
+              "softMemoryLimit": "10%",
+              "maxRunning": 3,
+              "maxQueued": 10,
+              "schedulingWeight": 1
+            },
             {
               "name": "adhoc_${USER}",
               "softMemoryLimit": "10%",
@@ -146,7 +166,7 @@ all other users are subject to the follow limits:
         {
           "name": "admin",
           "softMemoryLimit": "100%",
-          "maxRunning": 100,
+          "maxRunning": 200,
           "maxQueued": 100,
           "schedulingPolicy": "query_priority",
           "jmxExport": true
@@ -156,6 +176,11 @@ all other users are subject to the follow limits:
         {
           "user": "bob",
           "group": "admin"
+        },
+        {
+          "source": ".*pipeline.*",
+          "queryType": "DATA_DEFINITION",
+          "group": "global.data_definition_${USER}"
         },
         {
           "source": ".*pipeline.*",

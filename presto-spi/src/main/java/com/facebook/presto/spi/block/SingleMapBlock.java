@@ -20,17 +20,17 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 
 public class SingleMapBlock
         extends AbstractSingleMapBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
 
     private final int offset;
     private final int positionCount;
@@ -62,17 +62,26 @@ public class SingleMapBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return intSaturatedCast(keyBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
+        return keyBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
                 valueBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
-                sizeOfIntArray(positionCount / 2 * HASH_MULTIPLIER));
+                sizeOfIntArray(positionCount / 2 * HASH_MULTIPLIER);
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
-        return intSaturatedCast(INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(hashTable));
+        return INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(hashTable);
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
+        consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
+        consumer.accept(hashTable, sizeOf(hashTable));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

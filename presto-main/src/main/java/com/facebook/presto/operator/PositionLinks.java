@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * This class is responsible for iterating over build rows, which have
@@ -30,7 +29,7 @@ public interface PositionLinks
     /**
      * Initialize iteration over position links. Returns first potentially eligible
      * join position starting from (and including) position argument.
-     *
+     * <p>
      * When there are no more position -1 is returned
      */
     int start(int position, int probePosition, Page allProbeChannelsPage);
@@ -40,7 +39,7 @@ public interface PositionLinks
      */
     int next(int position, int probePosition, Page allProbeChannelsPage);
 
-    interface Builder
+    interface FactoryBuilder
     {
         /**
          * @return value that should be used in future references to created position links
@@ -51,6 +50,25 @@ public interface PositionLinks
          * JoinFilterFunction has to be created and supplied for each thread using PositionLinks
          * since JoinFilterFunction is not thread safe...
          */
-        Function<Optional<JoinFilterFunction>, PositionLinks> build();
+        Factory build();
+
+        /**
+         * @return number of linked elements
+         */
+        int size();
+
+        default boolean isEmpty()
+        {
+            return size() == 0;
+        }
+    }
+
+    interface Factory
+    {
+        /**
+         * JoinFilterFunction has to be created and supplied for each thread using PositionLinks
+         * since JoinFilterFunction is not thread safe...
+         */
+        PositionLinks create(Optional<JoinFilterFunction> joinFilterFunction);
     }
 }

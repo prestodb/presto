@@ -21,8 +21,6 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 
-import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
-import static com.facebook.presto.orc.stream.OrcStreamUtils.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static java.lang.Float.floatToRawIntBits;
 
@@ -56,13 +54,13 @@ public class FloatInputStream
             throws IOException
     {
         long length = items * SIZE_OF_FLOAT;
-        skipFully(input, length);
+        input.skipFully(length);
     }
 
     public float next()
             throws IOException
     {
-        readFully(input, buffer, 0, SIZE_OF_FLOAT);
+        input.readFully(buffer, 0, SIZE_OF_FLOAT);
         return slice.getFloat(0);
     }
 

@@ -38,6 +38,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMemoryPagesStore
 {
     public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
+    private static final int POSITIONS_PER_PAGE = 0;
 
     private MemoryPagesStore pagesStore;
     private MemoryPageSinkProvider pageSinkProvider;
@@ -46,14 +47,14 @@ public class TestMemoryPagesStore
     public void setUp()
     {
         pagesStore = new MemoryPagesStore(new MemoryConfig().setMaxDataPerNode(new DataSize(1, DataSize.Unit.MEGABYTE)));
-        pageSinkProvider = new MemoryPageSinkProvider(pagesStore);
+        pageSinkProvider = new MemoryPageSinkProvider(pagesStore, HostAddress.fromString("localhost:8080"));
     }
 
     @Test
     public void testCreateEmptyTable()
     {
         createTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0)), ImmutableList.of());
+        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0), ImmutableList.of());
     }
 
     @Test
@@ -61,19 +62,28 @@ public class TestMemoryPagesStore
     {
         createTable(0L, 0L);
         insertToTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0)).size(), 1);
+        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), POSITIONS_PER_PAGE).size(), 1);
+    }
+
+    @Test
+    public void testInsertPageWithoutCreate()
+    {
+        insertToTable(0L, 0L);
+        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), POSITIONS_PER_PAGE).size(), 1);
     }
 
     @Test(expectedExceptions = PrestoException.class)
     public void testReadFromUnknownTable()
     {
-        pagesStore.getPages(0L, 0, 1, ImmutableList.of(0));
+        pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0);
     }
 
     @Test(expectedExceptions = PrestoException.class)
-    public void testWriteToUnknownTable()
+    public void testTryToReadFromEmptyTable()
     {
-        insertToTable(0L, 0L);
+        createTable(0L, 0L);
+        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0), ImmutableList.of());
+        pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 42);
     }
 
     @Test
@@ -139,8 +149,8 @@ public class TestMemoryPagesStore
                         "test",
                         "schema",
                         format("table_%d", tableId),
-                        tableId, ImmutableList.of(),
-                        ImmutableList.of(HostAddress.fromString("localhost:8080"))),
+                        tableId,
+                        ImmutableList.of()),
                 ImmutableSet.copyOf(activeTableIds));
     }
 
@@ -152,21 +162,20 @@ public class TestMemoryPagesStore
                         "schema",
                         format("table_%d", tableId),
                         tableId,
-                        ImmutableList.of(),
-                        ImmutableList.of(HostAddress.fromString("localhost:8080"))),
+                        ImmutableList.of()),
                 ImmutableSet.copyOf(activeTableIds));
     }
 
     private static Page createPage()
     {
-        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(POSITIONS_PER_PAGE);
         BIGINT.writeLong(blockBuilder, 42L);
         return new Page(0, blockBuilder.build());
     }
 
     private static Page createOneMegaBytePage()
     {
-        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(POSITIONS_PER_PAGE);
         while (blockBuilder.getRetainedSizeInBytes() < 1024 * 1024) {
             BIGINT.writeLong(blockBuilder, 42L);
         }

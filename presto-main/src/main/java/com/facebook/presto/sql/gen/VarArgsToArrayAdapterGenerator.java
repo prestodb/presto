@@ -37,7 +37,9 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -101,6 +103,8 @@ public class VarArgsToArrayAdapterGenerator
         requireNonNull(javaType, "javaType is null");
         requireNonNull(function, "function is null");
         requireNonNull(userStateFactory, "userStateFactory is null");
+
+        checkCondition(argsLength <= 253, NOT_SUPPORTED, "Too many arguments for vararg function");
 
         MethodType methodType = function.type();
         Class<?> javaArrayType = toArrayClass(javaType);

@@ -14,8 +14,12 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
+import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.Statement;
+import com.datastax.driver.core.TokenRange;
+import com.datastax.driver.core.VersionNumber;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -28,30 +32,33 @@ public interface CassandraSession
 {
     String PRESTO_COMMENT_METADATA = "Presto Metadata:";
 
-    Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey);
+    VersionNumber getCassandraVersion();
 
-    List<String> getAllSchemas();
+    String getPartitioner();
 
-    List<String> getAllTables(String schema)
+    Set<TokenRange> getTokenRanges();
+
+    Set<Host> getReplicas(String caseSensitiveSchemaName, TokenRange tokenRange);
+
+    Set<Host> getReplicas(String caseSensitiveSchemaName, ByteBuffer partitionKey);
+
+    String getCaseSensitiveSchemaName(String caseInsensitiveSchemaName);
+
+    List<String> getCaseSensitiveSchemaNames();
+
+    List<String> getCaseSensitiveTableNames(String caseInsensitiveSchemaName)
             throws SchemaNotFoundException;
 
-    void getSchema(String schema)
-            throws SchemaNotFoundException;
-
-    CassandraTable getTable(SchemaTableName tableName)
+    CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException;
 
     List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix);
 
-    default ResultSet execute(String cql, Object... values)
-    {
-        return executeWithSession(session -> session.execute(cql, values));
-    }
+    ResultSet execute(String cql, Object... values);
 
-    <T> T executeWithSession(SessionCallable<T> sessionCallable);
+    List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName);
 
-    interface SessionCallable<T>
-    {
-        T executeWithSession(Session session);
-    }
+    PreparedStatement prepare(RegularStatement statement);
+
+    ResultSet execute(Statement statement);
 }

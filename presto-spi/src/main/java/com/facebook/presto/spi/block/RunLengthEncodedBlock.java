@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static java.lang.String.format;
@@ -70,15 +71,22 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return value.getSizeInBytes();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + value.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(value, value.getRetainedSizeInBytes());
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -102,7 +110,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
         return value.getSizeInBytes();
     }

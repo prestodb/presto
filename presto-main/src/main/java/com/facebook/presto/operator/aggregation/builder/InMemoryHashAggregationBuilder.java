@@ -289,7 +289,8 @@ public class InMemoryHashAggregationBuilder
         groupIds.sort(0, groupByHash.getGroupCount(), (leftGroupId, rightGroupId) ->
                 Long.compare(groupByHash.getRawHash(leftGroupId), groupByHash.getRawHash(rightGroupId)));
 
-        return new AbstractIntIterator() {
+        return new AbstractIntIterator()
+        {
             private final int totalPositions = groupByHash.getGroupCount();
             private int position = 0;
 

@@ -14,8 +14,11 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.List;
@@ -39,27 +42,42 @@ public class CorrelationMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return node instanceof ApplyNode;
+        return node instanceof ApplyNode || node instanceof LateralJoinNode;
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
+        checkState(
+                shapeMatches(node),
+                "Plan testing framework error: shapeMatches returned false in detailMatches in %s",
+                this.getClass().getName());
 
-        ApplyNode applyNode = (ApplyNode) node;
-
-        if (correlation.size() != applyNode.getCorrelation().size()) {
+        List<Symbol> actualCorrelation = getCorrelation(node);
+        if (this.correlation.size() != actualCorrelation.size()) {
             return NO_MATCH;
         }
 
         int i = 0;
-        for (String alias : correlation) {
-            if (!symbolAliases.get(alias).equals(applyNode.getCorrelation().get(i++).toSymbolReference())) {
+        for (String alias : this.correlation) {
+            if (!symbolAliases.get(alias).equals(actualCorrelation.get(i++).toSymbolReference())) {
                 return NO_MATCH;
             }
         }
         return match();
+    }
+
+    private List<Symbol> getCorrelation(PlanNode node)
+    {
+        if (node instanceof ApplyNode) {
+            return ((ApplyNode) node).getCorrelation();
+        }
+        else if (node instanceof LateralJoinNode) {
+            return ((LateralJoinNode) node).getCorrelation();
+        }
+        else {
+            throw new IllegalStateException("Unexpected plan node: " + node);
+        }
     }
 
     @Override

@@ -21,6 +21,8 @@ import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
@@ -49,12 +51,13 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonType.JSON;
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
@@ -64,6 +67,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 
 public class TestMapOperators
@@ -96,14 +101,12 @@ public class TestMapOperators
                 .writeLong(doubleToLongBits(1.0))
                 .closeEntry()
                 .writeObject(
-                        BIGINT
-                        .createBlockBuilder(new BlockBuilderStatus(), 1)
-                        .writeLong(1L)
-                        .closeEntry()
-                        .writeLong(2L)
-                        .closeEntry()
-                        .build()
-                )
+                        BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1)
+                                .writeLong(1L)
+                                .closeEntry()
+                                .writeLong(2L)
+                                .closeEntry()
+                                .build())
                 .closeEntry()
                 .build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
@@ -142,6 +145,8 @@ public class TestMapOperators
                 100.0));
 
         assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
+
+        assertCachedInstanceHasBoundedRetainedSize("MAP(ARRAY ['1','3'], ARRAY [2,4])");
     }
 
     @Test
@@ -285,39 +290,122 @@ public class TestMapOperators
     public void testJsonToMap()
             throws Exception
     {
-        assertFunction("CAST(JSON '{\"1\":2, \"3\": 4}' AS MAP<BIGINT, BIGINT>)",
+        // special values
+        assertFunction("CAST(CAST (null AS JSON) AS MAP<BIGINT, BIGINT>)", mapType(BIGINT, BIGINT), null);
+        assertFunction("CAST(JSON 'null' AS MAP<BIGINT, BIGINT>)", mapType(BIGINT, BIGINT), null);
+        assertFunction("CAST(JSON '{}' AS MAP<BIGINT, BIGINT>)", mapType(BIGINT, BIGINT), ImmutableMap.of());
+        assertFunction("CAST(JSON '{\"1\": null, \"2\": null}' AS MAP<BIGINT, BIGINT>)",
                 mapType(BIGINT, BIGINT),
-                ImmutableMap.of(1L, 2L, 3L, 4L));
-        assertFunction("CAST(JSON '{\"1\":2.0, \"3\": 4.0}' AS MAP<BIGINT, DOUBLE>)",
-                mapType(BIGINT, DOUBLE),
-                ImmutableMap.of(1L, 2.0, 3L, 4.0));
-        assertFunction("CAST(JSON '{\"1\":2.0, \"3\": 4.0}' AS MAP<BIGINT, REAL>)",
+                asMap(ImmutableList.of(1L, 2L), asList(null, null)));
+
+        // key type: boolean
+        assertFunction("CAST(JSON '{\"true\": 1, \"false\": 0}' AS MAP<BOOLEAN, BIGINT>)",
+                mapType(BOOLEAN, BIGINT),
+                ImmutableMap.of(true, 1L, false, 0L));
+
+        // key type: tinyint, smallint, integer, bigint
+        assertFunction("CAST(JSON '{\"1\": 5, \"2\": 8, \"3\": 13}' AS MAP<TINYINT, BIGINT>)",
+                mapType(TINYINT, BIGINT),
+                ImmutableMap.of((byte) 1, 5L, (byte) 2, 8L, (byte) 3, 13L));
+        assertFunction("CAST(JSON '{\"12345\": 5, \"12346\": 8, \"12347\": 13}' AS MAP<SMALLINT, BIGINT>)",
+                mapType(SMALLINT, BIGINT),
+                ImmutableMap.of((short) 12345, 5L, (short) 12346, 8L, (short) 12347, 13L));
+        assertFunction("CAST(JSON '{\"123456789\": 5, \"123456790\": 8, \"123456791\": 13}' AS MAP<INTEGER, BIGINT>)",
+                mapType(INTEGER, BIGINT),
+                ImmutableMap.of(123456789, 5L, 123456790, 8L, 123456791, 13L));
+        assertFunction("CAST(JSON '{\"1234567890123456111\": 5, \"1234567890123456222\": 8, \"1234567890123456777\": 13}' AS MAP<BIGINT, BIGINT>)",
+                mapType(BIGINT, BIGINT),
+                ImmutableMap.of(1234567890123456111L, 5L, 1234567890123456222L, 8L, 1234567890123456777L, 13L));
+
+        // key type: real, double, decimal
+        assertFunction("CAST(JSON '{\"3.14\": 5, \"NaN\": 8, \"Infinity\": 13, \"-Infinity\": 21}' AS MAP<REAL, BIGINT>)",
+                mapType(REAL, BIGINT),
+                ImmutableMap.of(3.14f, 5L, Float.NaN, 8L, Float.POSITIVE_INFINITY, 13L, Float.NEGATIVE_INFINITY, 21L));
+        assertFunction("CAST(JSON '{\"3.1415926\": 5, \"NaN\": 8, \"Infinity\": 13, \"-Infinity\": 21}' AS MAP<DOUBLE, BIGINT>)",
+                mapType(DOUBLE, BIGINT),
+                ImmutableMap.of(3.1415926, 5L, Double.NaN, 8L, Double.POSITIVE_INFINITY, 13L, Double.NEGATIVE_INFINITY, 21L));
+        assertFunction("CAST(JSON '{\"123.456\": 5, \"3.14\": 8}' AS MAP<DECIMAL(10, 5), BIGINT>)",
+                mapType(createDecimalType(10, 5), BIGINT),
+                ImmutableMap.of(decimal("123.45600"), 5L, decimal("3.14000"), 8L));
+        assertFunction("CAST(JSON '{\"12345678.12345678\": 5, \"3.1415926\": 8}' AS MAP<DECIMAL(38, 8), BIGINT>)",
+                mapType(createDecimalType(38, 8), BIGINT),
+                ImmutableMap.of(decimal("12345678.12345678"), 5L, decimal("3.14159260"), 8L));
+
+        // key type: varchar
+        assertFunction("CAST(JSON '{\"a\": 5, \"bb\": 8, \"ccc\": 13}' AS MAP<VARCHAR, BIGINT>)",
+                mapType(VARCHAR, BIGINT),
+                ImmutableMap.of("a", 5L, "bb", 8L, "ccc", 13L));
+
+        // value type: boolean
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 12, \"5\": 0, \"8\": 12.3, \"13\": 0.0, \"21\": \"true\", \"34\": \"false\", \"55\": null}' AS MAP<BIGINT, BOOLEAN>)",
+                mapType(BIGINT, BOOLEAN),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
+                        asList(true, false, true, false, true, false, true, false, null)));
+
+        // value type: tinyint, smallint, integer, bigint
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 12, \"5\": 12.7, \"8\": \"12\", \"13\": null}' AS MAP<BIGINT, TINYINT>)",
+                mapType(BIGINT, TINYINT),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L),
+                        asList((byte) 1, (byte) 0, (byte) 12, (byte) 13, (byte) 12, null)));
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 12345, \"5\": 12345.6, \"8\": \"12345\", \"13\": null}' AS MAP<BIGINT, SMALLINT>)",
+                mapType(BIGINT, SMALLINT),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L),
+                        asList((short) 1, (short) 0, (short) 12345, (short) 12346, (short) 12345, null)));
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 12345678, \"5\": 12345678.9, \"8\": \"12345678\", \"13\": null}' AS MAP<BIGINT, INTEGER>)",
+                mapType(BIGINT, INTEGER),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L),
+                        asList(1, 0, 12345678, 12345679, 12345678, null)));
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 1234567891234567, \"5\": 1234567891234567.8, \"8\": \"1234567891234567\", \"13\": null}' AS MAP<BIGINT, BIGINT>)",
+                mapType(BIGINT, BIGINT),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L),
+                        asList(1L, 0L, 1234567891234567L, 1234567891234568L, 1234567891234567L, null)));
+
+        // value type: real, double, decimal
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 12345, \"5\": 12345.67, \"8\": \"3.14\", \"13\": \"NaN\", \"21\": \"Infinity\", \"34\": \"-Infinity\", \"55\": null}' AS MAP<BIGINT, REAL>)",
                 mapType(BIGINT, REAL),
-                ImmutableMap.of(1L, 2.0f, 3L, 4.0f));
-        assertFunction("CAST(JSON '{\"1\":[2, 3], \"4\": [5]}' AS MAP<BIGINT, ARRAY<BIGINT>>)",
-                mapType(BIGINT, new ArrayType(BIGINT)),
-                ImmutableMap.of(1L, ImmutableList.of(2L, 3L), 4L, ImmutableList.of(5L)));
-        assertFunction("CAST(JSON '{\"puppies\":\"kittens\"}' AS MAP<VARCHAR, VARCHAR>)",
-                mapType(VARCHAR, VARCHAR),
-                ImmutableMap.of("puppies", "kittens"));
-        assertFunction("CAST(JSON '{\"true\":\"kittens\"}' AS MAP<BOOLEAN, VARCHAR>)",
-                mapType(BOOLEAN, VARCHAR),
-                ImmutableMap.of(true, "kittens"));
-        assertFunction("CAST(JSON 'null' AS MAP<BOOLEAN, VARCHAR>)",
-                mapType(BOOLEAN, VARCHAR),
-                null);
-        assertFunction("CAST(JSON '{\"k1\": 5, \"k2\":[1, 2, 3], \"k3\":\"e\", \"k4\":{\"a\": \"b\"}, \"k5\":null, \"k6\":\"null\", \"k7\":[null]}' AS MAP<VARCHAR, JSON>)",
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
+                        asList(1.0f, 0.0f, 12345.0f, 12345.67f, 3.14f, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, null)));
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 1234567890, \"5\": 1234567890.1, \"8\": \"3.14\", \"13\": \"NaN\", \"21\": \"Infinity\", \"34\": \"-Infinity\", \"55\": null}' AS MAP<BIGINT, DOUBLE>)",
+                mapType(BIGINT, DOUBLE),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
+                        asList(1.0, 0.0, 1234567890.0, 1234567890.1, 3.14, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, null)));
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 128, \"5\": 123.456, \"8\": \"3.14\", \"13\": null}' AS MAP<BIGINT, DECIMAL(10, 5)>)",
+                mapType(BIGINT, createDecimalType(10, 5)),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L),
+                        asList(decimal("1.00000"), decimal("0.00000"), decimal("128.00000"), decimal("123.45600"), decimal("3.14000"), null)));
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 128, \"5\": 12345678.12345678, \"8\": \"3.14\", \"13\": null}' AS MAP<BIGINT, DECIMAL(38, 8)>)",
+                mapType(BIGINT, createDecimalType(38, 8)),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L),
+                        asList(decimal("1.00000000"), decimal("0.00000000"), decimal("128.00000000"), decimal("12345678.12345678"), decimal("3.14000000"), null)));
+
+        // varchar, json
+        assertFunction("CAST(JSON '{\"1\": true, \"2\": false, \"3\": 12, \"5\": 12.3, \"8\": \"puppies\", \"13\": \"kittens\", \"21\": \"null\", \"34\": \"\", \"55\": null}' AS MAP<BIGINT, VARCHAR>)",
+                mapType(BIGINT, VARCHAR),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
+                        asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null)));
+
+        assertFunction("CAST(JSON '{\"k1\": 5, \"k2\": 3.14, \"k3\":[1, 2, 3], \"k4\":\"e\", \"k5\":{\"a\": \"b\"}, \"k6\":null, \"k7\":\"null\", \"k8\":[null]}' AS MAP<VARCHAR, JSON>)",
                 mapType(VARCHAR, JSON),
                 builder()
                         .put("k1", "5")
-                        .put("k2", "[1,2,3]")
-                        .put("k3", "\"e\"")
-                        .put("k4", "{\"a\":\"b\"}")
-                        .put("k5", "null")
-                        .put("k6", "\"null\"")
-                        .put("k7", "[null]")
-                        .build()
-        );
+                        .put("k2", "3.14")
+                        .put("k3", "[1,2,3]")
+                        .put("k4", "\"e\"")
+                        .put("k5", "{\"a\":\"b\"}")
+                        .put("k6", "null")
+                        .put("k7", "\"null\"")
+                        .put("k8", "[null]")
+                        .build());
 
         // These two tests verifies that partial json cast preserves input order
         // The second test should never happen in real life because valid json in presto requires natural key ordering.
@@ -331,8 +419,58 @@ public class TestMapOperators
                 ImmutableMap.of("k1", "{\"7klmnopq\":7,\"6klmnopq\":6,\"5klmnopq\":5,\"4klmnopq\":4,\"3klmnopq\":3,\"2klmnopq\":2,\"1klmnopq\":1}")
         );
 
-        assertInvalidCast("CAST(JSON '{\"true\":\"kittens\"}' AS MAP<BOOLEAN, VARBINARY>)");
-        assertInvalidCast("CAST(JSON '{\"[1, 2]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)");
+        // nested array/map
+        assertFunction("CAST(JSON '{\"1\": [1, 2], \"2\": [3, null], \"3\": [], \"5\": [null, null], \"8\": null}' AS MAP<BIGINT, ARRAY<BIGINT>>)",
+                mapType(BIGINT, new ArrayType(BIGINT)),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L),
+                        asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null)));
+
+        assertFunction("CAST(JSON '{" +
+                        "\"1\": {\"a\": 1, \"b\": 2}, " +
+                        "\"2\": {\"none\": null, \"three\": 3}, " +
+                        "\"3\": {}, " +
+                        "\"5\": {\"h1\": null,\"h2\": null}, " +
+                        "\"8\": null}' " +
+                        "AS MAP<BIGINT, MAP<VARCHAR, BIGINT>>)",
+                mapType(BIGINT, mapType(VARCHAR, BIGINT)),
+                asMap(
+                        ImmutableList.of(1L, 2L, 3L, 5L, 8L),
+                        asList(
+                                ImmutableMap.of("a", 1L, "b", 2L),
+                                asMap(ImmutableList.of("none", "three"), asList(null, 3L)),
+                                ImmutableMap.of(),
+                                asMap(ImmutableList.of("h1", "h2"), asList(null, null)),
+                                null)));
+
+        // invalid cast
+        assertInvalidCast("CAST(JSON '{\"[]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)", "Cannot cast JSON to map(array(bigint),bigint)");
+
+        assertInvalidCast("CAST(JSON '[1, 2]' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint,bigint). Expected a json object, but got [\n[1,2]");
+        assertInvalidCast("CAST(JSON '{\"a\": 1, \"b\": 2}' AS MAP<VARCHAR, MAP<VARCHAR, BIGINT>>)", "Cannot cast to map(varchar,map(varchar,bigint)). Expected a json object, but got 1\n{\"a\":1,\"b\":2}");
+        assertInvalidCast("CAST(JSON '{\"a\": 1, \"b\": []}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Unexpected token when cast to bigint: [\n{\"a\":1,\"b\":[]}");
+        assertInvalidCast("CAST(JSON '{\"1\": {\"a\": 1}, \"2\": []}' AS MAP<VARCHAR, MAP<VARCHAR, BIGINT>>)", "Cannot cast to map(varchar,map(varchar,bigint)). Expected a json object, but got [\n{\"1\":{\"a\":1},\"2\":[]}");
+
+        assertInvalidCast("CAST(unchecked_to_json('\"a\": 1, \"b\": 2') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Expected a json object, but got a\n\"a\": 1, \"b\": 2");
+        assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1} 2') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Unexpected trailing token: 2\n{\"a\": 1} 2");
+        assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint).\n{\"a\": 1");
+
+        assertInvalidCast("CAST(JSON '{\"a\": \"b\"}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Can not cast 'b' to BIGINT\n{\"a\":\"b\"}");
+        assertInvalidCast("CAST(JSON '{\"a\": 1234567890123.456}' AS MAP<VARCHAR, INTEGER>)", "Cannot cast to map(varchar,integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1.234567890123456E12}");
+
+        assertInvalidCast("CAST(JSON '{\"1\":1, \"01\": 2}' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint,bigint). Duplicate keys are not allowed\n{\"01\":2,\"1\":1}");
+        assertInvalidCast("CAST(JSON '[{\"1\":1, \"01\": 2}]' AS ARRAY<MAP<BIGINT, BIGINT>>)", "Cannot cast to array(map(bigint,bigint)). Duplicate keys are not allowed\n[{\"01\":2,\"1\":1}]");
+
+        // some other key/value type combinations
+        assertFunction("CAST(JSON '{\"puppies\":\"kittens\"}' AS MAP<VARCHAR, VARCHAR>)",
+                mapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("puppies", "kittens"));
+        assertFunction("CAST(JSON '{\"true\":\"kittens\"}' AS MAP<BOOLEAN, VARCHAR>)",
+                mapType(BOOLEAN, VARCHAR),
+                ImmutableMap.of(true, "kittens"));
+        assertFunction("CAST(JSON 'null' AS MAP<BOOLEAN, VARCHAR>)",
+                mapType(BOOLEAN, VARCHAR),
+                null);
     }
 
     @Test
@@ -388,14 +526,14 @@ public class TestMapOperators
     public void testMapKeys()
             throws Exception
     {
-        assertFunction("MAP_KEYS(MAP(ARRAY['1', '3'], ARRAY['2', '4']))",  new ArrayType(createVarcharType(1)), ImmutableList.of("1", "3"));
+        assertFunction("MAP_KEYS(MAP(ARRAY['1', '3'], ARRAY['2', '4']))", new ArrayType(createVarcharType(1)), ImmutableList.of("1", "3"));
         assertFunction("MAP_KEYS(MAP(ARRAY[1.0, 2.0], ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0));
         assertFunction("MAP_KEYS(MAP(ARRAY['puppies'], ARRAY['kittens']))", new ArrayType(createVarcharType(7)), ImmutableList.of("puppies"));
         assertFunction("MAP_KEYS(MAP(ARRAY[TRUE], ARRAY[2]))", new ArrayType(BOOLEAN), ImmutableList.of(true));
         assertFunction("MAP_KEYS(MAP(ARRAY[from_unixtime(1)], ARRAY[1.0]))", new ArrayType(TIMESTAMP), ImmutableList.of(new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey())));
         assertFunction("MAP_KEYS(MAP(ARRAY[CAST('puppies' as varbinary)], ARRAY['kittens']))", new ArrayType(VARBINARY), ImmutableList.of(new SqlVarbinary("puppies".getBytes(UTF_8))));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,2],  ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(INTEGER), ImmutableList.of(1, 2));
-        assertFunction("MAP_KEYS(MAP(ARRAY[1,4], ARRAY[MAP(ARRAY[2], ARRAY[3]), MAP(ARRAY[5], ARRAY[6])]))",  new ArrayType(INTEGER), ImmutableList.of(1, 4));
+        assertFunction("MAP_KEYS(MAP(ARRAY[1,4], ARRAY[MAP(ARRAY[2], ARRAY[3]), MAP(ARRAY[5], ARRAY[6])]))", new ArrayType(INTEGER), ImmutableList.of(1, 4));
         assertFunction("MAP_KEYS(MAP(ARRAY [ARRAY [1], ARRAY [2, 3]],  ARRAY [ARRAY [3, 4], ARRAY [5]]))", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2, 3)));
     }
 
@@ -570,6 +708,8 @@ public class TestMapOperators
         assertFunction("MAP_CONCAT(MAP(), MAP(), MAP())", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
         assertFunction("MAP_CONCAT(MAP(ARRAY[1], ARRAY[-1]), MAP(), MAP(ARRAY[3], ARRAY[-3]))", mapType(INTEGER, INTEGER), ImmutableMap.of(1, -1, 3, -3));
         assertFunction("MAP_CONCAT(MAP(ARRAY[TRUE], ARRAY[1]), MAP(ARRAY[TRUE, FALSE], ARRAY[10, 20]), MAP(ARRAY[FALSE], ARRAY[0]))", mapType(BOOLEAN, INTEGER), ImmutableMap.of(true, 10, false, 0));
+
+        assertCachedInstanceHasBoundedRetainedSize("MAP_CONCAT(MAP (ARRAY ['1', '2', '3'], ARRAY [1, 2, 3]), MAP (ARRAY ['1', '2', '3', '4'], ARRAY [10, 20, 30, 40]))");
     }
 
     @Test

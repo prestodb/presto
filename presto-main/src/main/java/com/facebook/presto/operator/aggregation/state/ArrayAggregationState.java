@@ -19,7 +19,7 @@ import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateFactoryClass = ArrayAggregationStateFactory.class, stateSerializerClass = ArrayAggregationStateSerializer.class)
 public interface ArrayAggregationState
-    extends AccumulatorState
+        extends AccumulatorState
 {
     BlockBuilder getBlockBuilder();
 

@@ -80,4 +80,7 @@ public abstract class AbstractTestHiveClientLocal
 
     @Override
     public void testGetTableNames() {}
+
+    @Override
+    public void testGetTableSchemaOffline() {}
 }

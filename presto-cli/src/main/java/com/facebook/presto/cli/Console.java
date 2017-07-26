@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
-import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
@@ -51,6 +50,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.cli.Completion.commandCompleter;
 import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
 import static com.facebook.presto.client.ClientSession.withPreparedStatements;
@@ -93,7 +93,6 @@ public class Console
     public void run()
     {
         ClientSession session = clientOptions.toClientSession();
-        KerberosConfig kerberosConfig = clientOptions.toKerberosConfig();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
@@ -124,9 +123,10 @@ public class Console
         AtomicBoolean exiting = new AtomicBoolean();
         interruptThreadOnExit(Thread.currentThread(), exiting);
 
-        try (QueryRunner queryRunner = QueryRunner.create(
+        try (QueryRunner queryRunner = new QueryRunner(
                 session,
                 Optional.ofNullable(clientOptions.socksProxy),
+                Optional.ofNullable(clientOptions.httpProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
                 Optional.ofNullable(clientOptions.keystorePassword),
                 Optional.ofNullable(clientOptions.truststorePath),
@@ -135,8 +135,11 @@ public class Console
                 clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
                 Optional.ofNullable(clientOptions.krb5Principal),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
-                clientOptions.authenticationEnabled,
-                kerberosConfig)) {
+                Optional.ofNullable(clientOptions.krb5ConfigPath),
+                Optional.ofNullable(clientOptions.krb5KeytabPath),
+                Optional.ofNullable(clientOptions.krb5CredentialCachePath),
+                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
+                clientOptions.authenticationEnabled)) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
@@ -314,7 +317,22 @@ public class Console
 
     private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
-        try (Query query = queryRunner.startQuery(sql)) {
+        String finalSql;
+        try {
+            finalSql = preprocessQuery(
+                    Optional.ofNullable(queryRunner.getSession().getCatalog()),
+                    Optional.ofNullable(queryRunner.getSession().getSchema()),
+                    sql);
+        }
+        catch (QueryPreprocessorException e) {
+            System.err.println(e.getMessage());
+            if (queryRunner.getSession().isDebug()) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        try (Query query = queryRunner.startQuery(finalSql)) {
             query.renderOutput(System.out, outputFormat, interactive);
 
             ClientSession session = queryRunner.getSession();
@@ -363,7 +381,7 @@ public class Console
         }
         catch (IOException e) {
             System.err.printf("WARNING: Failed to load history file (%s): %s. " +
-                    "History will not be available during this session.%n",
+                            "History will not be available during this session.%n",
                     historyFile, e.getMessage());
             history = new MemoryHistory();
         }

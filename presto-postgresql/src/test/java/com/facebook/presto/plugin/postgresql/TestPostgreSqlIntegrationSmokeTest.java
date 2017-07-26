@@ -44,6 +44,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     {
         super(() -> PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS));
         this.postgreSqlServer = postgreSqlServer;
+        execute("CREATE EXTENSION file_fdw");
     }
 
     @AfterClass(alwaysRun = true)
@@ -71,6 +72,18 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertTrue(getQueryRunner().tableExists(getSession(), "test_mv"));
         assertQuery("SELECT orderkey FROM test_mv", "SELECT orderkey FROM orders");
         execute("DROP MATERIALIZED VIEW tpch.test_mv");
+    }
+
+    @Test
+    public void testForeignTable()
+            throws Exception
+    {
+        execute("CREATE SERVER devnull FOREIGN DATA WRAPPER file_fdw");
+        execute("CREATE FOREIGN TABLE tpch.test_ft (x bigint) SERVER devnull OPTIONS (filename '/dev/null')");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_ft"));
+        computeActual("SELECT * FROM test_ft");
+        execute("DROP FOREIGN TABLE tpch.test_ft");
+        execute("DROP SERVER devnull");
     }
 
     private void execute(String sql)

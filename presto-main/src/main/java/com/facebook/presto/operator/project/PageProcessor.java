@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 
@@ -94,6 +95,12 @@ public class PageProcessor
         return new PageProcessorOutput(
                 page.getRetainedSizeInBytes(),
                 new PositionsPageProcessorIterator(session, page, SelectedPositions.positionsRange(0, page.getPositionCount())));
+    }
+
+    @VisibleForTesting
+    public List<PageProjection> getProjections()
+    {
+        return projections;
     }
 
     private class PositionsPageProcessorIterator

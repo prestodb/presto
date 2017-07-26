@@ -16,8 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.MapType;
 
 import javax.annotation.Nullable;
 

@@ -28,6 +28,10 @@ public interface ExtendedHiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
+    Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
+
+    Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
+
     Optional<List<String>> getAllTables(String databaseName);
 
     Optional<List<String>> getAllViews(String databaseName);
@@ -54,6 +58,8 @@ public interface ExtendedHiveMetastore
     void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
 
     void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName);
+
+    void dropColumn(String databaseName, String tableName, String columnName);
 
     Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 

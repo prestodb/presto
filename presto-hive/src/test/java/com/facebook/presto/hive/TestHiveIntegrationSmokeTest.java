@@ -1147,6 +1147,78 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testPartitionPerScanLimit()
+            throws Exception
+    {
+        TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.DWRF);
+        testPartitionPerScanLimit(storageFormat.getSession(), storageFormat.getFormat());
+    }
+
+    public void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_partition_per_scan_limit";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  foo VARCHAR," +
+                "  part BIGINT" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'part' ]" +
+                ") ";
+
+        assertUpdate(session, createTable);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("part"));
+
+        // insert 1200 partitions
+        for (int i = 0; i < 12; i++) {
+            int partStart = i * 100;
+            int partEnd = (i + 1) * 100 - 1;
+
+            @Language("SQL") String insertPartitions = "" +
+                    "INSERT INTO " + tableName + " " +
+                    "SELECT 'bar' foo, part " +
+                    "FROM UNNEST(SEQUENCE(" + partStart + ", " + partEnd + ")) AS TMP(part)";
+
+            assertUpdate(session, insertPartitions, 100);
+        }
+
+        // verify can query 1000 partitions
+        assertQuery(
+                session,
+                "SELECT count(foo) FROM " + tableName + " WHERE part < 1000",
+                "SELECT 1000");
+
+        // verify the rest 200 partitions are successfully inserted
+        assertQuery(
+                session,
+                "SELECT count(foo) FROM " + tableName + " WHERE part >= 1000 AND part < 1200",
+                "SELECT 200");
+
+        // verify cannot query more than 1000 partitions
+        assertQueryFails(
+                session,
+                "SELECT * from " + tableName + " WHERE part < 1001",
+                format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+
+        // verify cannot query all partitions
+        assertQueryFails(
+                session,
+                "SELECT * from " + tableName,
+                format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    @Test
     public void testInsertUnpartitionedTable()
             throws Exception
     {
@@ -1434,7 +1506,7 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +
-                "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
+                        "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
                 1);
 
         assertQuery(
@@ -1507,6 +1579,8 @@ public class TestHiveIntegrationSmokeTest
                         "COMMENT 'test'\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
+                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                        "   orc_bloom_filter_fpp = 0.7,\n" +
                         "   partitioned_by = ARRAY['c4','c5']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -1790,6 +1864,29 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testDropColumn()
+            throws Exception
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_drop_column\n" +
+                "WITH (\n" +
+                "  partitioned_by = ARRAY ['orderstatus']\n" +
+                ")\n" +
+                "AS\n" +
+                "SELECT custkey, orderkey, orderstatus FROM orders";
+
+        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertQuery("SELECT orderkey, orderstatus FROM test_drop_column", "SELECT orderkey, orderstatus FROM orders");
+
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN orderstatus", "Cannot drop partition columns");
+        assertUpdate("ALTER TABLE test_drop_column DROP COLUMN orderkey");
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN custkey", "Cannot drop the only column in a table");
+        assertQuery("SELECT * FROM test_drop_column", "SELECT custkey, orderstatus FROM orders");
+
+        assertUpdate("DROP TABLE test_drop_column");
+    }
+
+    @Test
     public void testAvroTypeValidation()
     {
         assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column x has a non-varchar map key, which is not supported by Avro");
@@ -1857,7 +1954,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private static class RollbackException
-        extends RuntimeException
+            extends RuntimeException
     {
     }
 
@@ -1868,12 +1965,6 @@ public class TestHiveIntegrationSmokeTest
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
         }
-        formats.add(new TestingHiveStorageFormat(
-                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true").build(),
-                HiveStorageFormat.RCBINARY));
-        formats.add(new TestingHiveStorageFormat(
-                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true").build(),
-                HiveStorageFormat.RCTEXT));
         formats.add(new TestingHiveStorageFormat(
                 Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "parquet_optimized_reader_enabled", "true").build(),
                 HiveStorageFormat.PARQUET));

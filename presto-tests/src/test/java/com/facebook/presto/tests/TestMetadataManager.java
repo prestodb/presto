@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.TestingSessionFactory;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.spi.QueryId;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 
@@ -32,7 +36,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestMetadataManager
 {
-    private QueryRunner queryRunner;
+    private DistributedQueryRunner queryRunner;
     private MetadataManager metadataManager;
 
     @BeforeClass
@@ -69,6 +73,27 @@ public class TestMetadataManager
             // query should fail
         }
 
+        assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+    }
+
+    @Test
+    public void testMetadataIsClearedAfterQueryCanceled()
+            throws Exception
+    {
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        QueryId queryId = queryManager.createQuery(new TestingSessionFactory(TEST_SESSION),
+                "SELECT * FROM lineitem").getQueryId();
+
+        // wait until query starts running
+        while (true) {
+            if (queryManager.getQueryInfo(queryId).getState() == RUNNING) {
+                break;
+            }
+            Thread.sleep(100);
+        }
+
+        // cancel query
+        queryManager.cancelQuery(queryId);
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
     }
 }

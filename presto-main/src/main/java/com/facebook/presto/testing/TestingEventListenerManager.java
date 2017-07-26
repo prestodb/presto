@@ -25,7 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestingEventListenerManager
-    extends EventListenerManager
+        extends EventListenerManager
 {
     private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
 

@@ -16,10 +16,12 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -28,10 +30,11 @@ public class ArrayBlockBuilder
         extends AbstractArrayBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize();
 
     private int positionCount;
 
+    @Nullable
     private BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private int initialEntryCount;
@@ -42,7 +45,7 @@ public class ArrayBlockBuilder
     private final BlockBuilder values;
     private boolean currentEntryOpened;
 
-    private int retainedSizeInBytes;
+    private long retainedSizeInBytes;
 
     /**
      * Caller of this constructor is responsible for making sure `valuesBlock` is constructed with the same `blockBuilderStatus` as the one in the argument
@@ -74,9 +77,9 @@ public class ArrayBlockBuilder
     /**
      * Caller of this private constructor is responsible for making sure `values` is constructed with the same `blockBuilderStatus` as the one in the argument
      */
-    private ArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int expectedEntries)
+    private ArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int expectedEntries)
     {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = blockBuilderStatus;
         this.values = requireNonNull(values, "values is null");
         this.initialEntryCount = max(expectedEntries, 1);
 
@@ -90,15 +93,24 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * positionCount);
+        return values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * (long) positionCount);
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes + values.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(values, values.getRetainedSizeInBytes());
+        consumer.accept(offsets, sizeOf(offsets));
+        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -189,7 +201,9 @@ public class ArrayBlockBuilder
         valueIsNull[positionCount] = isNull;
         positionCount++;
 
-        blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+        }
     }
 
     private void growCapacity()
@@ -210,7 +224,10 @@ public class ArrayBlockBuilder
 
     private void updateDataSize()
     {
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets));
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets);
+        if (blockBuilderStatus != null) {
+            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
+        }
     }
 
     @Override

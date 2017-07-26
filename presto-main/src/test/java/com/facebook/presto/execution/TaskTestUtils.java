@@ -18,6 +18,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -52,11 +53,11 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TestingColumnHandle;
-import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
@@ -67,6 +68,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -95,7 +97,7 @@ public final class TaskTestUtils
                     TABLE_SCAN_NODE_ID,
                     new TableHandle(CONNECTOR_ID, new TestingTableHandle()),
                     ImmutableList.of(SYMBOL),
-                    ImmutableMap.of(SYMBOL, new TestingColumnHandle("column")),
+                    ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
                     Optional.empty(),
                     TupleDomain.all(),
                     null),
@@ -125,6 +127,7 @@ public final class TaskTestUtils
         return new LocalExecutionPlanner(
                 metadata,
                 new SqlParser(),
+                new CoefficientBasedCostCalculator(metadata),
                 Optional.empty(),
                 pageSourceManager,
                 new IndexManager(),

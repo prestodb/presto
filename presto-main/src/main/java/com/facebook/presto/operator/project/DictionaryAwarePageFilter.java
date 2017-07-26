@@ -64,10 +64,12 @@ public class DictionaryAwarePageFilter
 
         if (block instanceof RunLengthEncodedBlock) {
             Block value = ((RunLengthEncodedBlock) block).getValue();
-            Optional<boolean[]> selectedDictionaryPositions = processDictionary(session, value);
-            // single value block is always considered effective
-            verify(selectedDictionaryPositions.isPresent());
-            return SelectedPositions.positionsRange(0, selectedDictionaryPositions.get()[0] ? page.getPositionCount() : 0);
+            Optional<boolean[]> selectedPosition = processDictionary(session, value);
+            // single value block is always considered effective, but the processing could have thrown
+            // in that case we fallback and process again so the correct error message sent
+            if (selectedPosition.isPresent()) {
+                return SelectedPositions.positionsRange(0, selectedPosition.get()[0] ? page.getPositionCount() : 0);
+            }
         }
 
         if (block instanceof DictionaryBlock) {

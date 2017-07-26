@@ -168,7 +168,8 @@ public class QueryContext
         long originalReserved = reserved;
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, reserved);
-        Futures.addCallback(future, new FutureCallback<Object>() {
+        Futures.addCallback(future, new FutureCallback<Object>()
+        {
             @Override
             public void onSuccess(Object result)
             {

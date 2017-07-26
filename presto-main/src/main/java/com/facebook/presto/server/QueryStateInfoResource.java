@@ -100,9 +100,9 @@ public class QueryStateInfoResource
             QueryInfo queryInfo = queryManager.getQueryInfo(new QueryId(queryId));
             Optional<ResourceGroupId> resourceGroup = queryManager.getQueryResourceGroup(queryInfo.getQueryId());
             return createQueryStateInfo(
-                        queryInfo,
-                        resourceGroup,
-                        resourceGroup.map(ResourceGroupId::getRoot).map(resourceGroupManager::getResourceGroupInfo));
+                    queryInfo,
+                    resourceGroup,
+                    resourceGroup.map(ResourceGroupId::getRoot).map(resourceGroupManager::getResourceGroupInfo));
         }
         catch (NoSuchElementException e) {
             throw new WebApplicationException(NOT_FOUND);

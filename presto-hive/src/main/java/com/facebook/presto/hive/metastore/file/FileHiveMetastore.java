@@ -20,6 +20,7 @@ import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -66,6 +67,7 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrincipalType.ROLE;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -249,10 +251,22 @@ public class FileHiveMetastore
                 .map(tableMetadata -> tableMetadata.toTable(databaseName, tableName, tableMetadataDirectory.toString()));
     }
 
+    @Override
+    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        return Optional.of(ImmutableMap.of());
+    }
+
+    @Override
+    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        return Optional.of(ImmutableMap.of());
+    }
+
     private Table getRequiredTable(String databaseName, String tableName)
     {
         return getTable(databaseName, tableName)
-                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
     }
 
     private void verifyTableNotExists(String newDatabaseName, String newTableName)
@@ -406,6 +420,27 @@ public class FileHiveMetastore
                     newDataColumns.add(new Column(newColumnName, fieldSchema.getType(), fieldSchema.getComment()));
                 }
                 else {
+                    newDataColumns.add(fieldSchema);
+                }
+            }
+
+            return oldTable.withDataColumns(newDataColumns.build());
+        });
+    }
+
+    @Override
+    public synchronized void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        alterTable(databaseName, tableName, oldTable -> {
+            verifyCanDropColumn(this, databaseName, tableName, columnName);
+            if (!oldTable.getColumn(columnName).isPresent()) {
+                SchemaTableName name = new SchemaTableName(databaseName, tableName);
+                throw new ColumnNotFoundException(name, columnName);
+            }
+
+            ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+            for (Column fieldSchema : oldTable.getDataColumns()) {
+                if (!fieldSchema.getName().equals(columnName)) {
                     newDataColumns.add(fieldSchema);
                 }
             }

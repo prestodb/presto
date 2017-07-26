@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
@@ -46,7 +47,8 @@ public final class ResourceGroupId
         return result;
     }
 
-    private ResourceGroupId(List<String> segments)
+    @JsonCreator
+    public ResourceGroupId(List<String> segments)
     {
         checkArgument(!segments.isEmpty(), "Resource group id is empty");
         for (String segment : segments) {
@@ -60,6 +62,7 @@ public final class ResourceGroupId
         return segments.get(segments.size() - 1);
     }
 
+    @JsonValue
     public List<String> getSegments()
     {
         return segments;
@@ -95,7 +98,6 @@ public final class ResourceGroupId
     }
 
     @Override
-    @JsonValue
     public String toString()
     {
         return segments.stream()

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -33,6 +33,12 @@ import static com.facebook.presto.util.StructuralTestUtil.mapType;
 public class TestMapTransformKeyFunction
         extends AbstractTestFunctions
 {
+    @Test
+    public void testRetainedSizeBounded()
+    {
+        assertCachedInstanceHasBoundedRetainedSize("transform_keys(map(ARRAY [1, 2, 3, 4], ARRAY [10, 20, 30, 40]), (k, v) -> k + v)");
+    }
+
     @Test
     public void testEmpty()
             throws Exception

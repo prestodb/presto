@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.RowType;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -45,6 +45,7 @@ public class TestArrayTransformFunction
     public void testBasic()
             throws Exception
     {
+        assertFunction("transform(ARRAY [5, 6], x -> 9)", new ArrayType(INTEGER), ImmutableList.of(9, 9));
         assertFunction("transform(ARRAY [5, 6], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(6, 7));
         assertFunction("transform(ARRAY [5 + RANDOM(1), 6], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(6, 7));
     }

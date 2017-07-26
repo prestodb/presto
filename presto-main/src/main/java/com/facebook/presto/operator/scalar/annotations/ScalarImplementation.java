@@ -17,42 +17,30 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.TypeVariableConstraint;
+import com.facebook.presto.operator.ParametricImplementation;
+import com.facebook.presto.operator.annotations.FunctionsParserHelper;
+import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.OperatorDependency;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.type.Constraint;
-import com.facebook.presto.type.LiteralParameter;
+import com.facebook.presto.type.FunctionType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Primitives;
-
-import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,39 +49,37 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.ParametricFunctionHelpers.bindDependencies;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsLegacyNullable;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.getDeclaredSpecializedTypeParameters;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.checkTypeParameters;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.Failures.checkCondition;
+import static com.facebook.presto.util.Reflection.constructorMethodHandle;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.reflect.Modifier.isStatic;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarImplementation
+        implements ParametricImplementation
 {
     private final Signature signature;
     private final boolean nullable;
     private final List<Boolean> nullableArguments;
     private final List<Boolean> nullFlags;
+    private final List<Optional<Class>> lambdaInterface;
     private final MethodHandle methodHandle;
     private final List<ImplementationDependency> dependencies;
     private final Optional<MethodHandle> constructor;
@@ -106,6 +92,7 @@ public class ScalarImplementation
             boolean nullable,
             List<Boolean> nullableArguments,
             List<Boolean> nullFlags,
+            List<Optional<Class>> lambdaInterface,
             MethodHandle methodHandle,
             List<ImplementationDependency> dependencies,
             Optional<MethodHandle> constructor,
@@ -117,6 +104,7 @@ public class ScalarImplementation
         this.nullable = nullable;
         this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
         this.nullFlags = ImmutableList.copyOf(requireNonNull(nullFlags, "nullFlags is null"));
+        this.lambdaInterface = ImmutableList.copyOf(requireNonNull(lambdaInterface, "lambdaInterface is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
         this.constructor = requireNonNull(constructor, "constructor is null");
@@ -137,25 +125,25 @@ public class ScalarImplementation
             return Optional.empty();
         }
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
-            Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
-            boolean nullableParameter = isParameterNullable(argumentType, nullableArguments.get(i), nullFlags.get(i));
-            Class<?> argumentContainerType = getNullAwareContainerType(argumentType, nullableParameter);
-            if (!argumentNativeContainerTypes.get(i).isAssignableFrom(argumentContainerType)) {
-                return Optional.empty();
+            if (boundSignature.getArgumentTypes().get(i).getBase().equals(FunctionType.NAME)) {
+                // function does not have a corresponding Java type, an instance of specified interface
+                // with single abstract method will be generated.
+                if (!lambdaInterface.get(i).isPresent()) {
+                    return Optional.empty();
+                }
+            }
+            else {
+                Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
+                boolean nullableParameter = isParameterNullable(argumentType, nullableArguments.get(i), nullFlags.get(i));
+                Class<?> argumentContainerType = getNullAwareContainerType(argumentType, nullableParameter);
+                if (!argumentNativeContainerTypes.get(i).isAssignableFrom(argumentContainerType)) {
+                    return Optional.empty();
+                }
             }
         }
-        MethodHandle methodHandle = this.methodHandle;
-        for (ImplementationDependency dependency : dependencies) {
-            methodHandle = MethodHandles.insertArguments(methodHandle, 0, dependency.resolve(boundVariables, typeManager, functionRegistry));
-        }
-        MethodHandle constructor = null;
-        if (this.constructor.isPresent()) {
-            constructor = this.constructor.get();
-            for (ImplementationDependency dependency : constructorDependencies) {
-                constructor = MethodHandles.insertArguments(constructor, 0, dependency.resolve(boundVariables, typeManager, functionRegistry));
-            }
-        }
-        return Optional.of(new MethodHandleAndConstructor(methodHandle, Optional.ofNullable(constructor)));
+        MethodHandle boundMethodHandle = bindDependencies(this.methodHandle, dependencies, boundVariables, typeManager, functionRegistry);
+        Optional<MethodHandle> boundConstructor = this.constructor.map(handle -> bindDependencies(handle, constructorDependencies, boundVariables, typeManager, functionRegistry));
+        return Optional.of(new MethodHandleAndConstructor(boundMethodHandle, boundConstructor));
     }
 
     private static Class<?> getNullAwareReturnType(Class<?> clazz, boolean nullable)
@@ -192,11 +180,13 @@ public class ScalarImplementation
         return true;
     }
 
+    @Override
     public boolean hasSpecializedTypeParameters()
     {
         return !specializedTypeParameters.isEmpty();
     }
 
+    @Override
     public Signature getSignature()
     {
         return signature;
@@ -217,6 +207,11 @@ public class ScalarImplementation
         return nullFlags;
     }
 
+    public List<Optional<Class>> getLambdaInterface()
+    {
+        return lambdaInterface;
+    }
+
     public MethodHandle getMethodHandle()
     {
         return methodHandle;
@@ -225,6 +220,12 @@ public class ScalarImplementation
     public List<ImplementationDependency> getDependencies()
     {
         return dependencies;
+    }
+
+    @VisibleForTesting
+    public List<ImplementationDependency> getConstructorDependencies()
+    {
+        return constructorDependencies;
     }
 
     public static final class MethodHandleAndConstructor
@@ -249,115 +250,25 @@ public class ScalarImplementation
         }
     }
 
-    private interface ImplementationDependency
-    {
-        Object resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry);
-    }
-
-    private static final class FunctionImplementationDependency
-            extends ScalarImplementationDependency
-    {
-        private FunctionImplementationDependency(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
-        {
-            super(internalScalarFunction(name, returnType, argumentTypes));
-        }
-    }
-
-    private static final class OperatorImplementationDependency
-            extends ScalarImplementationDependency
-    {
-        private final OperatorType operator;
-
-        private OperatorImplementationDependency(OperatorType operator, TypeSignature returnType, List<TypeSignature> argumentTypes)
-        {
-            super(internalOperator(operator, returnType, argumentTypes));
-            this.operator = requireNonNull(operator, "operator is null");
-        }
-
-        public OperatorType getOperator()
-        {
-            return operator;
-        }
-    }
-
-    private abstract static class ScalarImplementationDependency
-            implements ImplementationDependency
-    {
-        private final Signature signature;
-
-        private ScalarImplementationDependency(Signature signature)
-        {
-            this.signature = requireNonNull(signature, "signature is null");
-        }
-
-        public Signature getSignature()
-        {
-            return signature;
-        }
-
-        @Override
-        public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
-        {
-            Signature signature = applyBoundVariables(this.signature, boundVariables, this.signature.getArgumentTypes().size());
-            return functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
-        }
-    }
-
-    private static final class TypeImplementationDependency
-            implements ImplementationDependency
-    {
-        private final TypeSignature signature;
-
-        private TypeImplementationDependency(String signature)
-        {
-            this.signature = parseTypeSignature(requireNonNull(signature, "signature is null"));
-        }
-
-        @Override
-        public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
-        {
-            return typeManager.getType(applyBoundVariables(signature, boundVariables));
-        }
-    }
-
-    private static final class LiteralImplementationDependency
-            implements ImplementationDependency
-    {
-        private final String literalName;
-
-        private LiteralImplementationDependency(String literalName)
-        {
-            this.literalName = requireNonNull(literalName, "literalName is null");
-        }
-
-        @Override
-        public Long resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
-        {
-            return boundVariables.getLongVariable(literalName);
-        }
-    }
-
     public static final class Parser
     {
-        private static final Set<OperatorType> COMPARABLE_TYPE_OPERATORS = ImmutableSet.of(EQUAL, NOT_EQUAL, HASH_CODE);
-        private static final Set<OperatorType> ORDERABLE_TYPE_OPERATORS = ImmutableSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, BETWEEN);
-
         private final String functionName;
         private final boolean nullable;
         private final List<Boolean> nullableArguments = new ArrayList<>();
         private final List<Boolean> nullFlags = new ArrayList<>();
+        private final List<Optional<Class>> lambdaInterface = new ArrayList<>();
         private final TypeSignature returnType;
         private final List<TypeSignature> argumentTypes = new ArrayList<>();
         private final List<Class<?>> argumentNativeContainerTypes = new ArrayList<>();
         private final MethodHandle methodHandle;
         private final List<ImplementationDependency> dependencies = new ArrayList<>();
-        private final LinkedHashSet<TypeParameter> typeParameters = new LinkedHashSet<>();
+        private final Set<TypeParameter> typeParameters = new LinkedHashSet<>();
+        private final Set<String> literalParameters;
         private final ImmutableSet<String> typeParameterNames;
-        private final Set<String> literalParameters = new HashSet<>();
         private final Map<String, Class<?>> specializedTypeParameters;
         private final Optional<MethodHandle> constructorMethodHandle;
         private final List<ImplementationDependency> constructorDependencies = new ArrayList<>();
-        private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
+        private final List<LongVariableConstraint> longVariableConstraints;
 
         private Parser(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
         {
@@ -368,14 +279,10 @@ public class ScalarImplementation
             Stream.of(method.getAnnotationsByType(TypeParameter.class))
                     .forEach(typeParameters::add);
 
+            literalParameters = parseLiteralParameters(method);
             typeParameterNames = typeParameters.stream()
                     .map(TypeParameter::value)
                     .collect(toImmutableSet());
-
-            LiteralParameters literalParametersAnnotation = method.getAnnotation(LiteralParameters.class);
-            if (literalParametersAnnotation != null) {
-                literalParameters.addAll(asList(literalParametersAnnotation.value()));
-            }
 
             SqlType returnType = method.getAnnotation(SqlType.class);
             checkArgument(returnType != null, format("Method [%s] is missing @SqlType annotation", method));
@@ -389,11 +296,9 @@ public class ScalarImplementation
                 checkArgument(!nullable, "Method [%s] annotated with @SqlNullable has primitive return type %s", method, actualReturnType.getSimpleName());
             }
 
-            Stream.of(method.getAnnotationsByType(Constraint.class))
-                    .map(annotation -> new LongVariableConstraint(annotation.variable(), annotation.expression()))
-                    .forEach(longVariableConstraints::add);
+            longVariableConstraints = parseLongVariableConstraints(method);
 
-            this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method);
+            this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method, typeParameters);
 
             for (TypeParameter typeParameter : typeParameters) {
                 checkArgument(
@@ -411,25 +316,22 @@ public class ScalarImplementation
         private void parseArguments(Method method)
         {
             for (int i = 0; i < method.getParameterCount(); i++) {
-                Annotation[] annotations = method.getParameterAnnotations()[i];
-                Class<?> parameterType = method.getParameterTypes()[i];
+                Parameter parameter = method.getParameters()[i];
+                Class<?> parameterType = parameter.getType();
+
                 // Skip injected parameters
                 if (parameterType == ConnectorSession.class) {
                     continue;
                 }
-                if (containsMetaParameter(annotations)) {
-                    checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", method);
-                    checkArgument(argumentTypes.isEmpty(), "Meta parameter must come before parameters [%s]", method);
-                    Annotation annotation = annotations[0];
-                    if (annotation instanceof TypeParameter) {
-                        checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), method, typeParameterNames);
-                    }
-                    if (annotation instanceof LiteralParameter) {
-                        checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", method);
-                    }
-                    dependencies.add(parseDependency(annotation));
+
+                Optional<Annotation> implementationDependency = getImplementationDependencyAnnotation(parameter);
+                if (implementationDependency.isPresent()) {
+                    // check if only declared typeParameters and literalParameters are used
+                    validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
+                    dependencies.add(createDependency(implementationDependency.get(), literalParameters));
                 }
                 else {
+                    Annotation[] annotations = parameter.getAnnotations();
                     checkArgument(!Stream.of(annotations).anyMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that does not follow a @SqlType parameter", method);
 
                     SqlType type = Stream.of(annotations)
@@ -437,6 +339,7 @@ public class ScalarImplementation
                             .map(SqlType.class::cast)
                             .findFirst()
                             .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
+                    TypeSignature typeSignature = parseTypeSignature(type.value(), literalParameters);
                     boolean nullableArgument = Stream.of(annotations).anyMatch(SqlNullable.class::isInstance);
                     checkArgument(nullableArgument || !containsLegacyNullable(annotations), "Method [%s] has parameter annotated with @Nullable but not @SqlNullable", method);
 
@@ -446,7 +349,7 @@ public class ScalarImplementation
                         if (Stream.of(parameterAnnotations).anyMatch(IsNull.class::isInstance)) {
                             Class<?> isNullType = method.getParameterTypes()[i + 1];
 
-                            checkArgument(Stream.of(parameterAnnotations).filter(Parser::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
+                            checkArgument(Stream.of(parameterAnnotations).filter(FunctionsParserHelper::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
                             checkArgument(isNullType == boolean.class, "Method [%s] has non-boolean parameter with @IsNull", method);
                             checkArgument((parameterType == Void.class) || !Primitives.isWrapperType(parameterType), "Method [%s] uses @IsNull following a parameter with boxed primitive type: %s", method, parameterType.getSimpleName());
 
@@ -470,30 +373,22 @@ public class ScalarImplementation
                         specializedTypeParameters.put(type.value(), nativeParameterType);
                     }
                     argumentNativeContainerTypes.add(parameterType);
-                    argumentTypes.add(parseTypeSignature(type.value(), literalParameters));
+                    argumentTypes.add(typeSignature);
 
                     if (hasNullFlag) {
                         // skip @IsNull parameter
                         i++;
                     }
+
                     nullableArguments.add(nullableArgument);
                     nullFlags.add(hasNullFlag);
-                }
-            }
-        }
-
-        private void checkTypeParameters(TypeSignature typeSignature, Method method, Set<String> typeParameterNames)
-        {
-            // Check recursively if `typeSignature` contains something like `T<bigint>`
-            if (typeParameterNames.contains(typeSignature.getBase())) {
-                checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got %s on method [%s]", typeSignature.getBase(), method);
-                return;
-            }
-
-            for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
-                Optional<TypeSignature> childTypeSignature = parameter.getTypeSignatureOrNamedTypeSignature();
-                if (childTypeSignature.isPresent()) {
-                    checkTypeParameters(childTypeSignature.get(), method, typeParameterNames);
+                    if (typeSignature.getBase().equals(FunctionType.NAME)) {
+                        checkCondition(parameterType.isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", i, methodHandle);
+                        lambdaInterface.add(Optional.of(parameterType));
+                    }
+                    else {
+                        lambdaInterface.add(Optional.empty());
+                    }
                 }
             }
         }
@@ -509,49 +404,25 @@ public class ScalarImplementation
             checkArgument(constructor != null, "Method [%s] is an instance method and requires a public constructor to be declared with %s type parameters", method, typeParameters);
             for (int i = 0; i < constructor.getParameterCount(); i++) {
                 Annotation[] annotations = constructor.getParameterAnnotations()[i];
-                checkArgument(containsMetaParameter(annotations), "Constructors may only have meta parameters [%s]", constructor);
+                checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have meta parameters [%s]", constructor);
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter) {
-                    checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), method, typeParameterNames);
+                    checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), typeParameterNames, method);
                 }
-                constructorDependencies.add(parseDependency(annotation));
+                constructorDependencies.add(createDependency(annotation, literalParameters));
             }
-            try {
-                return Optional.of(lookup().unreflectConstructor(constructor));
-            }
-            catch (IllegalAccessException e) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, e);
-            }
-        }
-
-        private Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method)
-        {
-            Map<String, Class<?>> specializedTypeParameters = new HashMap<>();
-            TypeParameterSpecialization[] typeParameterSpecializations = method.getAnnotationsByType(TypeParameterSpecialization.class);
-            ImmutableSet<String> typeParameterNames = typeParameters.stream()
-                    .map(TypeParameter::value)
-                    .collect(toImmutableSet());
-            for (TypeParameterSpecialization specialization : typeParameterSpecializations) {
-                checkArgument(typeParameterNames.contains(specialization.name()), "%s does not match any declared type parameters (%s) [%s]", specialization.name(), typeParameters, method);
-                Class<?> existingSpecialization = specializedTypeParameters.get(specialization.name());
-                checkArgument(existingSpecialization == null || existingSpecialization.equals(specialization.nativeContainerType()),
-                        "%s has conflicting specializations %s and %s [%s]", specialization.name(), existingSpecialization, specialization.nativeContainerType(), method);
-                specializedTypeParameters.put(specialization.name(), specialization.nativeContainerType());
-            }
-            return specializedTypeParameters;
+            MethodHandle result = constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, constructor);
+            // Change type of return value to Object to make sure callers won't have classloader issues
+            return Optional.of(result.asType(result.type().changeReturnType(Object.class)));
         }
 
         private MethodHandle getMethodHandle(Method method)
         {
-            MethodHandle methodHandle;
-            try {
-                methodHandle = lookup().unreflect(method);
-            }
-            catch (IllegalAccessException e) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, e);
-            }
+            MethodHandle methodHandle = methodHandle(FUNCTION_IMPLEMENTATION_ERROR, method);
             if (!isStatic(method.getModifiers())) {
+                // Change type of "this" argument to Object to make sure callers won't have classloader issues
+                methodHandle = methodHandle.asType(methodHandle.type().changeParameterType(0, Object.class));
                 // Re-arrange the parameters, so that the "this" parameter is after the meta parameters
                 int[] permutedIndices = new int[methodHandle.type().parameterCount()];
                 permutedIndices[0] = dependencies.size();
@@ -566,92 +437,6 @@ public class ScalarImplementation
                 methodHandle = permuteArguments(methodHandle, newType, permutedIndices);
             }
             return methodHandle;
-        }
-
-        private static List<TypeVariableConstraint> createTypeVariableConstraints(Iterable<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
-        {
-            Set<String> orderableRequired = new HashSet<>();
-            Set<String> comparableRequired = new HashSet<>();
-            for (ImplementationDependency dependency : dependencies) {
-                if (dependency instanceof OperatorImplementationDependency) {
-                    OperatorType operator = ((OperatorImplementationDependency) dependency).getOperator();
-                    if (operator == CAST) {
-                        continue;
-                    }
-                    Set<String> argumentTypes = ((OperatorImplementationDependency) dependency).getSignature().getArgumentTypes().stream()
-                            .map(TypeSignature::getBase)
-                            .collect(toImmutableSet());
-                    checkArgument(argumentTypes.size() == 1, "Operator dependency must only have arguments of a single type");
-                    String argumentType = Iterables.getOnlyElement(argumentTypes);
-                    if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
-                        comparableRequired.add(argumentType);
-                    }
-                    if (ORDERABLE_TYPE_OPERATORS.contains(operator)) {
-                        orderableRequired.add(argumentType);
-                    }
-                }
-            }
-            ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
-            for (TypeParameter typeParameter : typeParameters) {
-                String name = typeParameter.value();
-                if (orderableRequired.contains(name)) {
-                    typeVariableConstraints.add(orderableTypeParameter(name));
-                }
-                else if (comparableRequired.contains(name)) {
-                    typeVariableConstraints.add(comparableTypeParameter(name));
-                }
-                else {
-                    typeVariableConstraints.add(typeVariable(name));
-                }
-            }
-            return typeVariableConstraints.build();
-        }
-
-        private ImplementationDependency parseDependency(Annotation annotation)
-        {
-            if (annotation instanceof TypeParameter) {
-                return new TypeImplementationDependency(((TypeParameter) annotation).value());
-            }
-            if (annotation instanceof LiteralParameter) {
-                return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
-            }
-            if (annotation instanceof FunctionDependency) {
-                FunctionDependency function = (FunctionDependency) annotation;
-                return new FunctionImplementationDependency(
-                        function.name(),
-                        parseTypeSignature(function.returnType(), literalParameters),
-                        Arrays.stream(function.argumentTypes())
-                                .map(signature -> parseTypeSignature(signature, literalParameters))
-                                .collect(toImmutableList()));
-            }
-            if (annotation instanceof OperatorDependency) {
-                OperatorDependency operator = (OperatorDependency) annotation;
-                return new OperatorImplementationDependency(
-                        operator.operator(),
-                        parseTypeSignature(operator.returnType(), literalParameters),
-                        Arrays.stream(operator.argumentTypes())
-                                .map(signature -> parseTypeSignature(signature, literalParameters))
-                                .collect(toImmutableList()));
-            }
-            throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
-        }
-
-        private static boolean containsMetaParameter(Annotation[] annotations)
-        {
-            for (Annotation annotation : annotations) {
-                if (isMetaParameter(annotation)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private static boolean isMetaParameter(Annotation annotation)
-        {
-            return annotation instanceof TypeParameter ||
-                    annotation instanceof LiteralParameter ||
-                    annotation instanceof FunctionDependency ||
-                    annotation instanceof OperatorDependency;
         }
 
         public ScalarImplementation get()
@@ -669,6 +454,7 @@ public class ScalarImplementation
                     nullable,
                     nullableArguments,
                     nullFlags,
+                    lambdaInterface,
                     methodHandle,
                     dependencies,
                     constructorMethodHandle,
@@ -680,22 +466,6 @@ public class ScalarImplementation
         public static ScalarImplementation parseImplementation(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
         {
             return new Parser(functionName, method, constructors).get();
-        }
-
-        private static boolean containsLegacyNullable(Annotation[] annotations)
-        {
-            return Arrays.stream(annotations)
-                    .map(Annotation::annotationType)
-                    .map(Class::getName)
-                    .anyMatch(name -> name.equals(Nullable.class.getName()));
-        }
-
-        private static boolean isPrestoAnnotation(Annotation annotation)
-        {
-            return isMetaParameter(annotation) ||
-                    annotation instanceof SqlType ||
-                    annotation instanceof SqlNullable ||
-                    annotation instanceof IsNull;
         }
     }
 }

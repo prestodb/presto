@@ -31,6 +31,7 @@ import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -108,7 +109,7 @@ public class RcFileFileWriter
         try {
             rcFileWriter.write(page);
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
@@ -119,7 +120,7 @@ public class RcFileFileWriter
         try {
             rcFileWriter.close();
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             try {
                 rollbackAction.call();
             }
@@ -135,7 +136,7 @@ public class RcFileFileWriter
                     rcFileWriter.validate(input);
                 }
             }
-            catch (IOException e) {
+            catch (IOException | UncheckedIOException e) {
                 throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }

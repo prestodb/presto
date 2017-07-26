@@ -14,7 +14,7 @@
 package com.facebook.presto.accumulo.model;
 
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

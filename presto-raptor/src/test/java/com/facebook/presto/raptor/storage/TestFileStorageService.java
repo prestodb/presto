@@ -70,8 +70,10 @@ public class TestFileStorageService
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
         File staging = new File(temporary, format("staging/%s.orc", uuid));
         File storage = new File(temporary, format("storage/70/1e/%s.orc", uuid));
+        File quarantine = new File(temporary, format("quarantine/%s.orc", uuid));
         assertEquals(store.getStagingFile(uuid), staging);
         assertEquals(store.getStorageFile(uuid), storage);
+        assertEquals(store.getQuarantineFile(uuid), quarantine);
     }
 
     @Test
@@ -80,9 +82,11 @@ public class TestFileStorageService
     {
         File staging = new File(temporary, "staging");
         File storage = new File(temporary, "storage");
+        File quarantine = new File(temporary, "quarantine");
 
         assertDirectory(staging);
         assertDirectory(storage);
+        assertDirectory(quarantine);
 
         File file = store.getStagingFile(randomUUID());
         store.createParents(file);
@@ -95,6 +99,7 @@ public class TestFileStorageService
         assertFalse(file.exists());
         assertFalse(staging.exists());
         assertDirectory(storage);
+        assertDirectory(quarantine);
     }
 
     @Test

@@ -35,8 +35,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "resource-group-manager",
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
-        "optimizer.processing-optimization"
-})
+        "optimizer.processing-optimization"})
 public class FeaturesConfig
 {
     private boolean distributedIndexJoinsEnabled;
@@ -54,6 +53,7 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
+    private boolean newMapBlock = true;
     private boolean optimizeMixedDistinctAggregations;
 
     private boolean dictionaryAggregation;
@@ -68,6 +68,7 @@ public class FeaturesConfig
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
+    private boolean pushAggregationThroughJoin = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -136,6 +137,18 @@ public class FeaturesConfig
         return legacyMapSubscript;
     }
 
+    @Config("deprecated.new-map-block")
+    public FeaturesConfig setNewMapBlock(boolean value)
+    {
+        this.newMapBlock = value;
+        return this;
+    }
+
+    public boolean isNewMapBlock()
+    {
+        return newMapBlock;
+    }
+
     @Config("distributed-joins-enabled")
     public FeaturesConfig setDistributedJoinsEnabled(boolean distributedJoinsEnabled)
     {
@@ -157,7 +170,7 @@ public class FeaturesConfig
     }
 
     @Config("fast-inequality-joins")
-    @ConfigDescription("Experimental: Use faster handling of inequality joins if it is possible")
+    @ConfigDescription("Use faster handling of inequality joins if it is possible")
     public FeaturesConfig setFastInequalityJoins(boolean fastInequalityJoins)
     {
         this.fastInequalityJoins = fastInequalityJoins;
@@ -410,6 +423,18 @@ public class FeaturesConfig
     public FeaturesConfig setEnableIntermediateAggregations(boolean enableIntermediateAggregations)
     {
         this.enableIntermediateAggregations = enableIntermediateAggregations;
+        return this;
+    }
+
+    public boolean isPushAggregationThroughJoin()
+    {
+        return pushAggregationThroughJoin;
+    }
+
+    @Config("optimizer.push-aggregation-through-join")
+    public FeaturesConfig setPushAggregationThroughJoin(boolean value)
+    {
+        this.pushAggregationThroughJoin = value;
         return this;
     }
 }

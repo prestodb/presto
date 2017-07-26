@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 public class ExampleTableLayoutHandle
-    implements ConnectorTableLayoutHandle
+        implements ConnectorTableLayoutHandle
 {
     private final ExampleTableHandle table;
 

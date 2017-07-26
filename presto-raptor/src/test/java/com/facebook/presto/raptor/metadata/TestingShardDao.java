@@ -46,8 +46,8 @@ interface TestingShardDao
     @SqlQuery("SELECT node_identifier FROM nodes")
     Set<String> getAllNodesInUse();
 
-    @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, bucket_number, create_time, row_count, compressed_size, uncompressed_size)\n" +
-            "VALUES (:shardUuid, :tableId, :bucketNumber, CURRENT_TIMESTAMP, :rowCount, :compressedSize, :uncompressedSize)")
+    @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, bucket_number, create_time, row_count, compressed_size, uncompressed_size, xxhash64)\n" +
+            "VALUES (:shardUuid, :tableId, :bucketNumber, CURRENT_TIMESTAMP, :rowCount, :compressedSize, :uncompressedSize, :xxhash64)")
     @GetGeneratedKeys
     long insertShard(
             @Bind("shardUuid") UUID shardUuid,
@@ -55,7 +55,8 @@ interface TestingShardDao
             @Bind("bucketNumber") Integer bucketNumber,
             @Bind("rowCount") long rowCount,
             @Bind("compressedSize") long compressedSize,
-            @Bind("uncompressedSize") long uncompressedSize);
+            @Bind("uncompressedSize") long uncompressedSize,
+            @Bind("xxhash64") long xxhash64);
 
     @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
             "VALUES (:shardId, :nodeId)\n")

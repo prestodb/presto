@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.176-SNAPSHOT</version>
+        <version>0.182-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-cli</artifactId>
@@ -14,8 +14,6 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>com.facebook.presto.cli.Presto</main-class>
-        <cli.skip-execute>false</cli.skip-execute>
-        <cli.main-class>${main-class}</cli.main-class>
     </properties>
 
     <dependencies>
@@ -37,16 +35,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>http-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
@@ -87,6 +75,11 @@
         <dependency>
             <groupId>net.sf.opencsv</groupId>
             <artifactId>opencsv</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
         </dependency>
 
         <!-- for testing -->

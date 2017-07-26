@@ -81,7 +81,7 @@ public class HiveClientModule
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
+        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class, connectorId));
 
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
@@ -93,8 +93,6 @@ public class HiveClientModule
 
         Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = newSetBinder(binder, HiveRecordCursorProvider.class);
         recordCursorProviderBinder.addBinding().to(ParquetRecordCursorProvider.class).in(Scopes.SINGLETON);
-        recordCursorProviderBinder.addBinding().to(ColumnarTextHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
-        recordCursorProviderBinder.addBinding().to(ColumnarBinaryHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
 
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);

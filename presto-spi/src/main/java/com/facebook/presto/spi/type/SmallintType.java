@@ -44,9 +44,16 @@ public final class SmallintType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
+        int maxBlockSizeInBytes;
+        if (blockBuilderStatus == null) {
+            maxBlockSizeInBytes = BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+        }
+        else {
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxBlockSizeInBytes();
+        }
         return new ShortArrayBlockBuilder(
                 blockBuilderStatus,
-                Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / Short.BYTES));
+                Math.min(expectedEntries, maxBlockSizeInBytes / Short.BYTES));
     }
 
     @Override

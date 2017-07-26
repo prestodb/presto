@@ -14,12 +14,15 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
+import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
+import static com.facebook.presto.spi.block.MapBlockBuilder.buildHashTable;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -38,14 +41,14 @@ public class MapBlock
     private final Block valueBlock;
     private final int[] hashTables; // hash to location in map;
 
-    private int sizeInBytes;
-    private final int retainedSizeInBytes;
+    private long sizeInBytes;
+    private final long retainedSizeInBytes;
 
     /**
      * @param keyBlockNativeEquals (T, Block, int)boolean
      * @param keyNativeHashCode (T)long
      */
-    public MapBlock(
+    MapBlock(
             int startOffset,
             int positionCount,
             boolean[] mapIsNull,
@@ -74,8 +77,7 @@ public class MapBlock
         this.hashTables = hashTables;
 
         this.sizeInBytes = -1;
-        this.retainedSizeInBytes = intSaturatedCast(
-                INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables));
+        this.retainedSizeInBytes = INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);
     }
 
     @Override
@@ -121,7 +123,7 @@ public class MapBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (sizeInBytes < 0) {
@@ -137,14 +139,25 @@ public class MapBlock
         int entryCount = entriesEnd - entriesStart;
         sizeInBytes = keyBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 valueBlock.getRegionSizeInBytes(entriesStart, entryCount) +
-                (Integer.BYTES + Byte.BYTES) * this.positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * entryCount;
+                (Integer.BYTES + Byte.BYTES) * (long) this.positionCount +
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
+        consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
+        consumer.accept(offsets, sizeOf(offsets));
+        consumer.accept(mapIsNull, sizeOf(mapIsNull));
+        consumer.accept(hashTables, sizeOf(hashTables));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -154,5 +167,51 @@ public class MapBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    public static MapBlock fromKeyValueBlock(
+            boolean useNewMapBlock,
+            boolean[] mapIsNull,
+            int[] offsets,
+            Block keyBlock,
+            Block valueBlock,
+            MapType mapType,
+            MethodHandle keyBlockNativeEquals,
+            MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockHashCode)
+    {
+        if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
+            throw new IllegalArgumentException(format("keyBlock position count does not match valueBlock position count. %s %s", keyBlock.getPositionCount(), valueBlock.getPositionCount()));
+        }
+        int elementCount = keyBlock.getPositionCount();
+        if (mapIsNull.length != offsets.length - 1) {
+            throw new IllegalArgumentException(format("mapIsNull.length-1 does not match offsets.length. %s %s", mapIsNull.length - 1, offsets.length));
+        }
+        int mapCount = mapIsNull.length;
+        if (offsets[mapCount] != elementCount) {
+            throw new IllegalArgumentException(format("Last element of offsets does not match keyBlock position count. %s %s", offsets[mapCount], keyBlock.getPositionCount()));
+        }
+        int[] hashTables = new int[elementCount * HASH_MULTIPLIER];
+        Arrays.fill(hashTables, -1);
+        for (int i = 0; i < mapCount; i++) {
+            int keyOffset = offsets[i];
+            int keyCount = offsets[i + 1] - keyOffset;
+            if (keyCount < 0) {
+                throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
+            }
+            buildHashTable(useNewMapBlock, keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
+        }
+
+        return new MapBlock(
+                0,
+                mapCount,
+                mapIsNull,
+                offsets,
+                keyBlock,
+                valueBlock,
+                hashTables,
+                mapType.getKeyType(),
+                keyBlockNativeEquals,
+                keyNativeHashCode);
     }
 }

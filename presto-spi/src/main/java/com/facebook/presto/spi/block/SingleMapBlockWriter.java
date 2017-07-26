@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.function.BiConsumer;
+
 public class SingleMapBlockWriter
         extends AbstractSingleMapBlock
         implements BlockBuilder
@@ -24,7 +26,7 @@ public class SingleMapBlockWriter
 
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
-    private final int initialBlockBuilderSize;
+    private final long initialBlockBuilderSize;
     private int positionsWritten;
 
     private boolean writeToValueNext;
@@ -38,15 +40,23 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() - initialBlockBuilderSize;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(keyBlockBuilder, keyBlockBuilder.getRetainedSizeInBytes());
+        consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

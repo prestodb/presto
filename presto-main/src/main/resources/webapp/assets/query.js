@@ -29,7 +29,7 @@ let TaskList = React.createClass({
         for (let i = 0; i < taskIdArrA.length; i++) {
             const anum = Number.parseInt(taskIdArrA[i]);
             const bnum = Number.parseInt(taskIdArrB[i]);
-            if (anum != bnum) return anum > bnum ? 1 : -1;
+            if (anum !== bnum) return anum > bnum ? 1 : -1;
         }
 
         return 0;
@@ -41,7 +41,7 @@ let TaskList = React.createClass({
             const taskUri = tasks[i].taskStatus.self;
             const hostname = getHostname(taskUri);
             const port = getPort(taskUri);
-            if ((hostname in hostToPortNumber) && (hostToPortNumber[hostname] != port)) {
+            if ((hostname in hostToPortNumber) && (hostToPortNumber[hostname] !== port)) {
                 return true;
             }
             hostToPortNumber[hostname] = port;
@@ -52,7 +52,7 @@ let TaskList = React.createClass({
     render: function() {
         const tasks = this.props.tasks;
 
-        if (tasks === undefined || tasks.length == 0) {
+        if (tasks === undefined || tasks.length === 0) {
             return (
                 <div className="row">
                     <div className="col-xs-12">
@@ -66,7 +66,7 @@ let TaskList = React.createClass({
 
         const renderedTasks = tasks.map(task => {
             let elapsedTime = parseDuration(task.stats.elapsedTime);
-            if (elapsedTime == 0) {
+            if (elapsedTime === 0) {
                 elapsedTime = Date.now() - Date.parse(task.stats.createTime);
             }
 
@@ -101,6 +101,9 @@ let TaskList = React.createClass({
                         <Td column="splitsRunning" value={ task.stats.runningDrivers }>
                             { task.stats.runningDrivers }
                         </Td>
+                        <Td column="splitsBlocked" value={ task.stats.blockedDrivers }>
+                            { task.stats.blockedDrivers }
+                        </Td>
                         <Td column="splitsDone" value={ task.stats.completedDrivers }>
                             { task.stats.completedDrivers }
                         </Td>
@@ -128,6 +131,7 @@ let TaskList = React.createClass({
                     'state',
                     'splitsPending',
                     'splitsRunning',
+                    'splitsBlocked',
                     'splitsDone',
                     'rows',
                     'rowsSec',
@@ -142,9 +146,10 @@ let TaskList = React.createClass({
                         <Th column="id">ID</Th>
                         <Th column="host">Host</Th>
                         <Th column="state">State</Th>
-                        <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Pending splits"></span></Th>
-                        <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Running splits"></span></Th>
-                        <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Completed splits"></span></Th>
+                        <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Pending splits"/></Th>
+                        <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Running splits"/></Th>
+                        <Th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Blocked splits"/></Th>
+                        <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Completed splits"/></Th>
                         <Th column="rows">Rows</Th>
                         <Th column="rowsSec">Rows/s</Th>
                         <Th column="bytes">Bytes</Th>
@@ -211,7 +216,7 @@ let StageDetail = React.createClass({
         const bucketSize = (dataMax - dataMin) / numBuckets;
 
         let histogramData = [];
-        if (bucketSize == 0) {
+        if (bucketSize === 0) {
             histogramData = [inputData.length];
         }
         else {
@@ -245,7 +250,7 @@ let StageDetail = React.createClass({
         const cpuTimes = stage.tasks.map(task => parseDuration(task.stats.totalCpuTime));
 
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender == null || (Date.now() - this.state.lastRender) >= 1000) {
+        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
             const stageId = getStageId(stage.stageId);
 
@@ -402,7 +407,7 @@ let StageDetail = React.createClass({
                                                     Pending
                                                 </td>
                                                 <td className="stage-table-stat-text">
-                                                    { stage.tasks.filter(task => task.taskStatus.state == "PLANNED").length }
+                                                    { stage.tasks.filter(task => task.taskStatus.state === "PLANNED").length }
                                                 </td>
                                             </tr>
                                             <tr>
@@ -410,19 +415,15 @@ let StageDetail = React.createClass({
                                                     Running
                                                 </td>
                                                 <td className="stage-table-stat-text">
-                                                    { stage.tasks.filter(task => task.taskStatus.state == "RUNNING").length }
+                                                    { stage.tasks.filter(task => task.taskStatus.state === "RUNNING").length }
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td className="stage-table-stat-title">
-                                                    Finished
+                                                    Blocked
                                                 </td>
                                                 <td className="stage-table-stat-text">
-                                                    { stage.tasks.filter(task => {
-                                                        return task.taskStatus.state == "FINISHED" ||
-                                                            task.taskStatus.state == "CANCELED" ||
-                                                            task.taskStatus.state == "ABORTED" ||
-                                                            task.taskStatus.state == "FAILED" }).length }
+                                                    { stage.tasks.filter(task => task.stats.fullyBlocked).length }
                                                 </td>
                                             </tr>
                                             <tr>
@@ -448,7 +449,7 @@ let StageDetail = React.createClass({
                                         <tbody>
                                             <tr>
                                                 <td className="histogram-container">
-                                                    <span className="histogram" id={ "scheduled-time-histogram-" + stageId }><div className="loader"></div></span>
+                                                    <span className="histogram" id={ "scheduled-time-histogram-" + stageId }><div className="loader"/></span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -466,7 +467,7 @@ let StageDetail = React.createClass({
                                         <tbody>
                                             <tr>
                                                 <td className="histogram-container">
-                                                    <span className="histogram" id={ "cpu-time-histogram-" + stageId }><div className="loader"></div></span>
+                                                    <span className="histogram" id={ "cpu-time-histogram-" + stageId }><div className="loader"/></span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -474,7 +475,7 @@ let StageDetail = React.createClass({
                                 </td>
                                 <td className="expand-charts-container">
                                     <a onClick={this.toggleExpanded} className="expand-charts-button">
-                                        <span className={ "glyphicon " + this.getExpandedIcon() } style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="More"></span>
+                                        <span className={ "glyphicon " + this.getExpandedIcon() } style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="More"/>
                                     </a>
                                 </td>
                             </tr>
@@ -487,7 +488,7 @@ let StageDetail = React.createClass({
                                                     Task Scheduled Time
                                                 </td>
                                                 <td className="bar-chart-container">
-                                                    <span className="bar-chart" id={ "scheduled-time-bar-chart-" + stageId }><div className="loader"></div></span>
+                                                    <span className="bar-chart" id={ "scheduled-time-bar-chart-" + stageId }><div className="loader"/></span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -503,7 +504,7 @@ let StageDetail = React.createClass({
                                                     Task CPU Time
                                                 </td>
                                                 <td className="bar-chart-container">
-                                                    <span className="bar-chart" id={ "cpu-time-bar-chart-" + stageId }><div className="loader"></div></span>
+                                                    <span className="bar-chart" id={ "cpu-time-bar-chart-" + stageId }><div className="loader"/></span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -528,7 +529,7 @@ let StageList = React.createClass({
     render: function() {
         const stages = this.getStages(this.props.outputStage);
 
-        if (stages === undefined || stages.length == 0) {
+        if (stages === undefined || stages.length === 0) {
             return (
                 <div className="row">
                     <div className="col-xs-12">
@@ -606,13 +607,14 @@ let QueryDetail = React.createClass({
     resetTimer: function() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
-        if (this.state.query == null || !this.state.ended) {
-            this.timeoutId = setTimeout(this.refreshLoop, 1000);
+        if (this.state.query === null || !this.state.ended) {
+            // task.info-update-interval is set to 3 seconds by default
+            this.timeoutId = setTimeout(this.refreshLoop, 3000);
         }
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryId = window.location.search.substring(1);
+        const queryId = getFirstParameter(window.location.search);
         $.get('/v1/query/' + queryId, function (query) {
             let lastSnapshotStages = this.state.lastSnapshotStage;
             if (this.state.stageRefresh) {
@@ -648,19 +650,19 @@ let QueryDetail = React.createClass({
             });
 
             // i.e. don't show sparklines if we've already decided not to update or if we don't have one previous measurement
-            if (alreadyEnded || (lastRefresh == null && query.state == "RUNNING")) {
+            if (alreadyEnded || (lastRefresh === null && query.state === "RUNNING")) {
                 this.resetTimer();
                 return;
             }
 
-            if (lastRefresh == null) {
+            if (lastRefresh === null) {
                 lastRefresh = nowMillis - parseDuration(query.queryStats.elapsedTime);
             }
 
-            const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000;
-            if (elapsedSecsSinceLastRefresh != 0) {
-                const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / elapsedSecsSinceLastRefresh;
-                const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedSecsSinceLastRefresh;
+            const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000.0;
+            if (elapsedSecsSinceLastRefresh >= 0) {
+                const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
+                const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
                 const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
                 this.setState({
@@ -724,7 +726,7 @@ let QueryDetail = React.createClass({
     },
     renderTaskFilterListItem: function(taskFilter, taskFilterText) {
         return (
-            <li><a href="#" className={ this.state.taskFilter == taskFilter ? "selected" : ""} onClick={ this.handleTaskFilterClick.bind(this, taskFilter) }>{ taskFilterText }</a></li>
+            <li><a href="#" className={ this.state.taskFilter === taskFilter ? "selected" : ""} onClick={ this.handleTaskFilterClick.bind(this, taskFilter) }>{ taskFilterText }</a></li>
         );
     },
     handleTaskFilterClick: function(filter, event) {
@@ -745,7 +747,7 @@ let QueryDetail = React.createClass({
     },
     componentDidUpdate: function() {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender == null || (Date.now() - this.state.lastRender) >= 1000) {
+        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
             $('#scheduled-time-rate-sparkline').sparkline(this.state.scheduledTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
             $('#cpu-time-rate-sparkline').sparkline(this.state.cpuTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
@@ -753,7 +755,7 @@ let QueryDetail = React.createClass({
             $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
             $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory,  $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
 
-            if (this.state.lastRender == null) {
+            if (this.state.lastRender === null) {
                 $('#query').each((i, block) => {
                   hljs.highlightBlock(block);
                 });
@@ -768,7 +770,7 @@ let QueryDetail = React.createClass({
         new Clipboard('.copy-button');
     },
     renderTasks: function() {
-        if (this.state.lastSnapshotTasks == null) {
+        if (this.state.lastSnapshotTasks === null) {
             return;
         }
 
@@ -786,7 +788,7 @@ let QueryDetail = React.createClass({
                                 <td>
                                     <div className="input-group-btn text-right">
                                         <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                            Show <span className="caret"></span>
+                                            Show <span className="caret"/>
                                         </button>
                                         <ul className="dropdown-menu">
                                             { this.renderTaskFilterListItem(TASK_FILTER.ALL, "All") }
@@ -811,7 +813,7 @@ let QueryDetail = React.createClass({
         );
     },
     renderStages: function() {
-        if (this.state.lastSnapshotStage == null) {
+        if (this.state.lastSnapshotStage === null) {
             return;
         }
 
@@ -856,7 +858,7 @@ let QueryDetail = React.createClass({
                 for (let property in query.session.catalogProperties[catalog]) {
                     if (query.session.catalogProperties[catalog].hasOwnProperty(property)) {
                         properties.push(
-                            <span>- { catalog + "." + property + "=" + query.session.catalogProperties[catalog][property] } </span>
+                            <span>- { catalog + "." + property + "=" + query.session.catalogProperties[catalog][property] } <br /></span>
                         );
                     }
                 }
@@ -952,7 +954,7 @@ let QueryDetail = React.createClass({
     render: function() {
         const query = this.state.query;
 
-        if (query == null || this.state.initialized == false) {
+        if (query === null || this.state.initialized === false) {
             let label = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
                 label = "Query not found";
@@ -1119,7 +1121,7 @@ let QueryDetail = React.createClass({
                                     <td className="info-title">
                                         Resource Group
                                     </td>
-                                    <td className="info-text">
+                                    <td className="info-text wrap-text">
                                         { query.resourceGroupName }
                                     </td>
                                 </tr>

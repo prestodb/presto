@@ -182,7 +182,7 @@ public class TestShardEjector
 
     private static ShardInfo shardInfo(String node, long size)
     {
-        return new ShardInfo(randomUUID(), OptionalInt.empty(), ImmutableSet.of(node), ImmutableList.of(), 1, size, size * 2);
+        return new ShardInfo(randomUUID(), OptionalInt.empty(), ImmutableSet.of(node), ImmutableList.of(), 1, size, size * 2, 0);
     }
 
     private static NodeManager createNodeManager(String current, String... others)

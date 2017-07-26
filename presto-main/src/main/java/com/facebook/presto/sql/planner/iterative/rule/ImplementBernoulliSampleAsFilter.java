@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -24,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
@@ -33,14 +29,11 @@ import java.util.Optional;
 
 /**
  * Transforms:
- *
  * <pre>
  * - Sample(BERNOULLI, p)
  *     - X
  * </pre>
- *
  * Into:
- *
  * <pre>
  * - Filter (rand() < p)
  *     - X
@@ -49,13 +42,17 @@ import java.util.Optional;
 public class ImplementBernoulliSampleAsFilter
         implements Rule
 {
-    @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
-    {
-        if (!(node instanceof SampleNode)) {
-            return Optional.empty();
-        }
+    private static final Pattern PATTERN = Pattern.typeOf(SampleNode.class);
 
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
+    @Override
+    public Optional<PlanNode> apply(PlanNode node, Context context)
+    {
         SampleNode sample = (SampleNode) node;
 
         if (sample.getSampleType() != SampleNode.Type.BERNOULLI) {
@@ -67,7 +64,7 @@ public class ImplementBernoulliSampleAsFilter
                 sample.getSource(),
                 new ComparisonExpression(
                         ComparisonExpressionType.LESS_THAN,
-                        new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()),
+                        new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
                         new DoubleLiteral(Double.toString(sample.getSampleRatio())))));
     }
 }

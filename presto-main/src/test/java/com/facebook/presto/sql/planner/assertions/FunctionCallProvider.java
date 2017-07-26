@@ -28,7 +28,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class FunctionCallProvider
-    implements ExpectedValueProvider<FunctionCall>
+        implements ExpectedValueProvider<FunctionCall>
 {
     private boolean isWindowFunction;
     private final QualifiedName name;

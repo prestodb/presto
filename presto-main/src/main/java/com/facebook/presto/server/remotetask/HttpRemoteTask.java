@@ -618,7 +618,14 @@ public final class HttpRemoteTask
             @Override
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
-                updateTaskInfo(result.getValue());
+                try {
+                    updateTaskInfo(result.getValue());
+                }
+                finally {
+                    if (!getTaskInfo().getTaskStatus().getState().isDone()) {
+                        cleanUpLocally();
+                    }
+                }
             }
 
             @Override

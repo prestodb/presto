@@ -15,7 +15,6 @@ package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,20 +34,17 @@ public final class MemoryTableHandle
     private final String tableName;
     private final Long tableId;
     private final List<MemoryColumnHandle> columnHandles;
-    private final List<HostAddress> hosts;
 
     public MemoryTableHandle(
             String connectorId,
             Long tableId,
-            ConnectorTableMetadata tableMetadata,
-            List<HostAddress> hosts)
+            ConnectorTableMetadata tableMetadata)
     {
         this(connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 tableId,
-                MemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()),
-                hosts);
+                MemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()));
     }
 
     @JsonCreator
@@ -57,15 +53,13 @@ public final class MemoryTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") Long tableId,
-            @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles,
-            @JsonProperty("hosts") List<HostAddress> hosts)
+            @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableId = requireNonNull(tableId, "tableId is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
-        this.hosts = requireNonNull(hosts, "hosts is null");
     }
 
     @JsonProperty
@@ -96,12 +90,6 @@ public final class MemoryTableHandle
     public List<MemoryColumnHandle> getColumnHandles()
     {
         return columnHandles;
-    }
-
-    @JsonProperty
-    public List<HostAddress> getHosts()
-    {
-        return hosts;
     }
 
     public ConnectorTableMetadata toTableMetadata()

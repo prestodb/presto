@@ -16,16 +16,12 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isFastInequalityJoin;
-import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 public class JoinHashSupplier
@@ -35,7 +31,7 @@ public class JoinHashSupplier
     private final PagesHash pagesHash;
     private final LongArrayList addresses;
     private final List<List<Block>> channels;
-    private final Function<Optional<JoinFilterFunction>, PositionLinks> positionLinks;
+    private final Optional<PositionLinks.Factory> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
     public JoinHashSupplier(
@@ -51,20 +47,21 @@ public class JoinHashSupplier
         this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
 
-        PositionLinks.Builder positionLinksBuilder;
+        PositionLinks.FactoryBuilder positionLinksFactoryBuilder;
         if (filterFunctionFactory.isPresent() &&
                 filterFunctionFactory.get().getSortChannel().isPresent() &&
                 isFastInequalityJoin(session)) {
-            positionLinksBuilder = SortedPositionLinks.builder(
+            positionLinksFactoryBuilder = SortedPositionLinks.builder(
                     addresses.size(),
-                    new PositionComparator(pagesHashStrategy, addresses));
+                    pagesHashStrategy,
+                    addresses);
         }
         else {
-            positionLinksBuilder = ArrayPositionLinks.builder(addresses.size());
+            positionLinksFactoryBuilder = ArrayPositionLinks.builder(addresses.size());
         }
 
-        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksBuilder);
-        this.positionLinks = positionLinksBuilder.build();
+        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder);
+        this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
 
     @Override
@@ -89,39 +86,6 @@ public class JoinHashSupplier
         return new JoinHash(
                 pagesHash,
                 filterFunction,
-                positionLinks.apply(filterFunction));
-    }
-
-    public static class PositionComparator
-            implements IntComparator
-    {
-        private final PagesHashStrategy pagesHashStrategy;
-        private final LongArrayList addresses;
-
-        public PositionComparator(PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
-        {
-            this.pagesHashStrategy = pagesHashStrategy;
-            this.addresses = addresses;
-        }
-
-        @Override
-        public int compare(int leftPosition, int rightPosition)
-        {
-            long leftPageAddress = addresses.getLong(leftPosition);
-            int leftBlockIndex = decodeSliceIndex(leftPageAddress);
-            int leftBlockPosition = decodePosition(leftPageAddress);
-
-            long rightPageAddress = addresses.getLong(rightPosition);
-            int rightBlockIndex = decodeSliceIndex(rightPageAddress);
-            int rightBlockPosition = decodePosition(rightPageAddress);
-
-            return pagesHashStrategy.compare(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
-        }
-
-        @Override
-        public int compare(Integer leftPosition, Integer rightPosition)
-        {
-            return compare(leftPosition.intValue(), rightPosition.intValue());
-        }
+                positionLinks.map(links -> links.create(filterFunction)));
     }
 }

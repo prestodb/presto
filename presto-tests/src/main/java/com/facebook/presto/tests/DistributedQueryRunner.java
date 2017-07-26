@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -25,7 +26,9 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -226,6 +229,12 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public CostCalculator getCostCalculator()
+    {
+        return coordinator.getCostCalculator();
+    }
+
+    @Override
     public TestingAccessControlManager getAccessControl()
     {
         return coordinator.getAccessControl();
@@ -323,7 +332,7 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(sql);
+            return prestoClient.execute(sql).getResult();
         }
         finally {
             lock.readLock().unlock();
@@ -335,11 +344,32 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
+            return prestoClient.execute(session, sql).getResult();
+        }
+        finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    public ResultWithQueryId<MaterializedResult> executeWithQueryId(Session session, @Language("SQL") String sql)
+    {
+        lock.readLock().lock();
+        try {
             return prestoClient.execute(session, sql);
         }
         finally {
             lock.readLock().unlock();
         }
+    }
+
+    public QueryInfo getQueryInfo(QueryId queryId)
+    {
+        return coordinator.getQueryManager().getQueryInfo(queryId);
+    }
+
+    public Plan getQueryPlan(QueryId queryId)
+    {
+        return coordinator.getQueryManager().getQueryPlan(queryId);
     }
 
     @Override

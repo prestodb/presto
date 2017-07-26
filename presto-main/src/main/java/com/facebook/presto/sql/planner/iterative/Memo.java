@@ -18,27 +18,28 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Stores a plan in a form that's efficient to mutate locally (i.e. without
  * having to do full ancestor tree rewrites due to plan nodes being immutable).
- *
+ * <p>
  * Each node in a plan is placed in a group, and it's children are replaced with
  * symbolic references to the corresponding groups.
- *
+ * <p>
  * For example, a plan like:
+ * <pre>
  *    A -> B -> C -> D
  *           \> E -> F
- *
+ * </pre>
  * would be stored as:
- *
+ * <pre>
  * root: G0
  *
  * G0 : { A -> G1 }
@@ -47,7 +48,7 @@ import static com.google.common.base.Preconditions.checkState;
  * G3 : { E -> G5 }
  * G4 : { D }
  * G5 : { F }
- *
+ * </pre>
  * Groups are reference-counted, and groups that become unreachable from the root
  * due to mutations in a subtree get garbage-collected.
  */
@@ -79,6 +80,11 @@ public class Memo
         return membership.get(group);
     }
 
+    public PlanNode resolve(GroupReference groupReference)
+    {
+        return getNode(groupReference.getGroupId());
+    }
+
     public PlanNode extract()
     {
         return extract(getNode(rootGroup));
@@ -86,15 +92,7 @@ public class Memo
 
     private PlanNode extract(PlanNode node)
     {
-        if (node instanceof GroupReference) {
-            return extract(membership.get(((GroupReference) node).getGroupId()));
-        }
-
-        List<PlanNode> children = node.getSources().stream()
-                .map(this::extract)
-                .collect(Collectors.toList());
-
-        return node.replaceChildren(children);
+        return resolveGroupReferences(node, Lookup.from(this::resolve));
     }
 
     public PlanNode replace(int group, PlanNode node, String reason)
@@ -149,9 +147,9 @@ public class Memo
     private Set<Integer> getAllReferences(PlanNode node)
     {
         return node.getSources().stream()
-                    .map(GroupReference.class::cast)
-                    .map(GroupReference::getGroupId)
-                    .collect(Collectors.toSet());
+                .map(GroupReference.class::cast)
+                .map(GroupReference::getGroupId)
+                .collect(Collectors.toSet());
     }
 
     private void deleteGroup(int group)

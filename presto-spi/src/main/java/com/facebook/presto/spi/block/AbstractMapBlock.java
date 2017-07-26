@@ -36,8 +36,10 @@ public abstract class AbstractMapBlock
     public AbstractMapBlock(Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
-        this.keyNativeHashCode = requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
-        this.keyBlockNativeEquals = requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
+        // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
+        this.keyNativeHashCode = keyNativeHashCode;
+        // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
+        this.keyBlockNativeEquals = keyBlockNativeEquals;
     }
 
     protected abstract Block getKeys();
@@ -141,7 +143,7 @@ public abstract class AbstractMapBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
         int positionCount = getPositionCount();
         if (position < 0 || length < 0 || position + length > positionCount) {
@@ -154,8 +156,8 @@ public abstract class AbstractMapBlock
 
         return getKeys().getRegionSizeInBytes(entriesStart, entryCount) +
                 getValues().getRegionSizeInBytes(entriesStart, entryCount) +
-                (Integer.BYTES + Byte.BYTES) * length +
-                Integer.BYTES * HASH_MULTIPLIER * entryCount;
+                (Integer.BYTES + Byte.BYTES) * (long) length +
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
     }
 
     @Override
