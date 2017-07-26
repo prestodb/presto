@@ -40,7 +40,7 @@ public class CanonicalizeExpressions
 {
     public static Expression canonicalizeExpression(Expression expression)
     {
-        return CanonicalizeExpressionRewriter.rewrite(expression);
+        return CanonicalizeExpressionRewriter.canonicalizeExpression(expression);
     }
 
     @Override

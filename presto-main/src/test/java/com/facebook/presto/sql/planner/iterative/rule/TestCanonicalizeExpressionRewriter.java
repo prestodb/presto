@@ -47,6 +47,6 @@ public class TestCanonicalizeExpressionRewriter
 
     private static void assertRewritten(String from, String to)
     {
-        assertEquals(CanonicalizeExpressionRewriter.rewrite(PlanBuilder.expression(from)), PlanBuilder.expression(to));
+        assertEquals(CanonicalizeExpressionRewriter.canonicalizeExpression(PlanBuilder.expression(from)), PlanBuilder.expression(to));
     }
 }
