@@ -26,16 +26,6 @@ import static java.util.Objects.requireNonNull;
 public class SimplePageComparator
         implements PageComparator
 {
-    public static class Factory
-            implements PageComparatorFactory
-    {
-        @Override
-        public PageComparator create(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
-        {
-            return new SimplePageComparator(sortTypes, sortChannels, sortOrders);
-        }
-    }
-
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
     private final List<Type> types;

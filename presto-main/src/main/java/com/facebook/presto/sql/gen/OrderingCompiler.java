@@ -21,11 +21,14 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.operator.PageComparator;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PagesIndexComparator;
 import com.facebook.presto.operator.PagesIndexOrdering;
+import com.facebook.presto.operator.SimplePageComparator;
 import com.facebook.presto.operator.SimplePagesIndexComparator;
 import com.facebook.presto.operator.SyntheticAddress;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -77,11 +80,31 @@ public class OrderingCompiler
                 }
             });
 
+    private final LoadingCache<PagesIndexComparatorCacheKey, PageComparator> pageComparators = CacheBuilder.newBuilder()
+            .recordStats()
+            .maximumSize(1000)
+            .build(new CacheLoader<PagesIndexComparatorCacheKey, PageComparator>()
+            {
+                @Override
+                public PageComparator load(PagesIndexComparatorCacheKey key)
+                        throws Exception
+                {
+                    return internalCompilePageComparator(key.getSortTypes(), key.getSortChannels(), key.getSortOrders());
+                }
+            });
+
     @Managed
     @Nested
     public CacheStatsMBean getPagesIndexOrderingsStats()
     {
         return new CacheStatsMBean(pagesIndexOrderings);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getPageComparatorsStats()
+    {
+        return new CacheStatsMBean(pageComparators);
     }
 
     public PagesIndexOrdering compilePagesIndexOrdering(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
@@ -133,12 +156,12 @@ public class OrderingCompiler
                 type(PagesIndexComparator.class));
 
         classDefinition.declareDefaultConstructor(a(PUBLIC));
-        generateCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
+        generatePageIndexCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
 
         return defineClass(classDefinition, PagesIndexComparator.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private static void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    private static void generatePageIndexCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         Parameter pagesIndex = arg("pagesIndex", PagesIndex.class);
         Parameter leftPosition = arg("leftPosition", int.class);
@@ -216,6 +239,101 @@ public class OrderingCompiler
                             leftBlockPosition,
                             rightBlock,
                             rightBlockPosition));
+
+            LabelNode equal = new LabelNode("equal");
+            block.comment("if (compare != 0) return compare")
+                    .dup()
+                    .ifZeroGoto(equal)
+                    .retInt()
+                    .visitLabel(equal)
+                    .pop(int.class);
+
+            compareToMethod.getBody().append(block);
+        }
+
+        // values are equal
+        compareToMethod.getBody()
+                .push(0)
+                .retInt();
+    }
+
+    public PageComparator compilePageComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        requireNonNull(sortTypes, "sortTypes is null");
+        requireNonNull(sortChannels, "sortChannels is null");
+        requireNonNull(sortOrders, "sortOrders is null");
+
+        try {
+            return pageComparators.get(new PagesIndexComparatorCacheKey(sortTypes, sortChannels, sortOrders));
+        }
+        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
+            throw Throwables.propagate(e.getCause());
+        }
+    }
+
+    private PageComparator internalCompilePageComparator(List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        PageComparator comparator;
+        try {
+            Class<? extends PageComparator> pageComparatorClass = generatePageComparatorClass(types, sortChannels, sortOrders);
+            comparator = pageComparatorClass.newInstance();
+        }
+        catch (Throwable t) {
+            log.error(t, "Error compiling merge sort comparator for channels %s with order %s", sortChannels, sortChannels);
+            comparator = new SimplePageComparator(types, sortChannels, sortOrders);
+        }
+        return comparator;
+    }
+
+    private Class<? extends PageComparator> generatePageComparatorClass(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
+
+        ClassDefinition classDefinition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("PageComparator"),
+                type(Object.class),
+                type(PageComparator.class));
+
+        classDefinition.declareDefaultConstructor(a(PUBLIC));
+
+        generateMergeSortCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
+
+        return defineClass(classDefinition, PageComparator.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+    }
+
+    private void generateMergeSortCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        Parameter leftPage = arg("leftPage", Page.class);
+        Parameter leftPosition = arg("leftPosition", int.class);
+        Parameter rightPage = arg("rightPage", Page.class);
+        Parameter rightPosition = arg("rightPosition", int.class);
+        MethodDefinition compareToMethod = classDefinition.declareMethod(a(PUBLIC), "compareTo", type(int.class), leftPage, leftPosition, rightPage, rightPosition);
+
+        for (int i = 0; i < sortChannels.size(); i++) {
+            int sortChannel = sortChannels.get(i);
+            SortOrder sortOrder = sortOrders.get(i);
+
+            BytecodeBlock block = new BytecodeBlock()
+                    .setDescription("compare channel " + sortChannel + " " + sortOrder);
+
+            Type sortType = types.get(sortChannel);
+
+            BytecodeExpression leftBlock = leftPage
+                    .invoke("getBlock", Block.class, constantInt(sortChannel));
+
+            BytecodeExpression rightBlock = rightPage
+                    .invoke("getBlock", Block.class, constantInt(sortChannel));
+
+            block.append(getStatic(SortOrder.class, sortOrder.name())
+                    .invoke("compareBlockValue",
+                            int.class,
+                            ImmutableList.of(Type.class, Block.class, int.class, Block.class, int.class),
+                            constantType(callSiteBinder, sortType),
+                            leftBlock,
+                            leftPosition,
+                            rightBlock,
+                            rightPosition));
 
             LabelNode equal = new LabelNode("equal");
             block.comment("if (compare != 0) return compare")

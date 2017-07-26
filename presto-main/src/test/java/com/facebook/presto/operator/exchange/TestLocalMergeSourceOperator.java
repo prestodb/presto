@@ -16,11 +16,11 @@ package com.facebook.presto.operator.exchange;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.SimpleMergeSortComparator;
 import com.facebook.presto.operator.exchange.LocalMergeSourceOperator.LocalMergeSourceOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -232,9 +232,9 @@ public class TestLocalMergeSourceOperator
         OperatorFactory factory = new LocalMergeSourceOperatorFactory(
                 1,
                 new PlanNodeId("id"),
-                new SimpleMergeSortComparator.Factory(),
                 exchange,
                 types,
+                new OrderingCompiler(),
                 sortChannels,
                 sortOrders);
 
