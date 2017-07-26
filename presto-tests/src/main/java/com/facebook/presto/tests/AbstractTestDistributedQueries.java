@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
@@ -911,5 +912,24 @@ public abstract class AbstractTestDistributedQueries
 
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
+    }
+
+    @Test
+    public void testJoinWithStatefulFilterFunction()
+    {
+        super.testJoinWithStatefulFilterFunction();
+
+        // Stateful function is placed in LEFT JOIN's ON clause and involves left & right symbols to prevent any kind of push down/pull down.
+        Session session = Session.builder(getSession())
+                // With broadcast join, lineitem would be source-distributed and not executed concurrently.
+                .setSystemProperty(SystemSessionProperties.DISTRIBUTED_JOIN, "true")
+                .build();
+        long joinOutputRowCount = 60175;
+        assertQuery(
+                session,
+                format(
+                        "SELECT count(*) FROM lineitem l LEFT OUTER JOIN orders o ON l.orderkey = o.orderkey AND stateful_sleeping_sum(%s, 100, l.linenumber, o.shippriority) > 0",
+                        10 * 1. / joinOutputRowCount),
+                format("VALUES %s", joinOutputRowCount));
     }
 }

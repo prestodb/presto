@@ -55,6 +55,7 @@ public class TestBinaryFileSpiller
     private BlockEncodingSerde blockEncodingSerde;
     private File spillPath = Files.createTempDir();
     private SpillerStats spillerStats;
+    private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private SpillerFactory factory;
     private PagesSerde pagesSerde;
     private AggregatedMemoryContext memoryContext;
@@ -68,7 +69,8 @@ public class TestBinaryFileSpiller
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
-        factory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
+        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
+        factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
         pagesSerde = pagesSerdeFactory.createPagesSerde();
         memoryContext = new AggregatedMemoryContext();
@@ -78,6 +80,7 @@ public class TestBinaryFileSpiller
     public void tearDown()
             throws Exception
     {
+        singleStreamSpillerFactory.destroy();
         FileUtils.deleteRecursively(spillPath);
     }
 

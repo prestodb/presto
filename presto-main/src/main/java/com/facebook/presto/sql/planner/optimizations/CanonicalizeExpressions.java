@@ -32,17 +32,13 @@ import com.facebook.presto.sql.tree.Expression;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static java.util.Objects.requireNonNull;
 
 @Deprecated
 public class CanonicalizeExpressions
         implements PlanOptimizer
 {
-    public static Expression canonicalizeExpression(Expression expression)
-    {
-        return CanonicalizeExpressionRewriter.rewrite(expression);
-    }
-
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
@@ -85,7 +81,7 @@ public class CanonicalizeExpressions
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            Assignments assignments = node.getAssignments().rewrite(CanonicalizeExpressions::canonicalizeExpression);
+            Assignments assignments = node.getAssignments().rewrite(CanonicalizeExpressionRewriter::canonicalizeExpression);
             return new ProjectNode(node.getId(), source, assignments);
         }
 
