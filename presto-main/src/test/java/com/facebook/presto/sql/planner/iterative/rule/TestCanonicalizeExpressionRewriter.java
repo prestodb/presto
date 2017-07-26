@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static org.testng.Assert.assertEquals;
 
 public class TestCanonicalizeExpressionRewriter
@@ -47,6 +48,6 @@ public class TestCanonicalizeExpressionRewriter
 
     private static void assertRewritten(String from, String to)
     {
-        assertEquals(CanonicalizeExpressionRewriter.canonicalizeExpression(PlanBuilder.expression(from)), PlanBuilder.expression(to));
+        assertEquals(canonicalizeExpression(PlanBuilder.expression(from)), PlanBuilder.expression(to));
     }
 }
