@@ -66,6 +66,7 @@ public class TestingDiscoveryServer
                 .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(serverProperties)
+                .quiet()
                 .initialize();
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);

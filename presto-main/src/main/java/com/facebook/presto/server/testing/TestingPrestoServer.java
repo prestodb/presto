@@ -235,6 +235,7 @@ public class TestingPrestoServer
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(serverProperties.build())
                 .setOptionalConfigurationProperties(optionalProperties)
+                .quiet()
                 .initialize();
 
         injector.getInstance(Announcer.class).start();
