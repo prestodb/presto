@@ -181,16 +181,16 @@ public class InternalResourceGroup
                     subGroups.values().stream()
                             .map(subGroup -> new ResourceGroupInfo(
                                     subGroup.getId(),
-                                    DataSize.succinctBytes(softMemoryLimitBytes),
-                                    maxRunningQueries,
-                                    runningTimeLimit,
-                                    maxQueuedQueries,
-                                    queuedTimeLimit,
-                                    getState(),
-                                    eligibleSubGroups.size(),
-                                    DataSize.succinctBytes(cachedMemoryUsageBytes),
-                                    runningQueries.size() + descendantRunningQueries,
-                                    queuedQueries.size() + descendantQueuedQueries))
+                                    DataSize.succinctBytes(subGroup.softMemoryLimitBytes),
+                                    subGroup.maxRunningQueries,
+                                    subGroup.runningTimeLimit,
+                                    subGroup.maxQueuedQueries,
+                                    subGroup.queuedTimeLimit,
+                                    subGroup.getState(),
+                                    subGroup.eligibleSubGroups.size(),
+                                    DataSize.succinctBytes(subGroup.cachedMemoryUsageBytes),
+                                    subGroup.runningQueries.size() + subGroup.descendantRunningQueries,
+                                    subGroup.queuedQueries.size() + subGroup.descendantQueuedQueries))
                             .collect(toImmutableList()));
         }
     }
