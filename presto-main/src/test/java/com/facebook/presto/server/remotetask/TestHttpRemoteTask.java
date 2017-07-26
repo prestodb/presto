@@ -217,6 +217,7 @@ public class TestHttpRemoteTask
         Injector injector = app
                 .strictConfig()
                 .doNotInitializeLogging()
+                .quiet()
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
         handleResolver.addConnectorName("test", new TestingHandleResolver());
