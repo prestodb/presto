@@ -26,7 +26,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.Nullable;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -38,49 +40,69 @@ public class MergeSortProcessor
 {
     private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
-    private final PageComparator comparator;
     private final AggregatedMemoryContext memoryContext;
     private final List<MergeSource> mergeSources;
+    private final PriorityQueue<PageWithPosition> mergeQueue;
+
+    private int lastPooledIndex = -1;
 
     private ListenableFuture<?> blocked;
 
     public MergeSortProcessor(PageComparator comparator, List<? extends PageSupplier> pageSuppliers, AggregatedMemoryContext memoryContext)
     {
-        this.comparator = requireNonNull(comparator, "comparator is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         requireNonNull(pageSuppliers, "pageSuppliers is null");
         ImmutableList.Builder<MergeSource> mergeSources = ImmutableList.builder();
-        for (PageSupplier pageSupplier : pageSuppliers) {
-            mergeSources.add(new MergeSource(pageSupplier, memoryContext.newLocalMemoryContext()));
+        for (int i = 0; i < pageSuppliers.size(); i++) {
+            mergeSources.add(new MergeSource(i, pageSuppliers.get(i), memoryContext.newLocalMemoryContext()));
         }
         this.mergeSources = mergeSources.build();
+        this.mergeQueue = new PriorityQueue<>(
+                pageSuppliers.size(),
+                (left, right) -> comparator.compareTo(left.getPage(), left.getPosition(), right.getPage(), right.getPosition()));
     }
 
     @Nullable
     public PageWithPosition poll()
     {
-        PageWithPosition result = null;
-        for (MergeSource mergeSource : mergeSources) {
-            PageWithPosition current = mergeSource.getPage();
-            if (current == null) {
-                if (mergeSource.isFinished()) {
-                    continue;
+        if (!isQueueInitialized()) {
+            List<PageWithPosition> initialRows = new ArrayList<>();
+            for (MergeSource mergeSource : mergeSources) {
+                PageWithPosition page = mergeSource.getPage();
+                if (page == null) {
+                    if (mergeSource.isFinished()) {
+                        continue;
+                    }
+                    else {
+                        return null;
+                    }
                 }
-                else {
-                    return null;
-                }
+                initialRows.add(page);
             }
-            if (result == null) {
-                result = current;
+            mergeQueue.addAll(initialRows);
+        }
+        else {
+            MergeSource mergeSource = mergeSources.get(lastPooledIndex);
+            PageWithPosition page = mergeSource.getPage();
+            if (page == null && !mergeSource.isFinished()) {
+                return null;
             }
-            else {
-                int compareResult = comparator.compareTo(current.getPage(), current.getPosition(), result.getPage(), result.getPosition());
-                if (compareResult < 0) {
-                    result = current;
-                }
+            if (page != null) {
+                mergeQueue.add(page);
             }
         }
+
+        PageWithPosition result = mergeQueue.poll();
+        if (result == null) {
+            return null;
+        }
+        lastPooledIndex = result.getStreamIndex();
         return result;
+    }
+
+    private boolean isQueueInitialized()
+    {
+        return lastPooledIndex >= 0;
     }
 
     public ListenableFuture<?> isBlocked()
@@ -110,6 +132,7 @@ public class MergeSortProcessor
 
     private static class MergeSource
     {
+        private final int streamIndex;
         private final PageSupplier pageSupplier;
         private final LocalMemoryContext localMemoryContext;
 
@@ -118,8 +141,9 @@ public class MergeSortProcessor
         @Nullable
         private ListenableFuture<?> blocked;
 
-        public MergeSource(PageSupplier pageSupplier, LocalMemoryContext localMemoryContext)
+        public MergeSource(int streamIndex, PageSupplier pageSupplier, LocalMemoryContext localMemoryContext)
         {
+            this.streamIndex = streamIndex;
             this.pageSupplier = requireNonNull(pageSupplier, "pageSupplier is null");
             this.localMemoryContext = requireNonNull(localMemoryContext, "localMemoryContext is null");
         }
@@ -164,7 +188,8 @@ public class MergeSortProcessor
             }
 
             Page page = requireNonNull(pageSupplier.pollPage(), "page is null");
-            currentPage = new PageWithPosition(page);
+
+            currentPage = new PageWithPosition(streamIndex, page);
             localMemoryContext.setBytes(currentPage.getPage().getRetainedSizeInBytes());
             return currentPage;
         }
@@ -172,12 +197,19 @@ public class MergeSortProcessor
 
     public static class PageWithPosition
     {
+        private final int streamIndex;
         private final Page page;
         private int position = 0;
 
-        public PageWithPosition(Page page)
+        public PageWithPosition(int streamIndex, Page page)
         {
+            this.streamIndex = streamIndex;
             this.page = requireNonNull(page, "page is null");
+        }
+
+        private int getStreamIndex()
+        {
+            return streamIndex;
         }
 
         public Page getPage()
