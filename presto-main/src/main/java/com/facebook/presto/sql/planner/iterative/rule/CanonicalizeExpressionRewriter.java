@@ -34,7 +34,7 @@ public class CanonicalizeExpressionRewriter
 {
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression)
+    public static Expression canonicalizeExpression(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
     }
