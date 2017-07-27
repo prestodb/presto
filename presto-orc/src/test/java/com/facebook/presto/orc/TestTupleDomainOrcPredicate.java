@@ -240,7 +240,7 @@ public class TestTupleDomainOrcPredicate
     {
         Slice minimumSlice = minimum == null ? null : utf8Slice(minimum);
         Slice maximumSlice = maximum == null ? null : utf8Slice(maximum);
-        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(minimumSlice, maximumSlice), null, null, null, null);
+        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L), null, null, null, null);
     }
 
     @Test

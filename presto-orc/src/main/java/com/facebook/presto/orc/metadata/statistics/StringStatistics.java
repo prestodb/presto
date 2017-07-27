@@ -25,12 +25,14 @@ public class StringStatistics
 {
     private final Slice minimum;
     private final Slice maximum;
+    private final long sum;
 
-    public StringStatistics(Slice minimum, Slice maximum)
+    public StringStatistics(Slice minimum, Slice maximum, long sum)
     {
         checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
+        this.sum = sum;
     }
 
     @Override
@@ -43,6 +45,11 @@ public class StringStatistics
     public Slice getMax()
     {
         return maximum;
+    }
+
+    public long getSum()
+    {
+        return sum;
     }
 
     @Override
@@ -71,6 +78,7 @@ public class StringStatistics
         return toStringHelper(this)
                 .add("min", minimum.toStringUtf8())
                 .add("max", maximum.toStringUtf8())
+                .add("sum", sum)
                 .toString();
     }
 }

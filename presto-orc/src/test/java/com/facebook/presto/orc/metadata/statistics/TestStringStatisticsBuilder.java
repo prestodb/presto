@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.STRING;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestStringStatisticsBuilder
         extends AbstractStatisticsBuilderTest<StringStatisticsBuilder, Slice>
@@ -75,5 +82,58 @@ public class TestStringStatisticsBuilder
         assertMinMaxValues(MEDIUM_TOP_VALUE, HIGH_TOP_VALUE);
 
         assertMinMaxValues(HIGH_BOTTOM_VALUE, HIGH_TOP_VALUE);
+    }
+
+    @Test
+    public void testSum()
+    {
+        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder();
+        for (Slice value : ImmutableList.of(EMPTY_SLICE, LOW_BOTTOM_VALUE, LOW_TOP_VALUE)) {
+            stringStatisticsBuilder.addValue(value);
+        }
+        assertStringStatistics(stringStatisticsBuilder.buildColumnStatistics(), 3, EMPTY_SLICE.length() + LOW_BOTTOM_VALUE.length() + LOW_TOP_VALUE.length());
+    }
+
+    @Test
+    public void testMerge()
+    {
+        List<ColumnStatistics> statisticsList = new ArrayList<>();
+
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder();
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedStringStatistics(statisticsList, 0, 0);
+
+        statisticsBuilder.addValue(EMPTY_SLICE);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedStringStatistics(statisticsList, 1, 0);
+
+        statisticsBuilder.addValue(LOW_BOTTOM_VALUE);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedStringStatistics(statisticsList, 3, LOW_BOTTOM_VALUE.length());
+
+        statisticsBuilder.addValue(LOW_TOP_VALUE);
+        statisticsList.add(statisticsBuilder.buildColumnStatistics());
+        assertMergedStringStatistics(statisticsList, 6, LOW_BOTTOM_VALUE.length() * 2 + LOW_TOP_VALUE.length());
+    }
+
+    private void assertMergedStringStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, long expectedSum)
+    {
+        assertStringStatistics(mergeColumnStatistics(statisticsList), expectedNumberOfValues, expectedSum);
+
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, 0, 10)), expectedNumberOfValues + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size(), 10)), expectedNumberOfValues + 10);
+        assertNoColumnStatistics(mergeColumnStatistics(insertEmptyColumnStatisticsAt(statisticsList, statisticsList.size() / 2, 10)), expectedNumberOfValues + 10);
+    }
+
+    private void assertStringStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, long expectedSum)
+    {
+        if (expectedNumberOfValues > 0) {
+            assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
+            assertEquals(columnStatistics.getStringStatistics().getSum(), expectedSum);
+        }
+        else {
+            assertNull(columnStatistics.getStringStatistics());
+            assertEquals(columnStatistics.getNumberOfValues(), 0);
+        }
     }
 }
