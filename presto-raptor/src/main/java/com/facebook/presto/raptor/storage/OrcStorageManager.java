@@ -21,7 +21,6 @@ import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
@@ -83,6 +82,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isBucketNumberColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isHiddenColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
@@ -232,7 +232,7 @@ public class OrcStorageManager
         AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
 
         try {
-            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), HUGE_MAX_READ_BLOCK_SIZE);
+            OrcReader reader = new OrcReader(dataSource, ORC, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), HUGE_MAX_READ_BLOCK_SIZE);
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -374,7 +374,7 @@ public class OrcStorageManager
     private List<ColumnStats> computeShardStats(File file)
     {
         try (OrcDataSource dataSource = fileOrcDataSource(defaultReaderAttributes, file)) {
-            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getMaxReadSize(), HUGE_MAX_READ_BLOCK_SIZE);
+            OrcReader reader = new OrcReader(dataSource, ORC, defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getMaxReadSize(), HUGE_MAX_READ_BLOCK_SIZE);
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

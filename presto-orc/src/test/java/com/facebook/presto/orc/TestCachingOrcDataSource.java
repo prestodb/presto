@@ -16,7 +16,6 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +42,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.OrcRecordReader.wrapWithCacheIfTinyStripes;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
@@ -193,7 +193,7 @@ public class TestCachingOrcDataSource
     public void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize maxReadSize)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), maxMergeDistance, maxReadSize, new DataSize(1, Unit.MEGABYTE));
+        OrcReader orcReader = new OrcReader(orcDataSource, ORC, maxMergeDistance, maxReadSize, new DataSize(1, Unit.MEGABYTE));
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
