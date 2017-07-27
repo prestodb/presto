@@ -526,7 +526,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-all</artifactId>
-                <version>5.0.4</version>
+                <version>5.2</version>
             </dependency>
 
             <dependency>
