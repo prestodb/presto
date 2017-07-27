@@ -1238,11 +1238,12 @@ public class TestSqlParser
     public void testCreateTable()
             throws Exception
     {
-        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world')",
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
                                 new ColumnDefinition("a", "VARCHAR", Optional.empty()),
-                                new ColumnDefinition("b", "BIGINT", Optional.of("hello world"))),
+                                new ColumnDefinition("b", "BIGINT", Optional.of("hello world")),
+                                new ColumnDefinition("c", "IPADDRESS", Optional.empty())),
                         false,
                         ImmutableMap.of(),
                         Optional.empty()));

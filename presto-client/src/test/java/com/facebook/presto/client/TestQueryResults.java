@@ -51,6 +51,7 @@ public class TestQueryResults
         assertQueryResult("array(bigint)", ImmutableList.of(1, 2, 4), ImmutableList.of(1L, 2L, 4L));
         assertQueryResult("map(bigint,bigint)", ImmutableMap.of(1, 3, 2, 4), ImmutableMap.of(1L, 3L, 2L, 4L));
         assertQueryResult("json", "{\"json\": {\"a\": 1}}", "{\"json\": {\"a\": 1}}");
+        assertQueryResult("ipaddress", "1.2.3.4", "1.2.3.4");
     }
 
     private void assertQueryResult(String type, Object data, Object expected)
