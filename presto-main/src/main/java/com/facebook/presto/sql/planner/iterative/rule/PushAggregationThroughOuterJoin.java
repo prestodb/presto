@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -85,12 +86,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * </pre>
  */
 public class PushAggregationThroughOuterJoin
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = aggregation();
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
@@ -102,13 +103,8 @@ public class PushAggregationThroughOuterJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
-
-        AggregationNode aggregation = (AggregationNode) node;
         PlanNode source = context.getLookup().resolve(aggregation.getSource());
         if (!(source instanceof JoinNode)) {
             return Optional.empty();
@@ -125,7 +121,7 @@ public class PushAggregationThroughOuterJoin
                 .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = new AggregationNode(
-                node.getId(),
+                aggregation.getId(),
                 getInnerTable(join),
                 aggregation.getAggregations(),
                 ImmutableList.of(groupingKeys),

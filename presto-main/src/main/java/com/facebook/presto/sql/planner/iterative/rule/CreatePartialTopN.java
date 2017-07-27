@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -26,25 +27,19 @@ import static com.facebook.presto.sql.planner.plan.TopNNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.SINGLE;
 
 public class CreatePartialTopN
-        implements Rule
+        implements Rule<TopNNode>
 {
-    private static final Pattern PATTERN = topN();
+    private static final Pattern<TopNNode> PATTERN = topN();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<TopNNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(TopNNode single, Captures captures, Context context)
     {
-        if (!(node instanceof TopNNode)) {
-            return Optional.empty();
-        }
-
-        TopNNode single = (TopNNode) node;
-
         if (!single.getStep().equals(SINGLE)) {
             return Optional.empty();
         }

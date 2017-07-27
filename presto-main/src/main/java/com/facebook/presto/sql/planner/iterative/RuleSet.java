@@ -17,5 +17,5 @@ import java.util.Set;
 
 public interface RuleSet
 {
-    Set<Rule> rules();
+    Set<Rule<?>> rules();
 }

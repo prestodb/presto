@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -25,10 +27,11 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PushTableWriteThroughUnion
-        implements Rule
+        implements Rule<TableWriterNode>
 {
     @Override
     public boolean isEnabled(Session session)
@@ -36,14 +39,17 @@ public class PushTableWriteThroughUnion
         return isPushTableWriteThroughUnion(session);
     }
 
-    @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
-    {
-        if (!(node instanceof TableWriterNode)) {
-            return Optional.empty();
-        }
+    private static final Pattern<TableWriterNode> PATTERN = tableWriterNode();
 
-        TableWriterNode tableWriterNode = (TableWriterNode) node;
+    @Override
+    public Pattern<TableWriterNode> getPattern()
+    {
+        return PATTERN;
+    }
+
+    @Override
+    public Optional<PlanNode> apply(TableWriterNode tableWriterNode, Captures captures, Context context)
+    {
         if (tableWriterNode.getPartitioningScheme().isPresent()) {
             // The primary incentive of this optimizer is to increase the parallelism for table
             // write. For a table with partitioning scheme, parallelism for table writing is
@@ -64,7 +70,7 @@ public class PushTableWriteThroughUnion
         for (int i = 0; i < unionNode.getSources().size(); i++) {
             int index = i;
             ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
-            for (Symbol outputSymbol : node.getOutputSymbols()) {
+            for (Symbol outputSymbol : tableWriterNode.getOutputSymbols()) {
                 Symbol newSymbol = context.getSymbolAllocator().newSymbol(outputSymbol);
                 newSymbols.add(newSymbol);
                 mappings.put(outputSymbol, newSymbol);

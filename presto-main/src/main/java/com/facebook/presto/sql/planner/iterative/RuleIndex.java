@@ -25,14 +25,14 @@ import java.util.stream.Stream;
 
 public class RuleIndex
 {
-    private final ListMultimap<Class<?>, Rule> rulesByRootType;
+    private final ListMultimap<Class<?>, Rule<?>> rulesByRootType;
 
-    private RuleIndex(ListMultimap<Class<?>, Rule> rulesByRootType)
+    private RuleIndex(ListMultimap<Class<?>, Rule<?>> rulesByRootType)
     {
         this.rulesByRootType = ImmutableListMultimap.copyOf(rulesByRootType);
     }
 
-    public Stream<Rule> getCandidates(Object object)
+    public Stream<Rule<?>> getCandidates(Object object)
     {
         return supertypes(object.getClass())
                 .flatMap(clazz -> rulesByRootType.get(clazz).stream());
@@ -51,15 +51,15 @@ public class RuleIndex
 
     public static class Builder
     {
-        private final ImmutableListMultimap.Builder<Class<?>, Rule> rulesByRootType = ImmutableListMultimap.builder();
+        private final ImmutableListMultimap.Builder<Class<?>, Rule<?>> rulesByRootType = ImmutableListMultimap.builder();
 
-        public Builder register(Set<Rule> rules)
+        public Builder register(Set<Rule<?>> rules)
         {
             rules.forEach(this::register);
             return this;
         }
 
-        public Builder register(Rule rule)
+        public Builder register(Rule<?> rule)
         {
             Pattern pattern = rule.getPattern();
             if (pattern instanceof TypeOfPattern<?>) {

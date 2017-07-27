@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
@@ -44,15 +45,14 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughExchange
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
-
     private final FunctionRegistry functionRegistry;
 
     public PushPartialAggregationThroughExchange(FunctionRegistry functionRegistry)
@@ -60,17 +60,17 @@ public class PushPartialAggregationThroughExchange
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
     }
 
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
+
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        AggregationNode aggregationNode = (AggregationNode) node;
-
         boolean decomposable = aggregationNode.isDecomposable(functionRegistry);
 
         if (aggregationNode.getStep().equals(SINGLE) &&

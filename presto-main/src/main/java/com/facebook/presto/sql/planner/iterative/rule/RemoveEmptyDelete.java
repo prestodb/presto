@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -46,24 +47,21 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  *  - Values (0)
  * </pre>
  */
+// TODO split into multiple rules (https://github.com/prestodb/presto/issues/7292)
 public class RemoveEmptyDelete
-        implements Rule
+        implements Rule<TableFinishNode>
 {
-    private static final Pattern PATTERN = tableFinish();
+    private static final Pattern<TableFinishNode> PATTERN = tableFinish();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<TableFinishNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(TableFinishNode finish, Captures captures, Context context)
     {
-        // TODO split into multiple rules (https://github.com/prestodb/presto/issues/7292)
-
-        TableFinishNode finish = (TableFinishNode) node;
-
         PlanNode finishSource = context.getLookup().resolve(finish.getSource());
         if (!(finishSource instanceof ExchangeNode)) {
             return Optional.empty();
@@ -92,8 +90,8 @@ public class RemoveEmptyDelete
 
         return Optional.of(
                 new ValuesNode(
-                        node.getId(),
-                        node.getOutputSymbols(),
+                        finish.getId(),
+                        finish.getOutputSymbols(),
                         ImmutableList.of(ImmutableList.of(new LongLiteral("0")))));
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.Symbol;
@@ -44,21 +45,19 @@ import static java.util.stream.Collectors.toSet;
  * within a TRY block (to avoid changing semantics).
  */
 public class InlineProjections
-        implements Rule
+        implements Rule<ProjectNode>
 {
-    private static final Pattern PATTERN = project();
+    private static final Pattern<ProjectNode> PATTERN = project();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ProjectNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
     {
-        ProjectNode parent = (ProjectNode) node;
-
         PlanNode source = context.getLookup().resolve(parent.getSource());
         if (!(source instanceof ProjectNode)) {
             return Optional.empty();

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -37,17 +38,18 @@ import static com.facebook.presto.SystemSessionProperties.isPushAggregationThrou
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 
 public class PushPartialAggregationThroughJoin
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
@@ -59,10 +61,8 @@ public class PushPartialAggregationThroughJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        AggregationNode aggregationNode = (AggregationNode) node;
-
         if (aggregationNode.getStep() != PARTIAL || aggregationNode.getGroupingSets().size() != 1) {
             return Optional.empty();
         }

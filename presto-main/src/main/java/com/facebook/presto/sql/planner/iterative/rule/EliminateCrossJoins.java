@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -47,12 +48,12 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class EliminateCrossJoins
-        implements Rule
+        implements Rule<JoinNode>
 {
-    private static final Pattern PATTERN = join();
+    private static final Pattern<JoinNode> PATTERN = join();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<JoinNode> getPattern()
     {
         return PATTERN;
     }
@@ -64,12 +65,8 @@ public class EliminateCrossJoins
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(JoinNode node, Captures captures, Context context)
     {
-        if (!(node instanceof JoinNode)) {
-            return Optional.empty();
-        }
-
         JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup());
         if (joinGraph.size() < 3) {
             return Optional.empty();
