@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.rcfile.PageSplitterUtil.splitPage;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeLengthPrefixedString;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
 import static com.facebook.presto.rcfile.RcFileReader.validateFile;
@@ -236,18 +237,10 @@ public class RcFileWriter
         if (page.getPositionCount() == 0) {
             return;
         }
-
-        long pageSize = page.getSizeInBytes();
-        if (pageSize <= targetMaxRowGroupSize || page.getPositionCount() == 1) {
-            bufferPage(page);
-            return;
+        List<Page> pages = splitPage(page, targetMaxRowGroupSize);
+        for (Page splitPage : pages) {
+            bufferPage(splitPage);
         }
-
-        // recursively split page until it is less than the max row group size
-        int positionCount = page.getPositionCount();
-        int half = positionCount / 2;
-        write(page.getRegion(0, half));
-        write(page.getRegion(half, positionCount - half));
     }
 
     private void bufferPage(Page page)
