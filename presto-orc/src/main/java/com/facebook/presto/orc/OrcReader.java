@@ -173,10 +173,10 @@ public class OrcReader
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
 
-        validateWrite(validation -> validation.getMetadata().equals(footer.getUserMetadata()), "Unexpected metadata");
         validateWrite(validation -> validation.getColumnNames().equals(getColumnNames()), "Unexpected column names");
         validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
         if (writeValidation.isPresent()) {
+            writeValidation.get().validateMetadata(orcDataSource.getId(), footer.getUserMetadata());
             writeValidation.get().validateFileStatistics(orcDataSource.getId(), footer.getFileStats());
             writeValidation.get().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
         }

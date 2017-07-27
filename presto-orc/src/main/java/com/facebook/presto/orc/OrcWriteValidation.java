@@ -37,10 +37,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class OrcWriteValidation
@@ -100,6 +102,19 @@ public class OrcWriteValidation
     public Map<String, Slice> getMetadata()
     {
         return metadata;
+    }
+
+    public void validateMetadata(OrcDataSourceId orcDataSourceId, Map<String, Slice> actualMetadata)
+            throws OrcCorruptionException
+    {
+        // Filter out metadata value statically added by the DWRF writer
+        Map<String, Slice> filteredMetadata = actualMetadata.entrySet().stream()
+                .filter(entry -> !STATIC_METADATA.containsKey(entry.getKey()))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+        if (!metadata.equals(filteredMetadata)) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected metadata");
+        }
     }
 
     public WriteChecksum getChecksum()
