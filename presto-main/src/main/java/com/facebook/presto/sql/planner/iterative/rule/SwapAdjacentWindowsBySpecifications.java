@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -27,21 +28,19 @@ import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.depen
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
 
 public class SwapAdjacentWindowsBySpecifications
-        implements Rule
+        implements Rule<WindowNode>
 {
-    private static final Pattern PATTERN = window();
+    private static final Pattern<WindowNode> PATTERN = window();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<WindowNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(WindowNode parent, Captures captures, Context context)
     {
-        WindowNode parent = (WindowNode) node;
-
         PlanNode child = context.getLookup().resolve(parent.getSource());
         if (!(child instanceof WindowNode)) {
             return Optional.empty();

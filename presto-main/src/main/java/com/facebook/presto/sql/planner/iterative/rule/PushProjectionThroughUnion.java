@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
@@ -35,25 +36,19 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 
 public class PushProjectionThroughUnion
-        implements Rule
+        implements Rule<ProjectNode>
 {
-    private static final Pattern PATTERN = project();
+    private static final Pattern<ProjectNode> PATTERN = project();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ProjectNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
     {
-        if (!(node instanceof ProjectNode)) {
-            return Optional.empty();
-        }
-
-        ProjectNode parent = (ProjectNode) node;
-
         PlanNode child = context.getLookup().resolve(parent.getSource());
         if (!(child instanceof UnionNode)) {
             return Optional.empty();
@@ -62,7 +57,7 @@ public class PushProjectionThroughUnion
         UnionNode source = (UnionNode) child;
 
         // OutputLayout of the resultant Union, will be same as the layout of the Project
-        List<Symbol> outputLayout = node.getOutputSymbols();
+        List<Symbol> outputLayout = parent.getOutputSymbols();
 
         // Mapping from the output symbol to ordered list of symbols from each of the sources
         ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
@@ -89,7 +84,7 @@ public class PushProjectionThroughUnion
             outputLayout.forEach(symbol -> mappings.put(symbol, projectSymbolMapping.get(symbol)));
         }
 
-        return Optional.of(new UnionNode(node.getId(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
+        return Optional.of(new UnionNode(parent.getId(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
     }
 
     private static Expression translateExpression(Expression inputExpression, Map<Symbol, SymbolReference> symbolMapping)

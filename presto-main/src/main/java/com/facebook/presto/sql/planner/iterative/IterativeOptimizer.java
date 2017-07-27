@@ -46,12 +46,12 @@ public class IterativeOptimizer
     private final RuleIndex ruleIndex;
     private final StatsRecorder stats;
 
-    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
+    public IterativeOptimizer(StatsRecorder stats, Set<Rule<?>> rules)
     {
         this(stats, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
+    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
@@ -79,7 +79,8 @@ public class IterativeOptimizer
         Lookup lookup = Lookup.from(memo::resolve);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session));
+        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session);
+        exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
     }
@@ -117,9 +118,9 @@ public class IterativeOptimizer
             }
 
             done = true;
-            Iterator<Rule> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
+            Iterator<Rule<?>> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
             while (possiblyMatchingRules.hasNext()) {
-                Rule rule = possiblyMatchingRules.next();
+                Rule<?> rule = possiblyMatchingRules.next();
 
                 if (!rule.isEnabled(context.session)) {
                     continue;
@@ -139,11 +140,11 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private Optional<PlanNode> transform(PlanNode node, Rule rule, Context context)
+    private <T> Optional<PlanNode> transform(PlanNode node, Rule<T> rule, Context context)
     {
         Optional<PlanNode> transformed;
 
-        Match<?> match = DEFAULT_MATCHER.match(rule.getPattern(), node);
+        Match<T> match = DEFAULT_MATCHER.match(rule.getPattern(), node);
 
         if (match.isEmpty()) {
             return Optional.empty();
@@ -152,7 +153,7 @@ public class IterativeOptimizer
         long duration;
         try {
             long start = System.nanoTime();
-            transformed = rule.apply(node, context);
+            transformed = rule.apply(match.value(), match.captures(), context);
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {

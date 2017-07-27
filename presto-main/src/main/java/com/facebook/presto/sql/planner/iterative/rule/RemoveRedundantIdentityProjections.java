@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -27,21 +28,19 @@ import static com.facebook.presto.sql.planner.plan.Patterns.project;
  * Removes projection nodes that only perform non-renaming identity projections
  */
 public class RemoveRedundantIdentityProjections
-        implements Rule
+        implements Rule<ProjectNode>
 {
-    private static final Pattern PATTERN = project();
+    private static final Pattern<ProjectNode> PATTERN = project();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ProjectNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(ProjectNode project, Captures captures, Context context)
     {
-        ProjectNode project = (ProjectNode) node;
-
         if (!project.isIdentity()) {
             return Optional.empty();
         }

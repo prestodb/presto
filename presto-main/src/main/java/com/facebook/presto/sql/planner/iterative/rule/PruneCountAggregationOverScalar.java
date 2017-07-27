@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
@@ -36,20 +37,19 @@ import static java.util.Objects.requireNonNull;
  * the subquery is a scalar
  */
 public class PruneCountAggregationOverScalar
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = aggregation();
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
     {
-        AggregationNode parent = (AggregationNode) node;
         Map<Symbol, AggregationNode.Aggregation> assignments = parent.getAggregations();
         if (parent.hasDefaultOutput() && assignments.size() != 1) {
             return Optional.empty();
@@ -64,7 +64,7 @@ public class PruneCountAggregationOverScalar
             }
         }
         if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
-            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
+            return Optional.of(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
         }
         return Optional.empty();
     }

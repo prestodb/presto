@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -32,6 +34,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -83,22 +86,24 @@ public class TestIterativeOptimizer
     }
 
     private static class NonConvergingRule
-            implements Rule
+            implements Rule<ProjectNode>
     {
+        @Override
+        public Pattern<ProjectNode> getPattern()
+        {
+            return project();
+        }
+
         // This rewrite will produce an identity projection node unless one exists.
         // In that case, it will be removed.
         // Thanks to that approach, it never converges and always produces different node.
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Context context)
+        public Optional<PlanNode> apply(ProjectNode project, Captures captures, Context context)
         {
-            if (node instanceof ProjectNode) {
-                ProjectNode project = (ProjectNode) node;
-                if (isIdentityProjection(project)) {
-                    return Optional.of(project.getSource());
-                }
+            if (isIdentityProjection(project)) {
+                return Optional.of(project.getSource());
             }
-
-            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), node, Assignments.identity(node.getOutputSymbols()));
+            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, Assignments.identity(project.getOutputSymbols()));
             return Optional.of(projectNode);
         }
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -33,7 +34,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.project;
  * Given that situation, invokes the pushDownProjectOff helper to possibly rewrite the child to produce fewer outputs.
  */
 public abstract class ProjectOffPushDownRule<N extends PlanNode>
-        implements Rule
+        implements Rule<ProjectNode>
 {
     private static final Pattern PATTERN = project();
     private final Class<N> targetNodeClass;
@@ -50,10 +51,8 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
     {
-        ProjectNode parent = (ProjectNode) node;
-
         PlanNode child = context.getLookup().resolve(parent.getSource());
         if (!targetNodeClass.isInstance(child)) {
             return Optional.empty();

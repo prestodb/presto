@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -35,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class PickTableLayout
         implements RuleSet
 {
-    private final ImmutableSet<Rule> rules;
+    private final ImmutableSet<Rule<?>> rules;
 
     public PickTableLayout(Metadata metadata)
     {
@@ -45,13 +46,13 @@ public class PickTableLayout
     }
 
     @Override
-    public Set<Rule> rules()
+    public Set<Rule<?>> rules()
     {
         return rules;
     }
 
     private static final class PickTableLayoutForPredicate
-            implements Rule
+            implements Rule<FilterNode>
     {
         private final Metadata metadata;
 
@@ -60,20 +61,17 @@ public class PickTableLayout
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
+        private static final Pattern<FilterNode> PATTERN = filter();
+
         @Override
-        public Pattern getPattern()
+        public Pattern<FilterNode> getPattern()
         {
-            return filter();
+            return PATTERN;
         }
 
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Context context)
+        public Optional<PlanNode> apply(FilterNode filterNode, Captures captures, Context context)
         {
-            if (!(node instanceof FilterNode)) {
-                return Optional.empty();
-            }
-
-            FilterNode filterNode = (FilterNode) node;
             PlanNode source = context.getLookup().resolve(filterNode.getSource());
 
             if (!((source instanceof TableScanNode) && shouldRewriteTableLayout((TableScanNode) source))) {
@@ -97,7 +95,7 @@ public class PickTableLayout
     }
 
     private static final class PickTableLayoutWithoutPredicate
-            implements Rule
+            implements Rule<TableScanNode>
     {
         private final Metadata metadata;
 
@@ -106,25 +104,23 @@ public class PickTableLayout
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
+        private static final Pattern<TableScanNode> PATTERN = tableScan();
+
         @Override
-        public Pattern getPattern()
+        public Pattern<TableScanNode> getPattern()
         {
-            return tableScan();
+            return PATTERN;
         }
 
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Context context)
+        public Optional<PlanNode> apply(TableScanNode tableScanNode, Captures captures, Context context)
         {
-            if (!(node instanceof TableScanNode)) {
-                return Optional.empty();
-            }
-
-            if (((TableScanNode) node).getLayout().isPresent()) {
+            if (tableScanNode.getLayout().isPresent()) {
                 return Optional.empty();
             }
 
             TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
-            return Optional.of(tableLayoutRewriter.planTableScan((TableScanNode) node, BooleanLiteral.TRUE_LITERAL));
+            return Optional.of(tableLayoutRewriter.planTableScan(tableScanNode, BooleanLiteral.TRUE_LITERAL));
         }
     }
 }
