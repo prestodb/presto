@@ -49,7 +49,7 @@ public class RuleAssert
     private final Metadata metadata;
     private final CostCalculator costCalculator;
     private Session session;
-    private final Rule rule;
+    private final Rule<?> rule;
 
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
@@ -147,13 +147,17 @@ public class RuleAssert
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(memo::resolve);
 
-        if (!rule.isEnabled(session) || DEFAULT_MATCHER.match(rule.getPattern(), plan).isEmpty()) {
-            return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
-        }
+        PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), ruleContext(symbolAllocator, lookup, session)));
+        return rule.withMatch(DEFAULT_MATCHER, memoRoot, (rule, match) -> {
+            if (!rule.isEnabled(session) || match.isEmpty()) {
+                return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
+            }
 
-        return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
+            Optional<PlanNode> result = inTransaction(session -> rule.apply(match.value(), match.captures(), ruleContext(symbolAllocator, lookup, session)));
+
+            return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
+        });
     }
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)

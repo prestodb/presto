@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.DummyMetadata;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -92,7 +93,7 @@ public class TestRuleIndex
     }
 
     private static class NoOpRule
-            implements Rule
+            implements Rule<PlanNode>
     {
         private final Pattern pattern;
 
@@ -102,13 +103,13 @@ public class TestRuleIndex
         }
 
         @Override
-        public Pattern getPattern()
+        public Pattern<PlanNode> getPattern()
         {
             return pattern;
         }
 
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Context context)
+        public Optional<PlanNode> apply(PlanNode node, Captures captures, Context context)
         {
             return Optional.empty();
         }

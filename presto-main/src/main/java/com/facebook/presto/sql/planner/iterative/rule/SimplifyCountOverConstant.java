@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -40,21 +41,19 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 
 public class SimplifyCountOverConstant
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = aggregation();
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
     {
-        AggregationNode parent = (AggregationNode) node;
-
         PlanNode input = context.getLookup().resolve(parent.getSource());
         if (!(input instanceof ProjectNode)) {
             return Optional.empty();
@@ -83,7 +82,7 @@ public class SimplifyCountOverConstant
         }
 
         return Optional.of(new AggregationNode(
-                node.getId(),
+                parent.getId(),
                 child,
                 aggregations,
                 parent.getGroupingSets(),
