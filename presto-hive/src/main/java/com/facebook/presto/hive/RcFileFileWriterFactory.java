@@ -19,6 +19,7 @@ import com.facebook.presto.rcfile.RcFileDataSource;
 import com.facebook.presto.rcfile.RcFileEncoding;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
@@ -43,6 +44,7 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
 import static java.util.Objects.requireNonNull;
@@ -115,7 +117,7 @@ public class RcFileFileWriterFactory
         Optional<String> codecName = Optional.ofNullable(configuration.get(FileOutputFormat.COMPRESS_CODEC));
 
         // existing tables and partitions may have columns in a different order than the writer is providing, so build
-        // and index to rearrange columns in the proper order
+        // an index to rearrange columns in the proper order
         List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
         List<Type> fileColumnTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, "")).stream()
                 .map(hiveType -> hiveType.getType(typeManager))
@@ -164,7 +166,7 @@ public class RcFileFileWriterFactory
                     validationInputFactory));
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating RCFile file", e);
         }
     }
 }

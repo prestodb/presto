@@ -30,9 +30,11 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
@@ -52,13 +54,15 @@ public class OrcFileWriter
         implements HiveFileWriter
 {
     private final OrcWriter orcWriter;
+    private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
 
     public OrcFileWriter(
-            boolean isDwrf,
             OutputStream outputStream,
+            Callable<Void> rollbackAction,
+            boolean isDwrf,
             List<String> columnNames,
             List<Type> fileColumnTypes,
             CompressionKind compression,
@@ -101,6 +105,7 @@ public class OrcFileWriter
                     hiveStorageTimeZone,
                     validationInputFactory.isPresent());
         }
+        this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
 
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
 
@@ -133,12 +138,11 @@ public class OrcFileWriter
                 blocks[i] = dataPage.getBlock(inputColumnIndex);
             }
         }
-
         Page page = new Page(dataPage.getPositionCount(), blocks);
         try {
             orcWriter.write(page);
         }
-        catch (Exception e) {
+        catch (IOException | UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
@@ -149,8 +153,13 @@ public class OrcFileWriter
         try {
             orcWriter.close();
         }
-        catch (Exception e) {
-            // todo delete file
+        catch (IOException | UncheckedIOException e) {
+            try {
+                rollbackAction.call();
+            }
+            catch (Exception ignored) {
+                // ignore
+            }
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
 
@@ -160,7 +169,7 @@ public class OrcFileWriter
                     orcWriter.validate(input);
                 }
             }
-            catch (IOException e) {
+            catch (IOException | UncheckedIOException e) {
                 throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
@@ -170,8 +179,12 @@ public class OrcFileWriter
     public void rollback()
     {
         try {
-            orcWriter.close();
-            // todo delete file
+            try {
+                orcWriter.close();
+            }
+            finally {
+                rollbackAction.call();
+            }
         }
         catch (Exception e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
