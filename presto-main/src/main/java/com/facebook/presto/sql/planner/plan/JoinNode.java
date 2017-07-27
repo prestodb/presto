@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -93,7 +94,7 @@ public class JoinNode
                 .addAll(left.getOutputSymbols())
                 .addAll(right.getOutputSymbols())
                 .build();
-        checkArgument(inputSymbols.containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
+        checkArgument(new HashSet<>(inputSymbols).containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
         checkArgument(!isCrossJoin() || inputSymbols.equals(outputSymbols), "Cross join does not support output symbols pruning or reordering");
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
