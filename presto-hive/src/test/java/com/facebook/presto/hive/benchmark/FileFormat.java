@@ -67,8 +67,8 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static com.facebook.presto.orc.OrcWriter.createDwrfWriter;
-import static com.facebook.presto.orc.OrcWriter.createOrcWriter;
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
+import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -510,10 +510,11 @@ public enum FileFormat
         public PrestoOrcFormatWriter(File targetFile, List<String> columnNames, List<Type> types, DateTimeZone hiveStorageTimeZone, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            writer = createOrcWriter(
+            writer = new OrcWriter(
                     new OutputStreamSliceOutput(new FileOutputStream(targetFile)),
                     columnNames,
                     types,
+                    ORC,
                     compressionCodec.getOrcCompressionKind(),
                     OrcWriter.DEFAULT_STRIPE_MAX_SIZE,
                     OrcWriter.DEFAULT_STRIPE_MIN_ROW_COUNT,
@@ -548,10 +549,11 @@ public enum FileFormat
         public PrestoDwrfFormatWriter(File targetFile, List<String> columnNames, List<Type> types, DateTimeZone hiveStorageTimeZone, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            writer = createDwrfWriter(
+            writer = new OrcWriter(
                     new OutputStreamSliceOutput(new FileOutputStream(targetFile)),
                     columnNames,
                     types,
+                    DWRF,
                     compressionCodec.getOrcCompressionKind(),
                     OrcWriter.DEFAULT_STRIPE_MAX_SIZE,
                     OrcWriter.DEFAULT_STRIPE_MIN_ROW_COUNT,

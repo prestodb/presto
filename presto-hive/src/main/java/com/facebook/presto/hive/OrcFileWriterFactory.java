@@ -17,6 +17,7 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -48,6 +49,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
+import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -101,18 +104,18 @@ public class OrcFileWriterFactory
             return Optional.empty();
         }
 
-        boolean isDwrf;
+        OrcEncoding orcEncoding;
         if (OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
-            isDwrf = false;
+            orcEncoding = ORC;
         }
         else if (com.facebook.hive.orc.OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
-            isDwrf = true;
+            orcEncoding = DWRF;
         }
         else {
             return Optional.empty();
         }
 
-        CompressionKind compression = getCompression(schema, configuration);
+        CompressionKind compression = getCompression(schema, configuration, orcEncoding);
 
         // existing tables and partitions may have columns in a different order than the writer is providing, so build
         // an index to rearrange columns in the proper order
@@ -157,7 +160,7 @@ public class OrcFileWriterFactory
             return Optional.of(new OrcFileWriter(
                     outputStream,
                     rollbackAction,
-                    isDwrf,
+                    orcEncoding,
                     fileColumnNames,
                     fileColumnTypes,
                     compression,
@@ -170,11 +173,11 @@ public class OrcFileWriterFactory
                     validationInputFactory));
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e);
+            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file", e);
         }
     }
 
-    private static CompressionKind getCompression(Properties schema, JobConf configuration)
+    private static CompressionKind getCompression(Properties schema, JobConf configuration, OrcEncoding orcEncoding)
     {
         String compressionName = schema.getProperty(OrcTableProperties.COMPRESSION.getPropName());
         if (compressionName == null) {
@@ -189,7 +192,7 @@ public class OrcFileWriterFactory
             compression = CompressionKind.valueOf(compressionName.toUpperCase(ENGLISH));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unknown ORC compression type " + compressionName);
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unknown " + orcEncoding + " compression type " + compressionName);
         }
         return compression;
     }
