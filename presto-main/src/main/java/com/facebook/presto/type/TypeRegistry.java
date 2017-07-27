@@ -70,6 +70,7 @@ import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
@@ -137,6 +138,7 @@ public final class TypeRegistry
         addType(JSON);
         addType(CODE_POINTS);
         addType(LIST_LITERAL);
+        addType(IPADDRESS);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
