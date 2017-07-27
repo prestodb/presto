@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.buffer;
+package com.facebook.presto.rcfile;
 
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
@@ -20,6 +20,9 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+/**
+ * Copy of com.facebook.presto.execution.buffer.PageSplitterUtil
+ */
 public final class PageSplitterUtil
 {
     private PageSplitterUtil() {}
