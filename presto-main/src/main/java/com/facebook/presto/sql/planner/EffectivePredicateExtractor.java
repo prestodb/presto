@@ -69,9 +69,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class EffectivePredicateExtractor
         extends PlanVisitor<Expression, Void>
 {
-    public static Expression extract(PlanNode node, Map<Symbol, Type> symbolTypes)
+    public static Expression extract(PlanNode node)
     {
-        return node.accept(new EffectivePredicateExtractor(symbolTypes), null);
+        return node.accept(new EffectivePredicateExtractor(), null);
     }
 
     private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
@@ -85,13 +85,6 @@ public class EffectivePredicateExtractor
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
                 return new ComparisonExpression(ComparisonExpressionType.EQUAL, reference, expression);
             };
-
-    private final Map<Symbol, Type> symbolTypes;
-
-    public EffectivePredicateExtractor(Map<Symbol, Type> symbolTypes)
-    {
-        this.symbolTypes = symbolTypes;
-    }
 
     @Override
     protected Expression visitPlan(PlanNode node, Void context)
