@@ -17,13 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class VerifyOnlyOneOutputNode
@@ -32,17 +32,10 @@ public final class VerifyOnlyOneOutputNode
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
     {
-        plan.accept(new Visitor(), false);
-    }
-
-    private static class Visitor
-            extends SimplePlanVisitor<Boolean>
-    {
-        @Override
-        public Void visitOutput(OutputNode node, Boolean hasOutputNode)
-        {
-            checkState(!hasOutputNode, "Plan has multiple instances of OutputNode");
-            return super.visitOutput(node, true);
-        }
+        int outputPlanNodesCount = searchFrom(plan)
+                .where(OutputNode.class::isInstance)
+                .findAll()
+                .size();
+        checkState(outputPlanNodesCount == 1, "Expected plan to have single instance of OutputNode");
     }
 }
