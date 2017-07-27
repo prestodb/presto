@@ -25,6 +25,7 @@ import com.facebook.presto.orc.proto.DwrfProto.UserMetadataItem;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.MessageLite;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -32,15 +33,21 @@ import io.airlift.slice.SliceOutput;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 
 public class DwrfMetadataWriter
         implements MetadataWriter
 {
     private static final int DWRF_WRITER_VERSION = 1;
+    public static final Map<String, Slice> STATIC_METADATA = ImmutableMap.<String, Slice>builder()
+            .put("orc.writer.name", utf8Slice("presto"))
+            .put("orc.writer.version", utf8Slice(String.valueOf(DWRF_WRITER_VERSION)))
+            .build();
 
     @Override
     public List<Integer> getOrcMetadataVersion()
@@ -87,6 +94,9 @@ public class DwrfMetadataWriter
                         .map(DwrfMetadataWriter::toColumnStatistics)
                         .collect(toImmutableList()))
                 .addAllMetadata(footer.getUserMetadata().entrySet().stream()
+                        .map(DwrfMetadataWriter::toUserMetadata)
+                        .collect(toImmutableList()))
+                .addAllMetadata(STATIC_METADATA.entrySet().stream()
                         .map(DwrfMetadataWriter::toUserMetadata)
                         .collect(toImmutableList()))
                 .build();
