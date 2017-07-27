@@ -26,6 +26,7 @@ public class StringStatisticsBuilder
     private long nonNullValueCount;
     private Slice minimum;
     private Slice maximum;
+    private long sum;
 
     public long getNonNullValueCount()
     {
@@ -38,7 +39,12 @@ public class StringStatisticsBuilder
         requireNonNull(value, "value is null");
 
         nonNullValueCount++;
+        sum += value.length();
+        updateMinMax(value);
+    }
 
+    private void updateMinMax(Slice value)
+    {
         if (minimum == null) {
             minimum = value;
             maximum = value;
@@ -58,8 +64,9 @@ public class StringStatisticsBuilder
         requireNonNull(value.getMax(), "value.getMax() is null");
 
         nonNullValueCount += valueCount;
-        addValue(value.getMin());
-        addValue(value.getMax());
+        sum += value.getSum();
+        updateMinMax(value.getMin());
+        updateMinMax(value.getMax());
     }
 
     private Optional<StringStatistics> buildStringStatistics()
@@ -67,7 +74,7 @@ public class StringStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new StringStatistics(minimum, maximum));
+        return Optional.of(new StringStatistics(minimum, maximum, sum));
     }
 
     @Override

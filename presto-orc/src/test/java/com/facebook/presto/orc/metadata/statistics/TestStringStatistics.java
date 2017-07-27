@@ -35,7 +35,8 @@ public class TestStringStatistics
     @Override
     protected StringStatistics getCreateStatistics(Slice min, Slice max)
     {
-        return new StringStatistics(min, max);
+        // a fake sum is ok
+        return new StringStatistics(min, max, 100L);
     }
 
     @Test
