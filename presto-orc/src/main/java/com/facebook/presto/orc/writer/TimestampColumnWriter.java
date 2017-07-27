@@ -22,6 +22,7 @@ import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.TimestampStatisticsBuilder;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
@@ -40,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
@@ -67,14 +69,15 @@ public class TimestampColumnWriter
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private final long baseTimestampInSeconds;
-
-    private int nonNullValueCount;
+    private final Supplier<TimestampStatisticsBuilder> statisticsBuilderSupplier;
+    private TimestampStatisticsBuilder statisticsBuilder;
 
     private boolean closed;
 
-    public TimestampColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, boolean isDwrf, DateTimeZone hiveStorageTimeZone)
+    public TimestampColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, boolean isDwrf, DateTimeZone hiveStorageTimeZone, Supplier<TimestampStatisticsBuilder> statisticsBuilderSupplier)
     {
         checkArgument(column >= 0, "column is negative");
+        this.statisticsBuilderSupplier = statisticsBuilderSupplier;
         this.column = column;
         this.type = requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
@@ -89,6 +92,7 @@ public class TimestampColumnWriter
         }
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
+        this.statisticsBuilder = this.statisticsBuilderSupplier.get();
     }
 
     @Override
@@ -135,7 +139,7 @@ public class TimestampColumnWriter
 
                 secondsStream.writeLong(seconds);
                 nanosStream.writeLong(encodedNanos);
-                nonNullValueCount++;
+                statisticsBuilder.addValue(value);
             }
         }
     }
@@ -144,9 +148,9 @@ public class TimestampColumnWriter
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         rowGroupColumnStatistics.add(statistics);
-        nonNullValueCount = 0;
+        statisticsBuilder = statisticsBuilderSupplier.get();
         return ImmutableMap.of(column, statistics);
     }
 
@@ -238,6 +242,6 @@ public class TimestampColumnWriter
         nanosStream.reset();
         presentStream.reset();
         rowGroupColumnStatistics.clear();
-        nonNullValueCount = 0;
+        statisticsBuilder = statisticsBuilderSupplier.get();
     }
 }

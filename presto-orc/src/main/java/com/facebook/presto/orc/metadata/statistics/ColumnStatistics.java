@@ -22,6 +22,7 @@ import static com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilde
 import static com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
 import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
 import static com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
+import static com.facebook.presto.orc.metadata.statistics.TimestampStatisticsBuilder.mergeTimestampStatistics;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ColumnStatistics
@@ -33,6 +34,7 @@ public class ColumnStatistics
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
     private final DecimalStatistics decimalStatistics;
+    private final TimestampStatistics timestampStatistics;
     private final HiveBloomFilter bloomFilter;
 
     public ColumnStatistics(
@@ -42,6 +44,7 @@ public class ColumnStatistics
             DoubleStatistics doubleStatistics,
             StringStatistics stringStatistics,
             DateStatistics dateStatistics,
+            TimestampStatistics timestampStatistics,
             DecimalStatistics decimalStatistics,
             HiveBloomFilter bloomFilter)
     {
@@ -52,6 +55,7 @@ public class ColumnStatistics
         this.stringStatistics = stringStatistics;
         this.dateStatistics = dateStatistics;
         this.decimalStatistics = decimalStatistics;
+        this.timestampStatistics = timestampStatistics;
         this.bloomFilter = bloomFilter;
     }
 
@@ -95,6 +99,11 @@ public class ColumnStatistics
         return decimalStatistics;
     }
 
+    public TimestampStatistics getTimestampStatistics()
+    {
+        return timestampStatistics;
+    }
+
     public HiveBloomFilter getBloomFilter()
     {
         return bloomFilter;
@@ -109,6 +118,7 @@ public class ColumnStatistics
                 doubleStatistics,
                 stringStatistics,
                 dateStatistics,
+                timestampStatistics,
                 decimalStatistics,
                 bloomFilter);
     }
@@ -129,6 +139,7 @@ public class ColumnStatistics
                 Objects.equals(doubleStatistics, that.doubleStatistics) &&
                 Objects.equals(stringStatistics, that.stringStatistics) &&
                 Objects.equals(dateStatistics, that.dateStatistics) &&
+                Objects.equals(timestampStatistics, that.timestampStatistics) &&
                 Objects.equals(decimalStatistics, that.decimalStatistics) &&
                 Objects.equals(bloomFilter, that.bloomFilter);
     }
@@ -168,6 +179,7 @@ public class ColumnStatistics
                 mergeDoubleStatistics(stats).orElse(null),
                 mergeStringStatistics(stats).orElse(null),
                 mergeDateStatistics(stats).orElse(null),
+                mergeTimestampStatistics(stats).orElse(null),
                 mergeDecimalStatistics(stats).orElse(null),
                 null);
     }

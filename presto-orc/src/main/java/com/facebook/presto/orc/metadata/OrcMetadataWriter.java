@@ -227,7 +227,12 @@ public class OrcMetadataWriter
                     .setMaximum(columnStatistics.getDateStatistics().getMax())
                     .build());
         }
-
+        if (columnStatistics.getTimestampStatistics() != null) {
+            builder.setTimestampStatistics(OrcProto.TimestampStatistics.newBuilder()
+                    .setMinimum(columnStatistics.getTimestampStatistics().getMin())
+                    .setMaximum(columnStatistics.getTimestampStatistics().getMax())
+                    .build());
+        }
         if (columnStatistics.getDecimalStatistics() != null) {
             builder.setDecimalStatistics(OrcProto.DecimalStatistics.newBuilder()
                     .setMinimum(columnStatistics.getDecimalStatistics().getMin().toString())

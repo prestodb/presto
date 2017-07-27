@@ -13,35 +13,27 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
-import io.airlift.slice.Slice;
+import org.testng.annotations.Test;
 
-import static java.util.Objects.requireNonNull;
+import static java.lang.Long.MAX_VALUE;
+import static java.lang.Long.MIN_VALUE;
 
-public class BinaryStatisticsBuilder
-        implements SliceColumnStatisticsBuilder
+public class TestTimestampStatistics
+        extends AbstractRangeStatisticsTest<TimestampStatistics, Long>
 {
-    private long nonNullValueCount;
-
     @Override
-    public void addValue(Slice value)
+    protected TimestampStatistics getCreateStatistics(Long min, Long max)
     {
-        requireNonNull(value, "value is null");
-
-        nonNullValueCount++;
+        return new TimestampStatistics(min, max);
     }
 
-    @Override
-    public ColumnStatistics buildColumnStatistics()
+    @Test
+    public void test()
     {
-        return new ColumnStatistics(
-                nonNullValueCount,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null);
+        assertMinMax(0L, 42L);
+        assertMinMax(42L, 42L);
+        assertMinMax(MIN_VALUE, 42L);
+        assertMinMax(42L, MAX_VALUE);
+        assertMinMax(MIN_VALUE, MAX_VALUE);
     }
 }

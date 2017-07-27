@@ -199,7 +199,6 @@ public final class TestingOrcPredicate
             if (columnStatistics.getNumberOfValues() != Iterables.size(filter(chunk, notNull()))) {
                 return false;
             }
-
             return true;
         }
     }

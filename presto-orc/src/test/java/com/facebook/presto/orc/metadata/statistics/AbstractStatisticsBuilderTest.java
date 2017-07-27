@@ -35,7 +35,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
 {
     public enum StatisticsType
     {
-        NONE, BOOLEAN, INTEGER, DOUBLE, STRING, DATE, DECIMAL
+        NONE, BOOLEAN, INTEGER, DOUBLE, STRING, DATE, DECIMAL, TIMESTAMP
     }
 
     private final StatisticsType statisticsType;
@@ -147,7 +147,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
     static List<ColumnStatistics> insertEmptyColumnStatisticsAt(List<ColumnStatistics> statisticsList, int index, long numberOfValues)
     {
         List<ColumnStatistics> newStatisticsList = new ArrayList<>(statisticsList);
-        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, null, null, null, null, null, null, null));
+        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, null, null, null, null, null, null, null, null));
         return newStatisticsList;
     }
 
@@ -188,6 +188,13 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         }
         else {
             assertNull(columnStatistics.getDateStatistics());
+        }
+
+        if (statisticsType == StatisticsType.TIMESTAMP && expectedNumberOfValues > 0) {
+            assertRangeStatistics(columnStatistics.getTimestampStatistics(), expectedMin, expectedMax);
+        }
+        else {
+            assertNull(columnStatistics.getTimestampStatistics());
         }
 
         if (statisticsType == StatisticsType.DECIMAL && expectedNumberOfValues > 0) {

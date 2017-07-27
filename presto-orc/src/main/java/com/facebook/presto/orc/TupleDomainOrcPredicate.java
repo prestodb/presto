@@ -71,75 +71,6 @@ public class TupleDomainOrcPredicate<C>
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
     }
 
-    @Override
-    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
-    {
-        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
-        if (!optionalEffectivePredicateDomains.isPresent()) {
-            // effective predicate is none, so skip this section
-            return false;
-        }
-        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
-
-        for (ColumnReference<C> columnReference : columnReferences) {
-            Domain predicateDomain = effectivePredicateDomains.get(columnReference.getColumn());
-            if (predicateDomain == null) {
-                // no predicate on this column, so we can't exclude this section
-                continue;
-            }
-            ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
-            if (columnStatistics == null) {
-                // no statistics for this column, so we can't exclude this section
-                continue;
-            }
-
-            if (!columnOverlaps(columnReference, predicateDomain, numberOfRows, columnStatistics)) {
-                return false;
-            }
-        }
-
-        // this section was not excluded
-        return true;
-    }
-
-    private boolean columnOverlaps(ColumnReference<C> columnReference, Domain predicateDomain, long numberOfRows, ColumnStatistics columnStatistics)
-    {
-        Domain stripeDomain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
-        if (!stripeDomain.overlaps(predicateDomain)) {
-            // there is no overlap between the predicate and this column
-            return false;
-        }
-
-        // if bloom filters are not enabled, we can not restrict the range overlap
-        if (!orcBloomFiltersEnabled) {
-            return true;
-        }
-
-        // if there an overlap in null values, the bloom filter can not eliminate the overlap
-        if (predicateDomain.isNullAllowed() && stripeDomain.isNullAllowed()) {
-            return true;
-        }
-
-        // extract the discrete values from the predicate
-        Optional<Collection<Object>> discreteValues = extractDiscreteValues(predicateDomain.getValues());
-        if (!discreteValues.isPresent()) {
-            // values are not discrete, so we can't exclude this section
-            return true;
-        }
-
-        HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
-        if (bloomFilter == null) {
-            // no bloom filter so we can't exclude this section
-            return true;
-        }
-
-        // if none of the discrete predicate values are found in the bloom filter, there is no overlap and the section should be skipped
-        if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()))) {
-            return false;
-        }
-        return true;
-    }
-
     @VisibleForTesting
     public static Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
     {
@@ -225,6 +156,9 @@ public class TupleDomainOrcPredicate<C>
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP) && columnStatistics.getTimestampStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getTimestampStatistics());
+        }
         else if (type.getJavaType() == long.class && columnStatistics.getIntegerStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getIntegerStatistics());
         }
@@ -257,6 +191,75 @@ public class TupleDomainOrcPredicate<C>
             return Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, function.apply(min))), hasNullValue);
         }
         return Domain.create(ValueSet.all(type), hasNullValue);
+    }
+
+    @Override
+    public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
+    {
+        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
+        if (!optionalEffectivePredicateDomains.isPresent()) {
+            // effective predicate is none, so skip this section
+            return false;
+        }
+        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
+
+        for (ColumnReference<C> columnReference : columnReferences) {
+            Domain predicateDomain = effectivePredicateDomains.get(columnReference.getColumn());
+            if (predicateDomain == null) {
+                // no predicate on this column, so we can't exclude this section
+                continue;
+            }
+            ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
+            if (columnStatistics == null) {
+                // no statistics for this column, so we can't exclude this section
+                continue;
+            }
+
+            if (!columnOverlaps(columnReference, predicateDomain, numberOfRows, columnStatistics)) {
+                return false;
+            }
+        }
+
+        // this section was not excluded
+        return true;
+    }
+
+    private boolean columnOverlaps(ColumnReference<C> columnReference, Domain predicateDomain, long numberOfRows, ColumnStatistics columnStatistics)
+    {
+        Domain stripeDomain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
+        if (!stripeDomain.overlaps(predicateDomain)) {
+            // there is no overlap between the predicate and this column
+            return false;
+        }
+
+        // if bloom filters are not enabled, we can not restrict the range overlap
+        if (!orcBloomFiltersEnabled) {
+            return true;
+        }
+
+        // if there an overlap in null values, the bloom filter can not eliminate the overlap
+        if (predicateDomain.isNullAllowed() && stripeDomain.isNullAllowed()) {
+            return true;
+        }
+
+        // extract the discrete values from the predicate
+        Optional<Collection<Object>> discreteValues = extractDiscreteValues(predicateDomain.getValues());
+        if (!discreteValues.isPresent()) {
+            // values are not discrete, so we can't exclude this section
+            return true;
+        }
+
+        HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
+        if (bloomFilter == null) {
+            // no bloom filter so we can't exclude this section
+            return true;
+        }
+
+        // if none of the discrete predicate values are found in the bloom filter, there is no overlap and the section should be skipped
+        if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()))) {
+            return false;
+        }
+        return true;
     }
 
     public static class ColumnReference<C>
