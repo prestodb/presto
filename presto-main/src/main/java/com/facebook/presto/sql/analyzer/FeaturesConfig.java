@@ -53,7 +53,6 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
-    private boolean newMapBlock = true;
     private boolean optimizeMixedDistinctAggregations;
 
     private boolean dictionaryAggregation;
@@ -135,18 +134,6 @@ public class FeaturesConfig
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
-    }
-
-    @Config("deprecated.new-map-block")
-    public FeaturesConfig setNewMapBlock(boolean value)
-    {
-        this.newMapBlock = value;
-        return this;
-    }
-
-    public boolean isNewMapBlock()
-    {
-        return newMapBlock;
     }
 
     @Config("distributed-joins-enabled")

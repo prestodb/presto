@@ -76,6 +76,7 @@ import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.ListLiteralType.LIST_LITERAL;
+import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -144,7 +145,7 @@ public final class TypeRegistry
         addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
-        addParametricType(new MapParametricType(featuresConfig.isNewMapBlock()));
+        addParametricType(MAP);
         addParametricType(FUNCTION);
 
         for (Type type : types) {

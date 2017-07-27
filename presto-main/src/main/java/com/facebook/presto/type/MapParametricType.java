@@ -33,12 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public final class MapParametricType
         implements ParametricType
 {
-    private final boolean useNewMapBlock;
-
-    public MapParametricType(boolean useNewMapBlock)
-    {
-        this.useNewMapBlock = useNewMapBlock;
-    }
+    public static final MapParametricType MAP = new MapParametricType();
 
     @Override
     public String getName()
@@ -64,11 +59,10 @@ public final class MapParametricType
         MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
         return new MapType(
-                useNewMapBlock,
                 keyType,
                 valueType,
-                useNewMapBlock ? keyBlockNativeEquals : null,
-                useNewMapBlock ? keyNativeHashCode : null,
-                useNewMapBlock ? keyBlockHashCode : null);
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 }

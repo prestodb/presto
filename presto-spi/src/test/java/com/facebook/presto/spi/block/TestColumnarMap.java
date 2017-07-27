@@ -154,7 +154,6 @@ public class TestColumnarMap
     private static BlockBuilder createMapBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return new MapBlockBuilder(
-                true,
                 VARCHAR,
                 VARCHAR,
                 MethodHandleUtil.methodHandle(Slice.class, "equals", Object.class).asType(MethodType.methodType(boolean.class, Slice.class, Slice.class)),
