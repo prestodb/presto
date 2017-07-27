@@ -125,25 +125,7 @@ public class IterativeOptimizer
                     continue;
                 }
 
-                Optional<PlanNode> transformed;
-
-                Match<?> match = DEFAULT_MATCHER.match(rule.getPattern(), node);
-
-                if (match.isEmpty()) {
-                    continue;
-                }
-
-                long duration;
-                try {
-                    long start = System.nanoTime();
-                    transformed = rule.apply(node, context);
-                    duration = System.nanoTime() - start;
-                }
-                catch (RuntimeException e) {
-                    stats.recordFailure(rule);
-                    throw e;
-                }
-                stats.record(rule, duration, transformed.isPresent());
+                Optional<PlanNode> transformed = transform(node, rule, context);
 
                 if (transformed.isPresent()) {
                     node = context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
@@ -155,6 +137,31 @@ public class IterativeOptimizer
         }
 
         return progress;
+    }
+
+    private Optional<PlanNode> transform(PlanNode node, Rule rule, Context context)
+    {
+        Optional<PlanNode> transformed;
+
+        Match<?> match = DEFAULT_MATCHER.match(rule.getPattern(), node);
+
+        if (match.isEmpty()) {
+            return Optional.empty();
+        }
+
+        long duration;
+        try {
+            long start = System.nanoTime();
+            transformed = rule.apply(node, context);
+            duration = System.nanoTime() - start;
+        }
+        catch (RuntimeException e) {
+            stats.recordFailure(rule);
+            throw e;
+        }
+        stats.record(rule, duration, transformed.isPresent());
+
+        return transformed;
     }
 
     private boolean isTimeLimitExhausted(Context context)
