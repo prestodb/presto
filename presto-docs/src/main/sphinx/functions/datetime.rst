@@ -100,6 +100,10 @@ Date and Time Functions
 
     Returns ``timestamp`` as a UNIX timestamp.
 
+.. function:: last_day(date) -> date
+
+    Returns last day of the month that contains the date.
+
 .. note:: The following SQL-standard functions do not use parenthesis:
 
     - ``current_date``
