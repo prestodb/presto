@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -42,6 +43,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
@@ -79,10 +81,56 @@ public class TestLogicalPlanner
                 anyTree(
                         node(DistinctLimitNode.class,
                                 anyTree(
-                                        join(INNER, ImmutableList.of(), Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
-                                                any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                        filter("O_ORDERKEY < L_ORDERKEY",
+                                                join(INNER, ImmutableList.of(), Optional.empty(),
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                                        .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
+
+        assertPlan("SELECT DISTINCT o.orderkey FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey LIMIT 1",
+                anyTree(
+                        node(DistinctLimitNode.class,
+                                anyTree(
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
+                                                Optional.of("O_ORDERKEY < L_ORDERKEY"),
+                                                any(tableScan("orders", ImmutableMap.of(
+                                                        "O_SHIPPRIORITY", "shippriority",
+                                                        "O_ORDERKEY", "orderkey"))),
+                                                anyTree(tableScan("lineitem", ImmutableMap.of(
+                                                        "L_LINENUMBER", "linenumber",
+                                                        "L_ORDERKEY", "orderkey"))))
                                                 .withExactOutputs(ImmutableList.of("O_ORDERKEY"))))));
+    }
+
+    @Test
+    public void testInnerInequalityJoinNoEquiJoinConjuncts()
+            throws Exception
+    {
+        assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
+                anyTree(
+                        filter("O_ORDERKEY < L_ORDERKEY",
+                                join(INNER, ImmutableList.of(), Optional.empty(),
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testInnerInequalityJoinWithEquiJoinConjuncts()
+            throws Exception
+    {
+        assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey",
+                anyTree(
+                        anyNot(FilterNode.class,
+                                join(INNER,
+                                        ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
+                                        Optional.of("O_ORDERKEY < L_ORDERKEY"),
+                                        any(tableScan("orders", ImmutableMap.of(
+                                                "O_SHIPPRIORITY", "shippriority",
+                                                "O_ORDERKEY", "orderkey"))),
+                                        anyTree(tableScan("lineitem", ImmutableMap.of(
+                                                "L_LINENUMBER", "linenumber",
+                                                "L_ORDERKEY", "orderkey")))))));
     }
 
     @Test

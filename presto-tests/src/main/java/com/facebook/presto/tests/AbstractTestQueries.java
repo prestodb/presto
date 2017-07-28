@@ -2656,6 +2656,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT COUNT(*) FROM (VALUES 1, 2) t1(a) JOIN (VALUES 10, 11) t2(b) ON a > 2",
                 "VALUES (0)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) t1(a) JOIN (VALUES 10, 11) t2(b) ON a+9 > b",
+                "VALUES (2, 10)");
     }
 
     @Test
