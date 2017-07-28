@@ -182,16 +182,14 @@ public class PlanOptimizers
         builder.add(
                 new IterativeOptimizer(
                         stats,
-                        ImmutableList.of(new DesugaringOptimizer(metadata, sqlParser)),
+                        ImmutableList.of(
+                                new DesugaringOptimizer(metadata, sqlParser),
+                                new com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions()),
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new DesugarLambdaExpression().rules())
                                 .addAll(new DesugarAtTimeZone(metadata, sqlParser).rules())
-                                .build()
-                ),
-                new IterativeOptimizer(
-                        stats,
-                        ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions()),
-                        new CanonicalizeExpressions().rules()),
+                                .addAll(new CanonicalizeExpressions().rules())
+                                .build()),
                 new IterativeOptimizer(
                         stats,
                         ImmutableSet.<Rule<?>>builder()
