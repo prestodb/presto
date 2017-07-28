@@ -20,6 +20,8 @@ databases:
     table_manager_type: hive
     warehouse_directory_path: /user/hive/warehouse
     path: /user/hive/warehouse
+    analyze_immutable_tables: false
+    analyze_mutable_tables: false
 
   presto:
     host: localhost
