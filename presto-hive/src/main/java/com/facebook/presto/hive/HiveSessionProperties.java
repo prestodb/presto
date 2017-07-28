@@ -128,7 +128,7 @@ public final class HiveSessionProperties
                 booleanSessionProperty(
                         STATISTICS_ENABLED,
                         "Experimental: Expose table statistics",
-                        true,
+                        config.isTableStatisticsEnabled(),
                         false));
     }
 

@@ -114,6 +114,7 @@ public class HiveClientConfig
     private int fileSystemMaxCacheSize = 1000;
 
     private boolean writesToNonManagedTablesEnabled;
+    private boolean tableStatisticsEnabled = true;
 
     public int getMaxInitialSplits()
     {
@@ -872,5 +873,18 @@ public class HiveClientConfig
     public boolean getWritesToNonManagedTablesEnabled()
     {
         return writesToNonManagedTablesEnabled;
+    }
+
+    @Config("hive.table-statistics-enabled")
+    @ConfigDescription("Enable use of table statistics")
+    public HiveClientConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
+    {
+        this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
     }
 }
