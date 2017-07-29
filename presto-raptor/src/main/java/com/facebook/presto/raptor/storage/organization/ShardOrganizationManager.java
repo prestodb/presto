@@ -229,9 +229,9 @@ public class ShardOrganizationManager
     static Set<OrganizationSet> createOrganizationSets(Table tableInfo, Collection<ShardIndexInfo> shards)
     {
         return getShardsByDaysBuckets(tableInfo, shards).stream()
-            .map(indexInfos -> getOverlappingOrganizationSets(tableInfo, indexInfos))
-            .flatMap(Collection::stream)
-            .collect(toSet());
+                .map(indexInfos -> getOverlappingOrganizationSets(tableInfo, indexInfos))
+                .flatMap(Collection::stream)
+                .collect(toSet());
     }
 
     private static Set<OrganizationSet> getOverlappingOrganizationSets(Table tableInfo, Collection<ShardIndexInfo> shards)

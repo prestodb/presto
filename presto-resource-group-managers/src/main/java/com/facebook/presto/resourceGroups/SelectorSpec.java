@@ -80,6 +80,7 @@ public class SelectorSpec
                 sourceRegex.map(Pattern::pattern).equals(that.sourceRegex.map(Pattern::pattern))) &&
                 sourceRegex.map(Pattern::flags).equals(that.sourceRegex.map(Pattern::flags));
     }
+
     @Override
     public int hashCode()
     {

@@ -78,6 +78,7 @@ public class StripeReader
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
+    private final Optional<OrcWriteValidation> writeValidation;
 
     public StripeReader(OrcDataSource orcDataSource,
             Optional<OrcDecompressor> decompressor,
@@ -86,7 +87,8 @@ public class StripeReader
             int rowsInRowGroup,
             OrcPredicate predicate,
             HiveWriterVersion hiveWriterVersion,
-            MetadataReader metadataReader)
+            MetadataReader metadataReader,
+            Optional<OrcWriteValidation> writeValidation)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
@@ -96,6 +98,7 @@ public class StripeReader
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
+        this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
     }
 
     public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
@@ -133,6 +136,9 @@ public class StripeReader
 
             // read the row index for each column
             Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData, bloomFilterIndexes);
+            if (writeValidation.isPresent()) {
+                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), stripe.getOffset(), columnIndexes);
+            }
 
             // select the row groups matching the tuple domain
             Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
@@ -327,7 +333,7 @@ public class StripeReader
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
         try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage)) {
-            return metadataReader.readStripeFooter(hiveWriterVersion, types, inputStream);
+            return metadataReader.readStripeFooter(types, inputStream);
         }
     }
 
@@ -371,7 +377,7 @@ public class StripeReader
         return columnIndexes.build();
     }
 
-    private Set<Integer> selectRowGroups(StripeInformation stripe,  Map<Integer, List<RowGroupIndex>> columnIndexes)
+    private Set<Integer> selectRowGroups(StripeInformation stripe, Map<Integer, List<RowGroupIndex>> columnIndexes)
             throws IOException
     {
         int rowsInStripe = toIntExact(stripe.getNumberOfRows());

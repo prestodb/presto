@@ -36,6 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class LocalExchangeSource
 {
     private static final SettableFuture<?> NOT_EMPTY;
+
     static {
         NOT_EMPTY = SettableFuture.create();
         NOT_EMPTY.set(null);

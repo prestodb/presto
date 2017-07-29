@@ -22,7 +22,8 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
-public interface Rule extends Matchable
+public interface Rule
+        extends Matchable
 {
     /**
      * Returns a pattern to which plan nodes this rule applies.
@@ -30,6 +31,11 @@ public interface Rule extends Matchable
     default Pattern getPattern()
     {
         return Pattern.any();
+    }
+
+    default boolean isEnabled(Session session)
+    {
+        return true;
     }
 
     Optional<PlanNode> apply(PlanNode node, Context context);

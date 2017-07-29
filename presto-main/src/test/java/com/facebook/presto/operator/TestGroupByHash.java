@@ -42,7 +42,7 @@ import static org.testng.Assert.assertTrue;
 public class TestGroupByHash
 {
     private static final int MAX_GROUP_ID = 500;
-    private static final int[] CONTAINS_CHANNELS = new int[] { 0 };
+    private static final int[] CONTAINS_CHANNELS = new int[] {0};
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
 
@@ -50,7 +50,7 @@ public class TestGroupByHash
     public void testAddPage()
             throws Exception
     {
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] { 0}, Optional.of(1), 100, JOIN_COMPILER);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
         for (int tries = 0; tries < 2; tries++) {
             for (int value = 0; value < MAX_GROUP_ID; value++) {
                 Block block = BlockAssertions.createLongsBlock(value);
@@ -78,7 +78,7 @@ public class TestGroupByHash
     public void testNullGroup()
             throws Exception
     {
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] { 0}, Optional.of(1), 100, JOIN_COMPILER);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
 
         Block block = createLongsBlock((Long) null);
         Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
@@ -101,7 +101,7 @@ public class TestGroupByHash
     public void testGetGroupIds()
             throws Exception
     {
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] { 0 }, Optional.of(1), 100, JOIN_COMPILER);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
         for (int tries = 0; tries < 2; tries++) {
             for (int value = 0; value < MAX_GROUP_ID; value++) {
                 Block block = BlockAssertions.createLongsBlock(value);
@@ -122,7 +122,7 @@ public class TestGroupByHash
     public void testTypes()
             throws Exception
     {
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] { 0 }, Optional.of(1), 100, JOIN_COMPILER);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
         // Additional bigint channel for hash
         assertEquals(groupByHash.getTypes(), ImmutableList.of(VARCHAR, BIGINT));
     }
@@ -133,7 +133,7 @@ public class TestGroupByHash
     {
         Block valuesBlock = BlockAssertions.createStringSequenceBlock(0, 100);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), valuesBlock);
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] { 0 }, Optional.of(1), 100, JOIN_COMPILER);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
 
         GroupByIdBlock groupIds = groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
         for (int i = 0; i < groupIds.getPositionCount(); i++) {
@@ -167,7 +167,7 @@ public class TestGroupByHash
         Block valuesBlock = BlockAssertions.createLongsBlock(values);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
 
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] { 0 }, Optional.of(1), 100, JOIN_COMPILER);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
         assertEquals(groupByHash.getGroupCount(), 50);
 
@@ -187,7 +187,7 @@ public class TestGroupByHash
     {
         Block valuesBlock = BlockAssertions.createDoubleSequenceBlock(0, 10);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE), valuesBlock);
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE), new int[] { 0 }, Optional.of(1), 100, JOIN_COMPILER);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
 
         Block testBlock = BlockAssertions.createDoublesBlock((double) 3);
@@ -206,7 +206,7 @@ public class TestGroupByHash
         Block valuesBlock = BlockAssertions.createDoubleSequenceBlock(0, 10);
         Block stringValuesBlock = BlockAssertions.createStringSequenceBlock(0, 10);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), valuesBlock, stringValuesBlock);
-        int[] hashChannels = { 0, 1 };
+        int[] hashChannels = {0, 1};
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE, VARCHAR), hashChannels, Optional.of(2), 100, JOIN_COMPILER);
         groupByHash.getGroupIds(new Page(valuesBlock, stringValuesBlock, hashBlock));
 
@@ -225,7 +225,7 @@ public class TestGroupByHash
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), valuesBlock);
 
         // Create group by hash with extremely small size
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] { 0 }, Optional.of(1), 4, JOIN_COMPILER);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 4, JOIN_COMPILER);
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
 
         // Ensure that all groups are present in group by hash

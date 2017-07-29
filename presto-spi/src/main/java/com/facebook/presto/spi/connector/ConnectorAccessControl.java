@@ -76,7 +76,7 @@ public interface ConnectorAccessControl
 
     /**
      * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
-     *
+     * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterSchemas} method must handle filter all results for unauthorized users,
      * since there are multiple way to list schemas.
@@ -128,7 +128,7 @@ public interface ConnectorAccessControl
 
     /**
      * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
-     *
+     * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterTables} method must filter all results for unauthorized users,
      * since there are multiple ways to list tables.

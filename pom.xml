@@ -344,7 +344,7 @@
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>3</version>
+                <version>4</version>
             </dependency>
 
             <dependency>
@@ -526,7 +526,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-all</artifactId>
-                <version>5.0.4</version>
+                <version>5.2</version>
             </dependency>
 
             <dependency>

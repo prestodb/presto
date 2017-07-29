@@ -56,7 +56,6 @@ public class TestRemoveEmptyDelete
                         )
                 )
                 .matches(
-                        PlanMatchPattern.values(ImmutableMap.of("a", 0))
-                );
+                        PlanMatchPattern.values(ImmutableMap.of("a", 0)));
     }
 }

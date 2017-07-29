@@ -116,7 +116,8 @@ public class DataDefinitionExecution<T extends Statement>
             }
 
             ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters);
-            Futures.addCallback(future, new FutureCallback<Object>() {
+            Futures.addCallback(future, new FutureCallback<Object>()
+            {
                 @Override
                 public void onSuccess(@Nullable Object result)
                 {

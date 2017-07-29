@@ -30,7 +30,7 @@ public class TestTypedHistogram
 {
     @Test
     public void testMassive()
-        throws Exception
+            throws Exception
     {
         BlockBuilder inputBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 5000);
 

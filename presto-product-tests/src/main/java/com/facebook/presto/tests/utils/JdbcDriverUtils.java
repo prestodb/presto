@@ -22,17 +22,20 @@ import java.sql.Statement;
 
 public class JdbcDriverUtils
 {
-    public static String getSessionProperty(Connection connection, String key) throws SQLException
+    public static String getSessionProperty(Connection connection, String key)
+            throws SQLException
     {
         return getSessionProperty(connection, key, "Value");
     }
 
-    public static String getSessionPropertyDefault(Connection connection, String key) throws SQLException
+    public static String getSessionPropertyDefault(Connection connection, String key)
+            throws SQLException
     {
         return getSessionProperty(connection, key, "Default");
     }
 
-    private static String getSessionProperty(Connection connection, String key, String valueType) throws SQLException
+    private static String getSessionProperty(Connection connection, String key, String valueType)
+            throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
             ResultSet rs = statement.executeQuery("SHOW SESSION");
@@ -45,7 +48,8 @@ public class JdbcDriverUtils
         return null;
     }
 
-    public static void setSessionProperty(Connection connection, String key, String value) throws SQLException
+    public static void setSessionProperty(Connection connection, String key, String value)
+            throws SQLException
     {
         if (usingPrestoJdbcDriver(connection)) {
             PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
@@ -61,7 +65,8 @@ public class JdbcDriverUtils
         }
     }
 
-    public static void resetSessionProperty(Connection connection, String key) throws SQLException
+    public static void resetSessionProperty(Connection connection, String key)
+            throws SQLException
     {
         if (usingPrestoJdbcDriver(connection)) {
             setSessionProperty(connection, key, getSessionPropertyDefault(connection, key));
@@ -83,7 +88,7 @@ public class JdbcDriverUtils
 
     public static boolean usingTeradataJdbcDriver(Connection connection)
     {
-        return  getClassNameForJdbcDriver(connection).startsWith("com.teradata.jdbc.");
+        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.jdbc.");
     }
 
     public static boolean usingTeradataJdbc4Driver(Connection connection)

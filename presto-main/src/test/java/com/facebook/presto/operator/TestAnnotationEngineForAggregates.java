@@ -221,7 +221,8 @@ public class TestAnnotationEngineForAggregates
     @Description("Aggregate with no @AggregationState annotations")
     public static class CustomStateSerializerAggregationFunction
     {
-        public static class CustomSerializer extends NullableDoubleStateSerializer
+        public static class CustomSerializer
+                extends NullableDoubleStateSerializer
         {
         }
 
@@ -763,10 +764,10 @@ public class TestAnnotationEngineForAggregates
     public static class InjectOperatorAggregateFunction
     {
         @InputFunction
-        public static void input
-                (@OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
-                        @AggregationState NullableDoubleState state,
-                        @SqlType(DOUBLE) double value)
+        public static void input(
+                @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
+                @AggregationState NullableDoubleState state,
+                @SqlType(DOUBLE) double value)
         {
             // noop this is only for annotation testing puproses
         }

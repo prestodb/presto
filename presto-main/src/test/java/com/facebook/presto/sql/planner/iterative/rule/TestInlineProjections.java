@@ -25,7 +25,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestInlineProjections
-            extends BaseRuleTest
+        extends BaseRuleTest
 {
     @Test
     public void test()

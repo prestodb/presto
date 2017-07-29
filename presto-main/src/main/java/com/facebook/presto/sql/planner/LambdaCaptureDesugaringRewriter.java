@@ -52,7 +52,8 @@ public class LambdaCaptureDesugaringRewriter
     private static Expression replaceSymbols(Expression expression, ImmutableMap<Symbol, Symbol> symbolMapping)
     {
         return ExpressionTreeRewriter.rewriteWith(
-                new ExpressionRewriter<Void>() {
+                new ExpressionRewriter<Void>()
+                {
                     @Override
                     public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                     {

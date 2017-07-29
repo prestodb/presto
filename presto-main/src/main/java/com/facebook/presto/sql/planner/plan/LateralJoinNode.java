@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * For every row from {@link #input} a {@link #subquery} relation is calculated.
  * Then input row is cross joined with subquery relation and returned as a result.
- *
+ * <p>
  * INNER - does not return any row for input row when subquery relation is empty
  * LEFT - does return input completed with NULL values when subquery relation is empty
  */

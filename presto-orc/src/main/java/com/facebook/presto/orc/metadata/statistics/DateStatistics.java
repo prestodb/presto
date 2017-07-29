@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class DateStatistics
         implements RangeStatistics<Integer>
@@ -23,6 +26,7 @@ public class DateStatistics
 
     public DateStatistics(Integer minimum, Integer maximum)
     {
+        checkArgument(minimum == null || maximum == null || minimum <= maximum, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
     }
@@ -37,6 +41,26 @@ public class DateStatistics
     public Integer getMax()
     {
         return maximum;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DateStatistics that = (DateStatistics) o;
+        return Objects.equals(minimum, that.minimum) &&
+                Objects.equals(maximum, that.maximum);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(minimum, maximum);
     }
 
     @Override

@@ -75,11 +75,11 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(HiveWriterVersion hiveWriterVersion, List<OrcType> types, InputStream inputStream)
-            throws OrcCorruptionException
+    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+            throws IOException
     {
         try {
-            return delegate.readStripeFooter(hiveWriterVersion, types, inputStream);
+            return delegate.readStripeFooter(types, inputStream);
         }
         catch (IOException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid stripe footer");

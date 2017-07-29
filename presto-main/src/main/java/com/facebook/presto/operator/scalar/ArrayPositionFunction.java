@@ -37,10 +37,11 @@ public final class ArrayPositionFunction
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BIGINT)
-    public static long arrayPosition(@TypeParameter("T") Type type,
-                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
-                                     @SqlType("array(T)") Block array,
-                                     @SqlType("T") boolean element)
+    public static long arrayPosition(
+            @TypeParameter("T") Type type,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @SqlType("array(T)") Block array,
+            @SqlType("T") boolean element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -61,10 +62,11 @@ public final class ArrayPositionFunction
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BIGINT)
-    public static long arrayPosition(@TypeParameter("T") Type type,
-                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
-                                     @SqlType("array(T)") Block array,
-                                     @SqlType("T") long element)
+    public static long arrayPosition(
+            @TypeParameter("T") Type type,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @SqlType("array(T)") Block array,
+            @SqlType("T") long element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -85,10 +87,11 @@ public final class ArrayPositionFunction
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BIGINT)
-    public static long arrayPosition(@TypeParameter("T") Type type,
-                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
-                                     @SqlType("array(T)") Block array,
-                                     @SqlType("T") double element)
+    public static long arrayPosition(
+            @TypeParameter("T") Type type,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @SqlType("array(T)") Block array,
+            @SqlType("T") double element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -109,10 +112,11 @@ public final class ArrayPositionFunction
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BIGINT)
-    public static long arrayPosition(@TypeParameter("T") Type type,
-                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
-                                     @SqlType("array(T)") Block array,
-                                     @SqlType("T") Slice element)
+    public static long arrayPosition(
+            @TypeParameter("T") Type type,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @SqlType("array(T)") Block array,
+            @SqlType("T") Slice element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
@@ -133,10 +137,11 @@ public final class ArrayPositionFunction
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BIGINT)
-    public static long arrayPosition(@TypeParameter("T") Type type,
-                                     @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
-                                     @SqlType("array(T)") Block array,
-                                     @SqlType("T") Block element)
+    public static long arrayPosition(
+            @TypeParameter("T") Type type,
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @SqlType("array(T)") Block array,
+            @SqlType("T") Block element)
     {
         int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {

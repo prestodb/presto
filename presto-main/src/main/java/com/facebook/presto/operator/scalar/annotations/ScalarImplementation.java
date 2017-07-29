@@ -72,7 +72,8 @@ import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Objects.requireNonNull;
 
-public class ScalarImplementation implements ParametricImplementation
+public class ScalarImplementation
+        implements ParametricImplementation
 {
     private final Signature signature;
     private final boolean nullable;

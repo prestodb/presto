@@ -15,7 +15,10 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class StringStatistics
         implements RangeStatistics<Slice>
@@ -25,6 +28,7 @@ public class StringStatistics
 
     public StringStatistics(Slice minimum, Slice maximum)
     {
+        checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
     }
@@ -42,11 +46,31 @@ public class StringStatistics
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        StringStatistics that = (StringStatistics) o;
+        return Objects.equals(minimum, that.minimum) &&
+                Objects.equals(maximum, that.maximum);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(minimum, maximum);
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("min", minimum)
-                .add("max", maximum)
+                .add("min", minimum.toStringUtf8())
+                .add("max", maximum.toStringUtf8())
                 .toString();
     }
 }

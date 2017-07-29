@@ -50,11 +50,11 @@ public class SelectorRecord
     }
 
     public static class Mapper
-        implements ResultSetMapper<SelectorRecord>
+            implements ResultSetMapper<SelectorRecord>
     {
         @Override
         public SelectorRecord map(int index, ResultSet resultSet, StatementContext context)
-            throws SQLException
+                throws SQLException
         {
             return new SelectorRecord(
                     resultSet.getLong("resource_group_id"),

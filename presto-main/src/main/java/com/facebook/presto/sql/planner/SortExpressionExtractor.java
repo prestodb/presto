@@ -31,17 +31,17 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Currently this class handles only simple expressions like:
- *
+ * <p>
  * A.a < B.x
- *
+ * <p>
  * It could be extended to handle any expressions like:
- *
+ * <p>
  * A.a * sin(A.b) / log(B.x) < cos(B.z)
- *
+ * <p>
  * by transforming it to:
- *
+ * <p>
  * f(A.a, A.b) < g(B.x, B.z)
- *
+ * <p>
  * Where f(...) and g(...) would be some functions/expressions. That
  * would allow us to perform binary search on arbitrary complex expressions
  * by sorting position links according to the result of f(...) function.

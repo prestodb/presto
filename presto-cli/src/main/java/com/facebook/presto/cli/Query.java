@@ -228,6 +228,8 @@ public class Query
             handler.processRows(client);
         }
         catch (RuntimeException | IOException e) {
+            // clear interrupt flag before throwing an exception
+            Thread.interrupted();
             if (userAbortedQuery.get() && !(e instanceof QueryAbortedException)) {
                 throw new QueryAbortedException(e);
             }

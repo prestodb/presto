@@ -34,7 +34,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.math.BigInteger;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
@@ -262,6 +264,22 @@ public abstract class AbstractTestFunctions
     {
         final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
         return decimal(String.format(maxPrecisionFormat, value));
+    }
+
+    // this help function should only be used when the map contains null value
+    // otherwise, use ImmutableMap.of()
+    protected static Map asMap(List keyList, List valueList)
+    {
+        if (keyList.size() != valueList.size()) {
+            fail("keyList should have same size with valueList");
+        }
+        Map map = new HashMap<>();
+        for (int i = 0; i < keyList.size(); i++) {
+            if (map.put(keyList.get(i), valueList.get(i)) != null) {
+                fail("keyList should have same size with valueList");
+            }
+        }
+        return map;
     }
 
     private void evaluateInvalid(String projection)

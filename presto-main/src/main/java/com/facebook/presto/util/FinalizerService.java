@@ -68,7 +68,7 @@ public class FinalizerService
 
     /**
      * When referent is freed by the garbage collector, run cleanup.
-     *
+     * <p>
      * Note: cleanup must not contain a reference to the referent object.
      */
     public void addFinalizer(Object referent, Runnable cleanup)

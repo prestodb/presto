@@ -19,7 +19,7 @@ import com.facebook.presto.spi.type.BigintType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class PrecomputedHashGenerator
-    implements HashGenerator
+        implements HashGenerator
 {
     private final int hashChannel;
 

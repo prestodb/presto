@@ -19,7 +19,9 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
@@ -67,16 +69,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.verifyExpressionIsConstant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
@@ -96,9 +101,13 @@ public class SqlQueryManager
     private final QueryQueueManager queueManager;
     private final ClusterMemoryManager memoryManager;
 
+    private final boolean isIncludeCoordinator;
     private final int maxQueryHistory;
     private final Duration minQueryExpireAge;
     private final int maxQueryLength;
+    private final int initializationRequiredWorkers;
+    private final Duration initializationTimeout;
+    private final long initialNanos;
 
     private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
     private final Queue<QueryExecution> expirationQueue = new LinkedBlockingQueue<>();
@@ -120,14 +129,19 @@ public class SqlQueryManager
 
     private final SessionPropertyManager sessionPropertyManager;
 
+    private final InternalNodeManager internalNodeManager;
+
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
     private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
 
+    private final AtomicBoolean acceptQueries = new AtomicBoolean();
+
     @Inject
     public SqlQueryManager(
             SqlParser sqlParser,
-            QueryManagerConfig config,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            QueryManagerConfig queryManagerConfig,
             QueryMonitor queryMonitor,
             QueryQueueManager queueManager,
             ClusterMemoryManager memoryManager,
@@ -136,6 +150,7 @@ public class SqlQueryManager
             AccessControl accessControl,
             QueryIdGenerator queryIdGenerator,
             SessionPropertyManager sessionPropertyManager,
+            InternalNodeManager internalNodeManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             Metadata metadata)
     {
@@ -146,7 +161,8 @@ public class SqlQueryManager
         this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
 
-        requireNonNull(config, "config is null");
+        requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
+        requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.queueManager = requireNonNull(queueManager, "queueManager is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
 
@@ -162,12 +178,18 @@ public class SqlQueryManager
 
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
 
-        this.minQueryExpireAge = config.getMinQueryExpireAge();
-        this.maxQueryHistory = config.getMaxQueryHistory();
-        this.clientTimeout = config.getClientTimeout();
-        this.maxQueryLength = config.getMaxQueryLength();
+        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
 
-        queryManagementExecutor = Executors.newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
+        this.isIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
+        this.minQueryExpireAge = queryManagerConfig.getMinQueryExpireAge();
+        this.maxQueryHistory = queryManagerConfig.getMaxQueryHistory();
+        this.clientTimeout = queryManagerConfig.getClientTimeout();
+        this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
+        this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
+        this.initializationTimeout = queryManagerConfig.getInitializationTimeout();
+        this.initialNanos = System.nanoTime();
+
+        queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
         queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
         queryManagementExecutor.scheduleWithFixedDelay(new Runnable()
         {
@@ -342,6 +364,19 @@ public class SqlQueryManager
         QueryExecution queryExecution;
         Statement statement;
         try {
+            if (!acceptQueries.get()) {
+                int activeWorkerCount = internalNodeManager.getNodes(ACTIVE).size();
+                if (!isIncludeCoordinator) {
+                    activeWorkerCount--;
+                }
+                if (nanosSince(initialNanos).compareTo(initializationTimeout) < 0 && activeWorkerCount < initializationRequiredWorkers) {
+                    throw new PrestoException(
+                            SERVER_STARTING_UP,
+                            String.format("Cluster is still initializing, there are insufficient active worker nodes (%s) to run query", activeWorkerCount));
+                }
+                acceptQueries.set(true);
+            }
+
             session = sessionSupplier.createSession(queryId, transactionManager, accessControl, sessionPropertyManager);
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
@@ -404,15 +439,15 @@ public class SqlQueryManager
         queryMonitor.queryCreatedEvent(queryInfo);
 
         queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
-                try {
-                    QueryInfo info = queryExecution.getQueryInfo();
-                    stats.queryFinished(info);
-                    queryMonitor.queryCompletedEvent(info);
-                }
-                finally {
-                    // execution MUST be added to the expiration queue or there will be a leak
-                    expirationQueue.add(queryExecution);
-                }
+            try {
+                QueryInfo info = queryExecution.getQueryInfo();
+                stats.queryFinished(info);
+                queryMonitor.queryCompletedEvent(info);
+            }
+            finally {
+                // execution MUST be added to the expiration queue or there will be a leak
+                expirationQueue.add(queryExecution);
+            }
         });
 
         addStatsListener(queryExecution);

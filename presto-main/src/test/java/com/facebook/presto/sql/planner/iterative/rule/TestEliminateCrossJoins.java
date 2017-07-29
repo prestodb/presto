@@ -52,7 +52,7 @@ import static org.testng.AssertJUnit.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestEliminateCrossJoins
-            extends BaseRuleTest
+        extends BaseRuleTest
 {
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
@@ -68,11 +68,8 @@ public class TestEliminateCrossJoins
                                 join(INNER,
                                         ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))),
                                         any(),
-                                        any()
-                                ),
-                                any()
-                        )
-                );
+                                        any()),
+                                any()));
     }
 
     @Test
@@ -85,11 +82,8 @@ public class TestEliminateCrossJoins
                         node(JoinNode.class,
                                 node(JoinNode.class,
                                         node(GroupReference.class),
-                                        node(GroupReference.class)
-                                ),
-                                node(GroupReference.class)
-                        )
-                );
+                                        node(GroupReference.class)),
+                                node(GroupReference.class)));
     }
 
     @Test

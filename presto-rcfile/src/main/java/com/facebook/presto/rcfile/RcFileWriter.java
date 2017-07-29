@@ -18,6 +18,7 @@ import com.facebook.presto.rcfile.RcFileWriteValidation.RcFileWriteValidationBui
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -58,6 +59,7 @@ public class RcFileWriter
 
     static final String PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_RCFILE_WRITER_VERSION;
+
     static {
         String version = RcFileWriter.class.getPackage().getImplementationVersion();
         PRESTO_RCFILE_WRITER_VERSION = version == null ? "UNKNOWN" : version;
@@ -188,14 +190,12 @@ public class RcFileWriter
     public void close()
             throws IOException
     {
-        try {
+        try (Closer closer = Closer.create()) {
             writeRowGroup();
-            output.close();
-        }
-        finally {
-            keySectionOutput.destroy();
+            closer.register(output);
+            closer.register(keySectionOutput::destroy);
             for (ColumnEncoder columnEncoder : columnEncoders) {
-                columnEncoder.destroy();
+                closer.register(columnEncoder::destroy);
             }
         }
     }
@@ -413,6 +413,7 @@ public class RcFileWriter
         }
 
         public void destroy()
+                throws IOException
         {
             output.destroy();
         }

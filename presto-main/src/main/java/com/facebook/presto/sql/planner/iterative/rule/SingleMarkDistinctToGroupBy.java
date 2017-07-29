@@ -38,12 +38,14 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * Converts Single Distinct Aggregation into GroupBy
- *
+ * <p>
  * Rewrite if and only if
- *  1 all aggregation functions have a single common distinct mask symbol
- *  2 all aggregation functions have mask
- *
+ * <ol>
+ * <li>all aggregation functions have a single common distinct mask symbol
+ * <li>all aggregation functions have mask
+ * </ol>
  * Rewrite MarkDistinctNode into AggregationNode(use DistinctSymbols as GroupBy)
+ * <p>
  * Remove Distincts in the original AggregationNode
  */
 public class SingleMarkDistinctToGroupBy

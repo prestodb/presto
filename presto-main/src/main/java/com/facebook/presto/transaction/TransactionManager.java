@@ -459,7 +459,7 @@ public class TransactionManager
                 ListenableFuture<?> future = Futures.allAsList(connectorIdToMetadata.values().stream()
                         .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
                         .collect(toList()));
-                addExceptionCallback(future, throwable ->  {
+                addExceptionCallback(future, throwable -> {
                     abortInternal();
                     log.error(throwable, "Read-only connector should not throw exception on commit");
                 });

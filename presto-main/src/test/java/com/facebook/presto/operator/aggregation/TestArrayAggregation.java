@@ -74,7 +74,7 @@ public class TestArrayAggregation
 
     @Test
     public void testBoolean()
-        throws Exception
+            throws Exception
     {
         InternalAggregationFunction booleanAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(boolean)"), parseTypeSignature(StandardTypes.BOOLEAN)));
@@ -86,7 +86,7 @@ public class TestArrayAggregation
 
     @Test
     public void testBigInt()
-        throws Exception
+            throws Exception
     {
         InternalAggregationFunction bigIntAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
@@ -98,7 +98,7 @@ public class TestArrayAggregation
 
     @Test
     public void testVarchar()
-        throws Exception
+            throws Exception
     {
         InternalAggregationFunction varcharAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(varchar)"), parseTypeSignature(StandardTypes.VARCHAR)));

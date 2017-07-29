@@ -67,7 +67,7 @@ public class TestArrayReduceFunction
 
     @Test
     public void testTwoValueState()
-        throws Exception
+            throws Exception
     {
         assertFunction(
                 "reduce(" +

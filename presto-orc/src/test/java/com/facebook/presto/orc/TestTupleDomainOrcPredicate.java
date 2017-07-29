@@ -29,8 +29,6 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
 import static com.facebook.presto.spi.predicate.Domain.all;
 import static com.facebook.presto.spi.predicate.Domain.create;
 import static com.facebook.presto.spi.predicate.Domain.none;
@@ -203,7 +201,7 @@ public class TestTupleDomainOrcPredicate
 
     @Test
     public void testChar()
-        throws Exception
+            throws Exception
     {
         assertEquals(getDomain(CHAR, 0, null), none(CHAR));
         assertEquals(getDomain(CHAR, 10, null), all(CHAR));
@@ -211,13 +209,13 @@ public class TestTupleDomainOrcPredicate
         assertEquals(getDomain(CHAR, 0, stringColumnStats(null, null, null)), none(CHAR));
         assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, null, null)), none(CHAR));
         assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco      ", "taco      ")), none(CHAR));
-        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco      ", "taco")), none(CHAR));
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco", "taco      ")), none(CHAR));
 
         assertEquals(getDomain(CHAR, 10, stringColumnStats(0L, null, null)), onlyNull(CHAR));
         assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, null, null)), notNull(CHAR));
 
         assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "taco      ", "taco      ")), singleValue(CHAR, utf8Slice("taco")));
-        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "taco      ", "taco")), singleValue(CHAR, utf8Slice("taco")));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "taco", "taco      ")), singleValue(CHAR, utf8Slice("taco")));
 
         assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", "taco      ")), create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
         assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", "taco")), create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
@@ -238,7 +236,9 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics stringColumnStats(Long numberOfValues, String minimum, String maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(getMinSlice(minimum), getMaxSlice(maximum)), null, null, null);
+        Slice minimumSlice = minimum == null ? null : utf8Slice(minimum);
+        Slice maximumSlice = maximum == null ? null : utf8Slice(maximum);
+        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(minimumSlice, maximumSlice), null, null, null);
     }
 
     @Test

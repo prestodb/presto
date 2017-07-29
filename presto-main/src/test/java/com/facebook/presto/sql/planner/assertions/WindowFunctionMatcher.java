@@ -67,9 +67,9 @@ public class WindowFunctionMatcher
 
         List<Symbol> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
                 .filter(assignment ->
-                    expectedCall.equals(assignment.getValue().getFunctionCall())
-                            && signature.map(assignment.getValue().getSignature()::equals).orElse(true)
-                            && expectedFrame.map(assignment.getValue().getFrame()::equals).orElse(true))
+                        expectedCall.equals(assignment.getValue().getFunctionCall())
+                                && signature.map(assignment.getValue().getSignature()::equals).orElse(true)
+                                && expectedFrame.map(assignment.getValue().getFrame()::equals).orElse(true))
                 .map(Map.Entry::getKey)
                 .collect(toImmutableList());
 

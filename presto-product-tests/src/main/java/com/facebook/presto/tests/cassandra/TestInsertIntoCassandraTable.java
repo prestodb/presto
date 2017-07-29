@@ -76,10 +76,10 @@ public class TestInsertIntoCassandraTable
                 "REAL '123.45678', " +
                 "null, " +
                 "null, " +
-                "123, "  +
-                "null, "  +
-                "null, "  +
-                "null, "  +
+                "123, " +
+                "null, " +
+                "null, " +
+                "null, " +
                 "'text value', " +
                 "timestamp '9999-12-31 23:59:59'," +
                 "null, " +

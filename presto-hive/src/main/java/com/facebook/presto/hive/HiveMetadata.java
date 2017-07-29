@@ -56,9 +56,12 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -105,11 +108,15 @@ import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
+import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getExternalLocation;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterColumns;
+import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
@@ -160,6 +167,9 @@ public class HiveMetadata
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String TABLE_COMMENT = "comment";
+
+    private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
+    private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
     private final String connectorId;
     private final boolean allowCorruptWritesForTesting;
@@ -263,10 +273,13 @@ public class HiveMetadata
             columns.add(metadataGetter.apply(columnHandle));
         }
 
+        // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         if (table.get().getTableType().equals(EXTERNAL_TABLE.name())) {
             properties.put(EXTERNAL_LOCATION_PROPERTY, table.get().getStorage().getLocation());
         }
+
+        // Storage format property
         try {
             HiveStorageFormat format = extractHiveStorageFormat(table.get());
             properties.put(STORAGE_FORMAT_PROPERTY, format);
@@ -274,17 +287,33 @@ public class HiveMetadata
         catch (PrestoException ignored) {
             // todo fail if format is not known
         }
+
+        // Partitioning property
         List<String> partitionedBy = table.get().getPartitionColumns().stream()
                 .map(Column::getName)
                 .collect(toList());
         if (!partitionedBy.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionedBy);
         }
+
+        // Bucket properties
         Optional<HiveBucketProperty> bucketProperty = table.get().getStorage().getBucketProperty();
         if (bucketProperty.isPresent()) {
             properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
             properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
         }
+
+        // ORC format specific properties
+        String orcBloomFilterColumns = table.get().getParameters().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
+        if (orcBloomFilterColumns != null) {
+            properties.put(ORC_BLOOM_FILTER_COLUMNS, Splitter.on(',').trimResults().omitEmptyStrings().splitToList(orcBloomFilterColumns));
+        }
+        String orcBloomFilterFfp = table.get().getParameters().get(ORC_BLOOM_FILTER_FPP_KEY);
+        if (orcBloomFilterFfp != null) {
+            properties.put(ORC_BLOOM_FILTER_FPP, Double.parseDouble(orcBloomFilterFfp));
+        }
+
+        // Hook point for extended versions of the Hive Plugin
         properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
 
         Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
@@ -441,9 +470,7 @@ public class HiveMetadata
         }
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        ImmutableMap.Builder<String, String> additionalTableParameters = ImmutableMap.builder();
-        additionalTableParameters.putAll(tableParameterCodec.encode(tableMetadata.getProperties()));
-        tableMetadata.getComment().ifPresent(value -> additionalTableParameters.put(TABLE_COMMENT, value));
+        Map<String, String> tableProperties = getTableProperties(tableMetadata);
 
         hiveStorageFormat.validateColumns(columnHandles);
 
@@ -469,12 +496,32 @@ public class HiveMetadata
                 hiveStorageFormat,
                 partitionedBy,
                 bucketProperty,
-                additionalTableParameters.build(),
+                tableProperties,
                 targetPath,
                 external,
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
         metastore.createTable(session, table, principalPrivileges, Optional.empty());
+    }
+
+    private Map<String, String> getTableProperties(ConnectorTableMetadata tableMetadata)
+    {
+        Builder<String, String> tableProperties = ImmutableMap.builder();
+
+        // Hook point for extended versions of the Hive Plugin
+        tableProperties.putAll(tableParameterCodec.encode(tableMetadata.getProperties()));
+
+        // ORC format specific properties
+        List<String> columns = getOrcBloomFilterColumns(tableMetadata.getProperties());
+        if (columns != null && !columns.isEmpty()) {
+            tableProperties.put(ORC_BLOOM_FILTER_COLUMNS_KEY, Joiner.on(",").join(columns));
+            tableProperties.put(ORC_BLOOM_FILTER_FPP_KEY, String.valueOf(getOrcBloomFilterFpp(tableMetadata.getProperties())));
+        }
+
+        // Table comment property
+        tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
+
+        return tableProperties.build();
     }
 
     private Path getExternalPath(String user, String location)
@@ -623,9 +670,7 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
 
-        ImmutableMap.Builder<String, String> additionalTableParameters = ImmutableMap.builder();
-        additionalTableParameters.putAll(tableParameterCodec.encode(tableMetadata.getProperties()));
-        tableMetadata.getComment().ifPresent(value -> additionalTableParameters.put(TABLE_COMMENT, value));
+        Map<String, String> tableProperties = getTableProperties(tableMetadata);
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -653,7 +698,7 @@ public class HiveMetadata
                 partitionedBy,
                 bucketProperty,
                 session.getUser(),
-                additionalTableParameters.build());
+                tableProperties);
 
         Path writePathRoot = locationService.writePathRoot(locationHandle).get();
         Path targetPathRoot = locationService.targetPathRoot(locationHandle);

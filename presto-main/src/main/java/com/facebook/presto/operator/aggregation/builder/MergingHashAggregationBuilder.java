@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class MergingHashAggregationBuilder
-    implements Closeable
+        implements Closeable
 {
     private final List<AccumulatorFactory> accumulatorFactories;
     private final AggregationNode.Step step;
@@ -82,7 +82,8 @@ public class MergingHashAggregationBuilder
 
     public Iterator<Page> buildResult()
     {
-        return new Iterator<Page>() {
+        return new Iterator<Page>()
+        {
             private Iterator<Page> resultPages = Collections.emptyIterator();
 
             @Override

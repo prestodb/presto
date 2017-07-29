@@ -192,7 +192,7 @@ public class TestInterpretedPageProjectionFunction
                 TEST_SESSION);
 
         // project
-        Block block = projectionFunction.project(TEST_SESSION.toConnectorSession(), new Page(1, blocks), positionsList(new int[] {position},  0, 1));
+        Block block = projectionFunction.project(TEST_SESSION.toConnectorSession(), new Page(1, blocks), positionsList(new int[] {position}, 0, 1));
 
         // extract single value
         Object actualValue = BlockAssertions.getOnlyValue(projectionFunction.getType(), block);

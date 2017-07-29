@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds, quarantine; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 --- quarantined as grouping is not yet supported, see https://github.com/prestodb/presto/pull/6704
 SELECT
   "sum"("ss_net_profit") "total_sum"
@@ -32,6 +32,6 @@ WHERE ("d1"."d_month_seq" BETWEEN 1200 AND (1200 + 11))
    WHERE ("ranking" <= 5)
 ))
 GROUP BY ROLLUP (s_state, s_county)
-ORDER BY "lochierarchy" DESC, (CASE WHEN ((GROUPING ("s_state") + GROUPING ("s_county")) = 0) THEN "s_state" END) ASC, "rank_within_parent" ASC
+ORDER BY "lochierarchy" DESC, (CASE WHEN ("lochierarchy" = 0) THEN "s_state" END) ASC, "rank_within_parent" ASC
 LIMIT 100
 ;

@@ -174,7 +174,7 @@ public class TestBlackHoleSmoke
 
         assertThatQueryReturnsValue(
                 format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1 ) AS " +
-                        "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation",
+                                "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation",
                         FIELD_LENGTH_PROPERTY,
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,

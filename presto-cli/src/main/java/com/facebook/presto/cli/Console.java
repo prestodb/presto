@@ -381,7 +381,7 @@ public class Console
         }
         catch (IOException e) {
             System.err.printf("WARNING: Failed to load history file (%s): %s. " +
-                    "History will not be available during this session.%n",
+                            "History will not be available during this session.%n",
                     historyFile, e.getMessage());
             history = new MemoryHistory();
         }

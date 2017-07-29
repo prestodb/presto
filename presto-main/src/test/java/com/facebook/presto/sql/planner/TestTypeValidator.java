@@ -147,13 +147,13 @@ public class TestTypeValidator
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
         Signature signature = new Signature(
-                        "sum",
-                        FunctionKind.WINDOW,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        DOUBLE.getTypeSignature(),
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false);
+                "sum",
+                FunctionKind.WINDOW,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                DOUBLE.getTypeSignature(),
+                ImmutableList.of(DOUBLE.getTypeSignature()),
+                false);
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
 
         WindowNode.Frame frame = new WindowNode.Frame(
@@ -301,13 +301,13 @@ public class TestTypeValidator
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
         Signature signature = new Signature(
-                        "sum",
-                        FunctionKind.WINDOW,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        DOUBLE.getTypeSignature(),
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false);
+                "sum",
+                FunctionKind.WINDOW,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                DOUBLE.getTypeSignature(),
+                ImmutableList.of(DOUBLE.getTypeSignature()),
+                false);
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())); // should be columnC
 
         WindowNode.Frame frame = new WindowNode.Frame(
@@ -339,13 +339,13 @@ public class TestTypeValidator
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
         Signature signature = new Signature(
-                        "sum",
-                        FunctionKind.WINDOW,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        BIGINT.getTypeSignature(), // should be DOUBLE
-                        ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false);
+                "sum",
+                FunctionKind.WINDOW,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                BIGINT.getTypeSignature(), // should be DOUBLE
+                ImmutableList.of(DOUBLE.getTypeSignature()),
+                false);
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
 
         WindowNode.Frame frame = new WindowNode.Frame(

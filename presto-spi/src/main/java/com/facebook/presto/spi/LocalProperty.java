@@ -28,8 +28,7 @@ import java.util.function.Function;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ConstantProperty.class, name = "constant"),
         @JsonSubTypes.Type(value = SortingProperty.class, name = "sorting"),
-        @JsonSubTypes.Type(value = GroupingProperty.class, name = "grouping"),
-})
+        @JsonSubTypes.Type(value = GroupingProperty.class, name = "grouping")})
 public interface LocalProperty<E>
 {
     <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator);

@@ -35,7 +35,7 @@ public final class VerifyNoFilteredAggregations
     }
 
     private static class Visitor
-        extends SimplePlanVisitor<Void>
+            extends SimplePlanVisitor<Void>
     {
         @Override
         public Void visitAggregation(AggregationNode node, Void context)

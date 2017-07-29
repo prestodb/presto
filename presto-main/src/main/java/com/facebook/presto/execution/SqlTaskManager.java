@@ -162,8 +162,8 @@ public class SqlTaskManager
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
                         sqlTask -> {
-                                finishedTaskStats.merge(sqlTask.getIoStats());
-                                return null;
+                            finishedTaskStats.merge(sqlTask.getIoStats());
+                            return null;
                         },
                         maxBufferSize);
             }

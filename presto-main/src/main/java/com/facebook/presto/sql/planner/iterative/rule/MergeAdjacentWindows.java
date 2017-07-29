@@ -25,7 +25,7 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
 
 public class MergeAdjacentWindows
-    implements Rule
+        implements Rule
 {
     private static final Pattern PATTERN = Pattern.typeOf(WindowNode.class);
 

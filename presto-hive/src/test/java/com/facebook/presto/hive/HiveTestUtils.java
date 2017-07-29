@@ -46,6 +46,7 @@ public final class HiveTestUtils
             new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
+
     static {
         // associate TYPE_MANAGER with a function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
@@ -79,6 +80,7 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
+                .add(new OrcFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
                 .build();
     }
 

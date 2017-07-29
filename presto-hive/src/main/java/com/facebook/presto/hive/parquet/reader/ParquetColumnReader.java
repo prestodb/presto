@@ -194,7 +194,8 @@ public abstract class ParquetColumnReader
                     positions.add(valueCount);
                     return;
                 }
-            } while (repetitionLevel != 0);
+            }
+            while (repetitionLevel != 0);
         }
     }
 
@@ -216,7 +217,8 @@ public abstract class ParquetColumnReader
                     // Reading past repetition stream, RunLengthBitPackingHybridDecoder throws IllegalArgumentException
                     return;
                 }
-            } while (repetitionLevel != 0);
+            }
+            while (repetitionLevel != 0);
         }
     }
 

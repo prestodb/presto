@@ -28,5 +28,6 @@ public interface ResourceGroupManager
 
     void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
 
-    void loadConfigurationManager() throws Exception;
+    void loadConfigurationManager()
+            throws Exception;
 }

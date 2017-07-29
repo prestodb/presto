@@ -52,7 +52,7 @@ public class MapToJsonCast
         extends SqlOperator
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson",  ObjectKeyProvider.class, JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
 
     private MapToJsonCast()
     {

@@ -127,7 +127,7 @@ public class TestShardDao
         assertEquals(shard.getCompressedSize(), 42);
         assertEquals(shard.getUncompressedSize(), 84);
         assertEquals(shard.getXxhash64(), OptionalLong.of(1234));
-   }
+    }
 
     @Test
     public void testInsertShardNodeUsingShardUuid()

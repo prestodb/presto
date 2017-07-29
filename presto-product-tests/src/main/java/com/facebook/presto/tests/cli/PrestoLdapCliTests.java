@@ -91,11 +91,11 @@ public class PrestoLdapCliTests
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(new LdapObjectRequirement(
-                Arrays.asList(
-                        AMERICA_ORG, ASIA_ORG,
-                        DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS
-                )),
+                        Arrays.asList(
+                                AMERICA_ORG, ASIA_ORG,
+                                DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
+                                DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS
+                        )),
                 immutableTable(NATION));
     }
 

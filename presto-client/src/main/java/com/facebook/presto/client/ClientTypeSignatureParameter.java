@@ -129,7 +129,8 @@ public class ClientTypeSignatureParameter
         return Objects.hash(kind, value);
     }
 
-    public static class ClientTypeSignatureParameterDeserializer extends JsonDeserializer<ClientTypeSignatureParameter>
+    public static class ClientTypeSignatureParameterDeserializer
+            extends JsonDeserializer<ClientTypeSignatureParameter>
     {
         private static final ObjectMapper MAPPER = new ObjectMapper();
 

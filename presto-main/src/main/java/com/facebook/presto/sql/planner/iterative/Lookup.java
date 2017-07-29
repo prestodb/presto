@@ -24,7 +24,7 @@ public interface Lookup
     /**
      * Resolves a node by materializing GroupReference nodes
      * representing symbolic references to other nodes.
-     *
+     * <p>
      * If the node is not a GroupReference, it returns the
      * argument as is.
      */

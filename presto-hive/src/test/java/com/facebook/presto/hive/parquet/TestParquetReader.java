@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 @Test
 public class TestParquetReader
-    extends AbstractTestParquetReader
+        extends AbstractTestParquetReader
 {
     public TestParquetReader()
     {

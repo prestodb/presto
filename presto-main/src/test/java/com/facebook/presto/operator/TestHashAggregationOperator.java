@@ -594,7 +594,8 @@ public class TestHashAggregationOperator
         @Override
         public Spiller create(List<Type> types, SpillContext spillContext, AggregatedMemoryContext memoryContext)
         {
-            return new Spiller() {
+            return new Spiller()
+            {
                 @Override
                 public ListenableFuture<?> spill(Iterator<Page> pageIterator)
                 {

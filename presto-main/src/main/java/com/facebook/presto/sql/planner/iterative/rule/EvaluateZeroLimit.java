@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 
 public class EvaluateZeroLimit
-    implements Rule
+        implements Rule
 {
     private static final Pattern PATTERN = Pattern.typeOf(LimitNode.class);
 

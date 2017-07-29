@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -30,12 +31,14 @@ public class PushTableWriteThroughUnion
         implements Rule
 {
     @Override
+    public boolean isEnabled(Session session)
+    {
+        return isPushTableWriteThroughUnion(session);
+    }
+
+    @Override
     public Optional<PlanNode> apply(PlanNode node, Context context)
     {
-        if (!isPushTableWriteThroughUnion(context.getSession())) {
-            return Optional.empty();
-        }
-
         if (!(node instanceof TableWriterNode)) {
             return Optional.empty();
         }

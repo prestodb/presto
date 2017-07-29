@@ -14,7 +14,7 @@
 package com.facebook.presto.verifier;
 
 public class VerifierException
-    extends Exception
+        extends Exception
 {
     public VerifierException(String message)
     {

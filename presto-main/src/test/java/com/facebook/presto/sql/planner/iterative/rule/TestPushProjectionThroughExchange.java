@@ -148,7 +148,6 @@ public class TestPushProjectionThroughExchange
                                                 .withAlias("h_times_5", expression("h * 5"))
                                 )
                         ).withNumberOfOutputColumns(3)
-                                .withExactOutputs("a_times_5", "b_times_5", "h_times_5")
-                );
+                                .withExactOutputs("a_times_5", "b_times_5", "h_times_5"));
     }
 }

@@ -147,6 +147,7 @@ import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
+import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.RealOperators;
 import com.facebook.presto.type.SmallintOperators;
@@ -484,6 +485,7 @@ public class FunctionRegistry
                 .scalars(TimestampWithTimeZoneOperators.class)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
+                .scalars(IpAddressOperators.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalar(ArrayCardinalityFunction.class)

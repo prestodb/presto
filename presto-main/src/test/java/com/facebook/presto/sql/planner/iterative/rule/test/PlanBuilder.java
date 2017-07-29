@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.SortOrder;
@@ -198,10 +199,20 @@ public class PlanBuilder
 
         public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes)
         {
+            return addAggregation(output, expression, inputTypes, Optional.empty());
+        }
+
+        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Symbol mask)
+        {
+            return addAggregation(output, expression, inputTypes, Optional.of(mask));
+        }
+
+        private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
+        {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
             Signature signature = metadata.getFunctionRegistry().resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(aggregation, signature, Optional.empty()));
+            return addAggregation(output, new Aggregation(aggregation, signature, mask));
         }
 
         public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)
@@ -293,12 +304,17 @@ public class PlanBuilder
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint)
     {
+        return tableScan(tableHandle, symbols, assignments, originalConstraint, Optional.empty());
+    }
+
+    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint, Optional<TableLayoutHandle> tableLayout)
+    {
         return new TableScanNode(
                 idAllocator.getNextId(),
                 tableHandle,
                 symbols,
                 assignments,
-                Optional.empty(),
+                tableLayout,
                 TupleDomain.all(),
                 originalConstraint
         );

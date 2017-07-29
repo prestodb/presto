@@ -67,5 +67,5 @@ public final class PlanSanityChecker
     private enum Stage
     {
         INTERMEDIATE, FINAL
-    };
+    }
 }

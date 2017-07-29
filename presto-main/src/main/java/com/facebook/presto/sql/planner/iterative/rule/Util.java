@@ -40,7 +40,7 @@ class Util
 
     /**
      * Prune the set of available inputs to those required by the given expressions.
-     *
+     * <p>
      * If all inputs are used, return Optional.empty() to indicate that no pruning is necessary.
      */
     public static Optional<Set<Symbol>> pruneInputs(Collection<Symbol> availableInputs, Collection<Expression> expressions)

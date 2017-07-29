@@ -309,7 +309,8 @@ public final class ExpressionUtils
 
     public static Expression rewriteIdentifiersToSymbolReferences(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        {
             @Override
             public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {

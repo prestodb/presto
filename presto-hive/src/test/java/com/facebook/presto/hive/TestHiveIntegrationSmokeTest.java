@@ -1506,7 +1506,7 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +
-                "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
+                        "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
                 1);
 
         assertQuery(
@@ -1579,6 +1579,8 @@ public class TestHiveIntegrationSmokeTest
                         "COMMENT 'test'\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
+                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                        "   orc_bloom_filter_fpp = 0.7,\n" +
                         "   partitioned_by = ARRAY['c4','c5']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -1952,7 +1954,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private static class RollbackException
-        extends RuntimeException
+            extends RuntimeException
     {
     }
 
@@ -1963,6 +1965,12 @@ public class TestHiveIntegrationSmokeTest
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
         }
+        formats.add(new TestingHiveStorageFormat(
+                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
+                HiveStorageFormat.ORC));
+        formats.add(new TestingHiveStorageFormat(
+                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
+                HiveStorageFormat.DWRF));
         formats.add(new TestingHiveStorageFormat(
                 Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "parquet_optimized_reader_enabled", "true").build(),
                 HiveStorageFormat.PARQUET));

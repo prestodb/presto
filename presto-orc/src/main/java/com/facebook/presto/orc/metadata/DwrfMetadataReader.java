@@ -37,12 +37,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
+import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -58,13 +59,15 @@ public class DwrfMetadataReader
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
         DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(input);
 
+        HiveWriterVersion writerVersion = postScript.hasWriterVersion() && postScript.getWriterVersion() > 0 ? ORC_HIVE_8732 : ORIGINAL;
+
         return new PostScript(
                 ImmutableList.of(),
                 postScript.getFooterLength(),
                 0,
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
-                ORIGINAL); // DWRF doesn't have the equivalent of Hive writer version, and it is not clear if HIVE-8732 has been fixed
+                writerVersion);
     }
 
     @Override
@@ -110,7 +113,7 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(HiveWriterVersion hiveWriterVersion, List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -255,15 +258,24 @@ public class DwrfMetadataReader
             return null;
         }
 
-        Slice minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
-        Slice maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
+        Slice maximum;
+        Slice minimum;
+        if (hiveWriterVersion != ORIGINAL) {
+            maximum = stringStatistics.hasMaximum() ? Slices.wrappedBuffer(stringStatistics.getMaximumBytes().toByteArray()) : null;
+            minimum = stringStatistics.hasMinimum() ? Slices.wrappedBuffer(stringStatistics.getMinimumBytes().toByteArray()) : null;
+        }
+        else {
+            // see com.facebook.presto.orc.metadata.OrcMetadataReader.toStringStatistics() for a description on why we do this
+            minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
+            maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
+        }
 
         return new StringStatistics(minimum, maximum);
     }
 
     private static OrcType toType(DwrfProto.Type type)
     {
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty());
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private static List<OrcType> toType(List<DwrfProto.Type> types)
@@ -356,7 +368,7 @@ public class DwrfMetadataReader
     {
         switch (compression) {
             case NONE:
-                return UNCOMPRESSED;
+                return NONE;
             case ZLIB:
                 return ZLIB;
             case SNAPPY:
