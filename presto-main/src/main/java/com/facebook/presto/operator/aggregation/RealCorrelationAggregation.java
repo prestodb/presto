@@ -50,7 +50,7 @@ public class RealCorrelationAggregation
     {
         double result = getCorrelation(state);
         if (Double.isFinite(result)) {
-            long resultBits = floatToRawIntBits((float) Math.sqrt(result)); // sqrt cannot turn finite value to non-finite value
+            long resultBits = floatToRawIntBits((float) result);
             REAL.writeLong(out, resultBits);
         }
         else {
