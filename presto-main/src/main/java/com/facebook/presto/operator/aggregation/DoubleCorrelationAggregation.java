@@ -50,7 +50,7 @@ public class DoubleCorrelationAggregation
     {
         double result = getCorrelation(state);
         if (Double.isFinite(result)) {
-            DOUBLE.writeDouble(out, Math.sqrt(result)); // sqrt cannot turn finite value to non-finite value
+            DOUBLE.writeDouble(out, result);
         }
         else {
             out.appendNull();
