@@ -56,8 +56,7 @@ public class ResourceGroupSpecBuilder
             Optional<String> hardCpuLimit,
             Optional<String> queuedTimeLimit,
             Optional<String> runningTimeLimit,
-            Optional<Long> parentId
-    )
+            Optional<Long> parentId)
     {
         this.id = id;
         this.nameTemplate = nameTemplate;
@@ -163,8 +162,7 @@ public class ResourceGroupSpecBuilder
                     hardCpuLimit,
                     queuedTimeLimit,
                     runningTimeLimit,
-                    parentId
-            );
+                    parentId);
         }
     }
 }

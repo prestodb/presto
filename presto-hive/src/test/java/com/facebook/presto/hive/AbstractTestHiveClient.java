@@ -225,8 +225,7 @@ public abstract class AbstractTestHiveClient
             ImmutableList.of(
                     TypeSignatureParameter.of(new NamedTypeSignature("f_string", createUnboundedVarcharType().getTypeSignature())),
                     TypeSignatureParameter.of(new NamedTypeSignature("f_bigint", BIGINT.getTypeSignature())),
-                    TypeSignatureParameter.of(new NamedTypeSignature("f_boolean", BOOLEAN.getTypeSignature())))
-    );
+                    TypeSignatureParameter.of(new NamedTypeSignature("f_boolean", BOOLEAN.getTypeSignature()))));
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BIGINT))
@@ -474,8 +473,7 @@ public abstract class AbstractTestHiveClient
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("rcbinary"))), false),
-                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))
-                ))),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.all(), ImmutableList.of()));
         unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(clientId, ImmutableList.of(), unpartitionedPartitions, TupleDomain.all(), Optional.empty()));
@@ -547,8 +545,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                false
-        );
+                false);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveClientConfig),
                 hdfsEnvironment,

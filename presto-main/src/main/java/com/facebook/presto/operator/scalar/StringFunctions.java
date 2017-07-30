@@ -659,8 +659,7 @@ public final class StringFunctions
         checkCondition(
                 0 <= targetLength && targetLength <= Integer.MAX_VALUE,
                 INVALID_FUNCTION_ARGUMENT,
-                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
-        );
+                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
         checkCondition(padString.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding string must not be empty");
 
         int textLength = countCodePoints(text);

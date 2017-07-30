@@ -121,8 +121,7 @@ public class TestTypedSet
                         createLongsBlock(Collections.nCopies(1, null)),
                         createLongsBlock(Collections.nCopies(100, null)),
                         createLongsBlock(Collections.nCopies(expectedSetSizes.get(expectedSetSizes.size() - 1) * 2, null)),
-                        createLongsBlock(Collections.nCopies(expectedSetSizes.get(expectedSetSizes.size() - 1) * 2, 0L))
-                );
+                        createLongsBlock(Collections.nCopies(expectedSetSizes.get(expectedSetSizes.size() - 1) * 2, 0L)));
 
         for (int expectedSetSize : expectedSetSizes) {
             for (Block block : longBlocks) {

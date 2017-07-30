@@ -50,8 +50,7 @@ public class FileResourceGroupConfigurationManagerFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new FileResourceGroupsModule(),
-                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager())
-            );
+                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
             Injector injector = app
                     .strictConfig()

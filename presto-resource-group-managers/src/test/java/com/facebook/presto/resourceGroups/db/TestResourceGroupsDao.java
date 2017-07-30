@@ -94,8 +94,7 @@ public class TestResourceGroupsDao
                 new SelectorRecord(
                         2L,
                         Optional.of(Pattern.compile("ping_user")),
-                        Optional.of(Pattern.compile(".*"))
-                ));
+                        Optional.of(Pattern.compile(".*"))));
         map.put(3L,
                 new SelectorRecord(
                         3L,

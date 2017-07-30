@@ -558,8 +558,7 @@ public class AddExchanges
                                 REMOTE,
                                 source.getNode(),
                                 partitioningScheme.get()),
-                        source.getProperties()
-                );
+                        source.getProperties());
             }
             return rebaseAndDeriveProperties(node, source);
         }

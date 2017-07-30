@@ -316,8 +316,7 @@ public class PlanBuilder
                 assignments,
                 tableLayout,
                 TupleDomain.all(),
-                originalConstraint
-        );
+                originalConstraint);
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
@@ -326,8 +325,7 @@ public class PlanBuilder
                 new TableHandle(
                         new ConnectorId("testConnector"),
                         new TestingTableHandle()),
-                schemaTableName
-        );
+                schemaTableName);
         return new TableFinishNode(
                 idAllocator.getNextId(),
                 exchange(e -> e
@@ -336,14 +334,11 @@ public class PlanBuilder
                                 deleteSource,
                                 deleteHandle,
                                 deleteRowId,
-                                ImmutableList.of(deleteRowId)
-                        ))
+                                ImmutableList.of(deleteRowId)))
                         .addInputsSet(deleteRowId)
-                        .singleDistributionPartitioningScheme(deleteRowId)
-                ),
+                        .singleDistributionPartitioningScheme(deleteRowId)),
                 deleteHandle,
-                ImmutableList.of(deleteRowId)
-        );
+                ImmutableList.of(deleteRowId));
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)

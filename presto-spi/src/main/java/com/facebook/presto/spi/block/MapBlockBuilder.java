@@ -261,8 +261,7 @@ public class MapBlockBuilder
                 valueBlockBuilder.build(),
                 Arrays.copyOf(hashTables, offsets[positionCount] * HASH_MULTIPLIER),
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode
-        );
+                keyBlockNativeEquals, keyNativeHashCode);
     }
 
     @Override

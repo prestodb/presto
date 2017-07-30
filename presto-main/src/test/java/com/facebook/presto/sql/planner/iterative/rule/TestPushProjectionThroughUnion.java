@@ -62,8 +62,7 @@ public class TestPushProjectionThroughUnion
                                             .build(),
                                     ImmutableList.of(
                                             p.values(a),
-                                            p.values(b))
-                            ));
+                                            p.values(b))));
                 })
                 .matches(
                         union(

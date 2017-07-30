@@ -59,8 +59,7 @@ public class TestLazyMap
                 (byte) 3,
                 new Text("\\N"),
                 false,
-                (byte) 0
-        ));
+                (byte) 0));
 
         lazyMap.init(newByteArrayRef(encodedMap), 0, encodedMap.length());
 

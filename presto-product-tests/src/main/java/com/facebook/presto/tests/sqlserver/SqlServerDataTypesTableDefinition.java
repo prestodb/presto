@@ -60,8 +60,8 @@ public class SqlServerDataTypesTableDefinition
                             Timestamp.valueOf("9999-12-31 23:59:59.999"), Timestamp.valueOf("2079-06-05 23:59:59"),
                             Double.valueOf("12345678912.3456756"), Float.valueOf("12345678.6557")),
                     Arrays.asList(null, null, null, null, null, null, null, null, null, null, null, null,
-                            null, null, null, null, null, null)
-            ).iterator();
+                            null, null, null, null, null, null))
+                    .iterator();
         };
 
         SQLSERVER_ALL_TYPES = RelationalTableDefinition.builder(ALL_TYPES_TABLE_NAME)
@@ -74,8 +74,7 @@ public class SqlServerDataTypesTableDefinition
                 .withDatabase(CONNECTOR_NAME)
                 .setCreateTableDDLTemplate(INSERT_DDL)
                 .setDataSource(() ->
-                        ImmutableList.<List<Object>>of().iterator()
-                )
+                        ImmutableList.<List<Object>>of().iterator())
                 .build();
     }
 }

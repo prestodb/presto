@@ -122,8 +122,7 @@ public final class ImmutableLdapObjectDefinitions
                     .setAttributes(ImmutableMap.of(
                             "cn", userName,
                             "sn", userName,
-                            "userPassword", password
-                    ))
+                            "userPassword", password))
                     .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
                     .setModificationAttributes(getAttributes(groupNames.get(), groupOrganizationName.get(), MEMBER_OF))
                     .build();
@@ -134,8 +133,7 @@ public final class ImmutableLdapObjectDefinitions
                     .setAttributes(ImmutableMap.of(
                             "cn", userName,
                             "sn", userName,
-                            "userPassword", password
-                    ))
+                            "userPassword", password))
                     .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
                     .build();
         }

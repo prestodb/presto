@@ -68,8 +68,7 @@ public class JmxConnectorFactory
                         binder.bind(JmxSplitManager.class).in(Scopes.SINGLETON);
                         binder.bind(JmxPeriodicSampler.class).in(Scopes.SINGLETON);
                         binder.bind(JmxRecordSetProvider.class).in(Scopes.SINGLETON);
-                    }
-            );
+                    });
 
             Injector injector = app.strictConfig()
                     .doNotInitializeLogging()

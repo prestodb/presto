@@ -490,8 +490,7 @@ public class TestSourcePartitionedScheduler
                 nodeTaskMap,
                 executor,
                 new NoOpFailureDetector(),
-                new SplitSchedulerStats()
-        );
+                new SplitSchedulerStats());
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
                 .withBuffer(OUT, 0)

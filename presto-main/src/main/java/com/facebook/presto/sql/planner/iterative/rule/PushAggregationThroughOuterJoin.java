@@ -289,8 +289,7 @@ public class PushAggregationThroughOuterJoin
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
-                Optional.empty()
-        );
+                Optional.empty());
         return new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping);
     }
 

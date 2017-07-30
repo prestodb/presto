@@ -55,8 +55,7 @@ public class TestTpchDistributedStats
     {
         runner = createQueryRunnerWithoutCatalogs(emptyMap(), emptyMap());
         runner.createCatalog("tpch", "tpch", ImmutableMap.of(
-                "tpch.column-naming", ColumnNaming.STANDARD.name()
-        ));
+                "tpch.column-naming", ColumnNaming.STANDARD.name()));
     }
 
     @Test

@@ -147,8 +147,7 @@ public final class DecimalCasts
                                 tenToScale = bigIntegerTenToNth(intScale(scale));
                             }
                             return ImmutableList.of(precision, scale, tenToScale);
-                        })
-                )
+                        }))
                 .build();
     }
 
@@ -179,8 +178,7 @@ public final class DecimalCasts
                                 tenToScale = bigIntegerTenToNth(resultType.getScale());
                             }
                             return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
-                        })
-                );
+                        }));
     }
 
     private DecimalCasts() {}

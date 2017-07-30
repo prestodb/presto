@@ -1468,8 +1468,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT orderstatus, COUNT(*) FROM ORDERS GROUP BY orderstatus",
-                "SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus"
-        );
+                "SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus");
     }
 
     @Test
@@ -1483,8 +1482,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT orderdate x, COUNT(*) FROM orders GROUP BY orderdate",
-                "SELECT orderdate x, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderdate"
-        );
+                "SELECT orderdate x, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderdate");
     }
 
     @Test
@@ -2174,8 +2172,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NULL",
-                "SELECT COUNT(*) FROM orders WHERE orderstatus = 'F' "
-        );
+                "SELECT COUNT(*) FROM orders WHERE orderstatus = 'F' ");
     }
 
     @Test
@@ -2183,8 +2180,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NOT NULL",
-                "SELECT COUNT(*) FROM orders WHERE orderstatus <> 'F' "
-        );
+                "SELECT COUNT(*) FROM orders WHERE orderstatus <> 'F' ");
     }
 
     @Test
@@ -2198,8 +2194,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT COUNT(*) FROM orders WHERE COALESCE(NULLIF(orderstatus, 'F'), 'bar') = 'bar'",
-                "SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'"
-        );
+                "SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'");
     }
 
     @Test
@@ -2504,8 +2499,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT COUNT(*) FROM lineitem join orders using (orderkey)",
-                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey"
-        );
+                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey");
     }
 
     @Test
@@ -2513,20 +2507,16 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)"
-        );
+                "VALUES (1.0, 2.0, 1, 3)");
         assertQuery(
                 "SELECT * FROM (VALUES (1, 2)) x (a, b) JOIN (VALUES (CAST (1 AS SMALLINT), CAST(3 AS SMALLINT))) y (a, b) USING(a)",
-                "VALUES (1, 2, 1, 3)"
-        );
+                "VALUES (1, 2, 1, 3)");
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) ON x.a = y.a",
-                "VALUES (1.0, 2.0, 1, 3)"
-        );
+                "VALUES (1.0, 2.0, 1, 3)");
         assertQuery(
                 "SELECT * FROM (VALUES (1, 2)) x (a, b) JOIN (VALUES (SMALLINT '1', SMALLINT '3')) y (a, b) ON x.a = y.a",
-                "VALUES (1, 2, 1, 3)"
-        );
+                "VALUES (1, 2, 1, 3)");
 
         // short decimal, long decimal
         assertQuery(
@@ -2580,9 +2570,8 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey + 1 = orders.orderkey + 1",
-                "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey "
                 // H2 takes a million years because it can't join efficiently on a non-indexed field/expression
-        );
+                "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey ");
     }
 
     @Test
@@ -2606,8 +2595,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
-                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey"
-        );
+                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey");
     }
 
     @Test
@@ -2615,8 +2603,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
-                "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey"
-        );
+                "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey");
     }
 
     @Test
@@ -2906,8 +2893,7 @@ public abstract class AbstractTestQueries
                         "    UNION ALL " +
                         "SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 " +
                         "    WHERE lineitem.orderkey IS NULL) " +
-                        " WHERE o1 IS NULL OR o2 IS NULL"
-        );
+                        " WHERE o1 IS NULL OR o2 IS NULL");
         assertQuery(
                 "SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000 WHERE lineitem.orderkey IS NULL OR orders.orderkey IS NULL",
                 "SELECT COUNT(*) FROM " +
@@ -2915,8 +2901,7 @@ public abstract class AbstractTestQueries
                         "    UNION ALL " +
                         "SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000 " +
                         "    WHERE lineitem.orderkey IS NULL) " +
-                        " WHERE o1 IS NULL OR o2 IS NULL"
-        );
+                        " WHERE o1 IS NULL OR o2 IS NULL");
         assertQuery(
                 "SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity WHERE lineitem.orderkey IS NULL OR orders.orderkey IS NULL",
                 "SELECT COUNT(*) FROM " +
@@ -2924,8 +2909,7 @@ public abstract class AbstractTestQueries
                         "    UNION ALL " +
                         "SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity " +
                         "    WHERE lineitem.orderkey IS NULL) " +
-                        " WHERE o1 IS NULL OR o2 IS NULL"
-        );
+                        " WHERE o1 IS NULL OR o2 IS NULL");
         assertQuery(
                 "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) FULL OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > d",
                 "VALUES (1, 2, 1, 1), (NULL, NULL, 1, 2), (1, 1, NULL, NULL)");
@@ -2969,8 +2953,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT COUNT(*) FROM lineitem JOIN (SELECT orderkey, orderdate shipdate FROM ORDERS) T USING (orderkey, shipdate)",
-                "SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate = orders.orderdate"
-        );
+                "SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate = orders.orderdate");
     }
 
     @Test
@@ -3937,8 +3920,7 @@ public abstract class AbstractTestQueries
 
         assertQuery(
                 "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY 1",
-                "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)"
-        );
+                "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)");
 
         // operands in group by
         assertQuery("SELECT COALESCE(orderkey, 1), count(*) FROM orders GROUP BY orderkey");
@@ -5145,8 +5127,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT COUNT(*) FROM (SELECT * FROM lineitem) join (SELECT * FROM orders) using (orderkey)",
-                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey"
-        );
+                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey");
     }
 
     @Test
@@ -5255,14 +5236,12 @@ public abstract class AbstractTestQueries
                         "         SELECT * FROM a" +
                         "    )" +
                         "SELECT * FROM b",
-                "SELECT 2"
-        );
-        assertQueryFails("" +
+                "SELECT 2");
+        assertQueryFails(
                         "WITH a AS (VALUES 1), " +
                         "     a AS (VALUES 2)" +
                         "SELECT * FROM a",
-                "line 1:28: WITH query name 'a' specified more than once"
-        );
+                "line 1:28: WITH query name 'a' specified more than once");
     }
 
     @Test
@@ -6146,8 +6125,7 @@ public abstract class AbstractTestQueries
                         "        SELECT custkey,orderkey, orderkey+1 from orders where orderkey=0" +
                         "        UNION ALL " +
                         "        SELECT custkey,orderkey,orderkey+1 from orders where orderkey<>0) " +
-                        "    GROUP BY orderkey)"
-        );
+                        "    GROUP BY orderkey)");
 
         assertQuery(
                 "SELECT count(orderkey), sum(sc) FROM (\n" +
@@ -6169,8 +6147,7 @@ public abstract class AbstractTestQueries
                         "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey=0\n" +
                         "        UNION ALL \n" +
                         "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey<>0) \n" +
-                        "    GROUP BY orderkey)"
-        );
+                        "    GROUP BY orderkey)");
     }
 
     @Test
@@ -7345,8 +7322,7 @@ public abstract class AbstractTestQueries
         // not exists
         assertQuery(
                 "SELECT count(*) FROM customer WHERE NOT EXISTS(SELECT * FROM orders WHERE orders.custkey=customer.custkey)",
-                "VALUES 500"
-        );
+                "VALUES 500");
     }
 
     @Test
@@ -8485,8 +8461,7 @@ public abstract class AbstractTestQueries
 
         assertQuery(session,
                 "EXECUTE my_query USING 10",
-                "SELECT 10 in (SELECT orderkey FROM orders)"
-        );
+                "SELECT 10 in (SELECT orderkey FROM orders)");
     }
 
     @Test
@@ -8655,8 +8630,7 @@ public abstract class AbstractTestQueries
                         parameter("subquery").of(
                                 "SELECT 1 WHERE false",
                                 "SELECT CAST(NULL AS INTEGER)",
-                                "VALUES (1), (NULL)"
-                        ),
+                                "VALUES (1), (NULL)"),
                         parameter("quantifier").of("ALL", "ANY"),
                         parameter("value").of("1", "NULL"),
                         parameter("operator").of("=", "!=", "<", ">", "<=", ">="));
@@ -8858,8 +8832,7 @@ public abstract class AbstractTestQueries
                         "WHERE (n1.nationkey > ( " +
                         "SELECT avg(nationkey) " +
                         "FROM nation n2 " +
-                        "WHERE n1.regionkey=n2.regionkey))"
-        );
+                        "WHERE n1.regionkey=n2.regionkey))");
         assertQuery(
                 "SELECT max(name), min(name), count(nationkey) + 1, count(nationkey) " +
                         "FROM (SELECT DISTINCT regionkey FROM region) as r1 " +

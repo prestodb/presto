@@ -175,8 +175,7 @@ public class TestExpressionRewriteRuleSet
     }
 
     private ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
-            (expression, context) -> new LongLiteral("0")
-    );
+            (expression, context) -> new LongLiteral("0"));
 
     private static final FunctionCall nowCall = new FunctionCall(QualifiedName.of("now"), ImmutableList.of());
     private ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> nowCall);

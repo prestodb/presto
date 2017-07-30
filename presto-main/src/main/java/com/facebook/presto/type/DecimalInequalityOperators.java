@@ -117,8 +117,7 @@ public class DecimalInequalityOperators
         return makeBinaryOperatorFunctionBuilder(operatorType)
                 .implementation(b -> b
                         .methods("opShortShort", "opLongLong")
-                        .withExtraParameters(constant(getResultMethodHandle))
-                )
+                        .withExtraParameters(constant(getResultMethodHandle)))
                 .build();
     }
 
@@ -140,8 +139,7 @@ public class DecimalInequalityOperators
                 .nullableArguments(true, true)
                 .nullFlags(true, true)
                 .implementation(b -> b
-                        .methods("distinctShortShort", "distinctLongLong")
-                )
+                        .methods("distinctShortShort", "distinctLongLong"))
                 .build();
     }
 
@@ -192,8 +190,7 @@ public class DecimalInequalityOperators
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)
                 .implementation(b -> b
-                        .methods("betweenShortShortShort", "betweenLongLongLong")
-                )
+                        .methods("betweenShortShortShort", "betweenLongLongLong"))
                 .build();
     }
 

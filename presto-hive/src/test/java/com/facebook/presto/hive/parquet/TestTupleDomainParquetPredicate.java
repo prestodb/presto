@@ -169,8 +169,7 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(
                 getDomain(REAL, 10, floatColumnStats(minimum, maximum)),
-                create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(minimum), true, (long) floatToRawIntBits(maximum), true)), false)
-        );
+                create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(minimum), true, (long) floatToRawIntBits(maximum), true)), false));
 
         assertEquals(getDomain(REAL, 10, floatColumnStats(maximum, minimum)), create(ValueSet.all(REAL), false));
     }

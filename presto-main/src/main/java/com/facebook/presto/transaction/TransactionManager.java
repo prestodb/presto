@@ -399,8 +399,7 @@ public class TransactionManager
                 catalogMetadata = new CatalogMetadata(
                         metadata.getConnectorId(), metadata.getConnectorMetadata(), metadata.getTransactionHandle(),
                         informationSchema.getConnectorId(), informationSchema.getConnectorMetadata(), informationSchema.getTransactionHandle(),
-                        systemTables.getConnectorId(), systemTables.getConnectorMetadata(), systemTables.getTransactionHandle()
-                );
+                        systemTables.getConnectorId(), systemTables.getConnectorMetadata(), systemTables.getTransactionHandle());
 
                 this.catalogMetadata.put(catalog.getConnectorId(), catalogMetadata);
                 this.catalogMetadata.put(catalog.getInformationSchemaId(), catalogMetadata);

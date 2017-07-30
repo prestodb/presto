@@ -99,8 +99,7 @@ public class HiveConnectorFactory
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
-                    }
-            );
+                    });
 
             Injector injector = app
                     .strictConfig()

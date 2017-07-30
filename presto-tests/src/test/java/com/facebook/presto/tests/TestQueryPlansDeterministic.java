@@ -98,7 +98,6 @@ public class TestQueryPlansDeterministic
                 "  AND i.quantity > 1.2 *\n" +
                 "    (SELECT avg(j.quantity)\n" +
                 "     FROM lineitem j\n" +
-                "    )\n"
-        );
+                "    )\n");
     }
 }

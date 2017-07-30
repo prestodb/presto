@@ -131,11 +131,10 @@ public class ColumnCardinalityCache
         // Submit tasks to the executor to fetch column cardinality, adding it to the Guava cache if necessary
         CompletionService<Pair<Long, AccumuloColumnConstraint>> executor = new ExecutorCompletionService<>(executorService);
         idxConstraintRangePairs.asMap().forEach((key, value) -> executor.submit(() -> {
-                    long cardinality = getColumnCardinality(schema, table, auths, key.getFamily(), key.getQualifier(), value);
-                    LOG.debug("Cardinality for column %s is %s", key.getName(), cardinality);
-                    return Pair.of(cardinality, key);
-                }
-        ));
+            long cardinality = getColumnCardinality(schema, table, auths, key.getFamily(), key.getQualifier(), value);
+            LOG.debug("Cardinality for column %s is %s", key.getName(), cardinality);
+            return Pair.of(cardinality, key);
+        }));
 
         // Create a multi map sorted by cardinality
         ListMultimap<Long, AccumuloColumnConstraint> cardinalityToConstraints = MultimapBuilder.treeKeys().arrayListValues().build();

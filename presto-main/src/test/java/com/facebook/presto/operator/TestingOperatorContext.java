@@ -35,20 +35,17 @@ public class TestingOperatorContext
                 taskContext,
                 executor,
                 false,
-                false
-        );
+                false);
 
         DriverContext driverContext = new DriverContext(
                 pipelineContext,
                 executor,
-                false
-        );
+                false);
 
         OperatorContext operatorContext = driverContext.addOperatorContext(
                 1,
                 new PlanNodeId("test"),
-                "operator type"
-        );
+                "operator type");
 
         return operatorContext;
     }

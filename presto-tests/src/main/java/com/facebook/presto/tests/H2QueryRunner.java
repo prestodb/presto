@@ -157,8 +157,7 @@ public class H2QueryRunner
                 handle.createQuery(sql)
                         .map(rowMapper(resultTypes))
                         .list(),
-                resultTypes
-        );
+                resultTypes);
 
         // H2 produces dates in the JVM time zone instead of the session timezone
         materializedRows = materializedRows.toTimeZone(DateTimeZone.getDefault(), getDateTimeZone(session.getTimeZoneKey()));

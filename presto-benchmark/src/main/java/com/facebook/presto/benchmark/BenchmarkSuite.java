@@ -98,8 +98,7 @@ public class BenchmarkSuite
 
                 new SqlApproximateCountDistinctLongBenchmark(localQueryRunner),
                 new SqlApproximateCountDistinctDoubleBenchmark(localQueryRunner),
-                new SqlApproximateCountDistinctVarBinaryBenchmark(localQueryRunner)
-        );
+                new SqlApproximateCountDistinctVarBinaryBenchmark(localQueryRunner));
     }
 
     private final LocalQueryRunner localQueryRunner;
@@ -141,10 +140,7 @@ public class BenchmarkSuite
                                         new JsonBenchmarkResultWriter(jsonOut),
                                         new JsonAvgBenchmarkResultWriter(jsonAvgOut),
                                         new SimpleLineBenchmarkResultWriter(csvOut),
-                                        new OdsBenchmarkResultWriter("presto.benchmark." + benchmark.getBenchmarkName(), odsOut)
-                                )
-                        )
-                );
+                                        new OdsBenchmarkResultWriter("presto.benchmark." + benchmark.getBenchmarkName(), odsOut))));
             }
         }
     }

@@ -79,8 +79,7 @@ public class KafkaConnectorFactory
                         else {
                             binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).to(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
                         }
-                    }
-            );
+                    });
 
             Injector injector = app.strictConfig()
                     .doNotInitializeLogging()

@@ -82,9 +82,7 @@ public class Insert
                 .executeQuery(sql);
 
         assertThat(queryResult).contains(
-                row(Long.valueOf("-9223372036854775807"), Short.MIN_VALUE, Integer.MIN_VALUE, Double.MIN_VALUE, "a   ", "aa", Double.MIN_VALUE, Date.valueOf("1970-01-01")
-                )
-        );
+                row(Long.valueOf("-9223372036854775807"), Short.MIN_VALUE, Integer.MIN_VALUE, Double.MIN_VALUE, "a   ", "aa", Double.MIN_VALUE, Date.valueOf("1970-01-01")));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
@@ -106,9 +104,7 @@ public class Insert
 
         assertThat(queryResult).contains(
                 row(Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Double.MAX_VALUE, "aaaa", "aaaaaa", Double.valueOf("12345678912.3456756"),
-                        Date.valueOf("9999-12-31")
-                )
-        );
+                        Date.valueOf("9999-12-31")));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
@@ -126,9 +122,6 @@ public class Insert
         QueryResult queryResult = onSqlServer()
                 .executeQuery(sql);
 
-        assertThat(queryResult).contains(
-                row(null, null, null, null, null, null, null, null
-                )
-        );
+        assertThat(queryResult).contains(row(null, null, null, null, null, null, null, null));
     }
 }

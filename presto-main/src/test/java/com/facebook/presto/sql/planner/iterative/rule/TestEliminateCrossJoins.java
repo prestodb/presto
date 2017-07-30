@@ -238,12 +238,10 @@ public class TestEliminateCrossJoins
             return p.join(INNER,
                     p.join(secondJoinType,
                             p.values(axSymbol),
-                            p.values(bySymbol)
-                    ),
+                            p.values(bySymbol)),
                     p.values(cxSymbol, cySymbol),
                     new EquiJoinClause(cxSymbol, axSymbol),
-                    new EquiJoinClause(cySymbol, bySymbol)
-            );
+                    new EquiJoinClause(cySymbol, bySymbol));
         };
     }
 

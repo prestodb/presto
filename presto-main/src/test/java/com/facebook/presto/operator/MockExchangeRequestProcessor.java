@@ -120,8 +120,7 @@ public class MockExchangeRequestProcessor
                         PRESTO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()),
                         PRESTO_PAGE_TOKEN, String.valueOf(result.getToken()),
                         PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
-                        PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())
-                ),
+                        PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())),
                 bytes);
     }
 

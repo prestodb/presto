@@ -888,8 +888,7 @@ public final class JsonUtil
                     return new MapBlockBuilderAppender(
                             createBlockBuilderAppender(mapType.getKeyType()),
                             createBlockBuilderAppender(mapType.getValueType()),
-                            mapType.getKeyType()
-                    );
+                            mapType.getKeyType());
                 default:
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
             }

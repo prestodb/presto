@@ -123,8 +123,7 @@ final class DescribeInputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.of(ordering(ascending("Position"))),
-                    limit
-            );
+                    limit);
         }
 
         private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)

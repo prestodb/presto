@@ -41,8 +41,7 @@ public class TestPrestoThriftBigint
     {
         PrestoThriftBlock columnsData = longColumn(
                 new boolean[] {false, true, false, false, false, false, true},
-                new long[] {2, 0, 1, 3, 8, 4, 0}
-        );
+                new long[] {2, 0, 1, 3, 8, 4, 0});
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, null, 1L, 3L, 8L, 4L, null));
     }
@@ -52,8 +51,7 @@ public class TestPrestoThriftBigint
     {
         PrestoThriftBlock columnsData = longColumn(
                 new boolean[] {true, true, true, true, true, true, true},
-                null
-        );
+                null);
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(null, null, null, null, null, null, null));
     }
@@ -63,8 +61,7 @@ public class TestPrestoThriftBigint
     {
         PrestoThriftBlock columnsData = longColumn(
                 new boolean[] {true, true, true, true, true, true, true},
-                new long[] {0, 0, 0, 0, 0, 0, 0}
-        );
+                new long[] {0, 0, 0, 0, 0, 0, 0});
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(null, null, null, null, null, null, null));
     }
@@ -75,8 +72,7 @@ public class TestPrestoThriftBigint
     {
         PrestoThriftBlock columnsData = longColumn(
                 null,
-                new long[] {2, 7, 1, 3, 8, 4, 5}
-        );
+                new long[] {2, 7, 1, 3, 8, 4, 5});
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, 7L, 1L, 3L, 8L, 4L, 5L));
     }
@@ -87,8 +83,7 @@ public class TestPrestoThriftBigint
     {
         PrestoThriftBlock columnsData = longColumn(
                 new boolean[] {false, false, false, false, false, false, false},
-                new long[] {2, 7, 1, 3, 8, 4, 5}
-        );
+                new long[] {2, 7, 1, 3, 8, 4, 5});
         Block actual = columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, 7L, 1L, 3L, 8L, 4L, 5L));
     }

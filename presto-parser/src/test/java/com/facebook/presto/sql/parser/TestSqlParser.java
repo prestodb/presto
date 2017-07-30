@@ -275,8 +275,7 @@ public class TestSqlParser
     {
         assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
                 new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))),
-                new LongLiteral("1"))
-        );
+                new LongLiteral("1")));
         try {
             assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", null);
             fail();
@@ -453,8 +452,7 @@ public class TestSqlParser
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty()
-        );
+                Optional.empty());
     }
 
     @Test
@@ -966,8 +964,7 @@ public class TestSqlParser
                                         new SubscriptExpression(new DereferenceExpression(new Identifier("col1"), "f1"), new LongLiteral("0")),
                                         new Identifier("col2"),
                                         new DereferenceExpression(new DereferenceExpression(new SubscriptExpression(new Identifier("col3"), new LongLiteral("2")), "f2"), "f3"),
-                                        new SubscriptExpression(new Identifier("col4"), new LongLiteral("4"))
-                                ),
+                                        new SubscriptExpression(new Identifier("col4"), new LongLiteral("4"))),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -982,8 +979,7 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), "col0")
-                                ),
+                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), "col0")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -1087,9 +1083,7 @@ public class TestSqlParser
                                         DereferenceExpression.from(QualifiedName.of("b")),
                                         new GroupingOperation(
                                                 Optional.empty(),
-                                                ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b"))
-                                        )
-                                ),
+                                                ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")))),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedName.of("a")), ImmutableList.of(QualifiedName.of("b"))))))),
@@ -1706,8 +1700,7 @@ public class TestSqlParser
                                         Join.Type.CROSS,
                                         new Table(QualifiedName.of("a")),
                                         new Table(QualifiedName.of("b")),
-                                        Optional.empty()
-                                ),
+                                        Optional.empty()),
                                 new Table(QualifiedName.of("c")),
                                 Optional.of(new JoinOn(BooleanLiteral.TRUE_LITERAL)))));
         assertStatement("SELECT * FROM a CROSS JOIN b NATURAL JOIN c CROSS JOIN d NATURAL JOIN e",
@@ -1723,13 +1716,11 @@ public class TestSqlParser
                                                         Join.Type.CROSS,
                                                         new Table(QualifiedName.of("a")),
                                                         new Table(QualifiedName.of("b")),
-                                                        Optional.empty()
-                                                ),
+                                                        Optional.empty()),
                                                 new Table(QualifiedName.of("c")),
                                                 Optional.of(new NaturalJoin())),
                                         new Table(QualifiedName.of("d")),
-                                        Optional.empty()
-                                ),
+                                        Optional.empty()),
                                 new Table(QualifiedName.of("e")),
                                 Optional.of(new NaturalJoin()))));
     }
@@ -1864,8 +1855,7 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new AtTimeZone(new TimestampLiteral("2012-10-31 01:00 UTC"), new StringLiteral("America/Los_Angeles"))
-                                ),
+                                        new AtTimeZone(new TimestampLiteral("2012-10-31 01:00 UTC"), new StringLiteral("America/Los_Angeles"))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -1883,15 +1873,13 @@ public class TestSqlParser
         assertExpression("x -> sin(x)",
                 new LambdaExpression(
                         ImmutableList.of(new LambdaArgumentDeclaration("x")),
-                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new Identifier("x")))
-                ));
+                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new Identifier("x")))));
         assertExpression("(x, y) -> mod(x, y)",
                 new LambdaExpression(
                         ImmutableList.of(new LambdaArgumentDeclaration("x"), new LambdaArgumentDeclaration("y")),
                         new FunctionCall(
                                 QualifiedName.of("mod"),
-                                ImmutableList.of(new Identifier("x"), new Identifier("y")))
-                ));
+                                ImmutableList.of(new Identifier("x"), new Identifier("y")))));
     }
 
     @Test
@@ -2057,9 +2045,7 @@ public class TestSqlParser
                                                     new LongLiteral("0")),
                                             new ComparisonExpression(LESS_THAN,
                                                     new Identifier("field"),
-                                                    new LongLiteral("0"))
-                                    )
-                            )));
+                                                    new LongLiteral("0"))))));
         }
     }
 
@@ -2119,22 +2105,19 @@ public class TestSqlParser
                         LESS_THAN,
                         QuantifiedComparisonExpression.Quantifier.ANY,
                         identifier("col1"),
-                        new SubqueryExpression(simpleQuery(selectList(new SingleColumn(identifier("col2"))), table(QualifiedName.of("table1"))))
-                ));
+                        new SubqueryExpression(simpleQuery(selectList(new SingleColumn(identifier("col2"))), table(QualifiedName.of("table1"))))));
         assertExpression("col1 = ALL (VALUES ROW(1), ROW(2))",
                 new QuantifiedComparisonExpression(
                         ComparisonExpressionType.EQUAL,
                         QuantifiedComparisonExpression.Quantifier.ALL,
                         identifier("col1"),
-                        new SubqueryExpression(query(values(row(new LongLiteral("1")), row(new LongLiteral("2")))))
-                ));
+                        new SubqueryExpression(query(values(row(new LongLiteral("1")), row(new LongLiteral("2")))))));
         assertExpression("col1 >= SOME (SELECT 10)",
                 new QuantifiedComparisonExpression(
                         ComparisonExpressionType.GREATER_THAN_OR_EQUAL,
                         QuantifiedComparisonExpression.Quantifier.SOME,
                         identifier("col1"),
-                        new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))
-                ));
+                        new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))));
     }
 
     private static void assertCast(String type)

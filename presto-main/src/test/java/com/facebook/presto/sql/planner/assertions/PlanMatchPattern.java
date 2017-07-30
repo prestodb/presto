@@ -380,8 +380,7 @@ public final class PlanMatchPattern
     private static PlanMatchPattern values(
             Map<String, Integer> aliasToIndex,
             Optional<Integer> expectedOutputSymbolCount,
-            Optional<List<List<Expression>>> expectedRows
-    )
+            Optional<List<List<Expression>>> expectedRows)
     {
         return node(ValuesNode.class).with(new ValuesMatcher(aliasToIndex, expectedOutputSymbolCount, expectedRows));
     }

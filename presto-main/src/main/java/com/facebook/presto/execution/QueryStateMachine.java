@@ -764,8 +764,7 @@ public class QueryStateMachine
                 outputStage.getStageStats(),
                 ImmutableList.of(), // Remove the tasks
                 ImmutableList.of(), // Remove the substages
-                outputStage.getFailureCause()
-        );
+                outputStage.getFailureCause());
 
         QueryInfo prunedQueryInfo = new QueryInfo(
                 queryInfo.getQueryId(),

@@ -103,8 +103,7 @@ public class HiveSplitManager
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.getRecursiveDirWalkerEnabled()
-        );
+                hiveClientConfig.getRecursiveDirWalkerEnabled());
     }
 
     public HiveSplitManager(

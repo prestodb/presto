@@ -70,8 +70,7 @@ public class TestTransformExistsApplyToScalarLateralJoin
                         p.lateral(
                                 ImmutableList.of(p.symbol("a")),
                                 p.values(p.symbol("a")),
-                                p.values(p.symbol("a")))
-                )
+                                p.values(p.symbol("a"))))
                 .doesNotFire();
     }
 
@@ -85,8 +84,7 @@ public class TestTransformExistsApplyToScalarLateralJoin
                                 Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT \"a\")")),
                                 ImmutableList.of(),
                                 p.values(),
-                                p.values(p.symbol("a")))
-                )
+                                p.values(p.symbol("a"))))
                 .matches(lateral(
                         ImmutableList.of(),
                         values(ImmutableMap.of()),

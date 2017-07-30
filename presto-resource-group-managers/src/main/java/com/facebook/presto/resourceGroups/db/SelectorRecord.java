@@ -59,8 +59,7 @@ public class SelectorRecord
             return new SelectorRecord(
                     resultSet.getLong("resource_group_id"),
                     Optional.ofNullable(resultSet.getString("user_regex")).map(Pattern::compile),
-                    Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile)
-            );
+                    Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile));
         }
     }
 }

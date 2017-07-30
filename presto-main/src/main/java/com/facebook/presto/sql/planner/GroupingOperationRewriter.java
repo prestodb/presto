@@ -96,8 +96,7 @@ public final class GroupingOperationRewriter
             List<Expression> newGroupingArguments = ImmutableList.of(
                     groupIdSymbol.get().toSymbolReference(),
                     new Cast(new ArrayConstructor(groupingOrdinals), ListLiteralType.NAME),
-                    new Cast(new ArrayConstructor(groupingSetOrdinals.stream().map(ArrayConstructor::new).collect(toImmutableList())), ListLiteralType.NAME)
-            );
+                    new Cast(new ArrayConstructor(groupingSetOrdinals.stream().map(ArrayConstructor::new).collect(toImmutableList())), ListLiteralType.NAME));
 
             FunctionCall rewritten = new FunctionCall(
                     expression.getLocation().get(),
@@ -106,8 +105,7 @@ public final class GroupingOperationRewriter
             List<TypeSignatureProvider> functionArgumentTypes = Arrays.asList(
                     new TypeSignatureProvider(BIGINT.getTypeSignature()),
                     new TypeSignatureProvider(ListLiteralType.LIST_LITERAL.getTypeSignature()),
-                    new TypeSignatureProvider(ListLiteralType.LIST_LITERAL.getTypeSignature())
-            );
+                    new TypeSignatureProvider(ListLiteralType.LIST_LITERAL.getTypeSignature()));
             resolveFunction(rewritten, functionArgumentTypes, metadata.getFunctionRegistry());
 
             return rewritten;

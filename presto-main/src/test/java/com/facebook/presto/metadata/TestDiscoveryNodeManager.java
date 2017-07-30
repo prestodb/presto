@@ -72,8 +72,7 @@ public class TestDiscoveryNodeManager
                 coordinator);
         inactiveNodes = ImmutableList.of(
                 new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false),
-                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false)
-        );
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false));
 
         List<ServiceDescriptor> descriptors = new ArrayList<>();
         for (PrestoNode node : Iterables.concat(activeNodes, inactiveNodes)) {

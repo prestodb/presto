@@ -44,8 +44,7 @@ public interface H2ResourceGroupsDao
             @Bind("hard_cpu_limit") String hardCpuLimit,
             @Bind("queued_time_limit") String queuedTimeLimit,
             @Bind("running_time_limit") String runningTimeLimit,
-            @Bind("parent") Long parent
-    );
+            @Bind("parent") Long parent);
 
     @SqlUpdate("UPDATE resource_groups SET\n" +
             " resource_group_id = :resource_group_id\n" +

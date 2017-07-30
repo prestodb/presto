@@ -130,12 +130,10 @@ public class CursorProcessorCompiler
                         .comment("completedPositions < count")
                         .getVariable(completedPositionsVariable)
                         .getVariable(count)
-                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
-                )
+                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new BytecodeBlock()
                         .comment("completedPositions++")
-                        .incrementVariable(completedPositionsVariable, (byte) 1)
-                );
+                        .incrementVariable(completedPositionsVariable, (byte) 1));
 
         BytecodeBlock forLoopBody = new BytecodeBlock()
                 .comment("if (pageBuilder.isFull()) break;")

@@ -1096,8 +1096,7 @@ public class RcFileTester
                 Text.class,
                 codecName.isPresent(),
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                () -> { }
-        );
+                () -> { });
     }
 
     private static SettableStructObjectInspector createSettableStructObjectInspector(String name, ObjectInspector objectInspector)

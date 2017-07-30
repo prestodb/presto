@@ -470,8 +470,7 @@ public class TestCassandraIntegrationSmokeTest
                 null,
                 null,
                 null,
-                null
-        ));
+                null));
 
         // insert null for all datatypes
         execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
@@ -551,8 +550,7 @@ public class TestCassandraIntegrationSmokeTest
                 uuidType,
                 createUnboundedVarcharType(),
                 createUnboundedVarcharType(),
-                createUnboundedVarcharType()
-        ));
+                createUnboundedVarcharType()));
 
         List<MaterializedRow> sortedRows = result.getMaterializedRows().stream()
                 .sorted((o1, o2) -> o1.getField(1).toString().compareTo(o2.getField(1).toString()))
@@ -577,8 +575,7 @@ public class TestCassandraIntegrationSmokeTest
                     String.format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
                     String.format("[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
                     String.format("{%d:%d,%d:%d}", rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
-                    "[false,true]"
-            ));
+                    "[false,true]"));
         }
     }
 

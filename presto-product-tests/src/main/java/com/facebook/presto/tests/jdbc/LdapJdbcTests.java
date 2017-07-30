@@ -78,8 +78,7 @@ public abstract class LdapJdbcTests
                 Arrays.asList(
                         AMERICA_ORG, ASIA_ORG,
                         DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER
-                ));
+                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER));
     }
 
     protected void expectQueryToFail(String user, String password, String message)
