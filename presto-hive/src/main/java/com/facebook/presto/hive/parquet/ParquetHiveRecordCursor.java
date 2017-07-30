@@ -168,8 +168,7 @@ public class ParquetHiveRecordCursor
                 columns,
                 useParquetColumnNames,
                 predicatePushdownEnabled,
-                effectivePredicate
-        );
+                effectivePredicate);
     }
 
     @Override

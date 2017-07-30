@@ -54,8 +54,7 @@ public class TestFieldSetFilteringRecordSet
                                         packDateTimeWithZone(100, getTimeZoneKeyForOffset(234)),
                                         // test structural type
                                         arrayBlockOf(BIGINT, 12, 34, 56),
-                                        arrayBlockOf(BIGINT, 12, 34, 56)
-                                ))),
+                                        arrayBlockOf(BIGINT, 12, 34, 56)))),
                 ImmutableList.of(ImmutableSet.of(0, 1), ImmutableSet.of(2, 3), ImmutableSet.of(4, 5)));
         RecordCursor recordCursor = fieldSetFilteringRecordSet.cursor();
         assertTrue(recordCursor.advanceNextPosition());

@@ -178,8 +178,7 @@ public class TestFunctionRegistry
                 .among(
                         functionSignature("decimal(p,s)", "double"),
                         functionSignature("decimal(p,s)", "decimal(p,s)"),
-                        functionSignature("double", "double")
-                )
+                        functionSignature("double", "double"))
                 .forParameters("bigint", "bigint")
                 .returns(functionSignature("decimal(19,0)", "decimal(19,0)"));
     }
@@ -191,8 +190,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature("decimal(p,s)", "decimal(p,s)"),
-                        functionSignature(ImmutableList.of("T", "T"), "boolean", ImmutableList.of(typeVariable("T")))
-                )
+                        functionSignature(ImmutableList.of("T", "T"), "boolean", ImmutableList.of(typeVariable("T"))))
                 .forParameters("decimal(3,1)", "decimal(3,1)")
                 .returns(functionSignature("decimal(3,1)", "decimal(3,1)"));
     }
@@ -204,8 +202,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature("decimal(p,s)", "double"),
-                        functionSignature("double", "decimal(p,s)")
-                )
+                        functionSignature("double", "decimal(p,s)"))
                 .forParameters("bigint", "bigint")
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
@@ -218,8 +215,7 @@ public class TestFunctionRegistry
                 .among(
                         functionSignature("array(decimal(p,s))", "array(double)"),
                         functionSignature("array(decimal(p,s))", "array(decimal(p,s))"),
-                        functionSignature("array(double)", "array(double)")
-                )
+                        functionSignature("array(double)", "array(double)"))
                 .forParameters("array(bigint)", "array(bigint)")
                 .returns(functionSignature("array(decimal(19,0))", "array(decimal(19,0))"));
     }
@@ -231,16 +227,14 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature("double", "double", "double"),
-                        functionSignature("decimal(p,s)").setVariableArity(true)
-                )
+                        functionSignature("decimal(p,s)").setVariableArity(true))
                 .forParameters("bigint", "bigint", "bigint")
                 .returns(functionSignature("decimal(19,0)", "decimal(19,0)", "decimal(19,0)"));
 
         assertThatResolveFunction()
                 .among(
                         functionSignature("double", "double", "double"),
-                        functionSignature("bigint").setVariableArity(true)
-                )
+                        functionSignature("bigint").setVariableArity(true))
                 .forParameters("bigint", "bigint", "bigint")
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
@@ -257,8 +251,7 @@ public class TestFunctionRegistry
                                 "boolean",
                                 ImmutableList.of(Signature.withVariadicBound("T1", "decimal"),
                                         Signature.withVariadicBound("T2", "decimal"),
-                                        Signature.withVariadicBound("T3", "decimal")))
-                )
+                                        Signature.withVariadicBound("T3", "decimal"))))
                 .forParameters("unknown", "bigint", "bigint")
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
@@ -269,8 +262,7 @@ public class TestFunctionRegistry
     {
         assertThatResolveFunction()
                 .among(
-                        functionSignature("bigint")
-                )
+                        functionSignature("bigint"))
                 .forParameters("unknown")
                 .returns(functionSignature("bigint"));
 
@@ -278,8 +270,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature("bigint"),
-                        functionSignature("integer")
-                )
+                        functionSignature("integer"))
                 .forParameters("unknown")
                 .returns(functionSignature("integer"));
 
@@ -287,8 +278,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature("bigint", "bigint"),
-                        functionSignature("integer", "integer")
-                )
+                        functionSignature("integer", "integer"))
                 .forParameters("unknown", "bigint")
                 .returns(functionSignature("bigint", "bigint"));
 
@@ -296,8 +286,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature(ImmutableList.of("JoniRegExp"), "boolean"),
-                        functionSignature(ImmutableList.of("integer"), "boolean")
-                )
+                        functionSignature(ImmutableList.of("integer"), "boolean"))
                 .forParameters("unknown")
                 // any function can be selected, but to make it deterministic we sort function signatures alphabetically
                 .returns(functionSignature("integer"));
@@ -306,8 +295,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature(ImmutableList.of("JoniRegExp"), "JoniRegExp"),
-                        functionSignature(ImmutableList.of("integer"), "integer")
-                )
+                        functionSignature(ImmutableList.of("integer"), "integer"))
                 .forParameters("unknown")
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }

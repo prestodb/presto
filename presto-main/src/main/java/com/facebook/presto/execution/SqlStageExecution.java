@@ -439,8 +439,7 @@ public final class SqlStageExecution
                         executionFailureInfo.getStack(),
                         executionFailureInfo.getErrorLocation(),
                         REMOTE_HOST_GONE.toErrorCode(),
-                        executionFailureInfo.getRemoteHost()
-                );
+                        executionFailureInfo.getRemoteHost());
             }
             else {
                 return executionFailureInfo;

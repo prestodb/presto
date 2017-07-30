@@ -63,8 +63,7 @@ public class KerberosHiveMetastoreAuthentication
 
             Map<String, String> saslProps = ImmutableMap.of(
                     Sasl.QOP, "auth",
-                    Sasl.SERVER_AUTH, "true"
-            );
+                    Sasl.SERVER_AUTH, "true");
 
             TTransport saslTransport = new TSaslClientTransport(
                     KERBEROS.getMechanismName(),

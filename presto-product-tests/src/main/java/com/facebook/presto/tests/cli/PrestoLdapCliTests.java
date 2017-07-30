@@ -94,8 +94,7 @@ public class PrestoLdapCliTests
                         Arrays.asList(
                                 AMERICA_ORG, ASIA_ORG,
                                 DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                                DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS
-                        )),
+                                DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS)),
                 immutableTable(NATION));
     }
 

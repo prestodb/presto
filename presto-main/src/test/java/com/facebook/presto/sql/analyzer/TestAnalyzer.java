@@ -1239,8 +1239,7 @@ public class TestAnalyzer
         assertFails(
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
                 ".* must be an aggregate expression or appear in GROUP BY clause",
-                "SELECT apply(1, x -> y + transform(array[1], z -> x)[1]) FROM (VALUES (1, 2)) t(x,y) GROUP BY y + transform(array[1], z -> x)[1]"
-        );
+                "SELECT apply(1, x -> y + transform(array[1], z -> x)[1]) FROM (VALUES (1, 2)) t(x,y) GROUP BY y + transform(array[1], z -> x)[1]");
     }
 
     @Test

@@ -218,12 +218,10 @@ public class LambdaBytecodeGenerator
                         ImmutableList.of(
                                 getType(getSingleApplyMethod(lambdaInterface)),
                                 compiledLambda.getLambdaAsmHandle(),
-                                instantiatedMethodAsmType
-                        ),
+                                instantiatedMethodAsmType),
                         "apply",
                         type(lambdaInterface),
-                        captureVariables)
-        );
+                        captureVariables));
         return block;
     }
 

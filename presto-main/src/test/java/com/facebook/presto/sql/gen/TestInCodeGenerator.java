@@ -55,11 +55,9 @@ public class TestInCodeGenerator
                         CAST,
                         SCALAR,
                         INTEGER.getTypeSignature(),
-                        DOUBLE.getTypeSignature()
-                ),
+                        DOUBLE.getTypeSignature()),
                 INTEGER,
-                Collections.singletonList(constant(12345678901234.0, DOUBLE))
-        ));
+                Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
         for (int i = 6; i <= 32; ++i) {
@@ -87,11 +85,9 @@ public class TestInCodeGenerator
                         CAST,
                         SCALAR,
                         BIGINT.getTypeSignature(),
-                        DOUBLE.getTypeSignature()
-                ),
+                        DOUBLE.getTypeSignature()),
                 BIGINT,
-                Collections.singletonList(constant(12345678901234.0, DOUBLE))
-        ));
+                Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
         for (long i = 6; i <= 32; ++i) {

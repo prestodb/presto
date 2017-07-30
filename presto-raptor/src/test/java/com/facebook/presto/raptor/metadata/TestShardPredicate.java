@@ -47,8 +47,7 @@ public class TestShardPredicate
     {
         String uuid = randomUUID().toString();
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                shardUuidColumnHandle("test"), singleValue(VARCHAR, utf8Slice(uuid))
-        ));
+                shardUuidColumnHandle("test"), singleValue(VARCHAR, utf8Slice(uuid))));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain, bucketed);
 

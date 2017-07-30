@@ -176,8 +176,7 @@ public class PlanOptimizers
                 new IterativeOptimizer(
                         stats,
                         ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions()),
-                        new CanonicalizeExpressions().rules()
-                ),
+                        new CanonicalizeExpressions().rules()),
                 new IterativeOptimizer(
                         stats,
                         ImmutableSet.<Rule<?>>builder()
@@ -199,14 +198,12 @@ public class PlanOptimizers
                                         new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar()))
-                                .build()
-                ),
+                                .build()),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         stats,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())
-                ),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
@@ -232,8 +229,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarApplyNodes(),
                                 new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
-                                new ImplementFilteredAggregations())
-                ),
+                                new ImplementFilteredAggregations())),
                 new TransformCorrelatedNoAggregationSubqueryToJoin(),
                 new TransformCorrelatedSingleRowSubqueryToProject(),
                 new PredicatePushDown(metadata, sqlParser),
@@ -242,8 +238,7 @@ public class PlanOptimizers
                         stats,
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new PushAggregationThroughOuterJoin())
-                ),
+                                new PushAggregationThroughOuterJoin())),
                 inlineProjections,
                 new SimplifyExpressions(metadata, sqlParser), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
@@ -265,14 +260,12 @@ public class PlanOptimizers
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
                         stats,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())
-                ),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new MetadataQueryOptimizer(metadata),
                 new IterativeOptimizer(
                         stats,
                         ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins()), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
-                        ImmutableSet.of(new EliminateCrossJoins())
-                ),
+                        ImmutableSet.of(new EliminateCrossJoins())),
                 new PredicatePushDown(metadata, sqlParser),
                 projectionPushDown);
 
@@ -297,8 +290,7 @@ public class PlanOptimizers
                     new IterativeOptimizer(
                             stats,
                             ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion()), // Must run before AddExchanges
-                            ImmutableSet.of(new PushTableWriteThroughUnion())
-                    ));
+                            ImmutableSet.of(new PushTableWriteThroughUnion())));
             builder.add(new AddExchanges(metadata, sqlParser));
         }
 
@@ -311,8 +303,7 @@ public class PlanOptimizers
         builder.add(
                 new IterativeOptimizer(
                         stats,
-                        ImmutableSet.of(new RemoveEmptyDelete()) // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
-                ));
+                        ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
 
         builder.add(new PredicatePushDown(metadata, sqlParser)); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(projectionPushDown);

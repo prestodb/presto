@@ -130,8 +130,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                 getExpectedTableDescription(true, true),
                 getExpectedTableDescription(true, false),
                 getExpectedTableDescription(false, true),
-                getExpectedTableDescription(false, false)
-        );
+                getExpectedTableDescription(false, false));
         assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
     }
 

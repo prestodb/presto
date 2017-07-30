@@ -89,9 +89,7 @@ public class TestMergeAdjacentWindows
                                 p.window(
                                         newWindowNodeSpecification(p, "b"),
                                         ImmutableMap.of(p.symbol("sum_1"), newWindowNodeFunction("sum", "b")),
-                                        p.values(p.symbol("b"))
-                                )
-                        ))
+                                        p.values(p.symbol("b")))))
                 .doesNotFire();
     }
 
@@ -108,10 +106,7 @@ public class TestMergeAdjacentWindows
                                         p.window(
                                                 newWindowNodeSpecification(p, "a"),
                                                 ImmutableMap.of(p.symbol("avg_1"), newWindowNodeFunction("avg", "a")),
-                                                p.values(p.symbol("a"))
-                                        )
-                                )
-                        ))
+                                                p.values(p.symbol("a"))))))
                 .doesNotFire();
     }
 
@@ -129,9 +124,7 @@ public class TestMergeAdjacentWindows
                                 p.window(
                                         newWindowNodeSpecification(p, "a"),
                                         ImmutableMap.of(p.symbol("avg_2"), newWindowNodeFunction("avg", windowA, "a")),
-                                        p.values(p.symbol("a"))
-                                )
-                        ))
+                                        p.values(p.symbol("a")))))
                 .doesNotFire();
     }
 
@@ -149,9 +142,7 @@ public class TestMergeAdjacentWindows
                                 p.window(
                                         newWindowNodeSpecification(p, "b"),
                                         ImmutableMap.of(p.symbol("avg_2"), newWindowNodeFunction("avg", windowA, "a")),
-                                        p.values(p.symbol("a"), p.symbol("b"))
-                                )
-                        ))
+                                        p.values(p.symbol("a"), p.symbol("b")))))
                 .doesNotFire();
     }
 
@@ -173,9 +164,7 @@ public class TestMergeAdjacentWindows
                                 p.window(
                                         newWindowNodeSpecification(p, "a"),
                                         ImmutableMap.of(p.symbol("sum_1"), newWindowNodeFunction("sum", windowA, "a")),
-                                        p.values(p.symbol("a"))
-                                )
-                        ))
+                                        p.values(p.symbol("a")))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)

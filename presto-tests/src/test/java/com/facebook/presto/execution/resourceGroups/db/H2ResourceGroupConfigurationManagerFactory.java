@@ -51,8 +51,7 @@ public class H2ResourceGroupConfigurationManagerFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new H2ResourceGroupsModule(),
-                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager())
-            );
+                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
             Injector injector = app
                     .strictConfig()

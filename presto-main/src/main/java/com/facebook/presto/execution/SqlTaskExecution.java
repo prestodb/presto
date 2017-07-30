@@ -126,8 +126,7 @@ public class SqlTaskExecution
                 planner,
                 taskExecutor,
                 queryMonitor,
-                notificationExecutor
-        );
+                notificationExecutor);
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             task.start();

@@ -144,8 +144,7 @@ public final class FunctionAssertions
             createStringsBlock((String) null),
             createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
             createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
-            createIntsBlock(1234)
-    );
+            createIntsBlock(1234));
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 

@@ -144,9 +144,7 @@ public class TestAllDatatypesFromHiveConnector
                         "ala ma kot",
                         "ala ma    ",
                         true,
-                        "kot binarny".getBytes()
-                )
-        );
+                        "kot binarny".getBytes()));
     }
 
     @Requires(OrcRequirements.class)
@@ -230,8 +228,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_varchar", "varchar(10)"),
                 row("c_char", "char(10)"),
                 row("c_boolean", "boolean"),
-                row("c_binary", "varbinary")
-        );
+                row("c_binary", "varbinary"));
     }
 
     private void assertColumnTypes(QueryResult queryResult)
@@ -253,8 +250,7 @@ public class TestAllDatatypesFromHiveConnector
                     LONGNVARCHAR,
                     CHAR,
                     BOOLEAN,
-                    LONGVARBINARY
-            );
+                    LONGVARBINARY);
         }
         else if (usingTeradataJdbcDriver(connection)) {
             assertThat(queryResult).hasColumns(
@@ -272,8 +268,7 @@ public class TestAllDatatypesFromHiveConnector
                     VARCHAR,
                     CHAR,
                     BOOLEAN,
-                    VARBINARY
-            );
+                    VARBINARY);
         }
         else {
             throw new IllegalStateException();
@@ -318,8 +313,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_varchar", "varchar(10)"),
                 row("c_char", "char(10)"),
                 row("c_boolean", "boolean"),
-                row("c_binary", "varbinary")
-        );
+                row("c_binary", "varbinary"));
 
         QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
         assertThat(queryResult).hasColumns(
@@ -336,8 +330,7 @@ public class TestAllDatatypesFromHiveConnector
                 LONGNVARCHAR,
                 CHAR,
                 BOOLEAN,
-                LONGVARBINARY
-        );
+                LONGVARBINARY);
 
         assertThat(queryResult).containsOnly(
                 row(

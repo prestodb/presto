@@ -177,8 +177,7 @@ public class TestRaptorIntegrationSmokeTest
                         "WHERE orderdate < date '1992-02-08'",
                 "SELECT count(*) " +
                         "FROM orders " +
-                        "WHERE orderdate < date '1992-02-08'"
-        );
+                        "WHERE orderdate < date '1992-02-08'");
 
         MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date");
 
@@ -211,8 +210,7 @@ public class TestRaptorIntegrationSmokeTest
                         "WHERE orderdate < date '1992-02-08'",
                 "SELECT count(*) " +
                         "FROM orders " +
-                        "WHERE orderdate < date '1992-02-08'"
-        );
+                        "WHERE orderdate < date '1992-02-08'");
 
         MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date_bucketed");
 

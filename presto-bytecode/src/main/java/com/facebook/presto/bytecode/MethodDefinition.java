@@ -58,8 +58,7 @@ public class MethodDefinition
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            Parameter... parameters
-    )
+            Parameter... parameters)
     {
         this(declaringClass, access, name, returnType, ImmutableList.copyOf(parameters));
     }
@@ -69,8 +68,7 @@ public class MethodDefinition
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            Iterable<Parameter> parameters
-    )
+            Iterable<Parameter> parameters)
     {
         checkArgument(Iterables.size(parameters) <= 254, "Too many parameters for method");
 
@@ -285,22 +283,19 @@ public class MethodDefinition
     {
         return methodDescription(
                 type(returnType),
-                Lists.transform(parameterTypes, ParameterizedType::type)
-        );
+                Lists.transform(parameterTypes, ParameterizedType::type));
     }
 
     public static String methodDescription(
             ParameterizedType returnType,
-            ParameterizedType... parameterTypes
-    )
+            ParameterizedType... parameterTypes)
     {
         return methodDescription(returnType, ImmutableList.copyOf(parameterTypes));
     }
 
     public static String methodDescription(
             ParameterizedType returnType,
-            List<ParameterizedType> parameterTypes
-    )
+            List<ParameterizedType> parameterTypes)
     {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
@@ -312,16 +307,14 @@ public class MethodDefinition
 
     public static String genericMethodSignature(
             ParameterizedType returnType,
-            ParameterizedType... parameterTypes
-    )
+            ParameterizedType... parameterTypes)
     {
         return genericMethodSignature(returnType, ImmutableList.copyOf(parameterTypes));
     }
 
     public static String genericMethodSignature(
             ParameterizedType returnType,
-            List<ParameterizedType> parameterTypes
-    )
+            List<ParameterizedType> parameterTypes)
     {
         StringBuilder sb = new StringBuilder();
         sb.append("(");

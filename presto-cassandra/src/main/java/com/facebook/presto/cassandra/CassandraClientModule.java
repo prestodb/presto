@@ -139,8 +139,7 @@ public class CassandraClientModule
         if (config.getSpeculativeExecutionLimit() > 1) {
             clusterBuilder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
                     config.getSpeculativeExecutionDelay().toMillis(), // delay before a new execution is launched
-                    config.getSpeculativeExecutionLimit()    // maximum number of executions
-            ));
+                    config.getSpeculativeExecutionLimit())); // maximum number of executions
         }
 
         return new NativeCassandraSession(

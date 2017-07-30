@@ -132,8 +132,7 @@ public class TestMixedDistinctAggregationOptimizer
                         aggregation(aggregationsSecond,
                                 project(
                                         aggregation(aggregationsFirst,
-                                                anyTree(values(ImmutableMap.of()))
-                                        )))));
+                                                anyTree(values(ImmutableMap.of())))))));
     }
 
     public void assertUnitPlan(String sql, PlanMatchPattern pattern)

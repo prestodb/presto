@@ -400,8 +400,7 @@ public class JoinCompiler
             ifStatement.condition(block.invoke(
                     "isNull",
                     boolean.class,
-                    blockPosition
-            ));
+                    blockPosition));
             ifStatement.ifTrue(constantTrue().ret());
             isPositionNullMethod.getBody().append(ifStatement);
         }
@@ -434,8 +433,7 @@ public class JoinCompiler
                         long.class,
                         hashChannel.invoke("get", Object.class, blockIndex).cast(Block.class),
                         blockPosition)
-                        .ret()
-        );
+                        .ret());
 
         hashPositionMethod
                 .getBody()
