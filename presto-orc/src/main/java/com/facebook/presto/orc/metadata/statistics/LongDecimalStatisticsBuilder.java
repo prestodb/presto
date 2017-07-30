@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +34,18 @@ public class LongDecimalStatisticsBuilder
     private long nonNullValueCount;
     private BigDecimal minimum;
     private BigDecimal maximum;
+
+    @Override
+    public void addBlock(Type type, Block block)
+    {
+        int scale = ((DecimalType) type).getScale();
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                Slice value = type.getSlice(block, position);
+                addValue(new BigDecimal(Decimals.decodeUnscaledValue(value), scale));
+            }
+        }
+    }
 
     public void addValue(BigDecimal value)
     {

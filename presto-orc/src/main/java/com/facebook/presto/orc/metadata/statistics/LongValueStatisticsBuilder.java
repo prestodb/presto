@@ -13,8 +13,21 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
+
 public interface LongValueStatisticsBuilder
         extends StatisticsBuilder
 {
+    @Override
+    default void addBlock(Type type, Block block)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                addValue(type.getLong(block, position));
+            }
+        }
+    }
+
     void addValue(long value);
 }
