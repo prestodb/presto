@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.OrcWriteValidation.StatisticsValidation;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksum;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
@@ -56,6 +57,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
+import static com.facebook.presto.orc.OrcWriteValidation.StatisticsValidation.createWriteStatisticsBuilder;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
@@ -93,6 +95,7 @@ public class OrcRecordReader
     private long filePosition;
 
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
+    private int currentRowGroup = -1;
     private long currentGroupRowCount;
     private long nextRowInGroup;
 
@@ -102,6 +105,9 @@ public class OrcRecordReader
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
+    private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
+    private final Optional<StatisticsValidation> stripeStatisticsValidation;
+    private final Optional<StatisticsValidation> fileStatisticsValidation;
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
@@ -140,6 +146,9 @@ public class OrcRecordReader
         this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(includedColumns));
+        this.rowGroupStatisticsValidation = writeValidation.map(validation -> createWriteStatisticsBuilder(includedColumns));
+        this.stripeStatisticsValidation = writeValidation.map(validation -> createWriteStatisticsBuilder(includedColumns));
+        this.fileStatisticsValidation = writeValidation.map(validation -> createWriteStatisticsBuilder(includedColumns));
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -328,6 +337,10 @@ public class OrcRecordReader
             }
             validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
         }
+        if (fileStatisticsValidation.isPresent()) {
+            List<ColumnStatistics> columnStatistics = fileStatisticsValidation.get().build();
+            writeValidation.get().validateFileStatistics(orcDataSource.getId(), columnStatistics);
+        }
     }
 
     public boolean isColumnPresent(int hiveColumnIndex)
@@ -395,8 +408,17 @@ public class OrcRecordReader
     {
         nextRowInGroup = 0;
 
+        if (currentRowGroup >= 0) {
+            if (rowGroupStatisticsValidation.isPresent()) {
+                StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
+                long offset = stripes.get(currentStripe).getOffset();
+                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), offset, currentRowGroup, statisticsValidation.build());
+                statisticsValidation.reset();
+            }
+        }
         while (!rowGroups.hasNext() && currentStripe < stripes.size()) {
             advanceToNextStripe();
+            currentRowGroup = -1;
         }
 
         if (!rowGroups.hasNext()) {
@@ -404,6 +426,7 @@ public class OrcRecordReader
             return false;
         }
 
+        currentRowGroup++;
         RowGroup currentRowGroup = rowGroups.next();
         currentGroupRowCount = currentRowGroup.getRowCount();
         if (currentRowGroup.getMinAverageRowBytes() > 0) {
@@ -430,6 +453,15 @@ public class OrcRecordReader
         currentStripeSystemMemoryContext.close();
         currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
         rowGroups = ImmutableList.<RowGroup>of().iterator();
+
+        if (currentStripe >= 0) {
+            if (stripeStatisticsValidation.isPresent()) {
+                StatisticsValidation statisticsValidation = stripeStatisticsValidation.get();
+                long offset = stripes.get(currentStripe).getOffset();
+                writeValidation.get().validateStripeStatistics(orcDataSource.getId(), offset, statisticsValidation.build());
+                statisticsValidation.reset();
+            }
+        }
 
         currentStripe++;
         if (currentStripe >= stripes.size()) {
@@ -482,7 +514,11 @@ public class OrcRecordReader
             for (int columnIndex = 0; columnIndex < streamReaders.length; columnIndex++) {
                 blocks[columnIndex] = readBlock(includedColumns.get(columnIndex), columnIndex);
             }
-            writeChecksumBuilder.get().addPage(new Page(currentBatchSize, blocks));
+            Page page = new Page(currentBatchSize, blocks);
+            writeChecksumBuilder.get().addPage(page);
+            rowGroupStatisticsValidation.get().addPage(page);
+            stripeStatisticsValidation.get().addPage(page);
+            fileStatisticsValidation.get().addPage(page);
         }
     }
 
