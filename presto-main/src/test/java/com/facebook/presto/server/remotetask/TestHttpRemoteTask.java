@@ -212,8 +212,7 @@ public class TestHttpRemoteTask
                                 taskUpdateRequestCodec,
                                 new RemoteTaskStats());
                     }
-                }
-        );
+                });
         Injector injector = app
                 .strictConfig()
                 .doNotInitializeLogging()

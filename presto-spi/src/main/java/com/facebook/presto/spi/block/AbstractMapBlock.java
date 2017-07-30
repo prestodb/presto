@@ -138,8 +138,7 @@ public abstract class AbstractMapBlock
                 getValues(),
                 getHashTables(),
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode
-        );
+                keyBlockNativeEquals, keyNativeHashCode);
     }
 
     @Override
@@ -189,8 +188,7 @@ public abstract class AbstractMapBlock
                 newValues,
                 newHashTable,
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode
-        );
+                keyBlockNativeEquals, keyNativeHashCode);
     }
 
     @Override

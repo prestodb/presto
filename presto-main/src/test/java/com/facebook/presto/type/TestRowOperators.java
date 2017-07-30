@@ -82,8 +82,7 @@ public class TestRowOperators
         assertFunction(
                 "CAST(ROW(CAST(3.14 AS REAL), 3.1415, 1e308, DECIMAL '3.14', DECIMAL '12345678901234567890.123456789012345678', CAST(null AS REAL), CAST(null AS DOUBLE), CAST(null AS DECIMAL)) AS JSON)",
                 JSON,
-                "[3.14,3.1415,1.0E308,3.14,12345678901234567890.123456789012345678,null,null,null]"
-        );
+                "[3.14,3.1415,1.0E308,3.14,12345678901234567890.123456789012345678,null,null,null]");
 
         assertFunction(
                 "CAST(ROW('a', 'bb', CAST(null as VARCHAR), JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', CAST(null AS JSON)) AS JSON)",

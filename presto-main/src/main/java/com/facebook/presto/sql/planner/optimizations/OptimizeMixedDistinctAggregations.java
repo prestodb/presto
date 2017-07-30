@@ -383,8 +383,7 @@ public class OptimizeMixedDistinctAggregations
                 Set<Symbol> groupByKeys,
                 GroupIdNode groupIdNode,
                 MarkDistinctNode originalNode,
-                ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder
-        )
+                ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder)
         {
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {

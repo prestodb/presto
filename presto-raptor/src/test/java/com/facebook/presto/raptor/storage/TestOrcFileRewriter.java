@@ -183,8 +183,7 @@ public class TestOrcFileRewriter
                     .put(9L, arrayType.getTypeSignature())
                     .put(10L, mapType.getTypeSignature())
                     .put(11L, arrayOfArrayType.getTypeSignature())
-                    .build()
-            ));
+                    .build()));
         }
 
         BitSet rowsToDelete = new BitSet(5);
@@ -255,8 +254,7 @@ public class TestOrcFileRewriter
                     .put(9L, arrayType.getTypeSignature())
                     .put(10L, mapType.getTypeSignature())
                     .put(11L, arrayOfArrayType.getTypeSignature())
-                    .build()
-            ));
+                    .build()));
         }
     }
 

@@ -37,8 +37,7 @@ public class TestInformationSchemaTableHandle
             "@type", "$info_schema",
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
-            "tableName", "information_schema_table"
-    );
+            "tableName", "information_schema_table");
 
     private ObjectMapper objectMapper;
 

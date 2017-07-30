@@ -45,8 +45,7 @@ public class TestQueryManagerConfig
                 .setQueryMaxRunTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(1)
-                .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES))
-        );
+                .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES)));
     }
 
     @Test

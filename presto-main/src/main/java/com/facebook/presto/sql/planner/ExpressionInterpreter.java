@@ -533,8 +533,7 @@ public class ExpressionInterpreter
                 return new IfExpression(
                         toExpression(condition, type(node.getCondition())),
                         toExpression(trueValue, type(node.getTrueValue())),
-                        falseValueExpression
-                );
+                        falseValueExpression);
             }
             else if (Boolean.TRUE.equals(condition)) {
                 return trueValue;

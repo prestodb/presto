@@ -472,30 +472,20 @@ public class TestHiveFileFormats
                                         ImmutableList.of(
                                                 getStandardStructObjectInspector(
                                                         ImmutableList.of("first_name", "last_name"),
-                                                        ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
-                                                ),
+                                                        ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)),
                                                 javaIntObjectInspector,
                                                 javaStringObjectInspector,
                                                 getStandardListObjectInspector(
                                                         getStandardStructObjectInspector(
                                                                 ImmutableList.of("number", "type"),
-                                                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
-                                                        )
-                                                )
-                                        )
-                                )
-                        ),
+                                                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)))))),
                         null,
                         arrayBlockOf(personType,
                                 rowBlockOf(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)),
                                         rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "Bob", "Roberts"),
                                         0,
                                         "bob.roberts@example.com",
-                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "1234567890", null))
-                                )
-                        )
-                )
-        );
+                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "1234567890", null))))));
 
         File file = new File(this.getClass().getClassLoader().getResource("addressbook.parquet").getPath());
         FileSplit split = new FileSplit(new Path(file.getAbsolutePath()), 0, file.length(), new String[0]);

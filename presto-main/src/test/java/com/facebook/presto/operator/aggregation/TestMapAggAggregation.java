@@ -242,8 +242,7 @@ public class TestMapAggAggregation
                 AGGREGATE,
                 mapType.getTypeSignature(),
                 arrayType.getTypeSignature(),
-                parseTypeSignature(StandardTypes.DOUBLE)
-        ));
+                parseTypeSignature(StandardTypes.DOUBLE)));
 
         assertAggregation(
                 aggFunc,

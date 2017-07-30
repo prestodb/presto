@@ -29,8 +29,7 @@ public class TestThriftConnectorConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(ThriftConnectorConfig.class)
                 .setMaxResponseSize(new DataSize(16, MEGABYTE))
-                .setMetadataRefreshThreads(1)
-        );
+                .setMetadataRefreshThreads(1));
     }
 
     @Test

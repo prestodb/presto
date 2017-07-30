@@ -302,11 +302,9 @@ public class TestLogicalPlanner
                                 anyTree(
                                         tableScan("nation", ImmutableMap.of("REGIONKEY_LEFT", "regionkey", "NATIONKEY", "nationkey"))),
                                 anyTree(
-                                        tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey"))))
-                )
+                                        tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey")))))
                         .withNumberOfOutputColumns(1)
-                        .withOutputs(ImmutableList.of("NATIONKEY"))
-        );
+                        .withOutputs(ImmutableList.of("NATIONKEY")));
     }
 
     private void assertPlanContainsNoApplyOrAnyJoin(String sql)
@@ -331,8 +329,7 @@ public class TestLogicalPlanner
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         node(EnforceSingleRowNode.class,
                                                 project(
-                                                        node(ValuesNode.class)
-                                                ))))),
+                                                        node(ValuesNode.class)))))),
                 planOptimizer -> !(planOptimizer instanceof AddLocalExchanges));
     }
 
@@ -350,12 +347,7 @@ public class TestLogicalPlanner
                                 anyTree(tableScan("lineitem")),
                                 anyTree(
                                         filter("orderkey < BIGINT '7'", // pushed down
-                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))
-                                        )
-                                )
-                        )
-                )
-        );
+                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))))));
     }
 
     /**
@@ -373,10 +365,7 @@ public class TestLogicalPlanner
                                 anyTree(strictTableScan("lineitem", ImmutableMap.of(
                                         "orderkey", "orderkey",
                                         "comment", "comment"))),
-                                anyTree(tableScan("orders"))
-                        )
-                )
-        );
+                                anyTree(tableScan("orders")))));
     }
 
     @Test
@@ -400,8 +389,7 @@ public class TestLogicalPlanner
                                                         tableScan("lineitem", ImmutableMap.of("L", "orderkey")),
                                                         node(EnforceSingleRowNode.class,
                                                                 project(
-                                                                        node(ValuesNode.class)
-                                                                ))))))),
+                                                                        node(ValuesNode.class)))))))),
                 planOptimizer -> !(planOptimizer instanceof AddLocalExchanges));
     }
 
@@ -430,13 +418,11 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT * FROM nation WHERE 1 = 1",
                 output(
-                        tableScan("nation"))
-        );
+                        tableScan("nation")));
         assertPlan(
                 "SELECT * FROM nation WHERE 1 = 0",
                 output(
-                        values("nationkey", "name", "regionkey", "comment"))
-        );
+                        values("nationkey", "name", "regionkey", "comment")));
     }
 
     @Test

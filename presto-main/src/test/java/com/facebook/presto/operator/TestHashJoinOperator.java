@@ -114,8 +114,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
@@ -165,8 +164,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -209,8 +207,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -254,8 +251,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))

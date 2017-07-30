@@ -135,8 +135,7 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
     }
@@ -397,8 +396,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(
                         filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
-                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))
-                ),
+                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))),
                 symbolMapping,
                 ImmutableList.copyOf(symbolMapping.keySet()));
 
@@ -426,8 +424,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -437,8 +434,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan,
                 and(
@@ -493,8 +489,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -504,8 +499,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan,
                 and(
@@ -556,8 +550,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -567,8 +560,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan,
                 and(
@@ -616,8 +608,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -627,8 +618,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan,
                 and(
@@ -679,8 +669,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -690,8 +679,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan, FALSE_LITERAL);
         FilterNode right = filter(rightScan,

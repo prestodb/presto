@@ -44,8 +44,7 @@ public class InterleavedBlockBuilder
         this(
                 types.stream()
                         .map(t -> t.createBlockBuilder(blockBuilderStatus, roundUpDivide(expectedEntries, types.size())))
-                        .toArray(BlockBuilder[]::new)
-        );
+                        .toArray(BlockBuilder[]::new));
     }
 
     public InterleavedBlockBuilder(List<Type> types, BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
@@ -53,8 +52,7 @@ public class InterleavedBlockBuilder
         this(
                 types.stream()
                         .map(t -> t.createBlockBuilder(blockBuilderStatus, roundUpDivide(expectedEntries, types.size()), expectedBytesPerEntry))
-                        .toArray(BlockBuilder[]::new)
-        );
+                        .toArray(BlockBuilder[]::new));
     }
 
     private static int roundUpDivide(int dividend, int divisor)

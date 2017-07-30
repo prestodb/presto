@@ -72,8 +72,7 @@ public class AtopConnectorFactory
                     installModuleIf(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),
-                            new AllowAllAccessControlModule()
-                    ),
+                            new AllowAllAccessControlModule()),
                     installModuleIf(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_FILE),
