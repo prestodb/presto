@@ -24,6 +24,10 @@
         <property name="message" value="Blank line before closing brace" />
     </module>
     <module name="RegexpMultiline">
+        <property name="format" value="[^;]\s\)+\s*[\{;,]?\s*\n" />
+        <property name="message" value="Whitespace character before closing brace" />
+    </module>
+    <module name="RegexpMultiline">
         <property name="format" value="\n\n\n" />
         <property name="message" value="Multiple consecutive blank lines" />
     </module>
