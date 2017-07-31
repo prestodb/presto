@@ -44,6 +44,6 @@ public class DynamicFilterClientFactory
     @Override
     public DynamicFilterClient createClient(TaskId taskId, String source, int driverId, int expectedDriversCount)
     {
-        return new DynamicFilterClient(summaryJsonCodec, coordinatorURIProvider.get(), httpClient, taskId, source, driverId, expectedDriversCount);
+        return new HttpDynamicFilterClient(summaryJsonCodec, coordinatorURIProvider.get(), httpClient, taskId, source, driverId, expectedDriversCount);
     }
 }
