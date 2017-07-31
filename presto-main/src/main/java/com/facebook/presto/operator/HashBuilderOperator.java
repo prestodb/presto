@@ -159,6 +159,10 @@ public class HashBuilderOperator
         {
             return partitionIndexManager.compute(lifespan, (k, v) -> v == null ? 1 : v + 1) - 1;
         }
+
+        public LookupSourceFactoryManager getLookupSourceFactory() {
+            return lookupSourceFactoryManager;
+        }
     }
 
     @VisibleForTesting

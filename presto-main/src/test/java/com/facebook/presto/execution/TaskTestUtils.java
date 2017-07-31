@@ -29,9 +29,11 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.operator.InMemoryDynamicFilterClientSupplier;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -156,7 +158,8 @@ public final class TaskTestUtils
                 new TestingBlockEncodingSerde(new TestingTypeManager()),
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(),
-                new LookupJoinOperators());
+                new LookupJoinOperators(),
+                new InMemoryDynamicFilterClientSupplier(new DynamicFilterService()));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

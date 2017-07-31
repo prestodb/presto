@@ -30,6 +30,8 @@ import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFacto
 import com.facebook.presto.operator.AssignUniqueIdOperator;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.DynamicFilterClientSupplier;
+import com.facebook.presto.operator.DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
@@ -224,6 +226,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
@@ -276,6 +279,7 @@ public class LocalExecutionPlanner
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
     private final LookupJoinOperators lookupJoinOperators;
+    private final DynamicFilterClientSupplier dynamicFilterClientSupplier;
 
     @Inject
     public LocalExecutionPlanner(
@@ -300,7 +304,8 @@ public class LocalExecutionPlanner
             BlockEncodingSerde blockEncodingSerde,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            LookupJoinOperators lookupJoinOperators)
+            LookupJoinOperators lookupJoinOperators,
+            DynamicFilterClientSupplier dynamicFilterClientSupplier)
     {
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -327,6 +332,7 @@ public class LocalExecutionPlanner
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
+        this.dynamicFilterClientSupplier = requireNonNull(dynamicFilterClientSupplier, "dynamicFitlerClientSupplier is null");
     }
 
     public LocalExecutionPlan plan(
@@ -1780,10 +1786,24 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
             // Plan build
-            LookupSourceFactoryManager lookupSourceFactory =
-                    createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context);
+            LocalExecutionPlanContext buildContext = context.createSubContext();
+            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+            List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
 
-            OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, lookupSourceFactory, context);
+            List<Symbol> filterSymbols = node.getDynamicFilterAssignments().getExpressions().stream().map(expression -> Symbol.from(expression)).collect(toImmutableList());
+            ImmutableList.Builder<String> dynamicFilterNamesBuilder = ImmutableList.builder();
+            for (Symbol filterSymbol : filterSymbols) {
+                Optional<Map.Entry<Symbol, Expression>> matchingEntry = node.getDynamicFilterAssignments().entrySet().stream().filter(entry -> Symbol.from(entry.getValue()).equals(filterSymbol)).findFirst();
+                dynamicFilterNamesBuilder.add(matchingEntry.get().getKey().toString());
+            }
+            List<String> dynamicFilterSymbolNames = dynamicFilterNamesBuilder.build();
+            List<Integer> filterChannels = ImmutableList.copyOf(getChannelsForSymbols(filterSymbols, buildSource.getLayout()));
+
+            OptionalInt buildHashChannel = buildHashSymbol.map(channelGetter(buildSource)).map(OptionalInt::of).orElse(OptionalInt.empty());
+
+            HashBuilderOperatorFactory hashBuilderOperatorFactory = createHashBuilderOperatorFactory(node, buildContext, buildSource, buildChannels, buildHashChannel, probeSource, context);
+
+            OperatorFactory lookupJoinOperator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, hashBuilderOperatorFactory.getLookupSourceFactory(), context);
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             List<Symbol> outputSymbols = node.getOutputSymbols();
@@ -1792,34 +1812,62 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, i);
             }
 
-            return new PhysicalOperation(operator, outputMappings.build(), probeSource);
+            // Dynamic filtering
+            if (SystemSessionProperties.isDynamicPartitionPruningEnabled(context.getSession()) && node.getType() == INNER && node.getCriteria().size() > 0) {
+                OperatorFactory dynamicFilterSource = new DynamicFilterSourceOperatorFactory(
+                        buildContext.getNextOperatorId(),
+                        node.getId(),
+                        buildSource.getTypes(),
+                        filterChannels,
+                        dynamicFilterSymbolNames,
+                        dynamicFilterClientSupplier,
+                        node.getId().toString(),
+                        buildContext.getDriverInstanceCount().orElse(1));
+
+                context.addDriverFactory(
+                        buildContext.isInputDriver(),
+                        false,
+                        ImmutableList.<OperatorFactory>builder()
+                                .addAll(buildSource.getOperatorFactories())
+                                .add(dynamicFilterSource)
+                                .add(hashBuilderOperatorFactory)
+                                .build(),
+                        buildContext.getDriverInstanceCount(),
+                        buildSource.getPipelineExecutionStrategy());
+            }
+            else {
+                context.addDriverFactory(
+                        buildContext.isInputDriver(),
+                        false,
+                        ImmutableList.<OperatorFactory>builder()
+                                .addAll(buildSource.getOperatorFactories())
+                                .add(hashBuilderOperatorFactory)
+                                .build(),
+                        buildContext.getDriverInstanceCount(),
+                        buildSource.getPipelineExecutionStrategy());
+            }
+
+            return new PhysicalOperation(lookupJoinOperator, outputMappings.build(), probeSource);
         }
 
-        private LookupSourceFactoryManager createLookupSourceFactory(
+        private HashBuilderOperatorFactory createHashBuilderOperatorFactory(
                 JoinNode node,
-                PlanNode buildNode,
-                List<Symbol> buildSymbols,
-                Optional<Symbol> buildHashSymbol,
+                LocalExecutionPlanContext buildContext,
+                PhysicalOperation buildSource,
+                List<Integer> buildChannels,
+                OptionalInt buildHashChannel,
                 PhysicalOperation probeSource,
                 LocalExecutionPlanContext context)
         {
-            LocalExecutionPlanContext buildContext = context.createSubContext();
-            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
-
             if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
                 checkState(
                         probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
                         "Build execution is GROUPED_EXECUTION. Probe execution is expected be GROUPED_EXECUTION, but is UNGROUPED_EXECUTION.");
             }
-
             List<Symbol> buildOutputSymbols = node.getOutputSymbols().stream()
                     .filter(symbol -> node.getRight().getOutputSymbols().contains(symbol))
                     .collect(toImmutableList());
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(buildOutputSymbols, buildSource.getLayout()));
-            List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
-            OptionalInt buildHashChannel = buildHashSymbol.map(channelGetter(buildSource))
-                    .map(OptionalInt::of).orElse(OptionalInt.empty());
-
             boolean spillEnabled = isSpillEnabled(context.getSession());
             boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
             int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
@@ -1869,7 +1917,8 @@ public class LocalExecutionPlanner
                             buildSource.getLayout(),
                             node.getType() == RIGHT || node.getType() == FULL),
                     buildOutputTypes);
-            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
+
+            return new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
                     buildSource.getTypes(),
@@ -1884,18 +1933,6 @@ public class LocalExecutionPlanner
                     pagesIndexFactory,
                     spillEnabled && !buildOuter && partitionCount > 1,
                     singleStreamSpillerFactory);
-
-            context.addDriverFactory(
-                    buildContext.isInputDriver(),
-                    false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(hashBuilderOperatorFactory)
-                            .build(),
-                    buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
-
-            return lookupSourceFactoryManager;
         }
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(
