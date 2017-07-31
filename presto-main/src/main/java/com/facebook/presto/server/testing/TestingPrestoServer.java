@@ -203,7 +203,7 @@ public class TestingPrestoServer
                 .add(new TestingJmxModule())
                 .add(new EventModule())
                 .add(new TraceTokenModule())
-                .add(new ServerMainModule(parserOptions))
+                .add(new ServerMainModule(parserOptions, discoveryUri == null))
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
