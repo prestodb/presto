@@ -81,9 +81,6 @@ public class MetastoreHiveStatisticsProvider
         for (Map.Entry<String, ColumnHandle> columnEntry : tableColumns.entrySet()) {
             String columnName = columnEntry.getKey();
             HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnEntry.getValue();
-            if (getColumnMetadata(hiveColumnHandle).isHidden()) {
-                continue;
-            }
             RangeColumnStatistics.Builder rangeStatistics = RangeColumnStatistics.builder();
             Estimate nullsFraction;
             if (hiveColumnHandle.isPartitionKey()) {
