@@ -23,6 +23,9 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * @param tableColumns must be Hive columns, not hidden (Presto-internal) columns
+ */
 public interface HiveStatisticsProvider
 {
     TableStatistics getTableStatistics(
