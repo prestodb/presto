@@ -291,7 +291,7 @@ public class SimplifyExpressions
          * Applies the boolean distributive property.
          * <p>
          * For example:
-         * ( A & B ) | ( C & D ) => ( A | C ) & ( A | D ) & ( B | C ) & ( B | D )
+         * (A & B) | (C & D) => (A | C) & (A | D) & (B | C) & (B | D)
          * <p>
          * Returns the original expression if the expression is non-deterministic or if the distribution will
          * expand the expression by too much.
