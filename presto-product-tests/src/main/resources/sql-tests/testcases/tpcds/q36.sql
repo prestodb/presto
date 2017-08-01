@@ -1,5 +1,4 @@
 -- database: presto_tpcds; groups: tpcds; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
---- quarantined as grouping is not yet supported, see https://github.com/prestodb/presto/pull/6704
 SELECT
   ("sum"("ss_net_profit") / "sum"("ss_ext_sales_price")) "gross_margin"
 , "i_category"
