@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.DoubleFunction;
 
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
@@ -49,6 +48,16 @@ public class TestComparisonStatsCalculator
     private Session session;
     private PlanNodeStatsEstimate standardInputStatistics;
     private Map<Symbol, Type> types;
+    private SymbolStatsEstimate wStats;
+    private SymbolStatsEstimate uStats;
+    private SymbolStatsEstimate xStats;
+    private SymbolStatsEstimate yStats;
+    private SymbolStatsEstimate zStats;
+    private SymbolStatsEstimate leftOpenStats;
+    private SymbolStatsEstimate rightOpenStats;
+    private SymbolStatsEstimate unknownRangeStats;
+    private SymbolStatsEstimate emptyRangeStats;
+    private SymbolStatsEstimate varcharStats;
 
     @BeforeMethod
     public void setUp()
@@ -57,70 +66,70 @@ public class TestComparisonStatsCalculator
         session = testSessionBuilder().build();
         filterStatsCalculator = new FilterStatsCalculator(MetadataManager.createTestMetadataManager());
 
-        SymbolStatsEstimate uStats = SymbolStatsEstimate.builder()
+        uStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(8.0)
                 .setDistinctValuesCount(300)
                 .setLowValue(0)
                 .setHighValue(20)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate wStats = SymbolStatsEstimate.builder()
+        wStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(8.0)
                 .setDistinctValuesCount(30)
                 .setLowValue(0)
                 .setHighValue(20)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+        xStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(40.0)
                 .setLowValue(-10.0)
                 .setHighValue(10.0)
                 .setNullsFraction(0.25)
                 .build();
-        SymbolStatsEstimate yStats = SymbolStatsEstimate.builder()
+        yStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(20.0)
                 .setLowValue(0.0)
                 .setHighValue(5.0)
                 .setNullsFraction(0.5)
                 .build();
-        SymbolStatsEstimate zStats = SymbolStatsEstimate.builder()
+        zStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(5.0)
                 .setLowValue(-100.0)
                 .setHighValue(100.0)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate leftOpenStats = SymbolStatsEstimate.builder()
+        leftOpenStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(50.0)
                 .setLowValue(NEGATIVE_INFINITY)
                 .setHighValue(15.0)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate rightOpenStats = SymbolStatsEstimate.builder()
+        rightOpenStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(50.0)
                 .setLowValue(-15.0)
                 .setHighValue(POSITIVE_INFINITY)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate unknownRangeStats = SymbolStatsEstimate.builder()
+        unknownRangeStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(50.0)
                 .setLowValue(NEGATIVE_INFINITY)
                 .setHighValue(POSITIVE_INFINITY)
                 .setNullsFraction(0.1)
                 .build();
-        SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
+        emptyRangeStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(0.0)
                 .setLowValue(NaN)
                 .setHighValue(NaN)
                 .setNullsFraction(NaN)
                 .build();
-        SymbolStatsEstimate varcharStats = SymbolStatsEstimate.builder()
+        varcharStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(50.0)
                 .setLowValue(NEGATIVE_INFINITY)
@@ -153,6 +162,21 @@ public class TestComparisonStatsCalculator
                 .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
                 .put(new Symbol("varchar"), VarcharType.createVarcharType(10))
                 .build();
+    }
+
+    private Consumer<SymbolStatsAssertion> equalTo(SymbolStatsEstimate estimate) {
+        return symbolAssert -> {
+            symbolAssert
+                    .lowValue(estimate.getLowValue())
+                    .highValue(estimate.getHighValue())
+                    .distinctValuesCount(estimate.getDistinctValuesCount())
+                    .nullsFraction(estimate.getNullsFraction());
+        };
+    }
+
+    private SymbolStatsEstimate capNDV(SymbolStatsEstimate symbolStats, double rowCount) {
+        // todo: add capping in test when logic actually does that
+        return symbolStats;
     }
 
     private PlanNodeStatsAssertion assertCalculate(Expression comparisonExpression)
@@ -525,14 +549,6 @@ public class TestComparisonStatsCalculator
     public void symbolToSymbolEqualStats()
     {
         // z's stats should be unchanged when not involved, except NDV capping to row count
-        DoubleFunction<Consumer<SymbolStatsAssertion>> zUnchanged = rowCount -> symbolAssert -> {
-            symbolAssert.averageRowSize(4)
-                    .lowValue(-100)
-                    .highValue(100)
-                    .distinctValuesCount(5) // TODO min(5, rowCount))
-                    .nullsFraction(0.1);
-        };
-
         // Equal ranges
         double rowCount = 2.7;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("u"), new SymbolReference("w")))
@@ -551,7 +567,7 @@ public class TestComparisonStatsCalculator
                             .distinctValuesCount(30)
                             .nullsFraction(0);
                 })
-                .symbolStats("z", zUnchanged.apply(rowCount));
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // One symbol's range is within the other's
         rowCount = 4.6875;
@@ -571,7 +587,7 @@ public class TestComparisonStatsCalculator
                             .distinctValuesCount(10)
                             .nullsFraction(0);
                 })
-                .symbolStats("z", zUnchanged.apply(rowCount));
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // Partially overlapping ranges
         rowCount = 8.4375;
@@ -591,7 +607,7 @@ public class TestComparisonStatsCalculator
                             .distinctValuesCount(15)
                             .nullsFraction(0);
                 })
-                .symbolStats("z", zUnchanged.apply(rowCount));
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // None of the ranges is included in the other, and one symbol has much higher cardinality, so that it has bigger NDV in intersect than the other in total
         rowCount = 1.125;
@@ -611,6 +627,6 @@ public class TestComparisonStatsCalculator
                             .distinctValuesCount(20)
                             .nullsFraction(0);
                 })
-                .symbolStats("z", zUnchanged.apply(rowCount));
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
     }
 }
