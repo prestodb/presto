@@ -84,11 +84,13 @@ public enum HiveStorageFormat
             SequenceFileInputFormat.class.getName(),
             HiveSequenceFileOutputFormat.class.getName(),
             new DataSize(8, Unit.MEGABYTE)),
-    JSON(JsonSerDe.class.getName(),
+    JSON(
+            JsonSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
             new DataSize(8, Unit.MEGABYTE)),
-    TEXTFILE(LazySimpleSerDe.class.getName(),
+    TEXTFILE(
+            LazySimpleSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
             new DataSize(8, Unit.MEGABYTE));
