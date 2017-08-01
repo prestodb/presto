@@ -493,6 +493,15 @@ public class PlanPrinter
         return "?";
     }
 
+    private static String formatAsLong(double value)
+    {
+        if (isFinite(value)) {
+            return format(Locale.US, "%d", Math.round(value));
+        }
+
+        return "?";
+    }
+
     private static String formatPositions(long positions)
     {
         if (positions == 1) {
@@ -1299,18 +1308,13 @@ public class PlanPrinter
         {
             PlanNodeStatsEstimate stats = lookup.getStats(node, session, types);
             PlanNodeCostEstimate cost = lookup.getCumulativeCost(node, session, types);
-            return String.format("{rows: %s, bytes: %s, cpu: %s, memory: %s, network: %s}",
-                    formatEstimate(stats.getOutputRowCount()),
+            return String.format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+                    formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes()),
-                    formatEstimate(cost.getCpuCost()),
-                    formatEstimateAsDataSize(cost.getMemoryCost()),
-                    formatEstimate(cost.getNetworkCost()));
+                    formatDouble(cost.getCpuCost()),
+                    formatDouble(cost.getMemoryCost()),
+                    formatDouble(cost.getNetworkCost()));
         }
-    }
-
-    private static String formatEstimate(double value)
-    {
-        return isNaN(value) ? "?" : String.valueOf(value);
     }
 
     private static String formatEstimateAsDataSize(double value)
