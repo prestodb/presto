@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
@@ -56,7 +57,10 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.joda.time.DateTimeUtils.getInstantChronology;
 import static org.joda.time.Days.daysBetween;
 import static org.joda.time.DurationFieldType.millis;
@@ -949,6 +953,17 @@ public class TestDateTimeFunctions
         assertInvalidFunction("parse_duration('')", "duration is empty");
         assertInvalidFunction("parse_duration('1f')", "Unknown time unit: f");
         assertInvalidFunction("parse_duration('abc')", "duration is not a valid data duration string: abc");
+    }
+
+    @Test
+    public void testIntervalDayToSecondToMilliseconds()
+            throws Exception
+    {
+        assertFunction("to_milliseconds(parse_duration('1ns'))", BigintType.BIGINT, 0L);
+        assertFunction("to_milliseconds(parse_duration('1ms'))", BigintType.BIGINT, 1L);
+        assertFunction("to_milliseconds(parse_duration('1s'))", BigintType.BIGINT, SECONDS.toMillis(1));
+        assertFunction("to_milliseconds(parse_duration('1h'))", BigintType.BIGINT, HOURS.toMillis(1));
+        assertFunction("to_milliseconds(parse_duration('1d'))", BigintType.BIGINT, DAYS.toMillis(1));
     }
 
     private void assertFunctionString(String projection, Type expectedType, String expected)

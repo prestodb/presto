@@ -1091,4 +1091,11 @@ public final class DateTimeFunctions
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
+
+    @ScalarFunction("to_milliseconds")
+    @SqlType(StandardTypes.BIGINT)
+    public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    {
+        return value;
+    }
 }
