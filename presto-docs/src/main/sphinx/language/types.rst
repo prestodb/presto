@@ -183,6 +183,8 @@ ROW
 
     Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
 
+.. _ipaddress_type:
+
 IPADDRESS
 ---------
 
