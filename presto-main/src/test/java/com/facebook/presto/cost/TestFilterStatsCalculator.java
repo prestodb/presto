@@ -26,11 +26,13 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -238,10 +240,22 @@ public class TestFilterStatsCalculator
     }
 
     @Test
+    public void testUnsupportedExpression()
+    {
+        FunctionCall sinX = new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new SymbolReference("x")));
+        assertExpression(sinX)
+                .outputRowsCount(900);
+        assertExpression(new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), sinX))
+                .outputRowsCount(900);
+    }
+
+    @Test
     public void testAndStats()
     {
         Expression leftExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
         Expression rightExpression = new ComparisonExpression(ComparisonExpressionType.GREATER_THAN, new SymbolReference("x"), new DoubleLiteral("-7.5"));
+        Expression sinX = new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new SymbolReference("x")));
+        Expression cosX = new FunctionCall(QualifiedName.of("cos"), ImmutableList.of(new SymbolReference("x")));
 
         assertExpression(and(leftExpression, rightExpression))
                 .outputRowsCount(281.25)
@@ -259,12 +273,40 @@ public class TestFilterStatsCalculator
                 .outputRowsCount(0)
                 .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange);
         // TODO .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
+
+        // first argument unknown
+        assertExpression(and(sinX, leftExpression))
+                .outputRowsCount(337.5)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(0)
+                                .distinctValuesCount(20)
+                                .nullsFraction(0));
+
+        // second argument unknown
+        assertExpression(and(leftExpression, sinX))
+                .outputRowsCount(337.5)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(0)
+                                .distinctValuesCount(20)
+                                .nullsFraction(0));
+
+        // both arguments unknown
+        assertExpression(and(sinX, cosX))
+                .outputRowsCount(900)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.lowValue(-10)
+                                .highValue(10)
+                                .distinctValuesCount(40)
+                                .nullsFraction(0.25));
     }
 
     @Test
     public void testNotStats()
     {
         Expression innerExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
+        Expression unknownExpression = new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new SymbolReference("x")));
 
         assertExpression(new NotExpression(innerExpression))
                 .outputRowsCount(625) // FIXME - nulls shouldn't be restored
@@ -274,6 +316,15 @@ public class TestFilterStatsCalculator
                                 .highValue(10.0)
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.4)); // FIXME - nulls shouldn't be restored
+
+        assertExpression(new NotExpression(unknownExpression))
+                .outputRowsCount(900)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .distinctValuesCount(40.0)
+                                .nullsFraction(0.25));
     }
 
     @Test
