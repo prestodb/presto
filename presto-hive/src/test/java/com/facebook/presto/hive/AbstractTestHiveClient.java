@@ -1542,13 +1542,6 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testTypesDwrf()
-            throws Exception
-    {
-        assertGetRecordsOptional("presto_test_types_dwrf", DWRF);
-    }
-
-    @Test
     public void testHiveViewsAreNotSupported()
             throws Exception
     {
