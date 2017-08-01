@@ -366,7 +366,7 @@ public class PredicatePushDown
                         .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
 
                 // Create new projections for the new join clauses
-                ImmutableList.Builder<JoinNode.EquiJoinClause> joinConditionBuilder = ImmutableList.builder();
+                List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
                 ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
                 for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
                     if (joinEqualityExpression(node.getLeft().getOutputSymbols()).test(conjunct)) {
@@ -386,7 +386,7 @@ public class PredicatePushDown
                             rightProjections.put(rightSymbol, rightExpression);
                         }
 
-                        joinConditionBuilder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                        equiJoinClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                     }
                     else {
                         joinFilterBuilder.add(conjunct);
@@ -395,6 +395,15 @@ public class PredicatePushDown
 
                 Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
                 if (newJoinFilter.get() == BooleanLiteral.TRUE_LITERAL) {
+                    newJoinFilter = Optional.empty();
+                }
+
+                if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty()) {
+                    // if we do not have any equi conjunct we do not pushdown non-equality condition into
+                    // inner join, so we plan execution as nested-loops-join followed by filter instead
+                    // hash join.
+                    // todo: remove the code when we have support for filter function in nested loop join
+                    postJoinPredicate = combineConjuncts(postJoinPredicate, newJoinFilter.get());
                     newJoinFilter = Optional.empty();
                 }
 
@@ -407,7 +416,7 @@ public class PredicatePushDown
                         leftSource,
                         rightSource,
                         newJoinFilter,
-                        joinConditionBuilder.build(),
+                        equiJoinClauses,
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
                         node.getDistributionType());
