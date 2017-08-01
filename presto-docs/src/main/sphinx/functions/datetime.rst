@@ -96,6 +96,10 @@ Date and Time Functions
     Formats ``x`` as an ISO 8601 string. ``x`` can be date, timestamp, or
     timestamp with time zone.
 
+.. function:: to_milliseconds(interval) -> bigint
+
+    Returns the day-to-second ``interval`` as milliseconds.
+
 .. function:: to_unixtime(timestamp) -> double
 
     Returns ``timestamp`` as a UNIX timestamp.
