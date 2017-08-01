@@ -20,9 +20,11 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +34,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
@@ -164,7 +167,8 @@ public class TestComparisonStatsCalculator
                 .build();
     }
 
-    private Consumer<SymbolStatsAssertion> equalTo(SymbolStatsEstimate estimate) {
+    private Consumer<SymbolStatsAssertion> equalTo(SymbolStatsEstimate estimate)
+    {
         return symbolAssert -> {
             symbolAssert
                     .lowValue(estimate.getLowValue())
@@ -174,9 +178,15 @@ public class TestComparisonStatsCalculator
         };
     }
 
-    private SymbolStatsEstimate capNDV(SymbolStatsEstimate symbolStats, double rowCount) {
+    private SymbolStatsEstimate capNDV(SymbolStatsEstimate symbolStats, double rowCount)
+    {
         // todo: add capping in test when logic actually does that
         return symbolStats;
+    }
+
+    private SymbolStatsEstimate zeroNullsFraction(SymbolStatsEstimate symbolStats)
+    {
+        return symbolStats.mapNullsFraction(fraction -> 0.0);
     }
 
     private PlanNodeStatsAssertion assertCalculate(Expression comparisonExpression)
@@ -627,6 +637,59 @@ public class TestComparisonStatsCalculator
                             .distinctValuesCount(20)
                             .nullsFraction(0);
                 })
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+    }
+
+    @Test
+    public void symbolToSymbolNotEqual()
+    {
+        // Equal ranges
+        double rowCount = 807.3;
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new SymbolReference("w")))
+                .outputRowsCount(rowCount)
+                .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
+                .symbolStats("w", equalTo(capNDV(zeroNullsFraction(wStats), rowCount)))
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+
+        // One symbol's range is within the other's
+        rowCount = 370.3125;
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("x"), new SymbolReference("y")))
+                .outputRowsCount(rowCount)
+                .symbolStats("x", equalTo(capNDV(zeroNullsFraction(xStats), rowCount)))
+                .symbolStats("y", equalTo(capNDV(zeroNullsFraction(yStats), rowCount)))
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+
+        // Partially overlapping ranges
+        rowCount = 666.5625;
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("x"), new SymbolReference("w")))
+                .outputRowsCount(rowCount)
+                .symbolStats("x", equalTo(capNDV(zeroNullsFraction(xStats), rowCount)))
+                .symbolStats("w", equalTo(capNDV(zeroNullsFraction(wStats), rowCount)))
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+
+        // None of the ranges is included in the other, and one symbol has much higher cardinality, so that it has bigger NDV in intersect than the other in total
+        rowCount = 673.875;
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("x"), new SymbolReference("u")))
+                .outputRowsCount(rowCount)
+                .symbolStats("x", equalTo(capNDV(zeroNullsFraction(xStats), rowCount)))
+                .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+    }
+
+    @Test
+    public void symbolToCastExpressionlNotEqual()
+    {
+        double rowCount = 807.3;
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new SymbolReference("w"), DOUBLE)))
+                .outputRowsCount(rowCount)
+                .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
+                .symbolStats("w", equalTo(capNDV(wStats, rowCount)))
+                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+
+        rowCount = 897.0;
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), DOUBLE)))
+                .outputRowsCount(rowCount)
+                .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
     }
 }
