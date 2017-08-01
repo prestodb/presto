@@ -30,4 +30,3 @@ DROP TABLE IF EXISTS presto_test_types_rctext;
 DROP TABLE IF EXISTS presto_test_types_rcbinary;
 DROP TABLE IF EXISTS presto_test_types_orc;
 DROP TABLE IF EXISTS presto_test_types_parquet;
-DROP TABLE IF EXISTS presto_test_types_dwrf;
