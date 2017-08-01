@@ -15,25 +15,26 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.WarningCode;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 
-import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class LocalLoggingWarningSink
+public class DeduplicatingWarningSink
         implements WarningSink
 {
-    private static final Logger log = Logger.get(WarningSink.class);
+    private final Set<PrestoWarning> warnings = new LinkedHashSet<>();
 
     public void logWarning(WarningCode warning, String message)
     {
-        log.warn(new PrestoWarning(requireNonNull(warning, "warning is null"), requireNonNull(message, "message is null")).toString());
+        warnings.add(new PrestoWarning(requireNonNull(warning, "warning is null"), requireNonNull(message, "message is null")));
     }
 
     @Override
-    public Collection<PrestoWarning> getWarnings()
+    public List<PrestoWarning> getWarnings()
     {
-        return ImmutableList.of();
+        return ImmutableList.copyOf(warnings);
     }
 }

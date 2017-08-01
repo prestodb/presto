@@ -15,11 +15,11 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.WarningCode;
 
-import java.util.Collection;
+import java.util.List;
 
 public interface WarningSink
 {
     void logWarning(WarningCode code, String message);
 
-    Collection<PrestoWarning> getWarnings();
+    List<PrestoWarning> getWarnings();
 }
