@@ -35,6 +35,7 @@ import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.FilterStatsCalculator;
+import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.CommitTask;
@@ -378,7 +379,7 @@ public class LocalQueryRunner
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
         this.statsCalculator = new SelectingStatsCalculator(
                 new CoefficientBasedStatsCalculator(metadata),
-                ServerMainModule.createNewStatsCalculator(metadata, new FilterStatsCalculator(metadata)));
+                ServerMainModule.createNewStatsCalculator(metadata, new FilterStatsCalculator(metadata), new ScalarStatsCalculator(metadata)));
         this.costCalculator = new CostCalculatorUsingExchanges(this::getNodeCount);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, this::getNodeCount);
         this.lookup = new StatelessLookup(statsCalculator, costCalculator);
