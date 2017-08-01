@@ -398,7 +398,7 @@ public class SqlQueryManager
                     throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE only supported for statements that are queries");
                 }
             }
-            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters);
+            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement, parameters, new LocalLoggingWarningSink());
         }
         catch (ParsingException | PrestoException | SemanticException e) {
             // This is intentionally not a method, since after the state change listener is registered
@@ -416,7 +416,7 @@ public class SqlQueryManager
             if (e instanceof QueryQueueFullException) {
                 resourceGroup = Optional.of(((QueryQueueFullException) e).getResourceGroup());
             }
-            QueryExecution execution = new FailedQueryExecution(queryId, query, resourceGroup, session, self, transactionManager, queryExecutor, metadata, e);
+            QueryExecution execution = new FailedQueryExecution(queryId, query, resourceGroup, session, self, transactionManager, new NullWarningSink(), queryExecutor, metadata, e);
 
             QueryInfo queryInfo = null;
             try {

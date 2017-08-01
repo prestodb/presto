@@ -39,6 +39,7 @@ import com.facebook.presto.execution.DeallocateTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.NullWarningSink;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RenameColumnTask;
@@ -713,7 +714,7 @@ public class LocalQueryRunner
                 sqlParser,
                 costCalculator,
                 dataDefinitionTask);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, new NullWarningSink(), Optional.of(queryExplainer), parameters);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, costCalculator);
 

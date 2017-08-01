@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.WarningSink;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
@@ -195,6 +197,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -206,12 +209,14 @@ class StatementAnalyzer
     private final Session session;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
+    private final WarningSink warningSink;
 
     public StatementAnalyzer(
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
+            WarningSink warningSink,
             Session session)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
@@ -219,6 +224,7 @@ class StatementAnalyzer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
+        this.warningSink = requireNonNull(warningSink, "warningSink is null");
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)
@@ -375,6 +381,7 @@ class StatementAnalyzer
                     metadata,
                     sqlParser,
                     new AllowAllAccessControl(),
+                    warningSink,
                     session);
 
             Scope tableScope = analyzer.analyze(table, scope);
@@ -452,6 +459,7 @@ class StatementAnalyzer
                     metadata,
                     sqlParser,
                     new ViewAccessControl(accessControl),
+                    warningSink,
                     session);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
@@ -690,7 +698,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, warningSink, session);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -892,7 +900,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, warningSink, session);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1363,6 +1371,7 @@ class StatementAnalyzer
                     Expression orderByExpression = null;
                     if (expression instanceof Identifier) {
                         // if this is a simple name reference, try to resolve against output columns
+                        // this conforms with standard (non-legacy) behavior
 
                         QualifiedName name = QualifiedName.of(((Identifier) expression).getName());
                         Collection<Expression> expressions = byAlias.get(name);
@@ -1393,11 +1402,26 @@ class StatementAnalyzer
                     }
 
                     // otherwise, just use the expression as is
+                    boolean checkDeprecatedBehavior = false;
                     if (orderByExpression == null) {
                         orderByExpression = expression;
+                        checkDeprecatedBehavior = true;
                     }
 
                     ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
+
+                    if (checkDeprecatedBehavior) {
+                        for (Map.Entry<NodeRef<Expression>, FieldId> columnExpression : expressionAnalysis.getColumnReferences().entrySet()) {
+                            Optional<ResolvedField> resolvedField = orderByScope.tryResolveField(columnExpression.getKey().getNode());
+                            if (resolvedField.isPresent()) {
+                                if (!FieldId.from(resolvedField.get()).equals(columnExpression.getValue())) {
+                                    warningSink.logWarning(WarningCode.LEGACY_ORDER_BY, format("ORDER BY column %s was not resolved in accordance with the ANSI SQL specification, " +
+                                            "this behavior will be removed in a future release", columnExpression.getKey().getNode()));
+                                }
+                            }
+                        }
+                    }
+
                     analysis.recordSubqueries(node, expressionAnalysis);
 
                     Type type = expressionAnalysis.getType(orderByExpression);
@@ -1849,7 +1873,7 @@ class StatementAnalyzer
                         .setSystemProperty(LEGACY_ORDER_BY, session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class).toString())
                         .build();
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, warningSink, viewSession);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -1896,6 +1920,7 @@ class StatementAnalyzer
                     sqlParser,
                     scope,
                     analysis,
+                    warningSink,
                     expression);
         }
 
@@ -2013,6 +2038,7 @@ class StatementAnalyzer
                         accessControl, sqlParser,
                         orderByScope,
                         analysis,
+                        warningSink,
                         expression);
                 analysis.recordSubqueries(node, expressionAnalysis);
 
