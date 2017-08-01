@@ -114,7 +114,7 @@ public class HiveClientConfig
 
     private boolean writesToNonManagedTablesEnabled;
 
-    private String hiveMetastoreWarehouseDir = "/usr/hive/warehouse";
+    private String hiveMetastoreWarehouseDir = "./warehouse";
 
     public String getHiveMetastoreWarehouseDir()
     {

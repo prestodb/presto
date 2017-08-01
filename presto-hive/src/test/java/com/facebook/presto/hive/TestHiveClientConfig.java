@@ -90,7 +90,7 @@ public class TestHiveClientConfig
                 .setBucketWritingEnabled(true)
                 .setFileSystemMaxCacheSize(1000)
                 .setWritesToNonManagedTablesEnabled(false)
-                .setHiveMetastoreWarehouseDir("/usr/hive/warehouse"));
+                .setHiveMetastoreWarehouseDir("./warehouse"));
     }
 
     @Test
