@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.util.MoreMath.isPositiveOrNan;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationStatsRule
@@ -76,7 +77,7 @@ public class AggregationStatsRule
             int nullRow = isPositiveOrNan(symbolStatistics.getNullsFraction()) ? 1 : 0;
             rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
         }
-        result.setOutputRowCount(rowsCount);
+        result.setOutputRowCount(min(rowsCount, input.getOutputRowCount()));
 
         for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
             result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), input));

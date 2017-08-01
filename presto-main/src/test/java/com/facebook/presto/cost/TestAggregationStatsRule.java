@@ -111,4 +111,24 @@ public class TestAggregationStatsRule
                                 .nullsFractionUnknown())
                         .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion.lowValue(0).highValue(3).distinctValuesCount(3).nullsFraction(0)));
     }
+
+    @Test
+    public void testAggregationStatsCappedToInputRows()
+    {
+        tester.assertStatsFor(pb -> pb
+                .aggregation(ab -> ab
+                        .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .addGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
+                        .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder()
+                                .setDistinctValuesCount(50)
+                                .build())
+                        .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.builder()
+                                .setDistinctValuesCount(50)
+                                .build())
+                        .build())
+                .check(check -> check.outputRowsCount(100));
+    }
 }

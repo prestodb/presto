@@ -148,7 +148,7 @@ public class PlanNodeStatsEstimateMath
                             .setNullsFraction(min(leftSymbolStats.getNullsFraction(), rightSymbolStats.getNullsFraction()))
                             .build());
         }
-
+        statsBuilder.setOutputRowCount(left.getOutputRowCount() + right.getOutputRowCount());  // this is the maximum row count;
         PlanNodeStatsEstimate intermediateResult = statsBuilder.build();
         return groupBy(intermediateResult, intermediateResult.getSymbolsWithKnownStatistics(), emptyMap());
     }
