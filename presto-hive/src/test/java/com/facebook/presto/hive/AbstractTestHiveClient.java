@@ -66,6 +66,9 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.RangeColumnStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
@@ -178,6 +181,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.newArrayList;
@@ -1051,6 +1055,73 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             assertNull(metadata.getTableHandle(newSession(), invalidTable));
+        }
+    }
+
+    @Test
+    public void testGetTableStatsBucketedStringInt()
+            throws Exception
+    {
+        assertTableStatsComputed(
+                tableBucketedStringInt,
+                ImmutableSet.of(
+                        "t_bigint",
+                        "t_boolean",
+                        "t_double",
+                        "t_float",
+                        "t_int",
+                        "t_smallint",
+                        "t_string",
+                        "t_tinyint",
+                        "ds"));
+    }
+
+    @Test
+    public void testGetTableStatsUnpartitioned()
+            throws Exception
+    {
+        assertTableStatsComputed(
+                tableUnpartitioned,
+                ImmutableSet.of("t_string", "t_tinyint"));
+    }
+
+    private void assertTableStatsComputed(
+            SchemaTableName tableName,
+            Set<String> expectedColumnStatsColumns)
+            throws Exception
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, Constraint.alwaysTrue());
+
+            assertFalse(tableStatistics.getRowCount().isValueUnknown(), "row count is unknown");
+
+            Map<String, ColumnStatistics> columnsStatistics = tableStatistics
+                    .getColumnStatistics()
+                    .entrySet()
+                    .stream()
+                    .collect(
+                            toImmutableMap(
+                                    entry -> ((HiveColumnHandle) entry.getKey()).getName(),
+                                    Map.Entry::getValue));
+
+            assertEquals(columnsStatistics.keySet(), expectedColumnStatsColumns, "columns with statistics");
+
+            columnsStatistics.forEach((columnName, columnStatistics) -> {
+                assertFalse(
+                        columnStatistics.getNullsFraction().isValueUnknown(),
+                        "unknown nulls fraction for " + columnName);
+
+                RangeColumnStatistics rangeColumnStatistics = columnStatistics.getOnlyRangeColumnStatistics();
+                assertFalse(
+                        rangeColumnStatistics.getDistinctValuesCount().isValueUnknown(),
+                        "unknown range distinct values count for " + columnName);
+                assertFalse(
+                        rangeColumnStatistics.getFraction().isValueUnknown(),
+                        "unknown range non-null fraction for " + columnName);
+            });
         }
     }
 
