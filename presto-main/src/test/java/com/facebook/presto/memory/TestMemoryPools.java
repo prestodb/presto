@@ -78,9 +78,7 @@ public class TestMemoryPools
         }
 
         // driver should be blocked waiting for memory
-        for (Driver driver : drivers) {
-            assertFalse(driver.isFinished());
-        }
+        assertTrue(isWaitingForMemory(drivers));
         assertTrue(pool.getFreeBytes() <= 0);
 
         pool.free(fakeQueryId, TEN_MEGABYTES);

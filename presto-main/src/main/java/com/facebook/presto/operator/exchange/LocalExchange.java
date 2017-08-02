@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.exchange;
 
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +45,7 @@ public class LocalExchange
 {
     private static final DataSize DEFAULT_MAX_BUFFERED_BYTES = new DataSize(32, MEGABYTE);
     private final List<Type> types;
-    private final Supplier<Consumer<Page>> exchangerSupplier;
+    private final Supplier<Exchanger> exchangerSupplier;
 
     private final List<LocalExchangeSource> sources;
 
@@ -197,7 +196,7 @@ public class LocalExchange
             }
 
             // Note: exchanger can be stateful so create a new one for each sink
-            Consumer<Page> exchanger = exchangerSupplier.get();
+            Exchanger exchanger = exchangerSupplier.get();
             LocalExchangeSink sink = new LocalExchangeSink(types, exchanger, memoryManager, this::sinkFinished);
             sinks.add(sink);
             return sink;

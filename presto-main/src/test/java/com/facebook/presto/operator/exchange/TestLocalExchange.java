@@ -224,8 +224,11 @@ public class TestLocalExchange
         assertExchangeTotalBufferedBytes(exchange, 0);
 
         LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
-        LocalExchangeSink sink = sinkFactory.createSink();
-        assertSinkCanWrite(sink);
+        LocalExchangeSink sinkA = sinkFactory.createSink();
+        LocalExchangeSink sinkB = sinkFactory.createSink();
+        LocalExchangeSink sinkC = sinkFactory.createSink();
+        assertSinkCanWrite(sinkA);
+        assertSinkCanWrite(sinkB);
         sinkFactory.close();
         sinkFactory.noMoreSinkFactories();
 
@@ -235,13 +238,17 @@ public class TestLocalExchange
         LocalExchangeSource sourceB = exchange.getSource(1);
         assertSource(sourceB, 0);
 
-        sink.addPage(createPage(0));
+        sinkA.addPage(createPage(0));
+        sinkA.finish();
+        assertSinkFinished(sinkA);
 
         assertSource(sourceA, 1);
         assertSource(sourceB, 1);
         assertTrue(exchange.getBufferedBytes() >= retainedSizeOfPages(1));
 
-        sink.addPage(createPage(0));
+        sinkB.addPage(createPage(0));
+        sinkB.finish();
+        assertSinkFinished(sinkB);
 
         assertSource(sourceA, 2);
         assertSource(sourceB, 2);
@@ -255,8 +262,7 @@ public class TestLocalExchange
         assertSource(sourceA, 0);
         assertSource(sourceB, 2);
 
-        sink.finish();
-        assertSinkFinished(sink);
+        sinkC.finish();
         assertSourceFinished(sourceA);
         assertSource(sourceB, 2);
 
