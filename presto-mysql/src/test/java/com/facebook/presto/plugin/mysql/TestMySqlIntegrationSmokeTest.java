@@ -83,6 +83,25 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testDropTable()
+    {
+        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
+
+        assertUpdate("DROP TABLE test_drop");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
+    }
+
+    @Test
+    public void testViews()
+            throws SQLException
+    {
+        execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
+        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
+        execute("DROP VIEW IF EXISTS tpch.test_view");
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {
