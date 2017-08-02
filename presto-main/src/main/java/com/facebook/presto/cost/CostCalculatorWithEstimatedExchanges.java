@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.function.IntSupplier;
 
 import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -98,11 +99,17 @@ public class CostCalculatorWithEstimatedExchanges
         @Override
         public PlanNodeCostEstimate visitAggregation(AggregationNode node, Void context)
         {
-            return CostCalculatorUsingExchanges.calculateExchangeCost(
+            PlanNodeCostEstimate remoteRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                     numberOfNodes,
                     getStats(node.getSource()),
                     REPARTITION,
                     REMOTE);
+            PlanNodeCostEstimate localRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
+                    numberOfNodes,
+                    getStats(node.getSource()),
+                    REPARTITION,
+                    LOCAL);
+            return remoteRepartitionCost.add(localRepartitionCost);
         }
 
         @Override
@@ -126,11 +133,18 @@ public class CostCalculatorWithEstimatedExchanges
         private PlanNodeCostEstimate calculateJoinCost(PlanNode probe, PlanNode build, boolean replicated)
         {
             if (replicated) {
-                return CostCalculatorUsingExchanges.calculateExchangeCost(
+                PlanNodeCostEstimate replicateCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
                         getStats(build),
                         REPLICATE,
                         REMOTE);
+                // cost of the copies repartitioning is added in CostCalculatorUsingExchanges#calculateJoinCost
+                PlanNodeCostEstimate localRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
+                        numberOfNodes,
+                        getStats(build),
+                        REPARTITION,
+                        LOCAL);
+                return replicateCost.add(localRepartitionCost);
             }
             else {
                 PlanNodeCostEstimate probeCost = CostCalculatorUsingExchanges.calculateExchangeCost(
@@ -138,12 +152,19 @@ public class CostCalculatorWithEstimatedExchanges
                         getStats(probe),
                         REPARTITION,
                         REMOTE);
-                PlanNodeCostEstimate buildCost = CostCalculatorUsingExchanges.calculateExchangeCost(
+                PlanNodeCostEstimate buildRemoteRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
                         getStats(build),
                         REPARTITION,
                         REMOTE);
-                return probeCost.add(buildCost);
+                PlanNodeCostEstimate buildLocalRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
+                        numberOfNodes,
+                        getStats(build),
+                        REPARTITION,
+                        LOCAL);
+                return probeCost
+                        .add(buildRemoteRepartitionCost)
+                        .add(buildLocalRepartitionCost);
             }
         }
 

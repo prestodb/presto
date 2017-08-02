@@ -148,7 +148,7 @@ public class TestCostCalculator
                 join,
                 costs,
                 stats)
-                .cpu(12000 + 6000 + 1000 + 6000 + 1000 + 6000 + 1000);
+                .cpu(12000 + 6000 + 1000 + 6000 + 1000 + 6000 + 1000 + 1000);
 
         assertCostHasUnknownComponentsForUnknownStats(join);
     }
@@ -176,12 +176,12 @@ public class TestCostCalculator
                 join,
                 costs,
                 stats)
-                .cpu(12000 + 6000 + 10000 + 6000 + 1000);
+                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * (NUMBER_OF_NODES - 1));
         assertCostEstimatedExchanges(
                 join,
                 costs,
                 stats)
-                .cpu(12000 + 6000 + 10000 + 6000 + 1000);
+                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * NUMBER_OF_NODES);
 
         assertCostHasUnknownComponentsForUnknownStats(join);
     }
@@ -200,7 +200,7 @@ public class TestCostCalculator
         assertCost(aggregationNode, costs, stats)
                 .cpu(6000 + 6000);
         assertCostEstimatedExchanges(aggregationNode, costs, stats)
-                .cpu(6000 + 6000 + 6000);
+                .cpu(6000 + 6000 + 6000 + 6000);
 
         assertCostHasUnknownComponentsForUnknownStats(aggregationNode);
     }

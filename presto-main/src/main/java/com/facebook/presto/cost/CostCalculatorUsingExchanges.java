@@ -151,6 +151,12 @@ public class CostCalculatorUsingExchanges
                     buildStats.getOutputSizeInBytes() * numberOfNodesMultiplier +
                     outputStats.getOutputSizeInBytes();
 
+            if (replicated) {
+                // add the cost of a local repartitioning of build side copies
+                // cost of the repartitioning of a single data copy has been already added in calculateExchangeCost
+                cpuCost += buildStats.getOutputSizeInBytes() * (numberOfNodesMultiplier - 1);
+            }
+
             double memoryCost = buildStats.getOutputSizeInBytes() * numberOfNodesMultiplier;
 
             return PlanNodeCostEstimate.builder()
