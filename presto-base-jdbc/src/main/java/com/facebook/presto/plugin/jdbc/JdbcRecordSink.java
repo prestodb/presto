@@ -17,6 +17,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
@@ -32,8 +34,17 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -116,7 +127,13 @@ public class JdbcRecordSink
     public void appendBoolean(boolean value)
     {
         try {
-            statement.setBoolean(next(), value);
+            Type type = columnTypes.get(field);
+            if (BOOLEAN.equals(type)) {
+                statement.setBoolean(next(), value);
+            }
+            else {
+                throw unsupportedType(type);
+            }
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -137,8 +154,20 @@ public class JdbcRecordSink
             else if (REAL.equals(type)) {
                 statement.setFloat(next(), intBitsToFloat(toIntExact(value)));
             }
-            else {
+            else if (BIGINT.equals(type)) {
                 statement.setLong(next(), value);
+            }
+            else if (INTEGER.equals(type)) {
+                statement.setInt(next(), toIntExact(value));
+            }
+            else if (SMALLINT.equals(type)) {
+                statement.setShort(next(), Shorts.checkedCast(value));
+            }
+            else if (TINYINT.equals(type)) {
+                statement.setByte(next(), SignedBytes.checkedCast(value));
+            }
+            else {
+                throw unsupportedType(type);
             }
         }
         catch (SQLException e) {
@@ -150,7 +179,13 @@ public class JdbcRecordSink
     public void appendDouble(double value)
     {
         try {
-            statement.setDouble(next(), value);
+            Type type = columnTypes.get(field);
+            if (DOUBLE.equals(type)) {
+                statement.setDouble(next(), value);
+            }
+            else {
+                throw unsupportedType(type);
+            }
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -161,7 +196,13 @@ public class JdbcRecordSink
     public void appendString(byte[] value)
     {
         try {
-            statement.setString(next(), new String(value, UTF_8));
+            Type type = columnTypes.get(field);
+            if (isVarcharType(type) || isCharType(type)) {
+                statement.setString(next(), new String(value, UTF_8));
+            }
+            else {
+                throw unsupportedType(type);
+            }
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -171,7 +212,7 @@ public class JdbcRecordSink
     @Override
     public void appendObject(Object value)
     {
-        throw new UnsupportedOperationException();
+        throw unsupportedType(columnTypes.get(field));
     }
 
     @Override
@@ -220,5 +261,10 @@ public class JdbcRecordSink
         checkState(field < fieldCount, "all fields already set");
         field++;
         return field;
+    }
+
+    private static PrestoException unsupportedType(Type type)
+    {
+        return new PrestoException(NOT_SUPPORTED, "Type not supported for writing: " + type.getDisplayName());
     }
 }
