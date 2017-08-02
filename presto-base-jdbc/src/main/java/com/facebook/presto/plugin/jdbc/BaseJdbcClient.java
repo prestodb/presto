@@ -65,6 +65,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -511,11 +512,12 @@ public class BaseJdbcClient
 
     protected String toSqlType(Type type)
     {
-        if (type instanceof VarcharType) {
-            if (((VarcharType) type).isUnbounded()) {
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded()) {
                 return "varchar";
             }
-            return "varchar(" + ((VarcharType) type).getLength() + ")";
+            return "varchar(" + varcharType.getLengthSafe() + ")";
         }
         if (type instanceof CharType) {
             if (((CharType) type).getLength() == CharType.MAX_LENGTH) {

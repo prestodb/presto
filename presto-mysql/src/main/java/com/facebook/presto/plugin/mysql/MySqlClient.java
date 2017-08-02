@@ -19,7 +19,6 @@ import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.spi.type.Varchars;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;
@@ -35,6 +34,11 @@ import java.sql.SQLException;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.util.Locale.ENGLISH;
 
 public class MySqlClient
@@ -120,31 +124,32 @@ public class MySqlClient
         if (REAL.equals(type)) {
             return "float";
         }
-
-        if (Varchars.isVarcharType(type)) {
+        if (VARBINARY.equals(type)) {
+            return "varbinary";
+        }
+        if (TIME_WITH_TIME_ZONE.equals(type)) {
+            return "time";
+        }
+        if (TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            return "datetime";
+        }
+        if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
-            if (varcharType.getLength() <= 255) {
+            if (varcharType.isUnbounded()) {
+                return "longtext";
+            }
+            if (varcharType.getLengthSafe() <= 255) {
                 return "tinytext";
             }
-            if (varcharType.getLength() <= 65535) {
+            if (varcharType.getLengthSafe() <= 65535) {
                 return "text";
             }
-            if (varcharType.getLength() <= 16777215) {
+            if (varcharType.getLengthSafe() <= 16777215) {
                 return "mediumtext";
             }
             return "longtext";
         }
 
-        String sqlType = super.toSqlType(type);
-        switch (sqlType) {
-            case "varbinary":
-                return "mediumblob";
-            case "time with timezone":
-                return "time";
-            case "timestamp":
-            case "timestamp with timezone":
-                return "datetime";
-        }
-        return sqlType;
+        return super.toSqlType(type);
     }
 }
