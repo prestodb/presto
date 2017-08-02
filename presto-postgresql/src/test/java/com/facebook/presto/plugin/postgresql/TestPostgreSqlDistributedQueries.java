@@ -20,14 +20,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestPostgreSqlDistributedQueries
@@ -63,33 +57,5 @@ public class TestPostgreSqlDistributedQueries
         // https://github.com/prestodb/presto/issues/5752
     }
 
-    @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
-    }
-
-    @Test
-    public void testViews()
-            throws Exception
-    {
-        execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
-
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-
-        execute("DROP VIEW IF EXISTS tpch.test_view");
-    }
-
-    private void execute(String sql)
-            throws SQLException
-    {
-        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
-    }
+    // PostgreSQL specific tests should normally go in TestPostgreSqlDistributedQueries
 }
