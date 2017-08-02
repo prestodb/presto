@@ -475,13 +475,6 @@ public class DriverContext
         return Math.abs(end - start);
     }
 
-    // hack for index joins
-    @Deprecated
-    public Executor getExecutor()
-    {
-        return executor;
-    }
-
     private class BlockedMonitor
             implements Runnable
     {
