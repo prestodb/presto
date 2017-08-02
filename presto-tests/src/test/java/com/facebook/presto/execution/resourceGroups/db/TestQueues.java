@@ -175,6 +175,8 @@ public class TestQueues
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
         try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
+            InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+            DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
             // Verify the query cannot be submitted
             QueryId queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, FAILED);
@@ -182,17 +184,13 @@ public class TestQueues
             assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
             int selectorCount = getSelectors(queryRunner).size();
             dao.insertSelector(4, "user.*", "(?i).*reject.*");
+            dbConfigurationManager.load();
             assertEquals(dao.getSelectors().size(), selectorCount + 1);
-            while (getSelectors(queryRunner).size() == selectorCount) {
-                MILLISECONDS.sleep(500);
-            }
             // Verify the query can be submitted
             queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, RUNNING);
             dao.deleteSelector(4, "user.*", "(?i).*reject.*");
-            while (getSelectors(queryRunner).size() != selectorCount) {
-                MILLISECONDS.sleep(500);
-            }
+            dbConfigurationManager.load();
             // Verify the query cannot be submitted
             queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, FAILED);
