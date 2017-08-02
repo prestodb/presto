@@ -49,6 +49,7 @@ import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.WarningSink;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -679,6 +680,15 @@ public class LocalQueryRunner
         return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage);
     }
 
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningSink warningSink)
+    {
+        Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql), sqlParser, session);
+
+        assertFormattedSql(sqlParser, statement);
+
+        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningSink);
+    }
+
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
         FeaturesConfig featuresConfig = new FeaturesConfig()
@@ -693,6 +703,11 @@ public class LocalQueryRunner
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
+    {
+        return createPlan(session, sql, optimizers, stage, new NullWarningSink());
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningSink warningSink)
     {
         Statement wrapped = sqlParser.createStatement(sql);
         Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);
@@ -714,7 +729,7 @@ public class LocalQueryRunner
                 sqlParser,
                 costCalculator,
                 dataDefinitionTask);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, new NullWarningSink(), Optional.of(queryExplainer), parameters);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, warningSink, Optional.of(queryExplainer), parameters);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, costCalculator);
 
