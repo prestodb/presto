@@ -42,6 +42,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
+import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -311,7 +312,7 @@ public final class StringFunctions
     @SqlType("char(x)")
     public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
-        return substr(utf8, start, length);
+        return trimTrailingSpaces(substr(utf8, start, length));
     }
 
     @ScalarFunction
@@ -556,7 +557,7 @@ public final class StringFunctions
     @SqlType("char(x)")
     public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return rightTrim(slice, codePointsToTrim);
+        return trimTrailingSpaces(rightTrim(slice, codePointsToTrim));
     }
 
     @Description("remove the longest string containing only given characters from the beginning and end of a string")
@@ -574,7 +575,7 @@ public final class StringFunctions
     @SqlType("char(x)")
     public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return trim(slice, codePointsToTrim);
+        return trimTrailingSpaces(trim(slice, codePointsToTrim));
     }
 
     @ScalarOperator(OperatorType.CAST)

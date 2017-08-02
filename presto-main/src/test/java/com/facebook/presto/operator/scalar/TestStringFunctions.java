@@ -326,6 +326,8 @@ public class TestStringFunctions
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createCharType(13), padRight("", 13));
         assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 0)", createCharType(13), padRight("", 13));
 
+        assertFunction("SUBSTR(CAST('abc def' AS CHAR(7)), 1, 4)", createCharType(7), padRight("abc", 7));
+
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createCharType(13), padRight("ratically", 13));
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createCharType(13), padRight("", 13));
         assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createCharType(13), padRight("cally", 13));
@@ -633,6 +635,7 @@ public class TestStringFunctions
         assertFunction("RTRIM(' hello world ', ' ld')", createVarcharType(13), " hello wor");
         assertFunction("RTRIM(' hello world ', ' ehlowrd')", createVarcharType(13), "");
         assertFunction("RTRIM(' hello world ', ' x')", createVarcharType(13), " hello world");
+        assertFunction("RTRIM(CAST('abc def' AS CHAR(7)), 'def')", createCharType(7), padRight("abc", 7));
 
         // non latin characters
         assertFunction("RTRIM('\u017a\u00f3\u0142\u0107', '\u0107\u0142')", createVarcharType(4), "\u017a\u00f3");
@@ -712,6 +715,7 @@ public class TestStringFunctions
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createCharType(13), padRight("llo world", 13));
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createCharType(13), padRight("", 13));
         assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createCharType(13), padRight("hello world", 13));
+        assertFunction("TRIM(CAST('abc def' AS CHAR(7)), 'def')", createCharType(7), padRight("abc", 7));
 
         // non latin characters
         assertFunction("TRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u017a\u0107\u0142')", createCharType(4), padRight("\u00f3", 4));
