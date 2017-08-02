@@ -28,6 +28,12 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.function.Function;
 
+import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
+import static com.facebook.presto.tests.datatype.DataType.charDataType;
+import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
+import static com.facebook.presto.tests.datatype.DataType.integerDataType;
+import static com.facebook.presto.tests.datatype.DataType.realDataType;
+import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertFalse;
@@ -78,6 +84,20 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
         assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
         assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Test
+    public void testInsertTypes()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(varcharDataType(), "hello world")
+                .addRoundTrip(charDataType(20), "hello world")
+                .addRoundTrip(bigintDataType(), 123_456_789_012L)
+                .addRoundTrip(integerDataType(), 1_234_567_890)
+                .addRoundTrip(smallintDataType(), (short) 32_456)
+                .addRoundTrip(doubleDataType(), 123.45d)
+                .addRoundTrip(realDataType(), 123.45f)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_insert_types"));
     }
 
     @Test

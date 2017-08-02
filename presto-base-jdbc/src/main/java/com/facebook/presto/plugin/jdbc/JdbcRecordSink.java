@@ -33,7 +33,10 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class JdbcRecordSink
@@ -124,11 +127,15 @@ public class JdbcRecordSink
     public void appendLong(long value)
     {
         try {
-            if (DATE.equals(columnTypes.get(field))) {
+            Type type = columnTypes.get(field);
+            if (DATE.equals(type)) {
                 // convert to midnight in default time zone
                 long utcMillis = TimeUnit.DAYS.toMillis(value);
                 long localMillis = ISOChronology.getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
                 statement.setDate(next(), new Date(localMillis));
+            }
+            else if (REAL.equals(type)) {
+                statement.setFloat(next(), intBitsToFloat(toIntExact(value)));
             }
             else {
                 statement.setLong(next(), value);

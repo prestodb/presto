@@ -34,6 +34,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static java.util.Locale.ENGLISH;
 
 public class MySqlClient
@@ -116,6 +117,10 @@ public class MySqlClient
     @Override
     protected String toSqlType(Type type)
     {
+        if (REAL.equals(type)) {
+            return "float";
+        }
+
         if (Varchars.isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.getLength() <= 255) {

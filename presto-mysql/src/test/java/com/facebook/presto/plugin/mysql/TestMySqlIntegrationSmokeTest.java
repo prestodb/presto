@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -36,8 +37,14 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.charDataType;
+import static com.facebook.presto.tests.datatype.DataType.dataType;
+import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
+import static com.facebook.presto.tests.datatype.DataType.integerDataType;
+import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
+import static com.facebook.presto.tests.datatype.DataType.tinyintDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -95,6 +102,16 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableRealType()
+    {
+        assertUpdate("CREATE TABLE test_create_real AS SELECT CAST(123 AS real) x", 1);
+        assertEquals(computeActual("SHOW COLUMNS FROM test_create_real"),
+                MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                        .row("x", "real", "", "")
+                        .build());
+    }
+
+    @Test
     public void testDropTable()
     {
         assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
@@ -121,6 +138,21 @@ public class TestMySqlIntegrationSmokeTest
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
         assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
         assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Test
+    public void testInsertTypes()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(varcharDataType(20), "hello world")
+                .addRoundTrip(charDataType(20), "hello world")
+                .addRoundTrip(bigintDataType(), 123_456_789_012L)
+                .addRoundTrip(integerDataType(), 1_234_567_890)
+                .addRoundTrip(smallintDataType(), (short) 32_456)
+                .addRoundTrip(tinyintDataType(), (byte) 125)
+                .addRoundTrip(doubleDataType(), 123.45d)
+                .addRoundTrip(dataType("float", RealType.REAL), 123.45f)
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_insert_types"));
     }
 
     @Test
