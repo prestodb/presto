@@ -41,11 +41,11 @@ public class LimitStatsRule
         LimitNode limitNode = (LimitNode) node;
 
         PlanNodeStatsEstimate sourceStats = lookup.getStats(limitNode.getSource(), session, types);
+        PlanNodeStatsEstimate.Builder limitCost = PlanNodeStatsEstimate.buildFrom(sourceStats);
         // TODO special handling for NaN?
         if (sourceStats.getOutputRowCount() > limitNode.getCount()) {
-            PlanNodeStatsEstimate.Builder limitCost = PlanNodeStatsEstimate.buildFrom(sourceStats);
             limitCost.setOutputRowCount(limitNode.getCount());
         }
-        return Optional.of(sourceStats);
+        return Optional.of(limitCost.build());
     }
 }
