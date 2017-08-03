@@ -36,6 +36,7 @@ import java.sql.SQLException;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
+import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
@@ -114,6 +115,18 @@ public class TestAllDatatypesFromHiveConnector
         public Requirement getRequirements(Configuration configuration)
         {
             return MutableTableRequirement.builder(ALL_HIVE_SIMPLE_TYPES_PARQUET).withState(CREATED).build();
+        }
+    }
+
+    public static final class AvroRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return Requirements.compose(
+                    MutableTableRequirement.builder(ALL_HIVE_SIMPLE_TYPES_AVRO).withState(CREATED).build(),
+                    immutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE));
         }
     }
 
@@ -213,6 +226,64 @@ public class TestAllDatatypesFromHiveConnector
                         "kot binarny".getBytes()));
     }
 
+    @Requires(AvroRequirements.class)
+    @Test(groups = {HIVE_CONNECTOR})
+    public void testSelectAllDatatypesAvro()
+            throws SQLException
+    {
+        String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
+
+        onHive().executeQuery(format("INSERT INTO %s VALUES(" +
+                "2147483647," +
+                "9223372036854775807," +
+                "123.345," +
+                "234.567," +
+                "346," +
+                "345.67800," +
+                "'" + parseTimestampInUTC("2015-05-10 12:15:35.123").toString() + "'," +
+                "'" + Date.valueOf("2015-05-10") + "'," +
+                "'ala ma kota'," +
+                "'ala ma kot'," +
+                "'ala ma    '," +
+                "true," +
+                "'kot binarny'" +
+                ")", tableName));
+
+        assertThat(query(format("SHOW COLUMNS FROM %s", tableName), QueryType.SELECT).project(1, 2)).containsExactly(
+                row("c_int", "integer"),
+                row("c_bigint", "bigint"),
+                row("c_float", "real"),
+                row("c_double", "double"),
+                row("c_decimal", "decimal(10,0)"),
+                row("c_decimal_w_params", "decimal(10,5)"),
+                row("c_timestamp", "timestamp"),
+                row("c_date", "date"),
+                row("c_string", "varchar"),
+                row("c_varchar", "varchar(10)"),
+                row("c_char", "char(10)"),
+                row("c_boolean", "boolean"),
+                row("c_binary", "varbinary")
+        );
+
+        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        avroAssertColumnTypes(queryResult);
+        assertThat(queryResult).containsOnly(
+                row(
+                        2147483647,
+                        9223372036854775807L,
+                        123.345f,
+                        234.567,
+                        new BigDecimal("346"),
+                        new BigDecimal("345.67800"),
+                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
+                        Date.valueOf("2015-05-10"),
+                        "ala ma kota",
+                        "ala ma kot",
+                        "ala ma    ",
+                        true,
+                        "kot binarny".getBytes()));
+    }
+
     private void assertProperAllDatatypesSchema(String tableName)
     {
         assertThat(query("SHOW COLUMNS FROM " + tableName, QueryType.SELECT).project(1, 2)).containsExactly(
@@ -260,6 +331,48 @@ public class TestAllDatatypesFromHiveConnector
             assertThat(queryResult).hasColumns(
                     TINYINT,
                     SMALLINT,
+                    INTEGER,
+                    BIGINT,
+                    REAL,
+                    DOUBLE,
+                    DECIMAL,
+                    DECIMAL,
+                    TIMESTAMP,
+                    DATE,
+                    VARCHAR,
+                    VARCHAR,
+                    CHAR,
+                    BOOLEAN,
+                    VARBINARY
+            );
+        }
+        else {
+            throw new IllegalStateException();
+        }
+    }
+
+    private void avroAssertColumnTypes(QueryResult queryResult)
+    {
+        Connection connection = defaultQueryExecutor().getConnection();
+        if (usingPrestoJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
+                    INTEGER,
+                    BIGINT,
+                    REAL,
+                    DOUBLE,
+                    DECIMAL,
+                    DECIMAL,
+                    TIMESTAMP,
+                    DATE,
+                    LONGNVARCHAR,
+                    LONGNVARCHAR,
+                    CHAR,
+                    BOOLEAN,
+                    LONGVARBINARY
+            );
+        }
+        else if (usingTeradataJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
                     INTEGER,
                     BIGINT,
                     REAL,

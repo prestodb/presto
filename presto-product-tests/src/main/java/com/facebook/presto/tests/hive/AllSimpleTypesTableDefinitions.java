@@ -45,6 +45,11 @@ public final class AllSimpleTypesTableDefinitions
             .build();
 
     @TableDefinitionsRepository.RepositoryTableDefinition
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_AVRO = avroTableDefinitionBuilder()
+            .setNoData()
+            .build();
+
+    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_ORC = tableDefinitionBuilder("ORC", Optional.empty())
             .setNoData()
             .build();
@@ -78,6 +83,28 @@ public final class AllSimpleTypesTableDefinitions
                         ") " +
                         (rowFormat.isPresent() ? "ROW FORMAT " + rowFormat.get() + " " : " ") +
                         "STORED AS " + fileFormat);
+    }
+
+    private static HiveTableDefinition.HiveTableDefinitionBuilder avroTableDefinitionBuilder()
+    {
+        return HiveTableDefinition.builder("avro_all_types")
+                .setCreateTableDDLTemplate("" +
+                        "CREATE %EXTERNAL% TABLE %NAME%(" +
+                        "   c_int                INT," +
+                        "   c_bigint             BIGINT," +
+                        "   c_float              FLOAT," +
+                        "   c_double             DOUBLE," +
+                        "   c_decimal            DECIMAL," +
+                        "   c_decimal_w_params   DECIMAL(10,5)," +
+                        "   c_timestamp          TIMESTAMP," +
+                        "   c_date               DATE," +
+                        "   c_string             STRING," +
+                        "   c_varchar            VARCHAR(10)," +
+                        "   c_char               CHAR(10)," +
+                        "   c_boolean            BOOLEAN," +
+                        "   c_binary             BINARY" +
+                        ") " +
+                        "STORED AS AVRO");
     }
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder parquetTableDefinitionBuilder()

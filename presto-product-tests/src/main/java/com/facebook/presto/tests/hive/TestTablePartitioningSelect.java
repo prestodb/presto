@@ -47,6 +47,7 @@ public class TestTablePartitioningSelect
     private static final HiveTableDefinition SINGLE_INT_COLUMN_PARTITIONED_ORC = singleIntColumnPartitionedTableDefinition("ORC", Optional.empty());
     private static final HiveTableDefinition SINGLE_INT_COLUMN_PARTITIONED_RCFILE = singleIntColumnPartitionedTableDefinition("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"));
     private static final HiveTableDefinition SINGLE_INT_COLUMN_PARTITIONED_PARQUET = singleIntColumnPartitionedTableDefinition("PARQUET", Optional.empty());
+    private static final HiveTableDefinition SINGLE_INT_COLUMN_PARTITIONED_AVRO = singleIntColumnPartitionedTableDefinition("AVRO", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe'"));
     private static final String TABLE_NAME = "test_table";
 
     @Inject
@@ -85,7 +86,8 @@ public class TestTablePartitioningSelect
                 mutableTable(SINGLE_INT_COLUMN_PARTITIONEND_TEXTFILE, TABLE_NAME, LOADED),
                 mutableTable(SINGLE_INT_COLUMN_PARTITIONED_ORC, TABLE_NAME, LOADED),
                 mutableTable(SINGLE_INT_COLUMN_PARTITIONED_RCFILE, TABLE_NAME, LOADED),
-                mutableTable(SINGLE_INT_COLUMN_PARTITIONED_PARQUET, TABLE_NAME, LOADED)
+                mutableTable(SINGLE_INT_COLUMN_PARTITIONED_PARQUET, TABLE_NAME, LOADED),
+                mutableTable(SINGLE_INT_COLUMN_PARTITIONED_AVRO, TABLE_NAME, LOADED)
         );
     }
 
