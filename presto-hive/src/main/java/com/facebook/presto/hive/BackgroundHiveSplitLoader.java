@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.io.CharStreams;
+import com.hadoop.compression.lzo.LzoIndex;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -52,6 +53,7 @@ import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -75,6 +77,9 @@ import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitS
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.HiveUtil.getLzopIndexPath;
+import static com.facebook.presto.hive.HiveUtil.isLzopCompressedFile;
+import static com.facebook.presto.hive.HiveUtil.isLzopIndexFile;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
@@ -509,6 +514,11 @@ public class BackgroundHiveSplitLoader
             Map<Integer, HiveType> columnCoercions)
             throws IOException
     {
+        Path filePath = new Path(path);
+        if (isLzopIndexFile(filePath)) {
+            return Collections.<HiveSplit>emptyIterator();
+        }
+
         boolean forceLocalScheduling = HiveSessionProperties.isForceLocalScheduling(session);
 
         if (splittable) {
@@ -517,6 +527,9 @@ public class BackgroundHiveSplitLoader
             return new AbstractIterator<HiveSplit>()
             {
                 private long chunkOffset = 0;
+                private LzoIndex index = isLzopCompressedFile(filePath) ?
+                    LzoIndex.readIndex(hdfsEnvironment.getFileSystem(session.getUser(), getLzopIndexPath(filePath)), filePath) :
+                    null;
 
                 @Override
                 protected HiveSplit computeNext()
@@ -547,6 +560,17 @@ public class BackgroundHiveSplitLoader
                     // adjust the actual chunk size to account for the overrun when chunks are slightly bigger than necessary (see above)
                     long chunkLength = Math.min(targetChunkSize, blockLocation.getLength() - chunkOffset);
 
+                    // align the end point to the indexed point for lzo compressed file
+                    if (isLzopCompressedFile(filePath)) {
+                        long offset = blockLocation.getOffset() + chunkOffset;
+                        if (index.isEmpty()) {
+                            chunkLength = length - offset;
+                        }
+                        else {
+                            chunkLength = index.alignSliceEndToIndex(offset + chunkLength, length) - offset;
+                        }
+                    }
+
                     HiveSplit result = new HiveSplit(
                             connectorId,
                             table.getDatabaseName(),
@@ -566,10 +590,16 @@ public class BackgroundHiveSplitLoader
 
                     chunkOffset += chunkLength;
 
-                    if (chunkOffset >= blockLocation.getLength()) {
-                        checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
+                    while (chunkOffset >= blockLocation.getLength()) {
+                        // allow overrun for lzo compressed file for intermediate blocks
+                        if (!isLzopCompressedFile(filePath) || blockLocation.getOffset() + blockLocation.getLength() >= length) {
+                            checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
+                        }
                         blockLocationIterator.next();
-                        chunkOffset = 0;
+                        chunkOffset -= blockLocation.getLength();
+                        if (chunkOffset > 0) {
+                            blockLocation = blockLocationIterator.peek();
+                        }
                     }
 
                     return result;
