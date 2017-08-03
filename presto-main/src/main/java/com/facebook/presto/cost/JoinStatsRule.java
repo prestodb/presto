@@ -29,11 +29,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.util.MoreMath.min;
 import static com.facebook.presto.util.MoreMath.rangeMax;
 import static com.facebook.presto.util.MoreMath.rangeMin;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,6 +43,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
+import static java.util.Comparator.comparingDouble;
 
 public class JoinStatsRule
         implements ComposableStatsCalculator.Rule
@@ -104,12 +108,82 @@ public class JoinStatsRule
 
     private PlanNodeStatsEstimate computeInnerJoinStats(JoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats, Session session, Map<Symbol, Type> types)
     {
-        List<Expression> comparisons = node.getCriteria().stream()
-                .map(criteria -> new ComparisonExpression(EQUAL, criteria.getLeft().toSymbolReference(), criteria.getRight().toSymbolReference()))
-                .collect(toImmutableList());
-        Expression predicate = combineConjuncts(combineConjuncts(comparisons), node.getFilter().orElse(TRUE_LITERAL));
         PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats);
-        return filterStatsCalculator.filterStats(crossJoinStats, predicate, session, types);
+        List<EquiJoinClause> equiJoinClauses = node.getCriteria();
+
+        PlanNodeStatsEstimate equiJoinClausesFilteredStats = IntStream.range(0, equiJoinClauses.size())
+                .mapToObj(drivingClauseId -> {
+                    EquiJoinClause drivingClause = equiJoinClauses.get(drivingClauseId);
+                    List<EquiJoinClause> remainingClauses = copyWithout(equiJoinClauses, drivingClauseId);
+                    return filterByEquiJoinClauses(crossJoinStats, drivingClause, remainingClauses, session, types);
+                })
+                .min(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
+                .orElse(crossJoinStats);
+
+        return node.getFilter().map(filter -> filterStatsCalculator.filterStats(equiJoinClausesFilteredStats, filter, session, types)).orElse(equiJoinClausesFilteredStats);
+    }
+
+    private <T> List<T> copyWithout(List<? extends T> list, int filteredOutIndex)
+    {
+        return IntStream.range(0, list.size())
+                .filter(index -> index != filteredOutIndex)
+                .mapToObj(list::get)
+                .collect(toImmutableList());
+    }
+
+    private PlanNodeStatsEstimate filterByEquiJoinClauses(PlanNodeStatsEstimate stats, EquiJoinClause drivingClause, List<EquiJoinClause> auxiliaryClauses, Session session, Map<Symbol, Type> types)
+    {
+        ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, drivingClause.getLeft().toSymbolReference(), drivingClause.getRight().toSymbolReference());
+        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(stats, drivingPredicate, session, types);
+        for (EquiJoinClause clause : auxiliaryClauses) {
+            filteredStats = filterByAuxiliaryClause(filteredStats, clause);
+        }
+        return filteredStats;
+    }
+
+    private PlanNodeStatsEstimate filterByAuxiliaryClause(PlanNodeStatsEstimate stats, EquiJoinClause clause)
+    {
+        // we just clear null fraction and adjust ranges here
+        // selectivity is mostly handled by driving clause. We just scale heuristically by UNKNOWN_FILTER_COEFFICIENT here.
+
+        SymbolStatsEstimate leftStats = stats.getSymbolStatistics(clause.getLeft());
+        SymbolStatsEstimate rightStats = stats.getSymbolStatistics(clause.getRight());
+        StatisticRange leftRange = StatisticRange.from(leftStats);
+        StatisticRange rightRange = StatisticRange.from(rightStats);
+
+        StatisticRange intersect = leftRange.intersect(rightRange);
+        double leftFilterValue = firstNonNaN(leftRange.overlapPercentWith(intersect), 1);
+        double rightFilterValue = firstNonNaN(rightRange.overlapPercentWith(intersect), 1);
+        double leftNdvInRange = leftFilterValue * leftRange.getDistinctValuesCount();
+        double rightNdvInRange = rightFilterValue * rightRange.getDistinctValuesCount();
+        double retainedNdv = min(leftNdvInRange, rightNdvInRange);
+
+        SymbolStatsEstimate newLeftStats = buildFrom(leftStats)
+                .setNullsFraction(0)
+                .setStatisticsRange(intersect)
+                .setDistinctValuesCount(retainedNdv)
+                .build();
+
+        SymbolStatsEstimate newRightStats = buildFrom(rightStats)
+                .setNullsFraction(0)
+                .setStatisticsRange(intersect)
+                .setDistinctValuesCount(retainedNdv)
+                .build();
+
+        return stats
+                .mapSymbolColumnStatistics(clause.getLeft(), oldLeftStats -> newLeftStats)
+                .mapSymbolColumnStatistics(clause.getRight(), oldRightStats -> newRightStats)
+                .mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
+    }
+
+    private static double firstNonNaN(double... values)
+    {
+        for (double value : values) {
+            if (!isNaN(value)) {
+                return value;
+            }
+        }
+        throw new IllegalArgumentException("All values NaN");
     }
 
     @VisibleForTesting
