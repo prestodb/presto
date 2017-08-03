@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
@@ -49,11 +50,21 @@ public class RuleTester
 
     public RuleTester(List<Plugin> plugins)
     {
-        session = testSessionBuilder()
+        this(plugins, ImmutableMap.of());
+    }
+
+    public RuleTester(List<Plugin> plugins, Map<String, String> properties)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
-                .build();
+                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+        }
+
+        session = sessionBuilder.build();
 
         queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
