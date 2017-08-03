@@ -30,6 +30,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -53,11 +54,21 @@ public class RuleTester
 
     public RuleTester()
     {
-        session = testSessionBuilder()
+        this(ImmutableMap.of());
+    }
+
+    public RuleTester(Map<String, String> properties)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
-                .build();
+                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+        }
+
+        session = sessionBuilder.build();
 
         queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
