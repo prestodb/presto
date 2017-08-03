@@ -50,15 +50,19 @@ public class TestJoinStatsRule
     private static final double RIGHT_JOIN_COLUMN_NON_NULLS = 0.4;
     private static final int RIGHT_JOIN_COLUMN_NDV = 15;
 
+    private static final SymbolStatistics LEFT_JOIN_COLUMN_STATS =
+            symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS, LEFT_JOIN_COLUMN_NDV);
     private static final SymbolStatistics LEFT_OTHER_COLUMN_STATS =
             symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, 0.42, 1);
+    private static final SymbolStatistics RIGHT_JOIN_COLUMN_STATS =
+            symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, RIGHT_JOIN_COLUMN_NULLS, RIGHT_JOIN_COLUMN_NDV);
     private static final SymbolStatistics RIGHT_OTHER_COLUMN_STATS =
             symbolStatistics(RIGHT_OTHER_COLUMN, 24, 24, 0.24, 1);
     private static final PlanNodeStatsEstimate LEFT_STATS = planNodeStats(LEFT_ROWS_COUNT,
-            symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS, LEFT_JOIN_COLUMN_NDV),
+            LEFT_JOIN_COLUMN_STATS,
             LEFT_OTHER_COLUMN_STATS);
     private static final PlanNodeStatsEstimate RIGHT_STATS = planNodeStats(RIGHT_ROWS_COUNT,
-            symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, RIGHT_JOIN_COLUMN_NULLS, RIGHT_JOIN_COLUMN_NDV),
+            RIGHT_JOIN_COLUMN_STATS,
             RIGHT_OTHER_COLUMN_STATS);
 
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(new FilterStatsCalculator(createTestMetadataManager()));
