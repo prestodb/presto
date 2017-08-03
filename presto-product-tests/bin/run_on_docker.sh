@@ -141,9 +141,6 @@ function cleanup() {
   # In most cases after the docker containers are stopped, logs processes must be terminated.
   # However when the `LEAVE_CONTAINERS_ALIVE_ON_EXIT` is set, docker containers are not being terminated.
   # Redirection of system error is supposed to hide the `process does not exist` and `process terminated` messages
-  if [[ ! -z ${HADOOP_LOGS_PID} ]]; then
-    kill ${HADOOP_LOGS_PID} 2>/dev/null || true
-  fi
   if [[ ! -z ${PRESTO_LOGS_PID} ]]; then
     kill ${PRESTO_LOGS_PID} 2>/dev/null || true
   fi
@@ -218,15 +215,10 @@ else
 fi
 environment_compose up -d ${EXTERNAL_SERVICES}
 
-# start docker logs for the external services
-environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
-
 # start ldap container
 if [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
   environment_compose up -d ldapserver
 fi
-
-HADOOP_LOGS_PID=$!
 
 # wait until hadoop processes is started
 retry check_hadoop
