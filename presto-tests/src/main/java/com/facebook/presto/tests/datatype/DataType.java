@@ -111,9 +111,14 @@ public class DataType<T>
         return dataType(insertType, createCharType(length), DataType::quote, input -> padEnd(input, length, ' '));
     }
 
-    private static String quote(String value)
+    public static String quote(String value)
     {
-        return "'" + value + "'";
+        return "'" + value.replace("'", "''") + "'";
+    }
+
+    public static String quotedString(Object value)
+    {
+        return quote(String.valueOf(value));
     }
 
     public static <T> DataType<T> dataType(String insertType, Type prestoResultType)

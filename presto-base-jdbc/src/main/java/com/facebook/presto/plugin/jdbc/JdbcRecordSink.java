@@ -21,13 +21,14 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
-import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -43,12 +44,16 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class JdbcRecordSink
         implements RecordSink
@@ -148,8 +153,18 @@ public class JdbcRecordSink
             if (DATE.equals(type)) {
                 // convert to midnight in default time zone
                 long utcMillis = TimeUnit.DAYS.toMillis(value);
-                long localMillis = ISOChronology.getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
+                long localMillis = UTC.getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
                 statement.setDate(next(), new Date(localMillis));
+            }
+            else if (TIMESTAMP.equals(type)) {
+                // convert to default time zone
+                long localMillis = UTC.getMillisKeepLocal(DateTimeZone.getDefault(), value);
+                statement.setTimestamp(next(), new Timestamp(localMillis));
+            }
+            else if (TIME.equals(type)) {
+                // convert to default time zone
+                long localMillis = UTC.getMillisKeepLocal(DateTimeZone.getDefault(), value);
+                statement.setTime(next(), new Time(localMillis));
             }
             else if (REAL.equals(type)) {
                 statement.setFloat(next(), intBitsToFloat(toIntExact(value)));
@@ -199,6 +214,9 @@ public class JdbcRecordSink
             Type type = columnTypes.get(field);
             if (isVarcharType(type) || isCharType(type)) {
                 statement.setString(next(), new String(value, UTF_8));
+            }
+            else if (VARBINARY.equals(type)) {
+                statement.setBytes(next(), value);
             }
             else {
                 throw unsupportedType(type);

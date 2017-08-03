@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -22,20 +25,28 @@ import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.function.Function;
 
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.charDataType;
+import static com.facebook.presto.tests.datatype.DataType.dataType;
 import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
 import static com.facebook.presto.tests.datatype.DataType.integerDataType;
 import static com.facebook.presto.tests.datatype.DataType.realDataType;
 import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static java.util.function.Function.identity;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -89,6 +100,8 @@ public class TestPostgreSqlIntegrationSmokeTest
     @Test
     public void testInsertTypes()
     {
+        DateTimeZone sessionTimeZone = getDateTimeZone(getSession().getTimeZoneKey());
+
         DataTypeTest.create()
                 .addRoundTrip(varcharDataType(), "hello world")
                 .addRoundTrip(charDataType(20), "hello world")
@@ -97,7 +110,23 @@ public class TestPostgreSqlIntegrationSmokeTest
                 .addRoundTrip(smallintDataType(), (short) 32_456)
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
+                .addRoundTrip(
+                        dataType("date", DateType.DATE, DataType::quotedString, identity()),
+                        new Date(new DateTime(2013, 3, 22, 0, 0, sessionTimeZone).getMillis()))
+                .addRoundTrip(
+                        dataType("time", TimeType.TIME, DataType::quotedString, identity()),
+                        new Time(new DateTime(1970, 1, 1, 14, 52, 19, sessionTimeZone).getMillisOfDay()))
+                .addRoundTrip(
+                        dataType("timestamp", TimestampType.TIMESTAMP, DataType::quotedString, identity()),
+                        new Timestamp(new DateTime(2013, 3, 22, 14, 52, 19, sessionTimeZone).getMillisOfDay()))
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_insert_types"));
+    }
+
+    @Test
+    public void testUnsupportedTypes()
+    {
+        assertQueryFails("CREATE TABLE test_unsupported_type AS SELECT current_time x", "Type not supported for writing: time with time zone");
+        assertQueryFails("CREATE TABLE test_unsupported_type AS SELECT current_timestamp x", "Type not supported for writing: timestamp with time zone");
     }
 
     @Test

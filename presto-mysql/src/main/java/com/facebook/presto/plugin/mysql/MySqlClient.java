@@ -19,6 +19,7 @@ import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.Varchars;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;

@@ -92,9 +92,9 @@ public class BaseJdbcClient
             .put(VARBINARY, "varbinary")
             .put(DATE, "date")
             .put(TIME, "time")
-            .put(TIME_WITH_TIME_ZONE, "time with timezone")
+            .put(TIME_WITH_TIME_ZONE, "time with time zone")
             .put(TIMESTAMP, "timestamp")
-            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
+            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with time zone")
             .build();
 
     protected final String connectorId;
