@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStats;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -55,7 +55,7 @@ public class ExchangeStatsRule
             PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, exchangeNode.getInputs().get(i), exchangeNode.getOutputSymbols());
 
             if (estimate.isPresent()) {
-                estimate = Optional.of(addStats(estimate.get(), sourceStatsWithMappedSymbols));
+                estimate = Optional.of(addStatsAndSumDistinctValues(estimate.get(), sourceStatsWithMappedSymbols));
             }
             else {
                 estimate = Optional.of(sourceStatsWithMappedSymbols);

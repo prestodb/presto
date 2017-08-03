@@ -17,7 +17,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStats;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndCollapseDistinctValues;
 
 public class UnionStatsRule
         extends AbstractSetOperationStatsRule
@@ -33,6 +33,6 @@ public class UnionStatsRule
     @Override
     protected PlanNodeStatsEstimate operate(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second)
     {
-        return addStats(first, second);
+        return addStatsAndCollapseDistinctValues(first, second);
     }
 }

@@ -139,9 +139,21 @@ public class StatisticRange
         return empty();
     }
 
-    public StatisticRange add(StatisticRange other)
+    public StatisticRange addAndSumDistinctValues(StatisticRange other)
     {
         double newDistinctValues = distinctValues + other.distinctValues;
+        return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
+    }
+
+    public StatisticRange addAndCollapseDistinctValues(StatisticRange other)
+    {
+        double overlapPercentOfThis = this.overlapPercentWith(other);
+        double overlapPercentOfOther = other.overlapPercentWith(this);
+        double overlapDistinctValuesThis = overlapPercentOfThis * distinctValues;
+        double overlapDistinctValuesOther = overlapPercentOfOther * other.distinctValues;
+        double maxOverlappingValues = max(overlapDistinctValuesThis, overlapDistinctValuesOther);
+        double newDistinctValues = maxOverlappingValues + (1 - overlapPercentOfThis) * distinctValues + (1 - overlapPercentOfOther) * other.distinctValues;
+
         return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
     }
 

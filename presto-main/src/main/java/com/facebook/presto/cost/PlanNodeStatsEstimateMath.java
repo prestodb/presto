@@ -91,7 +91,23 @@ public class PlanNodeStatsEstimateMath
                 .build();
     }
 
-    public static PlanNodeStatsEstimate addStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    @FunctionalInterface
+    private interface RangeAdditionStrategy
+    {
+        StatisticRange add(StatisticRange leftRange, StatisticRange rightRange);
+    }
+
+    public static PlanNodeStatsEstimate addStatsAndSumDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    {
+        return addStats(left, right, StatisticRange::addAndSumDistinctValues);
+    }
+
+    public static PlanNodeStatsEstimate addStatsAndCollapseDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    {
+        return addStats(left, right, StatisticRange::addAndCollapseDistinctValues);
+    }
+
+    private static PlanNodeStatsEstimate addStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, RangeAdditionStrategy strategy)
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
@@ -102,18 +118,20 @@ public class PlanNodeStatsEstimateMath
                             addColumnStats(left.getSymbolStatistics(symbol),
                                     left.getOutputRowCount(),
                                     right.getSymbolStatistics(symbol),
-                                    right.getOutputRowCount(), newRowCount));
+                                    right.getOutputRowCount(),
+                                    newRowCount,
+                                    strategy));
                 });
 
         return statsBuilder.setOutputRowCount(newRowCount).build();
     }
 
-    private static SymbolStatsEstimate addColumnStats(SymbolStatsEstimate leftStats, double leftRows, SymbolStatsEstimate rightStats, double rightRows, double newRowCount)
+    private static SymbolStatsEstimate addColumnStats(SymbolStatsEstimate leftStats, double leftRows, SymbolStatsEstimate rightStats, double rightRows, double newRowCount, RangeAdditionStrategy strategy)
     {
         StatisticRange leftRange = StatisticRange.from(leftStats);
         StatisticRange rightRange = StatisticRange.from(rightStats);
 
-        StatisticRange sum = leftRange.add(rightRange);
+        StatisticRange sum = strategy.add(leftRange, rightRange);
         double nullsCountRight = rightStats.getNullsFraction() * rightRows;
         double nullsCountLeft = leftStats.getNullsFraction() * leftRows;
         double totalSizeLeft = leftRows * leftStats.getAverageRowSize();

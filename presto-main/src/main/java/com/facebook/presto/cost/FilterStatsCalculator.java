@@ -44,7 +44,7 @@ import java.util.OptionalDouble;
 
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonExpressionToExpressionStats;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.comparisonExpressionToLiteralStats;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStats;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInNonRangeStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInStats;
 import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
@@ -167,7 +167,7 @@ public class FilterStatsCalculator
                         return visitExpression(node, context);
                     }
                     checkState(andStats.isPresent(), "Expected andStats to be present");
-                    PlanNodeStatsEstimate sumStats = addStats(leftStats.get(), rightStats.get());
+                    PlanNodeStatsEstimate sumStats = addStatsAndSumDistinctValues(leftStats.get(), rightStats.get());
                     return Optional.of(differenceInNonRangeStats(sumStats, andStats.get()));
                 default:
                     throw new IllegalStateException(format("Unimplemented logical binary operator expression %s", node.getType()));
@@ -256,7 +256,7 @@ public class FilterStatsCalculator
 
             PlanNodeStatsEstimate statsSum = valuesEqualityStats.stream()
                     .map(Optional::get)
-                    .reduce(filterForFalseExpression().get(), PlanNodeStatsEstimateMath::addStats);
+                    .reduce(filterForFalseExpression().get(), PlanNodeStatsEstimateMath::addStatsAndSumDistinctValues);
 
             if (isNaN(statsSum.getOutputRowCount())) {
                 return visitExpression(node, context);

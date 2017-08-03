@@ -138,12 +138,12 @@ public class TestUnionStatsRule
                         .symbolStats("o3", assertion -> assertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
-                                .distinctValuesCount(10.0)
+                                .distinctValuesCount(8.5)
                                 .nullsFraction(0.1666667))
                         .symbolStats("o4", assertion -> assertion
                                 .lowValue(10)
                                 .highValue(15)
-                                .distinctValuesCount(6.0)
+                                .distinctValuesCount(4.0)
                                 .nullsFraction(0.1))
                         .symbolStats("o5", assertion -> assertion
                                 .lowValue(NEGATIVE_INFINITY)
