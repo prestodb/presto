@@ -59,6 +59,7 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -126,13 +127,12 @@ public class RowToRowCast
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
 
         // create the interleave block builder
-        body.newObject(InterleavedBlockBuilder.class)
-                .dup()
-                .append(constantType(binder, toType).invoke("getTypeParameters", List.class))
-                .append(newInstance(BlockBuilderStatus.class))
-                .append(constantInt(toTypes.size()))
-                .invokeConstructor(InterleavedBlockBuilder.class, List.class, BlockBuilderStatus.class, int.class)
-                .putVariable(blockBuilder);
+        body.append(blockBuilder.set(
+                newInstance(
+                        InterleavedBlockBuilder.class,
+                        loadConstant(binder.bind(toType.getTypeParameters(), List.class)),
+                        newInstance(BlockBuilderStatus.class),
+                        constantInt(toTypes.size()))));
 
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
