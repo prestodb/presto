@@ -1,0 +1,137 @@
+{
+  "rowCount" : 2000,
+  "columns" : {
+    "i_item_sk" : {
+      "distinctValuesCount" : 2000,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 2000
+    },
+    "i_item_id" : {
+      "distinctValuesCount" : 1001,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAAABAAAAA",
+      "max" : "AAAAAAAAPPEAAAAA"
+    },
+    "i_rec_start_date" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 4,
+      "min" : 10161,
+      "max" : 11622
+    },
+    "i_rec_end_date" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 1000,
+      "min" : 10891,
+      "max" : 11621
+    },
+    "i_item_desc" : {
+      "distinctValuesCount" : 1492,
+      "nullsCount" : 9,
+      "min" : "A little special changes would not turn certainly terms. Big, immediate earn",
+      "max" : "Young, white workers may not wreck british, statistical explanations. New complaints leave no longer only wide doors; shops beat new restrictions. Horses must not test by now anonym"
+    },
+    "i_current_price" : {
+      "distinctValuesCount" : 1017,
+      "nullsCount" : 6,
+      "min" : 9,
+      "max" : 9989
+    },
+    "i_wholesale_cost" : {
+      "distinctValuesCount" : 704,
+      "nullsCount" : 4,
+      "min" : 3,
+      "max" : 8583
+    },
+    "i_brand_id" : {
+      "distinctValuesCount" : 552,
+      "nullsCount" : 8,
+      "min" : 1001001,
+      "max" : 10016017
+    },
+    "i_brand" : {
+      "distinctValuesCount" : 536,
+      "nullsCount" : 4,
+      "min" : "amalgamalg #1",
+      "max" : "univunivamalg #9"
+    },
+    "i_class_id" : {
+      "distinctValuesCount" : 16,
+      "nullsCount" : 4,
+      "min" : 1,
+      "max" : 16
+    },
+    "i_class" : {
+      "distinctValuesCount" : 99,
+      "nullsCount" : 5,
+      "min" : "accent",
+      "max" : "womens watch"
+    },
+    "i_category_id" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 6,
+      "min" : 1,
+      "max" : 10
+    },
+    "i_category" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 5,
+      "min" : "Books",
+      "max" : "Women"
+    },
+    "i_manufact_id" : {
+      "distinctValuesCount" : 681,
+      "nullsCount" : 5,
+      "min" : 1,
+      "max" : 996
+    },
+    "i_manufact" : {
+      "distinctValuesCount" : 625,
+      "nullsCount" : 4,
+      "min" : "able",
+      "max" : "pripriought"
+    },
+    "i_size" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 5,
+      "min" : "N/A",
+      "max" : "small"
+    },
+    "i_formulation" : {
+      "distinctValuesCount" : 1510,
+      "nullsCount" : 5,
+      "min" : "0014orchid3016167652",
+      "max" : "yellow92850746563485"
+    },
+    "i_color" : {
+      "distinctValuesCount" : 92,
+      "nullsCount" : 7,
+      "min" : "almond",
+      "max" : "yellow"
+    },
+    "i_units" : {
+      "distinctValuesCount" : 21,
+      "nullsCount" : 6,
+      "min" : "Box",
+      "max" : "Unknown"
+    },
+    "i_container" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 6,
+      "min" : "Unknown",
+      "max" : "Unknown"
+    },
+    "i_manager_id" : {
+      "distinctValuesCount" : 100,
+      "nullsCount" : 4,
+      "min" : 1,
+      "max" : 100
+    },
+    "i_product_name" : {
+      "distinctValuesCount" : 1997,
+      "nullsCount" : 3,
+      "min" : "able",
+      "max" : "pripripriought"
+    }
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "rowCount" : 6,
+  "columns" : {
+    "cc_call_center_sk" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 6
+    },
+    "cc_call_center_id" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAAEAAAAAAA"
+    },
+    "cc_rec_start_date" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 10227,
+      "max" : 11688
+    },
+    "cc_rec_end_date" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 3,
+      "min" : 10957,
+      "max" : 11687
+    },
+    "cc_closed_date_sk" : {
+      "distinctValuesCount" : 0,
+      "nullsCount" : 6,
+      "min" : null,
+      "max" : null
+    },
+    "cc_open_date_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 2450806,
+      "max" : 2451063
+    },
+    "cc_name" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Mid Atlantic",
+      "max" : "North Midwest"
+    },
+    "cc_class" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "large",
+      "max" : "small"
+    },
+    "cc_employees" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 7
+    },
+    "cc_sq_ft" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : 649,
+      "max" : 4134
+    },
+    "cc_hours" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "8AM-4PM",
+      "max" : "8AM-8AM"
+    },
+    "cc_manager" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "Bob Belcher",
+      "max" : "Mark Hightower"
+    },
+    "cc_mkt_id" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 2,
+      "max" : 6
+    },
+    "cc_mkt_class" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : "A bit narrow forms matter animals. Consist",
+      "max" : "Wrong troops shall work sometimes in a opti"
+    },
+    "cc_mkt_desc" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "Blue, due beds come. Politicians would not make far thoughts. Specifically new horses partic",
+      "max" : "Shared others could not count fully dollars. New members ca"
+    },
+    "cc_market_manager" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "Gary Colburn",
+      "max" : "Matthew Clifton"
+    },
+    "cc_division" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 5
+    },
+    "cc_division_name" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "anti",
+      "max" : "pri"
+    },
+    "cc_company" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 6
+    },
+    "cc_company_name" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "able",
+      "max" : "pri"
+    },
+    "cc_street_number" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "463",
+      "max" : "984"
+    },
+    "cc_street_name" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Ash Hill",
+      "max" : "Pine Ridge"
+    },
+    "cc_street_type" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Boulevard",
+      "max" : "Way"
+    },
+    "cc_suite_number" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Suite 0",
+      "max" : "Suite U"
+    },
+    "cc_city" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Midway",
+      "max" : "Midway"
+    },
+    "cc_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County"
+    },
+    "cc_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN"
+    },
+    "cc_zip" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "31904"
+    },
+    "cc_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States"
+    },
+    "cc_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500
+    },
+    "cc_tax_percentage" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 12
+    }
+  }
+}
