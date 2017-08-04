@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DynamicFilterExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -466,6 +467,13 @@ public class ExpressionAnalyzer
         {
             OperatorType operatorType = OperatorType.valueOf(node.getType().name());
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
+        }
+
+        @Override
+        protected Type visitDynamicFilterExpression(DynamicFilterExpression node, StackableAstVisitorContext<Context> context)
+        {
+            expressionTypes.put(NodeRef.of(node.getProbeExpression()), process(node.getProbeExpression(), context));
+            return getOperator(context, node, OperatorType.EQUAL, node.getProbeExpression(), node.getProbeExpression());
         }
 
         @Override
