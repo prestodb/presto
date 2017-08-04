@@ -307,6 +307,7 @@ public class TestFilterStatsCalculator
     {
         Expression innerExpression = new ComparisonExpression(ComparisonExpressionType.LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"));
         Expression unknownExpression = new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new SymbolReference("x")));
+        Expression isNullExpression = new IsNullPredicate(new SymbolReference("x"));
 
         assertExpression(new NotExpression(innerExpression))
                 .outputRowsCount(625) // FIXME - nulls shouldn't be restored
@@ -325,6 +326,15 @@ public class TestFilterStatsCalculator
                                 .highValue(10.0)
                                 .distinctValuesCount(40.0)
                                 .nullsFraction(0.25));
+
+        assertExpression(new NotExpression(isNullExpression))
+                .outputRowsCount(750)
+                .symbolStats(new Symbol("x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10.0)
+                                .highValue(10.0)
+                                .distinctValuesCount(40.0)
+                                .nullsFraction(0));
     }
 
     @Test
