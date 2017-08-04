@@ -32,7 +32,6 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
@@ -59,7 +58,6 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -121,18 +119,20 @@ public class RowToRowCast
 
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
         Variable blockBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable singleRowBlockWriter = scope.createTempVariable(BlockBuilder.class);
 
         body.append(wasNull.set(constantBoolean(false)));
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
 
-        // create the interleave block builder
+        // create the row block builder
         body.append(blockBuilder.set(
-                newInstance(
-                        InterleavedBlockBuilder.class,
-                        loadConstant(binder.bind(toType.getTypeParameters(), List.class)),
+                constantType(binder, toType).invoke(
+                        "createBlockBuilder",
+                        BlockBuilder.class,
                         newInstance(BlockBuilderStatus.class),
-                        constantInt(toTypes.size()))));
+                        constantInt(1))));
+        body.append(singleRowBlockWriter.set(blockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
@@ -143,7 +143,7 @@ public class RowToRowCast
             ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
             Type currentFromType = fromTypes.get(i);
             if (currentFromType.equals(UNKNOWN)) {
-                body.append(blockBuilder.invoke("appendNull", BlockBuilder.class).pop());
+                body.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());
                 continue;
             }
             BytecodeExpression fromElement = constantType(binder, currentFromType).getValue(value, constantInt(i));
@@ -151,15 +151,18 @@ public class RowToRowCast
             IfStatement ifElementNull = new IfStatement("if the element in the row type is null...");
 
             ifElementNull.condition(value.invoke("isNull", boolean.class, constantInt(i)))
-                    .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, toTypes.get(i)).writeValue(blockBuilder, toElement));
+                    .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, toTypes.get(i)).writeValue(singleRowBlockWriter, toElement));
 
             body.append(ifElementNull);
         }
 
-        // call blockBuilder.build()
-        body.append(blockBuilder.invoke("build", Block.class))
-                .retObject();
+        // call blockBuilder.closeEntry() and return the single row block
+        body.append(blockBuilder.invoke("closeEntry", BlockBuilder.class).pop());
+        body.append(constantType(binder, toType)
+                .invoke("getObject", Object.class, blockBuilder.cast(Block.class), constantInt(0))
+                .cast(Block.class)
+                .ret());
 
         // create constructor
         MethodDefinition constructorDefinition = definition.declareConstructor(a(PUBLIC));

@@ -18,10 +18,9 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlock;
+import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -119,21 +118,24 @@ public class StructStreamReader
             }
         }
 
-        // Build offsets for array block (null valued have no positions)
+        // Build offsets for row block (null valued have no positions)
         int[] offsets = new int[nextBatchSize + 1];
         for (int i = 1; i < offsets.length; i++) {
-            int length = nullVector[i - 1] ? 0 : typeParameters.size();
-            offsets[i] = offsets[i - 1] + length;
+            if (nullVector[i - 1]) {
+                offsets[i] = offsets[i - 1];
+            }
+            else {
+                offsets[i] = offsets[i - 1] + 1;
+            }
         }
 
-        // Struct is represented as an array block holding an interleaved block
-        InterleavedBlock interleavedBlock = new InterleavedBlock(blocks);
-        ArrayBlock arrayBlock = new ArrayBlock(nextBatchSize, nullVector, offsets, interleavedBlock);
+        // Struct is represented as a row block
+        RowBlock rowBlock = new RowBlock(0, nextBatchSize, nullVector, offsets, blocks);
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return arrayBlock;
+        return rowBlock;
     }
 
     private void openRowGroup()

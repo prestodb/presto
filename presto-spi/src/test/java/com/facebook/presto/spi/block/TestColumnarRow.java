@@ -136,9 +136,6 @@ public class TestColumnarRow
 
     private static BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new ArrayBlockBuilder(
-                new InterleavedBlockBuilder(Collections.nCopies(FIELD_COUNT, VARCHAR), blockBuilderStatus, expectedEntries * FIELD_COUNT, expectedBytesPerEntry),
-                blockBuilderStatus,
-                expectedEntries);
+        return new RowBlockBuilder(Collections.nCopies(FIELD_COUNT, VARCHAR), blockBuilderStatus, expectedEntries);
     }
 }

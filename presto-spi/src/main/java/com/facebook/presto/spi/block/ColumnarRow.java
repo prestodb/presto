@@ -31,27 +31,21 @@ public final class ColumnarRow
             return toColumnarRow((RunLengthEncodedBlock) block);
         }
 
-        if (!(block instanceof AbstractArrayBlock)) {
+        if (!(block instanceof AbstractRowBlock)) {
             throw new IllegalArgumentException("Invalid row block");
         }
 
-        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
-        Block arrayBlockValues = arrayBlock.getValues();
-        if (!(arrayBlockValues instanceof AbstractInterleavedBlock)) {
-            throw new IllegalArgumentException("Invalid row block");
-        }
-        AbstractInterleavedBlock interleavedBlock = (AbstractInterleavedBlock) arrayBlockValues;
+        AbstractRowBlock rowBlock = (AbstractRowBlock) block;
 
         // get fields for visible region
-        int interleavedBlockOffset = 0;
-        int interleavedBlockLength = 0;
-        if (arrayBlock.getPositionCount() > 0) {
-            interleavedBlockOffset = arrayBlock.getOffset(0);
-            interleavedBlockLength = arrayBlock.getOffset(arrayBlock.getPositionCount()) - interleavedBlockOffset;
+        int firstRowPosition = rowBlock.getFieldBlockOffset(0);
+        int totalRowCount = rowBlock.getFieldBlockOffset(block.getPositionCount()) - firstRowPosition;
+        Block[] fieldBlocks = new Block[rowBlock.numFields];
+        for (int i = 0; i < fieldBlocks.length; i++) {
+            fieldBlocks[i] = rowBlock.getFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
         }
-        Block[] fields = interleavedBlock.computeSerializableSubBlocks(interleavedBlockOffset, interleavedBlockLength);
 
-        return new ColumnarRow(block, fields);
+        return new ColumnarRow(block, fieldBlocks);
     }
 
     private static ColumnarRow toColumnarRow(DictionaryBlock dictionaryBlock)
