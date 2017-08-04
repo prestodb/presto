@@ -211,7 +211,7 @@ public class TpcdsMetadata
         return "sf" + scaleFactor;
     }
 
-    private static double schemaNameToScaleFactor(String schemaName)
+    public static double schemaNameToScaleFactor(String schemaName)
     {
         if (TINY_SCHEMA_NAME.equals(schemaName)) {
             return TINY_SCALE_FACTOR;
