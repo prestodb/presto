@@ -283,15 +283,15 @@ public class TestReorderJoins
                         "AND p.name LIKE '%green%'",
                 new Join(
                         new Join(
-                                tpchSf10Table("orders"),
+                                tpchSf10Table("lineitem"),
+                                tpchSf10Table("orders")),
+                        new Join(
+                                new Join(
+                                        tpchSf10Table("partsupp"),
+                                        tpchSf10Table("part")),
                                 new Join(
                                         tpchSf10Table("supplier"),
-                                        new Join(
-                                                tpchSf10Table("part"),
-                                                new Join(
-                                                        tpchSf10Table("lineitem"),
-                                                        tpchSf10Table("partsupp"))))),
-                        tpchSf10Table("nation")));
+                                        tpchSf10Table("nation")))));
     }
 
     @Test
