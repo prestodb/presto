@@ -39,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class TableWriterNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final WriterTarget target;

@@ -27,19 +27,19 @@ public class StatsRecorder
 {
     private final Map<Class<?>, RuleStats> stats = new HashMap<>();
 
-    public void registerAll(Collection<Rule> rules)
+    public void registerAll(Collection<Rule<?>> rules)
     {
-        for (Rule rule : rules) {
+        for (Rule<?> rule : rules) {
             stats.put(rule.getClass(), new RuleStats());
         }
     }
 
-    public void record(Rule rule, long nanos, boolean match)
+    public void record(Rule<?> rule, long nanos, boolean match)
     {
         stats.get(rule.getClass()).record(nanos, match);
     }
 
-    public void recordFailure(Rule rule)
+    public void recordFailure(Rule<?> rule)
     {
         stats.get(rule.getClass()).recordFailure();
     }

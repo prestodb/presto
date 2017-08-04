@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class OutputNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final List<String> columnNames;

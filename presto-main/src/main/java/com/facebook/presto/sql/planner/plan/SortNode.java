@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SortNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final List<Symbol> orderBy;

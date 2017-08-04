@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class RowNumberNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final List<Symbol> partitionBy;

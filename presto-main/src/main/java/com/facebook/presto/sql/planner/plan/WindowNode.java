@@ -42,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class WindowNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final Set<Symbol> prePartitionedInputs;

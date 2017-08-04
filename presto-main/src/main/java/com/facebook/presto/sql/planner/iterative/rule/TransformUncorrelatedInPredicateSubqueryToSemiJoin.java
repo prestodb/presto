@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.tree.InPredicate;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
@@ -50,19 +52,19 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  * </pre>
  */
 public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
-        implements Rule
+        implements Rule<ApplyNode>
 {
+    private static final Pattern<ApplyNode> PATTERN = applyNode();
+
     @Override
-    public Pattern getPattern()
+    public Pattern<ApplyNode> getPattern()
     {
-        return Pattern.typeOf(ApplyNode.class);
+        return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(ApplyNode applyNode, Captures captures, Context context)
     {
-        ApplyNode applyNode = (ApplyNode) node;
-
         if (!applyNode.getCorrelation().isEmpty()) {
             return Optional.empty();
         }

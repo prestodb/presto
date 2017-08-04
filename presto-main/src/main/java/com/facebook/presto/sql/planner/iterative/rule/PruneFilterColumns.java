@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneFilterColumns
@@ -31,7 +32,7 @@ public class PruneFilterColumns
 {
     public PruneFilterColumns()
     {
-        super(FilterNode.class);
+        super(filter());
     }
 
     @Override

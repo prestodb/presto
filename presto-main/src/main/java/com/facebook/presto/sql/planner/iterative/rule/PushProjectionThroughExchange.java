@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
@@ -33,7 +35,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 /**
  * Transforms:
@@ -58,35 +64,27 @@ import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutput
  * To avoid looping this optimizer will not be fired if upper Project contains just symbol references.
  */
 public class PushProjectionThroughExchange
-        implements Rule
+        implements Rule<ProjectNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
+    private static final Capture<ExchangeNode> CHILD = newCapture();
+
+    private static final Pattern<ProjectNode> PATTERN = project()
+            .with(source().matching(exchange().capturedAs(CHILD)));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ProjectNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(ProjectNode project, Captures captures, Context context)
     {
-        if (!(node instanceof ProjectNode)) {
-            return Optional.empty();
-        }
-
-        ProjectNode project = (ProjectNode) node;
-
-        PlanNode child = context.getLookup().resolve(project.getSource());
-        if (!(child instanceof ExchangeNode)) {
-            return Optional.empty();
-        }
-
         if (isSymbolToSymbolProjection(project)) {
             return Optional.empty();
         }
 
-        ExchangeNode exchange = (ExchangeNode) child;
+        ExchangeNode exchange = captures.get(CHILD);
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
         ImmutableList.Builder<List<Symbol>> inputsBuilder = ImmutableList.builder();

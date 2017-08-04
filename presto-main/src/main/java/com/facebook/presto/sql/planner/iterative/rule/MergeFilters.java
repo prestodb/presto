@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -20,30 +22,29 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 public class MergeFilters
-        implements Rule
+        implements Rule<FilterNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(FilterNode.class);
+    private static final Capture<FilterNode> CHILD = newCapture();
+
+    private static final Pattern<FilterNode> PATTERN = filter()
+            .with(source().matching(filter().capturedAs(CHILD)));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<FilterNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(FilterNode parent, Captures captures, Context context)
     {
-        FilterNode parent = (FilterNode) node;
-
-        PlanNode source = context.getLookup().resolve(parent.getSource());
-        if (!(source instanceof FilterNode)) {
-            return Optional.empty();
-        }
-
-        FilterNode child = (FilterNode) source;
+        FilterNode child = captures.get(CHILD);
 
         return Optional.of(
                 new FilterNode(

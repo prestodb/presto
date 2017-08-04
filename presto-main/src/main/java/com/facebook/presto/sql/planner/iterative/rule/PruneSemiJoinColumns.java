@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneSemiJoinColumns
@@ -32,7 +33,7 @@ public class PruneSemiJoinColumns
 {
     public PruneSemiJoinColumns()
     {
-        super(SemiJoinNode.class);
+        super(semiJoin());
     }
 
     @Override

@@ -14,6 +14,9 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -25,11 +28,26 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
+import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
+import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PushTableWriteThroughUnion
-        implements Rule
+        implements Rule<TableWriterNode>
 {
+    private static final Capture<UnionNode> CHILD = newCapture();
+
+    private static final Pattern<TableWriterNode> PATTERN = tableWriterNode()
+            .with(source().matching(union().capturedAs(CHILD)));
+
+    @Override
+    public Pattern<TableWriterNode> getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public boolean isEnabled(Session session)
     {
@@ -37,13 +55,8 @@ public class PushTableWriteThroughUnion
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(TableWriterNode tableWriterNode, Captures captures, Context context)
     {
-        if (!(node instanceof TableWriterNode)) {
-            return Optional.empty();
-        }
-
-        TableWriterNode tableWriterNode = (TableWriterNode) node;
         if (tableWriterNode.getPartitioningScheme().isPresent()) {
             // The primary incentive of this optimizer is to increase the parallelism for table
             // write. For a table with partitioning scheme, parallelism for table writing is
@@ -53,18 +66,13 @@ public class PushTableWriteThroughUnion
             return Optional.empty();
         }
 
-        PlanNode child = context.getLookup().resolve(tableWriterNode.getSource());
-        if (!(child instanceof UnionNode)) {
-            return Optional.empty();
-        }
-
-        UnionNode unionNode = (UnionNode) child;
+        UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
         for (int i = 0; i < unionNode.getSources().size(); i++) {
             int index = i;
             ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
-            for (Symbol outputSymbol : node.getOutputSymbols()) {
+            for (Symbol outputSymbol : tableWriterNode.getOutputSymbols()) {
                 Symbol newSymbol = context.getSymbolAllocator().newSymbol(outputSymbol);
                 newSymbols.add(newSymbol);
                 mappings.put(outputSymbol, newSymbol);

@@ -27,6 +27,7 @@ import java.util.List;
 @Immutable
 public class FilterNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final Expression predicate;

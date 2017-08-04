@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -26,24 +27,23 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneAggregationSourceColumns
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        AggregationNode aggregationNode = (AggregationNode) node;
-
         Set<Symbol> requiredInputs = Streams.concat(
                 aggregationNode.getGroupingKeys().stream(),
                 aggregationNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()),

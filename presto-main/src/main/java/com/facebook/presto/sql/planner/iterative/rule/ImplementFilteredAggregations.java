@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:
@@ -51,21 +53,19 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
  * </pre>
  */
 public class ImplementFilteredAggregations
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        AggregationNode aggregation = (AggregationNode) node;
-
         boolean hasFilters = aggregation.getAggregations()
                 .values().stream()
                 .anyMatch(e -> e.getCall().getFilter().isPresent() &&

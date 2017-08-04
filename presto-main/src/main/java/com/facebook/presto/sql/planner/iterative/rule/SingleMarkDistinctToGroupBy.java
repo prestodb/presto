@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -33,7 +35,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.markDistinct;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
@@ -49,27 +55,23 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * Remove Distincts in the original AggregationNode
  */
 public class SingleMarkDistinctToGroupBy
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Capture<MarkDistinctNode> CHILD = newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .with(source().matching(markDistinct().capturedAs(CHILD)));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
     {
-        AggregationNode parent = (AggregationNode) node;
-
-        PlanNode source = context.getLookup().resolve(parent.getSource());
-        if (!(source instanceof MarkDistinctNode)) {
-            return Optional.empty();
-        }
-
-        MarkDistinctNode child = (MarkDistinctNode) source;
+        MarkDistinctNode child = captures.get(CHILD);
 
         boolean hasFilters = parent.getAggregations().values().stream()
                 .map(Aggregation::getCall)

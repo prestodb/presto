@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class MarkDistinctNode
         extends PlanNode
+        implements HasSource
 {
     private final PlanNode source;
     private final Symbol markerSymbol;
