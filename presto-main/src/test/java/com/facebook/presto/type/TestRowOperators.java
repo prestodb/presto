@@ -17,7 +17,6 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -244,14 +243,14 @@ public class TestRowOperators
     {
         checkArgument(types.size() == elements.size(), "types and elements must have the same size");
         RowType rowType = new RowType(types, Optional.empty());
-        BlockBuilder rowArrayBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder rowBuilder = new InterleavedBlockBuilder(types, new BlockBuilderStatus(), types.size());
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < types.size(); i++) {
-            appendToBlockBuilder(types.get(i), elements.get(i), rowBuilder);
+            appendToBlockBuilder(types.get(i), elements.get(i), singleRowBlockWriter);
         }
-        rowType.writeObject(rowArrayBuilder, rowBuilder.build());
+        blockBuilder.closeEntry();
 
-        assertOperator(HASH_CODE, inputString, BIGINT, rowType.hash(rowArrayBuilder.build(), 0));
+        assertOperator(HASH_CODE, inputString, BIGINT, rowType.hash(blockBuilder.build(), 0));
     }
 
     private void assertComparisonCombination(String base, String greater)

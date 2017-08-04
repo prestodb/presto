@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 
@@ -31,7 +30,6 @@ import java.util.List;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
-import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 
 public class RowConstructorCodeGenerator
@@ -45,18 +43,23 @@ public class RowConstructorCodeGenerator
         Scope scope = context.getScope();
         List<Type> types = rowType.getTypeParameters();
 
-        block.comment("BlockBuilder blockBuilder = new InterleavedBlockBuilder(types, new BlockBuilderStatus(), 1);");
+        block.comment("Create new RowBlockBuilder; beginBlockEntry;");
         Variable blockBuilder = scope.createTempVariable(BlockBuilder.class);
-        Binding typesBinding = binder.bind(types, List.class);
+        Variable singleRowBlockWriter = scope.createTempVariable(BlockBuilder.class);
         block.append(blockBuilder.set(
-                newInstance(InterleavedBlockBuilder.class, loadConstant(typesBinding), newInstance(BlockBuilderStatus.class), constantInt(1))));
+                constantType(binder, rowType).invoke(
+                        "createBlockBuilder",
+                        BlockBuilder.class,
+                        newInstance(BlockBuilderStatus.class),
+                        constantInt(1))));
+        block.append(singleRowBlockWriter.set(blockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         for (int i = 0; i < arguments.size(); ++i) {
             Type fieldType = types.get(i);
             Class<?> javaType = fieldType.getJavaType();
             if (javaType == void.class) {
                 block.comment(i + "-th field type of row is undefined");
-                block.append(blockBuilder.invoke("appendNull", BlockBuilder.class).pop());
+                block.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());
             }
             else {
                 Variable field = scope.createTempVariable(javaType);
@@ -66,12 +69,14 @@ public class RowConstructorCodeGenerator
                 block.putVariable(field);
                 block.append(new IfStatement()
                         .condition(context.wasNull())
-                        .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                        .ifFalse(constantType(binder, fieldType).writeValue(blockBuilder, field).pop()));
+                        .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
+                        .ifFalse(constantType(binder, fieldType).writeValue(singleRowBlockWriter, field).pop()));
             }
         }
-        block.comment("put (Block) blockBuilder.build(); wasNull = false;");
-        block.append(blockBuilder.invoke("build", Block.class));
+        block.comment("closeEntry; slice the SingleRowBlock; wasNull = false;");
+        block.append(blockBuilder.invoke("closeEntry", BlockBuilder.class).pop());
+        block.append(constantType(binder, rowType).invoke("getObject", Object.class, blockBuilder.cast(Block.class), constantInt(0))
+                .cast(Block.class));
         block.append(context.wasNull().set(constantFalse()));
         return block;
     }
