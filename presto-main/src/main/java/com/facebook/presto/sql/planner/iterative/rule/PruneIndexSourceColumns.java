@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.indexSource;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -34,7 +35,7 @@ public class PruneIndexSourceColumns
 {
     public PruneIndexSourceColumns()
     {
-        super(IndexSourceNode.class);
+        super(indexSource());
     }
 
     @Override

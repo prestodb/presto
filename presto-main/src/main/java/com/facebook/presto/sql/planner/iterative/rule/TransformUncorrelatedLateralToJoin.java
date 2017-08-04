@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -23,22 +24,22 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
+
 public class TransformUncorrelatedLateralToJoin
-        implements Rule
+        implements Rule<LateralJoinNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(LateralJoinNode.class);
+    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<LateralJoinNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
-        LateralJoinNode lateralJoinNode = (LateralJoinNode) node;
-
         if (!lateralJoinNode.getCorrelation().isEmpty()) {
             return Optional.empty();
         }

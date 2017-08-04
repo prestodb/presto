@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -37,6 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -64,12 +66,12 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  * <p>
  */
 public class AddIntermediateAggregations
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
@@ -81,17 +83,11 @@ public class AddIntermediateAggregations
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode aggregation, Captures captures, Context context)
     {
         Lookup lookup = context.getLookup();
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
         Session session = context.getSession();
-
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
-
-        AggregationNode aggregation = (AggregationNode) node;
 
         // Only consider FINAL un-grouped aggregations
         if (aggregation.getStep() != AggregationNode.Step.FINAL || !aggregation.getGroupingKeys().isEmpty()) {
@@ -123,7 +119,7 @@ public class AddIntermediateAggregations
             source = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, source);
         }
 
-        return Optional.of(node.replaceChildren(ImmutableList.of(source)));
+        return Optional.of(aggregation.replaceChildren(ImmutableList.of(source)));
     }
 
     /**

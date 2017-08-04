@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.markDistinct;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneMarkDistinctColumns
@@ -31,7 +32,7 @@ public class PruneMarkDistinctColumns
 {
     public PruneMarkDistinctColumns()
     {
-        super(MarkDistinctNode.class);
+        super(markDistinct());
     }
 
     @Override

@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -41,7 +43,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -84,12 +90,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * </pre>
  */
 public class PushAggregationThroughOuterJoin
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Capture<JoinNode> JOIN = newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .with(source().matching(join().capturedAs(JOIN)));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
@@ -101,18 +110,10 @@ public class PushAggregationThroughOuterJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
+        JoinNode join = captures.get(JOIN);
 
-        AggregationNode aggregation = (AggregationNode) node;
-        PlanNode source = context.getLookup().resolve(aggregation.getSource());
-        if (!(source instanceof JoinNode)) {
-            return Optional.empty();
-        }
-        JoinNode join = (JoinNode) source;
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
                 || !groupsOnAllOuterTableColumns(aggregation, context.getLookup().resolve(getOuterTable(join)))
@@ -124,7 +125,7 @@ public class PushAggregationThroughOuterJoin
                 .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = new AggregationNode(
-                node.getId(),
+                aggregation.getId(),
                 getInnerTable(join),
                 aggregation.getAggregations(),
                 ImmutableList.of(groupingKeys),

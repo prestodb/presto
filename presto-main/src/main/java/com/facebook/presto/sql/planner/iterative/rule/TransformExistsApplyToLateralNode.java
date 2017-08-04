@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
@@ -39,6 +40,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -53,9 +55,10 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  */
 public class TransformExistsApplyToLateralNode
-        implements Rule
+        implements Rule<ApplyNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ApplyNode.class);
+    private static final Pattern<ApplyNode> PATTERN = applyNode();
+
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
     private final Signature countSignature;
@@ -67,16 +70,14 @@ public class TransformExistsApplyToLateralNode
     }
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ApplyNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(ApplyNode parent, Captures captures, Context context)
     {
-        ApplyNode parent = (ApplyNode) node;
-
         if (parent.getSubqueryAssignments().size() != 1) {
             return Optional.empty();
         }
@@ -91,7 +92,7 @@ public class TransformExistsApplyToLateralNode
 
         return Optional.of(
                 new LateralJoinNode(
-                        node.getId(),
+                        parent.getId(),
                         parent.getInput(),
                         new ProjectNode(
                                 context.getIdAllocator().getNextId(),

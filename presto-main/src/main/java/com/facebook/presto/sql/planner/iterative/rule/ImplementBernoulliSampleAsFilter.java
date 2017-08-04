@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -27,6 +28,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.sample;
+
 /**
  * Transforms:
  * <pre>
@@ -40,27 +43,25 @@ import java.util.Optional;
  * </pre>
  */
 public class ImplementBernoulliSampleAsFilter
-        implements Rule
+        implements Rule<SampleNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(SampleNode.class);
+    private static final Pattern<SampleNode> PATTERN = sample();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<SampleNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(SampleNode sample, Captures captures, Context context)
     {
-        SampleNode sample = (SampleNode) node;
-
         if (sample.getSampleType() != SampleNode.Type.BERNOULLI) {
             return Optional.empty();
         }
 
         return Optional.of(new FilterNode(
-                node.getId(),
+                sample.getId(),
                 sample.getSource(),
                 new ComparisonExpression(
                         ComparisonExpressionType.LESS_THAN,

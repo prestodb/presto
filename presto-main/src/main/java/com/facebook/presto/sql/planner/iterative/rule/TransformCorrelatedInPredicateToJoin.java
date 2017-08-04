@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
@@ -65,6 +66,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -92,25 +94,19 @@ import static java.util.Objects.requireNonNull;
  * @see TransformUncorrelatedInPredicateSubqueryToSemiJoin
  */
 public class TransformCorrelatedInPredicateToJoin
-        implements Rule
+        implements Rule<ApplyNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ApplyNode.class);
+    private static final Pattern<ApplyNode> PATTERN = applyNode();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ApplyNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(ApplyNode apply, Captures captures, Context context)
     {
-        if (!(node instanceof ApplyNode)) {
-            return Optional.empty();
-        }
-
-        ApplyNode apply = (ApplyNode) node;
-
         if (apply.getCorrelation().isEmpty()) {
             return Optional.empty();
         }

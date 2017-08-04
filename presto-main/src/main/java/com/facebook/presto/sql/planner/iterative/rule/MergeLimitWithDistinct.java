@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -22,28 +24,29 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
+
 public class MergeLimitWithDistinct
-        implements Rule
+        implements Rule<LimitNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(LimitNode.class);
+    private static final Capture<AggregationNode> CHILD = newCapture();
+
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .with(source().matching(aggregation().capturedAs(CHILD)));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<LimitNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(LimitNode parent, Captures captures, Context context)
     {
-        LimitNode parent = (LimitNode) node;
-
-        PlanNode input = context.getLookup().resolve(parent.getSource());
-        if (!(input instanceof AggregationNode)) {
-            return Optional.empty();
-        }
-
-        AggregationNode child = (AggregationNode) input;
+        AggregationNode child = captures.get(CHILD);
 
         if (!isDistinct(child)) {
             return Optional.empty();

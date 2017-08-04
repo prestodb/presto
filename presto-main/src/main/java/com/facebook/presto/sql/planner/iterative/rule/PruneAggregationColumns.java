@@ -23,12 +23,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+
 public class PruneAggregationColumns
         extends ProjectOffPushDownRule<AggregationNode>
 {
     public PruneAggregationColumns()
     {
-        super(AggregationNode.class);
+        super(aggregation());
     }
 
     @Override

@@ -14,7 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative;
 
-import com.facebook.presto.matching.MatchingEngine;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.DummyMetadata;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -34,7 +34,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 
-public class TestMatchingEngine
+public class TestRuleIndex
 {
     private final PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), new DummyMetadata());
 
@@ -46,7 +46,7 @@ public class TestMatchingEngine
         Rule filterRule = new NoOpRule(Pattern.typeOf(FilterNode.class));
         Rule anyRule = new NoOpRule(Pattern.any());
 
-        MatchingEngine matchingEngine = MatchingEngine.builder()
+        RuleIndex ruleIndex = RuleIndex.builder()
                 .register(projectRule1)
                 .register(projectRule2)
                 .register(filterRule)
@@ -58,13 +58,13 @@ public class TestMatchingEngine
         ValuesNode valuesNode = planBuilder.values();
 
         assertEquals(
-                matchingEngine.getCandidates(projectNode).collect(toSet()),
+                ruleIndex.getCandidates(projectNode).collect(toSet()),
                 ImmutableSet.of(projectRule1, projectRule2, anyRule));
         assertEquals(
-                matchingEngine.getCandidates(filterNode).collect(toSet()),
+                ruleIndex.getCandidates(filterNode).collect(toSet()),
                 ImmutableSet.of(filterRule, anyRule));
         assertEquals(
-                matchingEngine.getCandidates(valuesNode).collect(toSet()),
+                ruleIndex.getCandidates(valuesNode).collect(toSet()),
                 ImmutableSet.of(anyRule));
     }
 
@@ -75,25 +75,25 @@ public class TestMatchingEngine
         Rule b = new NoOpRule(Pattern.typeOf(B.class));
         Rule ab = new NoOpRule(Pattern.typeOf(AB.class));
 
-        MatchingEngine matchingEngine = MatchingEngine.builder()
+        RuleIndex ruleIndex = RuleIndex.builder()
                 .register(a)
                 .register(b)
                 .register(ab)
                 .build();
 
         assertEquals(
-                matchingEngine.getCandidates(new A() {}).collect(toSet()),
+                ruleIndex.getCandidates(new A() {}).collect(toSet()),
                 ImmutableSet.of(a));
         assertEquals(
-                matchingEngine.getCandidates(new B() {}).collect(toSet()),
+                ruleIndex.getCandidates(new B() {}).collect(toSet()),
                 ImmutableSet.of(b));
         assertEquals(
-                matchingEngine.getCandidates(new AB()).collect(toSet()),
+                ruleIndex.getCandidates(new AB()).collect(toSet()),
                 ImmutableSet.of(ab, a, b));
     }
 
     private static class NoOpRule
-            implements Rule
+            implements Rule<PlanNode>
     {
         private final Pattern pattern;
 
@@ -103,13 +103,13 @@ public class TestMatchingEngine
         }
 
         @Override
-        public Pattern getPattern()
+        public Pattern<PlanNode> getPattern()
         {
             return pattern;
         }
 
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Context context)
+        public Optional<PlanNode> apply(PlanNode node, Captures captures, Context context)
         {
             return Optional.empty();
         }

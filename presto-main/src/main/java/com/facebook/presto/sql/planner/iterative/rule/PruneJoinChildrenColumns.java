@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -25,25 +26,25 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
 
 /**
  * Non-Cross joins support output symbol selection, so make any project-off of child columns explicit in project nodes.
  */
 public class PruneJoinChildrenColumns
-        implements Rule
+        implements Rule<JoinNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(JoinNode.class);
+    private static final Pattern<JoinNode> PATTERN = join();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<JoinNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(JoinNode joinNode, Captures captures, Context context)
     {
-        JoinNode joinNode = (JoinNode) node;
         if (joinNode.isCrossJoin()) {
             return Optional.empty();
         }

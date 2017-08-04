@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -22,25 +23,25 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.sample;
+
 /**
  * Replaces 0% sample node with empty values node.
  */
 public class EvaluateZeroSample
-        implements Rule
+        implements Rule<SampleNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(SampleNode.class);
+    private static final Pattern<SampleNode> PATTERN = sample();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<SampleNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Optional<PlanNode> apply(SampleNode sample, Captures captures, Context context)
     {
-        SampleNode sample = (SampleNode) node;
-
         if (sample.getSampleRatio() != 0) {
             return Optional.empty();
         }
