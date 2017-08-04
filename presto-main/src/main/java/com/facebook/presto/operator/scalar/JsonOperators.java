@@ -371,7 +371,7 @@ public final class JsonOperators
     @SqlType(BIGINT)
     public static long hashCode(@SqlType(JSON) Slice value)
     {
-        return value.hashCode();
+        return value.longHashCode();
     }
 
     @ScalarOperator(EQUAL)

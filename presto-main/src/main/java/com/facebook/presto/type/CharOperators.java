@@ -97,7 +97,7 @@ public final class CharOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType("char(x)") Slice value)
     {
-        return XxHash64.hash(value);
+        return value.longHashCode();
     }
 
     @LiteralParameters({"x"})
