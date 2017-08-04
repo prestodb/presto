@@ -20,6 +20,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryWarning;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.execution.QueryInfo;
@@ -104,6 +105,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -478,6 +480,7 @@ public class StatementResource
                     data,
                     toStatementStats(queryInfo),
                     toQueryError(queryInfo),
+                    toQueryWarnings(queryInfo),
                     queryInfo.getUpdateType(),
                     updateCount);
 
@@ -746,6 +749,13 @@ public class StatementResource
                     errorCode.getType().toString(),
                     failure.getErrorLocation(),
                     failure);
+        }
+
+        private static List<QueryWarning> toQueryWarnings(QueryInfo queryInfo)
+        {
+            return queryInfo.getWarnings().stream()
+                    .map(warning -> new QueryWarning(warning.getCode().name(), warning.getMessage()))
+                    .collect(toImmutableList());
         }
 
         private static class RowIterable

@@ -407,7 +407,19 @@ public class TestQueryStateMachine
         Metadata metadata = MetadataManager.createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, accessControl, executor, ticker, metadata);
+        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                QUERY_ID,
+                QUERY,
+                TEST_SESSION,
+                LOCATION,
+                false,
+                transactionManager,
+                accessControl,
+                new NullWarningSink(),
+                executor,
+                ticker,
+                metadata);
+
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setOutputFieldNames(OUTPUT_FIELD_NAMES);

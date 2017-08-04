@@ -110,6 +110,7 @@ public class TestResetSessionTask
                 false,
                 transactionManager,
                 accessControl,
+                new NullWarningSink(),
                 executor,
                 metadata);
 

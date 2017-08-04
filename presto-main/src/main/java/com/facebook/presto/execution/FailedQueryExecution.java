@@ -40,12 +40,22 @@ public class FailedQueryExecution
     private final Executor executor;
     private final Optional<ResourceGroupId> resourceGroup;
 
-    public FailedQueryExecution(QueryId queryId, String query, Optional<ResourceGroupId> resourceGroup, Session session, URI self, TransactionManager transactionManager, Executor executor, Metadata metadata, Throwable cause)
+    public FailedQueryExecution(
+            QueryId queryId,
+            String query,
+            Optional<ResourceGroupId> resourceGroup,
+            Session session,
+            URI self,
+            TransactionManager transactionManager,
+            WarningSink warningSink,
+            Executor executor,
+            Metadata metadata,
+            Throwable cause)
     {
         requireNonNull(cause, "cause is null");
         this.session = requireNonNull(session, "session is null");
         this.executor = requireNonNull(executor, "executor is null");
-        QueryStateMachine queryStateMachine = QueryStateMachine.failed(queryId, query, session, self, transactionManager, executor, metadata, cause);
+        QueryStateMachine queryStateMachine = QueryStateMachine.failed(queryId, query, session, self, transactionManager, warningSink, executor, metadata, cause);
         queryInfo = queryStateMachine.updateQueryInfo(Optional.empty());
         this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
     }

@@ -76,6 +76,7 @@ public class QueryResults
     private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
+    private final List<QueryWarning> warnings;
     private final String updateType;
     private final Long updateCount;
 
@@ -89,10 +90,11 @@ public class QueryResults
             @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
+            @JsonProperty("warnings") List<QueryWarning> warnings,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("updateCount") Long updateCount)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount);
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, warnings, updateType, updateCount);
     }
 
     public QueryResults(
@@ -104,6 +106,7 @@ public class QueryResults
             Iterable<List<Object>> data,
             StatementStats stats,
             QueryError error,
+            List<QueryWarning> warnings,
             String updateType,
             Long updateCount)
     {
@@ -115,6 +118,7 @@ public class QueryResults
         this.data = (data != null) ? unmodifiableIterable(data) : null;
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
+        this.warnings = ImmutableList.copyOf(warnings);
         this.updateType = updateType;
         this.updateCount = updateCount;
     }
@@ -173,6 +177,13 @@ public class QueryResults
     public QueryError getError()
     {
         return error;
+    }
+
+    @NotNull
+    @JsonProperty
+    public List<QueryWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @Nullable

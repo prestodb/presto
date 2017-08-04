@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CoefficientBasedCostCalculator;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.execution.NullWarningSink;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -281,7 +282,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getPlan(session, sqlParser.createStatement(query), planType, emptyList());
+                    return explainer.getPlan(session, sqlParser.createStatement(query), planType, emptyList(), new NullWarningSink());
                 });
     }
 
@@ -291,7 +292,7 @@ public abstract class AbstractTestQueryFramework
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType, emptyList());
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType, emptyList(), new NullWarningSink());
                 });
     }
 

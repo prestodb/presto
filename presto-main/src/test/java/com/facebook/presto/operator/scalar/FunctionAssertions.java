@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.NullWarningSink;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
@@ -577,6 +578,7 @@ public final class FunctionAssertions
                 symbolTypes,
                 ImmutableList.of(parsedExpression),
                 ImmutableList.of(),
+                new NullWarningSink(),
                 false);
 
         Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()

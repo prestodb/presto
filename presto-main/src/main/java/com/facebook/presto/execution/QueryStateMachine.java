@@ -131,9 +131,11 @@ public class QueryStateMachine
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
+    private final WarningSink warningSink;
+
     private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
 
-    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata)
+    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, WarningSink warningSink, Executor executor, Ticker ticker, Metadata metadata)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
@@ -141,6 +143,7 @@ public class QueryStateMachine
         this.self = requireNonNull(self, "self is null");
         this.autoCommit = autoCommit;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.warningSink = requireNonNull(warningSink, "warningSink is null");
         this.ticker = ticker;
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.createNanos = tickerNanos();
@@ -160,10 +163,11 @@ public class QueryStateMachine
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
+            WarningSink warningSink,
             Executor executor,
             Metadata metadata)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata);
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, warningSink, executor, Ticker.systemTicker(), metadata);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -174,6 +178,7 @@ public class QueryStateMachine
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
+            WarningSink warningSink,
             Executor executor,
             Ticker ticker,
             Metadata metadata)
@@ -191,7 +196,7 @@ public class QueryStateMachine
             querySession = session;
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, warningSink, executor, ticker, metadata);
         queryStateMachine.addStateChangeListener(newState -> {
             log.debug("Query %s is %s", queryId, newState);
             if (newState.isDone()) {
@@ -205,9 +210,18 @@ public class QueryStateMachine
     /**
      * Create a QueryStateMachine that is already in a failed state.
      */
-    public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Metadata metadata, Throwable throwable)
+    public static QueryStateMachine failed(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            TransactionManager transactionManager,
+            WarningSink warningSink,
+            Executor executor,
+            Metadata metadata,
+            Throwable throwable)
     {
-        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), metadata, throwable);
+        return failedWithTicker(queryId, query, session, self, transactionManager, warningSink, executor, Ticker.systemTicker(), metadata, throwable);
     }
 
     static QueryStateMachine failedWithTicker(
@@ -216,12 +230,13 @@ public class QueryStateMachine
             Session session,
             URI self,
             TransactionManager transactionManager,
+            WarningSink warningSink,
             Executor executor,
             Ticker ticker,
             Metadata metadata,
             Throwable throwable)
     {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker, metadata);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, warningSink, executor, ticker, metadata);
         queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
@@ -234,6 +249,11 @@ public class QueryStateMachine
     public Session getSession()
     {
         return session;
+    }
+
+    public WarningSink getWarningSink()
+    {
+        return warningSink;
     }
 
     public boolean isAutoCommit()
@@ -437,7 +457,7 @@ public class QueryStateMachine
                 updateType.get(),
                 rootStage,
                 failureInfo,
-                errorCode,
+                errorCode, warningSink.getWarnings(),
                 inputs.get(),
                 output.get(),
                 completeInfo,
@@ -785,7 +805,7 @@ public class QueryStateMachine
                 queryInfo.getUpdateType(),
                 Optional.of(prunedOutputStage),
                 queryInfo.getFailureInfo(),
-                queryInfo.getErrorCode(),
+                queryInfo.getErrorCode(), queryInfo.getWarnings(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
                 queryInfo.isCompleteInfo(),

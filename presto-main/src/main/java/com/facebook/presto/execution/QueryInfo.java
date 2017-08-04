@@ -60,6 +60,7 @@ public class QueryInfo
     private final String updateType;
     private final Optional<StageInfo> outputStage;
     private final FailureInfo failureInfo;
+    private final List<PrestoWarning> warnings;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
@@ -88,6 +89,7 @@ public class QueryInfo
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("completeInfo") boolean completeInfo,
@@ -106,6 +108,7 @@ public class QueryInfo
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
         requireNonNull(outputStage, "outputStage is null");
+        requireNonNull(warnings, "warnings is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
         requireNonNull(resourceGroupName, "resourceGroupName is null");
@@ -130,6 +133,7 @@ public class QueryInfo
         this.failureInfo = failureInfo;
         this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
+        this.warnings = warnings;
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
         this.completeInfo = completeInfo;
@@ -244,6 +248,12 @@ public class QueryInfo
     public FailureInfo getFailureInfo()
     {
         return failureInfo;
+    }
+
+    @JsonProperty
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @Nullable
