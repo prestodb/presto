@@ -40,11 +40,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -101,6 +104,10 @@ public class BaseJdbcClient
     protected final String connectionUrl;
     protected final Properties connectionProperties;
     protected final String identifierQuote;
+    private final boolean mapTableNames;
+
+    private Map<String, Map<String, String>> schemaTableMapping = new HashMap<>();
+    private Map<String, ReentrantLock> schemaTableMappingLock = new ConcurrentHashMap<>();
 
     public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, Driver driver)
     {
@@ -118,6 +125,7 @@ public class BaseJdbcClient
         if (config.getConnectionPassword() != null) {
             connectionProperties.setProperty("password", config.getConnectionPassword());
         }
+        this.mapTableNames = config.isMapLowercaseTableNames();
     }
 
     @Override
@@ -161,6 +169,82 @@ public class BaseJdbcClient
         }
     }
 
+    /**
+     * Looks up the table name given to map it to it's original, case-sensitive name in the database.
+     *
+     * @param connection A valid connection in case the mapping needs to be loaded
+     * @param jdbcSchemaName The database schema name
+     * @param jdbcTableName The table name within the schema that is being used
+     * @return The mapped case-sensitive table name, if found, otherwise the original table name passed in
+     */
+    private String getMappedTableName(Connection connection, String jdbcSchemaName, String jdbcTableName)
+    {
+        Map<String, String> tableMapping = schemaTableMapping.get(jdbcSchemaName);
+
+        // If the mapping doesn't exist or is empty, assume it hasn't been loaded so load it
+        if (tableMapping == null || tableMapping.isEmpty()) {
+            loadTableMap(connection, jdbcSchemaName);
+            tableMapping = schemaTableMapping.get(jdbcSchemaName);
+        }
+        String tmpTableName = jdbcTableName.toLowerCase(ENGLISH);
+        // If this table isn't mapped assume it's a new table, need to reload the mapping
+        if (!tableMapping.containsKey(tmpTableName)) {
+            loadTableMap(connection, jdbcSchemaName);
+        }
+
+        tmpTableName = tableMapping.get(tmpTableName);
+        // If it is NULL at this point, we've hit a small race condition where another thread updated the Map and the table we are looking for was removed
+        // from the database and so no longer has a value or is in the Map. This is unlikely to have happened, but providing NULL protection here just in case.
+        if (tmpTableName != null) {
+            return tmpTableName;
+        }
+        return jdbcTableName;
+    }
+
+    /**
+     * Loads the case-sensitive table mapping for the provided database schema name.
+     *
+     * @param connection The connection to use
+     * @param jdbcSchemaName The schema on that connection to lookup all of the tables for to create the mapping
+     */
+    private void loadTableMap(Connection connection, String jdbcSchemaName)
+    {
+        // Only have 1 thread at a time load the mapping in. This may result in having some queries not return anything or fail because they table
+        ReentrantLock lock = schemaTableMappingLock.get(jdbcSchemaName);
+        if (lock == null) {
+            schemaTableMappingLock.putIfAbsent(jdbcSchemaName, new ReentrantLock());
+            lock = schemaTableMappingLock.get(jdbcSchemaName);
+        }
+
+        if (lock.tryLock()) {
+            try {
+                Map<String, String> tmp = new HashMap<>();
+                try (ResultSet resultSet = getTables(connection, jdbcSchemaName, null)) {
+                    while (resultSet.next()) {
+                        String tableName = resultSet.getString("TABLE_NAME");
+                        tmp.put(tableName.toLowerCase(ENGLISH), tableName);
+                    }
+                    schemaTableMapping.put(jdbcSchemaName, tmp);
+                }
+                catch (SQLException e) {
+                    throw new PrestoException(JDBC_ERROR, e);
+                }
+            }
+            finally {
+                lock.unlock();
+            }
+        }
+        else {
+            // if we can't acquire the lock for this schema, wait until we can which means the thread that is loading the schema table mapping has completed
+            try {
+                lock.lock();
+            }
+            finally {
+                lock.unlock();
+            }
+        }
+    }
+
     @Nullable
     @Override
     public JdbcTableHandle getTableHandle(SchemaTableName schemaTableName)
@@ -172,6 +256,9 @@ public class BaseJdbcClient
             if (metadata.storesUpperCaseIdentifiers()) {
                 jdbcSchemaName = jdbcSchemaName.toUpperCase(ENGLISH);
                 jdbcTableName = jdbcTableName.toUpperCase(ENGLISH);
+            }
+            else if (mapTableNames) {
+                jdbcTableName = getMappedTableName(connection, jdbcSchemaName, jdbcTableName);
             }
             try (ResultSet resultSet = getTables(connection, jdbcSchemaName, jdbcTableName)) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();

@@ -23,6 +23,7 @@ public class BaseJdbcConfig
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
+    private boolean mapLowercaseTableNames = false;
 
     @NotNull
     public String getConnectionUrl()
@@ -59,6 +60,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setConnectionPassword(String connectionPassword)
     {
         this.connectionPassword = connectionPassword;
+        return this;
+    }
+
+    public boolean isMapLowercaseTableNames()
+    {
+        return mapLowercaseTableNames;
+    }
+
+    @Config("connection-map-tables")
+    public BaseJdbcConfig setMapLowercaseTableNames(boolean mapLowercaseTableNames)
+    {
+        this.mapLowercaseTableNames = mapLowercaseTableNames;
         return this;
     }
 }
