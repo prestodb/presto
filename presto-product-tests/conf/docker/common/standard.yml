@@ -20,6 +20,7 @@ services:
       - '10000:10000'
       - '50070:50070'
       - '50075:50075'
+    command: bash -c "/root/change_timezone.sh Asia/Kathmandu && /root/startup.sh"
 
   presto-master:
     extends:
