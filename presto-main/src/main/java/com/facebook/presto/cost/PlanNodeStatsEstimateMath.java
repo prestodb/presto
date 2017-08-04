@@ -29,7 +29,8 @@ public class PlanNodeStatsEstimateMath
     {
     }
 
-    private interface SubtractRangeStrategy
+    @FunctionalInterface
+    private interface RangeSubtractionStrategy
     {
         StatisticRange range(StatisticRange leftRange, StatisticRange rightRange);
     }
@@ -44,7 +45,7 @@ public class PlanNodeStatsEstimateMath
         return differenceInStatsWithRangeStrategy(left, right, ((leftRange, rightRange) -> leftRange));
     }
 
-    private static PlanNodeStatsEstimate differenceInStatsWithRangeStrategy(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, SubtractRangeStrategy strategy)
+    private static PlanNodeStatsEstimate differenceInStatsWithRangeStrategy(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, RangeSubtractionStrategy strategy)
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() - right.getOutputRowCount();
@@ -71,7 +72,7 @@ public class PlanNodeStatsEstimateMath
             SymbolStatsEstimate rightStats,
             double rightRowCount,
             double newRowCount,
-            SubtractRangeStrategy strategy)
+            RangeSubtractionStrategy strategy)
     {
         StatisticRange leftRange = StatisticRange.from(leftStats);
         StatisticRange rightRange = StatisticRange.from(rightStats);
