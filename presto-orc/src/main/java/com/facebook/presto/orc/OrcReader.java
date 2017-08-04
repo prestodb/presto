@@ -257,7 +257,7 @@ public class OrcReader
             throws IOException
     {
         int magicLength = MAGIC.length();
-        if (postScriptSize < magicLength + 1) {
+        if ((postScriptSize < (magicLength + 1)) || (postScriptSize >= buffer.length)) {
             throw new OrcCorruptionException(source.getId(), "Invalid postscript length %s", postScriptSize);
         }
 
