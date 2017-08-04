@@ -1,0 +1,89 @@
+{
+  "rowCount" : 1,
+  "columns" : {
+    "w_warehouse_sk" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1
+    },
+    "w_warehouse_id" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAABAAAAAAA"
+    },
+    "w_warehouse_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Conventional childr",
+      "max" : "Conventional childr"
+    },
+    "w_warehouse_sq_ft" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 977787,
+      "max" : 977787
+    },
+    "w_street_number" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "651",
+      "max" : "651"
+    },
+    "w_street_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "6th ",
+      "max" : "6th "
+    },
+    "w_street_type" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Parkway",
+      "max" : "Parkway"
+    },
+    "w_suite_number" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Suite 470",
+      "max" : "Suite 470"
+    },
+    "w_city" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Midway",
+      "max" : "Midway"
+    },
+    "w_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County"
+    },
+    "w_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN"
+    },
+    "w_zip" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "31904"
+    },
+    "w_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States"
+    },
+    "w_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500
+    }
+  }
+}
