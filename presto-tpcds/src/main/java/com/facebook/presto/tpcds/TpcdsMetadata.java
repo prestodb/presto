@@ -26,11 +26,13 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.tpcds.statistics.TpcdsTableStatisticsFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -60,6 +62,7 @@ public class TpcdsMetadata
             TINY_SCHEMA_NAME, "sf1", "sf10", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
 
     private final Set<String> tableNames;
+    private final TpcdsTableStatisticsFactory tpcdsTableStatisticsFactory = new TpcdsTableStatisticsFactory();
 
     public TpcdsMetadata()
     {
@@ -142,6 +145,17 @@ public class TpcdsMetadata
         }
         SchemaTableName tableName = new SchemaTableName(schemaName, tpcdsTable.getName());
         return new ConnectorTableMetadata(tableName, columns.build());
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    {
+        TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
+
+        Table table = Table.getTable(tpcdsTableHandle.getTableName());
+        String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
+
+        return tpcdsTableStatisticsFactory.create(schemaName, table, getColumnHandles(session, tableHandle));
     }
 
     @Override
