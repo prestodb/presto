@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -405,6 +406,18 @@ public class TestSqlParser
 
         assertExpression("- - -9", negative(negative(negative(new LongLiteral("9")))));
         assertExpression("- - - 9", negative(negative(negative(new LongLiteral("9")))));
+    }
+
+    @Test
+    public void testCoalesce()
+    {
+        assertInvalidExpression("coalesce()", "The 'coalesce' function must have at least two arguments");
+        assertInvalidExpression("coalesce(5)", "The 'coalesce' function must have at least two arguments");
+        assertExpression("coalesce(13, 42)", new CoalesceExpression(new LongLiteral("13"), new LongLiteral("42")));
+        assertExpression("coalesce(6, 7, 8)", new CoalesceExpression(new LongLiteral("6"), new LongLiteral("7"), new LongLiteral("8")));
+        assertExpression("coalesce(13, null)", new CoalesceExpression(new LongLiteral("13"), new NullLiteral()));
+        assertExpression("coalesce(null, 13)", new CoalesceExpression(new NullLiteral(), new LongLiteral("13")));
+        assertExpression("coalesce(null, null)", new CoalesceExpression(new NullLiteral(), new NullLiteral()));
     }
 
     @Test

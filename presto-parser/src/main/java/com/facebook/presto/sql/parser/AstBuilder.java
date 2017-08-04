@@ -1324,6 +1324,7 @@ class AstBuilder
                     (Expression) visit(context.expression(1)));
         }
         if (name.toString().equalsIgnoreCase("coalesce")) {
+            check(context.expression().size() >= 2, "The 'coalesce' function must have at least two arguments", context);
             check(!window.isPresent(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
 
