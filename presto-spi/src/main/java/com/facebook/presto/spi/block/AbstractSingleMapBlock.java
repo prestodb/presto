@@ -128,6 +128,18 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
+    public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
+    {
+        position = getAbsolutePosition(position);
+        if (position % 2 == 0) {
+            return keyBlock.compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
+        }
+        else {
+            return valueBlock.compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
+        }
+    }
+
+    @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
         position = getAbsolutePosition(position);
