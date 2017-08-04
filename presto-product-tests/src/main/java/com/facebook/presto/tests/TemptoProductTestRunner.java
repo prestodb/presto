@@ -16,9 +16,12 @@ package com.facebook.presto.tests;
 import com.teradata.tempto.internal.configuration.TestConfigurationFactory;
 import com.teradata.tempto.runner.TemptoRunner;
 import com.teradata.tempto.runner.TemptoRunnerCommandLineParser;
+import org.joda.time.DateTimeZone;
 
 public class TemptoProductTestRunner
 {
+    public static final DateTimeZone PRODUCT_TESTS_TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
+
     public static void main(String[] args)
     {
         TemptoRunnerCommandLineParser parser = TemptoRunnerCommandLineParser

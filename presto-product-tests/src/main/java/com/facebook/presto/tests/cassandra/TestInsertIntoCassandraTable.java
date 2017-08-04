@@ -22,6 +22,7 @@ import com.teradata.tempto.query.QueryResult;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
@@ -33,7 +34,7 @@ import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.Stat
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInUTC;
+import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -103,7 +104,7 @@ public class TestInsertIntoCassandraTable
                         null,
                         null,
                         "text value",
-                        parseTimestampInUTC("9999-12-31 23:59:59"),
+                        parseTimestampInLocalTime("9999-12-31 23:59:59", PRODUCT_TESTS_TIME_ZONE),
                         null,
                         null,
                         "varchar value",
