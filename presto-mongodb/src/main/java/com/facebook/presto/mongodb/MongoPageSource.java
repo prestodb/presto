@@ -19,8 +19,6 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -278,16 +276,6 @@ public class MongoPageSource
 
         // not a convertible value
         output.appendNull();
-    }
-
-    private BlockBuilder createParametersBlockBuilder(Type type, int size)
-    {
-        List<Type> params = type.getTypeParameters();
-        if (isArrayType(type)) {
-            return params.get(0).createBlockBuilder(new BlockBuilderStatus(), size);
-        }
-
-        return new InterleavedBlockBuilder(params, new BlockBuilderStatus(), size * params.size());
     }
 
     @Override
