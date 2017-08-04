@@ -1055,6 +1055,52 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testGetTableStatsBucketedStringInt()
+            throws Exception
+    {
+        assertTableStats(
+                tableBucketedStringInt,
+                ImmutableSet.of(
+                        "t_bigint",
+                        "t_boolean",
+                        "t_double",
+                        "t_float",
+                        "t_int",
+                        "t_smallint",
+                        "t_string",
+                        "t_tinyint",
+                        "ds"));
+    }
+
+    @Test
+    public void testGetTableStatsUnpartitioned()
+            throws Exception
+    {
+        assertTableStats(
+                tableUnpartitioned,
+                ImmutableSet.of("t_string", "t_tinyint"));
+    }
+
+    private void assertTableStats(
+            SchemaTableName tableName,
+            Set<String> expectedColumnStatsColumns)
+            throws Exception
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+
+            assertEquals(
+                    metadata
+                            .getTableStatistics(session, tableHandle, Constraint.alwaysTrue())
+                            .getColumnStatistics()
+                            .keySet(),
+                    expectedColumnStatsColumns);
+        }
+    }
+
+    @Test
     public void testGetPartitionSplitsBatch()
             throws Exception
     {
