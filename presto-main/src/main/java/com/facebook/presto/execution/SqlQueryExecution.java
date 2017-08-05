@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -54,9 +55,7 @@ import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.*;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
@@ -71,7 +70,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -249,26 +247,7 @@ public final class SqlQueryExecution
 
                 // analyze query
                 PlanRoot plan = analyzeQuery();
-
                 metadata.beginQuery(getSession(), plan.getConnectors());
-
-                //2.2017 07 17 by xw  在语法解析后执行计划优化前加载统计信息
-                //----start----
-                String dbname = "tpch_flat_orc_2";
-                String[][] cols = {{"l_orderkey", "l_suppkey"}, {"o_orderkey", " o_custkey"}, {"c_nationkey", " c_custkey "}, {"s_suppkey", "s_nationkey"}, {"n_nationkey", "n_regionkey"}, {"r_regionkey"}};
-                String[] tables = {"lineitem", "orders", "customer", "supplier", "nation", "region"};
-                Optional<Catalog> catalog = stateMachine.getTransactionManager().getCatalogManager().getCatalog("hive");
-                if (catalog.isPresent()) {
-                    Optional<HashMap<String[], ColHistogram>> histograms = catalog.get().getConnector(catalog.get().getConnectorId()).getHistograms(dbname, tables, cols);
-                    if (histograms .isPresent()) {
-                        Iterator<Map.Entry<String[], ColHistogram>> it = histograms.get().entrySet().iterator();
-                        while (it.hasNext()) {
-                            it.next();
-                        }
-                        String t = "";
-                    }
-                }
-                //-----end------
 
                 // plan distribution of query
                 planDistribution(plan);
@@ -317,6 +296,19 @@ public final class SqlQueryExecution
         }
     }
 
+    //2017 07 21 by xw
+    private Optional<HashMap<String[], ColHistogram>> getColHistogram (Optional<Catalog> catalog){
+        //2017 07 21  by xw 通过catalog获取dbname,tables,cols信息
+       // getTables();
+       // getCols();
+        String dbname = "tpch_flat_orc_2";  //stateMachine.getSession().getSchema().get();
+        String[][] cols = {{"l_orderkey", "l_suppkey"}, {"o_orderkey", " o_custkey"}, {"c_nationkey", " c_custkey "}, {"s_suppkey", "s_nationkey"}, {"n_nationkey", "n_regionkey"}, {"r_regionkey"}};
+        String[] tables = {"lineitem", "orders", "customer", "supplier", "nation", "region"};  //analysis querybody
+        if (!catalog.isPresent())
+        return Optional.empty();
+        Optional<HashMap<String[], ColHistogram>> histograms = catalog.get().getConnector(catalog.get().getConnectorId()).getHistograms(dbname, tables, cols);
+        return histograms;
+    }
     private PlanRoot doAnalyzeQuery()
     {
         // time analysis phase
@@ -328,9 +320,29 @@ public final class SqlQueryExecution
 
         stateMachine.setUpdateType(analysis.getUpdateType());
 
+        //修改部分的开始
+        //2017 07 23 如何从analysis得到其中的数据库,表,列等信息
+        String dbname=stateMachine.getSession().getSchema().get();  //使用的数据库
+        //构建图来得到tables cols信息  待完成
+
+        //2017 07-21 by xw  start  update
+        //如果是query类型才会去收集统计信息 ,在语法解析后执行计划优化前加载统计信息
+        String kind=analysis.getStatement().getClass().getSimpleName();
+        boolean isQuery=kind.equals("Query");
+
+        Optional<HashMap<String[], ColHistogram>> histograms=Optional.empty();
+        boolean showorset=stateMachine.getQuery().equals("SHOW FUNCTIONS")||stateMachine.getQuery().equals("show catalogs");
+        if(isQuery&&!showorset&&stateMachine.getSession().getCatalog().get().equals("hive")) {
+            histograms = getColHistogram(stateMachine.getTransactionManager().getCatalogManager().getCatalog("hive"));
+            //统计信息不是必须的变量，将统计信息保存到session变量中，再传给joinorderrule 优化器
+            stateMachine.getSession().setHistograms(histograms);
+        }
+        //---end  update---修改结束
+
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, costCalculator);
+
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -342,13 +354,15 @@ public final class SqlQueryExecution
         Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
         stateMachine.setOutput(output);
 
+
+
         // fragment the plan
         SubPlan subplan = PlanFragmenter.createSubPlans(stateMachine.getSession(), metadata, plan);
 
         // record analysis time
         stateMachine.recordAnalysisTime(analysisStart);
 
-        boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
+       boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
         return new PlanRoot(subplan, !explainAnalyze, extractConnectors(analysis));
     }
 

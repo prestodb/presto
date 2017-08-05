@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ColHistogram;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -64,6 +65,15 @@ public final class Session
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
 
+    //2017 by xw  一个变量，两个函数
+    private  Optional<HashMap<String[], ColHistogram>> histograms=Optional.empty();
+
+    public void setHistograms(Optional<HashMap<String[], ColHistogram>> histograms){
+        this.histograms=histograms;
+    }
+    public Optional<HashMap<String[], ColHistogram>> getHistograms(){
+        return histograms;
+    }
     public Session(
             QueryId queryId,
             Optional<TransactionId> transactionId,

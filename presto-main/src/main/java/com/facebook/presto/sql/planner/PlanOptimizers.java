@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
@@ -49,6 +49,7 @@ import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupB
 import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
+import com.facebook.presto.sql.planner.iterative.rule.JoinOrderRule;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -229,7 +230,12 @@ public class PlanOptimizers
                         ImmutableSet.of(new EliminateCrossJoins())
                 ),
                 new PredicatePushDown(metadata, sqlParser),
-                projectionPushDown);
+                projectionPushDown
+                /*new IterativeOptimizer(
+                        stats,
+                        ImmutableSet.of(new JoinOrderRule())),  // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+                new PredicatePushDown(metadata, sqlParser),
+                projectionPushDown*/);
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
             builder.add(

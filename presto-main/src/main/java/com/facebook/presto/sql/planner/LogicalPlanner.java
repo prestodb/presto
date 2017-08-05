@@ -21,10 +21,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.*;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -32,6 +29,8 @@ import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -60,11 +59,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -84,7 +79,6 @@ public class LogicalPlanner
     {
         CREATED, OPTIMIZED, OPTIMIZED_AND_VALIDATED
     }
-
     private final PlanNodeIdAllocator idAllocator;
 
     private final Session session;
@@ -95,11 +89,11 @@ public class LogicalPlanner
     private final CostCalculator costCalculator;
 
     public LogicalPlanner(Session session,
-            List<PlanOptimizer> planOptimizers,
-            PlanNodeIdAllocator idAllocator,
-            Metadata metadata,
-            SqlParser sqlParser,
-            CostCalculator costCalculator)
+                          List<PlanOptimizer> planOptimizers,
+                          PlanNodeIdAllocator idAllocator,
+                          Metadata metadata,
+                          SqlParser sqlParser,
+                          CostCalculator costCalculator)
     {
         requireNonNull(session, "session is null");
         requireNonNull(planOptimizers, "planOptimizers is null");
@@ -125,7 +119,7 @@ public class LogicalPlanner
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
-        if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
+       if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
                 root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));

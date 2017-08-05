@@ -31,14 +31,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.PriorityQueue;
-import java.util.Set;
+import java.util.*;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -68,14 +61,15 @@ public class EliminateCrossJoins
         }
 
         JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, lookup);
-        if (joinGraph.size() < 3) {
+        if (joinGraph.size() < 2) {
             return Optional.empty();
         }
 
         List<Integer> joinOrder = getJoinOrder(joinGraph);
+
         if (isOriginalOrder(joinOrder)) {
-            return Optional.empty();
-        }
+           return Optional.empty();
+         }
 
         PlanNode replacement = buildJoinTree(node.getOutputSymbols(), joinGraph, joinOrder, idAllocator);
         return Optional.of(replacement);
@@ -103,9 +97,12 @@ public class EliminateCrossJoins
         ImmutableList.Builder<PlanNode> joinOrder = ImmutableList.builder();
 
         Map<PlanNodeId, Integer> priorities = new HashMap<>();
-        for (int i = 0; i < graph.size(); i++) {
-            priorities.put(graph.getNode(i).getId(), i);
+        for (int i = graph.size()-1; i >=0; i--) {
+            priorities.put(graph.getNode(i).getId(), graph.size()-1-i);
         }
+       /* for (int i = 0; i < graph.size(); i++) {
+            priorities.put(graph.getNode(i).getId(), i);
+        }*/
 
         PriorityQueue<PlanNode> nodesToVisit = new PriorityQueue<>(
                 graph.size(),

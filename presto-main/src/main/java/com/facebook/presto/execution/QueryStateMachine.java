@@ -149,9 +149,12 @@ public class QueryStateMachine
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
     }
 
-    //2017 byxw
+    //2017 07 21 byxw
     public TransactionManager getTransactionManager(){
         return transactionManager;
+    }
+    public String getQuery(){
+        return query;
     }
     /**
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.

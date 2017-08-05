@@ -32,10 +32,12 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
+import java.sql.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -160,19 +162,75 @@ public class HiveConnector
         return false;
     }
 
+    //public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, ArrayList<String> tables, ArrayList<ArrayList<String>> cols) {
+
     @Override
-    public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
-        HashMap<String[], ColHistogram> map = new HashMap<String[], ColHistogram>();
-        ColHistogram h = new ColHistogram();
-        h.setMinVal(0);
-        h.setRowcount(20);
-        h.setBucketNum(1);
-        h.setMaxVal(1);
-        h.addBucket(1,1,1,1);
-        map.put(new String[]{"lineitem"},h);
+   public Optional<HashMap<String[], ColHistogram>> getHistograms(String dbname, String[] tables, String[][] cols) {
+        Connection mysqlconn=null;
+        String url = "jdbc:mysql://192.168.1.124:3306/hive";
+        String username = "root";
+        String password = "123456";
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            mysqlconn = DriverManager.getConnection(url,username,password);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        HashMap<String[],ColHistogram> map=new HashMap<String[],ColHistogram>();
+        ColHistogram h=null;
+        String sql="select begin,endv,diff,count from Histograms where database_name=? and table_name=? and col_name=?" ;
+        PreparedStatement preStmt= null;
+
+        try {
+            preStmt = mysqlconn.prepareStatement(sql);
+            preStmt.setString(1, dbname);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+       for(int i=0;i<tables.length;i++)
+        {
+            for(int j=0;j<cols[i].length;j++)
+            {
+                h=new ColHistogram();
+                long rowcount=0;
+                double minVal=0;
+                //double maxVal=0;
+                int bucketNum=0;
+                try {
+                    preStmt.setString(2, tables[i]);
+                    preStmt.setString(3, cols[i][j]);
+                    ResultSet rest = preStmt.executeQuery();
+
+                   /* rest.next();
+                    h.addBucket(Long.valueOf(rest.getString(1)),Long.valueOf(rest.getString(2)),
+                            Integer.valueOf(rest.getString(3)),Integer.valueOf(rest.getString(4)));
+                    rowcount+= Integer.valueOf(rest.getString(4));
+                    bucketNum++;
+                    minVal=Long.valueOf(rest.getString(1));
+                    long max_temp=Long.valueOf(rest.getString(1));*/
+                    while(rest.next())
+                    {       //循环遍历查询结果集
+                        h.addBucket(Long.valueOf(rest.getString(1)),Long.valueOf(rest.getString(2)), Integer.valueOf(rest.getString(3)),Integer.valueOf(rest.getString(4)));
+                        rowcount+= Integer.valueOf(rest.getString(4));
+                        bucketNum++;
+                        //max_temp=Integer.valueOf(rest.getString(2));
+                    }
+                    h.setRowcount(rowcount);
+                    h.setBucketNum(bucketNum);
+                    rest.first();
+                    h.setMinVal(Long.valueOf(rest.getString(1)));
+                    rest.last();
+                    h.setMaxVal(Long.valueOf(rest.getString(2)));
+                    map.put(new String[]{tables[i],cols[i][j]},h);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
         return Optional.of(map);
     }
-
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {

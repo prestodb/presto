@@ -11,22 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.tree;
+package com.facebook.presto.sql.planner.iterative.rule;
 
-import java.util.ArrayList;
-import java.util.Optional;
+import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 
-public abstract class Statement
-        extends Node
-{
-    protected Statement(Optional<NodeLocation> location)
-    {
-        super(location);
-    }
+import java.util.List;
 
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitStatement(this, context);
-    }
+/**
+ * Created by hadoop on 17-7-30.
+ */
+public class GraphPartitions {
+    JoinGraph l;
+    JoinGraph r;
+    List<JoinNode.EquiJoinClause> joinClauseList;
 }
