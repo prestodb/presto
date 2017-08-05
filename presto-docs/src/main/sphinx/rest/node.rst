@@ -62,20 +62,27 @@ Node Resource
 
 	 [
 	   {
-	     "uri":"http://10.209.57.156:8080",
-	     "recentRequests":117.0358348572745,
-	     "recentFailures":8.452831267323281,
-	     "recentSuccesses":108.58300358995123,
-	     "lastRequestTime":"2013-12-23T02:00:40.382-05:00",
-	     "lastResponseTime":"2013-12-23T02:00:40.383-05:00",
-	     "age":"44882391.57ms",
-	     "recentFailureRatio":0.07222430016952953,
-	     "recentFailuresByType":
-	     {
-	       "java.io.IOException":0.9048374180359595,
-	       "java.net.SocketTimeoutException":6.021822867514955E-269,
-	       "java.net.ConnectException":7.54799384928732
-	     }
+           "age": "4.45m",
+           "lastFailureInfo": {
+               "message": "Connect Timeout",
+               "stack": [
+                   "org.eclipse.jetty.io.ManagedSelector$ConnectTimeout.run(ManagedSelector.java:683)",
+                   ....
+                   "java.lang.Thread.run(Thread.java:745)"
+               ],
+               "suppressed": [],
+               "type": "java.net.SocketTimeoutException"
+           },
+           "lastRequestTime": "2017-08-05T11:53:00.647Z",
+           "lastResponseTime": "2017-08-05T11:53:00.647Z",
+           "recentFailureRatio": 0.47263053472046446,
+           "recentFailures": 2.8445543205610617,
+           "recentFailuresByType": {
+               "java.net.SocketTimeoutException": 2.8445543205610617
+           },
+           "recentRequests": 6.018558073577414,
+           "recentSuccesses": 3.1746446343010297,
+           "uri": "http://172.19.0.3:8080"
 	   }
 	 ]
 
@@ -90,21 +97,29 @@ Node Resource
 
       .. sourcecode:: http
 
-         [
-	    {
-	       "uri":"http://10.209.57.156:8080",
-	       "recentRequests":5.826871111529161,
-	       "recentFailures":0.4208416882082422,
-	       "recentSuccesses":5.406029423320919,
-	       "lastRequestTime":"2013-12-23T02:00:40.382-05:00",
-	       "lastResponseTime":"2013-12-23T02:00:40.383-05:00",
-	       "age":"45063192.35ms",
-	       "recentFailureRatio":0.07222430016952952,
-	       "recentFailuresByType":
-	       {
-	          "java.io.IOException":0.0450492023935578,
-		  "java.net.SocketTimeoutException":2.998089068041336E-270,
-		  "java.net.ConnectException":0.3757924858146843
-	       }
-	    }
-	 ]
+     [
+         {
+             "age": "1.37m",
+             "lastFailureInfo": {
+                 "message": "Connect Timeout",
+                 "stack": [
+                     "org.eclipse.jetty.io.ManagedSelector$ConnectTimeout.run(ManagedSelector.java:683)",
+                     .....
+                     "java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)",
+                     "java.lang.Thread.run(Thread.java:745)"
+                 ],
+                 "suppressed": [],
+                 "type": "java.net.SocketTimeoutException"
+             },
+             "lastRequestTime": "2017-08-05T11:52:42.647Z",
+             "lastResponseTime": "2017-08-05T11:52:42.647Z",
+             "recentFailureRatio": 0.22498784153043677,
+             "recentFailures": 20.11558290058638,
+             "recentFailuresByType": {
+                 "java.net.SocketTimeoutException": 20.11558290058638
+             },
+             "recentRequests": 89.40742203558189,
+             "recentSuccesses": 69.30583024727453,
+             "uri": "http://172.19.0.3:8080"
+         }
+     ]
