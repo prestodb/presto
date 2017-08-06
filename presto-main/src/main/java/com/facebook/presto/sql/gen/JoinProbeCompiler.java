@@ -476,7 +476,7 @@ public class JoinProbeCompiler
                 constructor = joinProbeClass.getConstructor(Page.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -581,7 +581,7 @@ public class JoinProbeCompiler
                         PartitioningSpillerFactory.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
 

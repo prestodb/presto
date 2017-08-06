@@ -260,7 +260,7 @@ public class JdbcRecordCursor
             // do nothing
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

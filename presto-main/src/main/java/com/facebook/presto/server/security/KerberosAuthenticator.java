@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server.security;
 
-import com.google.common.base.Throwables;
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
 import org.ietf.jgss.GSSContext;
@@ -101,7 +100,7 @@ public class KerberosAuthenticator
                     ACCEPT_ONLY));
         }
         catch (LoginException | UnknownHostException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -112,7 +111,7 @@ public class KerberosAuthenticator
             loginContext.logout();
         }
         catch (LoginException e) {
-            Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -192,7 +191,7 @@ public class KerberosAuthenticator
                 return action.get();
             }
             catch (GSSException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         });
     }

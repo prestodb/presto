@@ -23,7 +23,6 @@ import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Constructor;
@@ -92,7 +91,7 @@ public class GenericAccumulatorFactory
             accumulator = accumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
         if (orderByChannels.isEmpty()) {
             return accumulator;
@@ -108,7 +107,7 @@ public class GenericAccumulatorFactory
             return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.empty());
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -120,7 +119,7 @@ public class GenericAccumulatorFactory
             accumulator = groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
 
         if (orderByChannels.isEmpty()) {
@@ -137,7 +136,7 @@ public class GenericAccumulatorFactory
             return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

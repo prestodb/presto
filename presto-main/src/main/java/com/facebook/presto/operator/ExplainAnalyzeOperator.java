@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -171,7 +170,7 @@ public class ExplainAnalyzeOperator
                 TimeUnit.MILLISECONDS.sleep(100);
             }
             catch (InterruptedException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
         return isFinalStageInfo(stageInfo);

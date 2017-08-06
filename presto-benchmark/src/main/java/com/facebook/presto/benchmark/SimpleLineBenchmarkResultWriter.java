@@ -14,11 +14,11 @@
 package com.facebook.presto.benchmark;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.Map;
 
@@ -44,7 +44,7 @@ public class SimpleLineBenchmarkResultWriter
             writer.flush();
         }
         catch (IOException e) {
-            Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
         return this;
     }

@@ -62,7 +62,6 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Throwables.propagate;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
@@ -1763,7 +1762,7 @@ public class PrestoResultSet
             while (client.isValid()) {
                 if (Thread.currentThread().isInterrupted()) {
                     client.close();
-                    throw propagate(new SQLException("ResultSet thread was interrupted"));
+                    throw new RuntimeException(new SQLException("ResultSet thread was interrupted"));
                 }
 
                 QueryStatusInfo results = client.currentStatusInfo();
@@ -1779,7 +1778,7 @@ public class PrestoResultSet
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
 
             if (client.isFailed()) {
-                throw propagate(resultsException(results));
+                throw new RuntimeException(resultsException(results));
             }
 
             return endOfData();
