@@ -33,7 +33,7 @@ import com.fasterxml.jackson.databind.jsontype.impl.TypeIdResolverBase;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-import com.fasterxml.jackson.databind.type.SimpleType;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
@@ -71,7 +71,12 @@ public abstract class AbstractTypedJacksonModule<T>
         public InternalTypeDeserializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
             super(baseClass);
-            this.typeDeserializer = new AsPropertyTypeDeserializer(SimpleType.construct(baseClass), typeIdResolver, TYPE_PROPERTY, false, null);
+            this.typeDeserializer = new AsPropertyTypeDeserializer(
+                    TypeFactory.defaultInstance().constructType(baseClass),
+                    typeIdResolver,
+                    TYPE_PROPERTY,
+                    false,
+                    null);
         }
 
         @SuppressWarnings("unchecked")
