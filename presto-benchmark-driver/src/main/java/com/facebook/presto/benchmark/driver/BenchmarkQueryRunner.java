@@ -17,7 +17,6 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -248,7 +247,7 @@ public class BenchmarkQueryRunner
         }
         catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(interruptedException);
+            throw new RuntimeException(interruptedException);
         }
     }
 
