@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.assertions.QueryAssert.Row;
@@ -234,7 +233,7 @@ public class TestHiveStorageFormats
             }
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

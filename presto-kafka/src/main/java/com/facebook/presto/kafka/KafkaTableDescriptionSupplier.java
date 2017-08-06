@@ -16,7 +16,6 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Splitter;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,6 +26,7 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -112,7 +112,7 @@ public class KafkaTableDescriptionSupplier
         }
         catch (IOException e) {
             log.warn(e, "Error: ");
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 

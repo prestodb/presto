@@ -19,7 +19,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
-import com.google.common.base.Throwables;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -28,6 +27,7 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
@@ -60,7 +60,7 @@ public class FileResourceGroupConfigurationManager
             managerSpec = CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();

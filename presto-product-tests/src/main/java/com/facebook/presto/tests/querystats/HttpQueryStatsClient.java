@@ -16,7 +16,6 @@ package com.facebook.presto.tests.querystats;
 import com.facebook.presto.execution.QueryStats;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
@@ -24,6 +23,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.Optional;
 
@@ -85,7 +85,7 @@ public class HttpQueryStatsClient
                 return Optional.of(queryStats);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
         }
     }

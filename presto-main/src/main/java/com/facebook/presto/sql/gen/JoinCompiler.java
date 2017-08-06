@@ -824,7 +824,7 @@ public class JoinCompiler
                 constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -857,7 +857,7 @@ public class JoinCompiler
                 constructor = pagesHashStrategyClass.getConstructor(List.class, OptionalInt.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
 
