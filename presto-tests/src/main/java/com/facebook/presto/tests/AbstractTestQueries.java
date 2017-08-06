@@ -2713,6 +2713,11 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT * FROM (VALUES 1) t1(a) LEFT OUTER JOIN (VALUES (1,2,2), (1,2,3), (1, 2, NULL)) t2(x,y,z) ON a=x AND y = z",
                 "VALUES (1, 1, 2, 2)");
+
+        // left join which gets converted to inner join without equality conditions.
+        // all symbols pruned by original join
+        assertQuery("SELECT 1 FROM (VALUES 1, 20) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON a > b WHERE b IS NOT NULL",
+                "VALUES (1), (1)");
     }
 
     @Test
