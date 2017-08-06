@@ -137,6 +137,20 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testLeftConvertedToInnerInequalityJoinNoEquiJoinConjuncts()
+            throws Exception
+    {
+        assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey < l.orderkey WHERE l.orderkey IS NOT NULL",
+                anyTree(
+                        filter("O_ORDERKEY < L_ORDERKEY",
+                                join(INNER, ImmutableList.of(), Optional.empty(),
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                        any(
+                                                filter("NOT (L_ORDERKEY IS NULL)",
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
+    }
+
+    @Test
     public void testJoin()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",

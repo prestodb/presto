@@ -410,20 +410,27 @@ public class PredicatePushDown
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
 
-                output = createJoinNodeWithExpectedOutputs(
-                        node.getOutputSymbols(), idAllocator,
+                output = new JoinNode(
+                        idAllocator.getNextId(),
                         node.getType(),
                         leftSource,
                         rightSource,
-                        newJoinFilter,
                         equiJoinClauses,
+                        ImmutableList.<Symbol>builder()
+                                .addAll(leftSource.getOutputSymbols())
+                                .addAll(rightSource.getOutputSymbols())
+                                .build(),
+                        newJoinFilter,
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
                         node.getDistributionType());
             }
+
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
             }
+
+            output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(node.getOutputSymbols()));
             return output;
         }
 
@@ -434,50 +441,6 @@ public class PredicatePushDown
             }
 
             return symbolAllocator.newSymbol(expression, extractType(expression));
-        }
-
-        private static PlanNode createJoinNodeWithExpectedOutputs(
-                List<Symbol> expectedOutputs,
-                PlanNodeIdAllocator idAllocator,
-                JoinNode.Type type,
-                PlanNode left,
-                PlanNode right,
-                Optional<Expression> filter,
-                List<JoinNode.EquiJoinClause> conditions,
-                Optional<Symbol> leftHashSymbol,
-                Optional<Symbol> rightHashSymbol,
-                Optional<JoinNode.DistributionType> distributionType)
-        {
-            // TODO: this should be removed once join nodes with output column pruning is supported for cross join
-            if (conditions.isEmpty() && !filter.isPresent()) {
-                PlanNode output = new JoinNode(
-                        idAllocator.getNextId(),
-                        type,
-                        left,
-                        right,
-                        conditions,
-                        ImmutableList.<Symbol>builder()
-                                .addAll(left.getOutputSymbols())
-                                .addAll(right.getOutputSymbols())
-                                .build(),
-                        filter,
-                        leftHashSymbol,
-                        rightHashSymbol,
-                        distributionType);
-
-                if (!output.getOutputSymbols().equals(expectedOutputs)) {
-                    // Introduce a projection to constrain the outputs to what was originally expected
-                    // Some nodes are sensitive to what's produced (e.g., DistinctLimit node)
-                    output = new ProjectNode(
-                            idAllocator.getNextId(),
-                            output,
-                            Assignments.identity(expectedOutputs));
-                }
-                return output;
-            }
-            else {
-                return new JoinNode(idAllocator.getNextId(), type, left, right, conditions, expectedOutputs, filter, leftHashSymbol, rightHashSymbol, distributionType);
-            }
         }
 
         private static OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<Symbol> outerSymbols)
