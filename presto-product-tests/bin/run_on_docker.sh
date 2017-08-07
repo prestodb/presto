@@ -208,6 +208,8 @@ trap terminate INT TERM EXIT
 
 if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
   EXTERNAL_SERVICES="hadoop-master sqlserver"
+elif [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
+  EXTERNAL_SERVICES="hadoop-master ldapserver cassandra"
 else
   EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
 fi
@@ -215,11 +217,6 @@ environment_compose up -d ${EXTERNAL_SERVICES}
 
 # start docker logs for the external services
 environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
-
-# start ldap container
-if [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
-  environment_compose up -d ldapserver
-fi
 
 HADOOP_LOGS_PID=$!
 
