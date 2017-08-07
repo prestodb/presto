@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -27,10 +28,10 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -42,7 +43,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -59,8 +59,8 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
 import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -72,6 +72,7 @@ public final class MapFilterFunction
         extends SqlScalarFunction
 {
     public static final MapFilterFunction MAP_FILTER_FUNCTION = new MapFilterFunction();
+    private static final MethodHandle STATE_FACTORY = methodHandle(MapFilterFunction.class, "createState", MapType.class);
 
     private MapFilterFunction()
     {
@@ -108,7 +109,7 @@ public final class MapFilterFunction
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        MapType mapType = (MapType) typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(valueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
@@ -116,13 +117,22 @@ public final class MapFilterFunction
                 ImmutableList.of(false, false),
                 ImmutableList.of(false, false),
                 ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
-                generateFilter(keyType, valueType, mapType),
+                generateFilter(mapType),
+                Optional.of(STATE_FACTORY.bindTo(mapType)),
                 isDeterministic());
     }
 
-    private static MethodHandle generateFilter(Type keyType, Type valueType, Type mapType)
+    @UsedByGeneratedCode
+    public static Object createState(MapType mapType)
+    {
+        return new PageBuilder(ImmutableList.of(mapType));
+    }
+
+    private static MethodHandle generateFilter(MapType mapType)
     {
         CallSiteBinder binder = new CallSiteBinder();
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
         Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
         Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
 
@@ -132,19 +142,22 @@ public final class MapFilterFunction
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
+        Parameter state = arg("state", Object.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "filter",
                 type(Block.class),
-                ImmutableList.of(block, function));
+                ImmutableList.of(state, block, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
         Variable positionCount = scope.declareVariable(int.class, "positionCount");
         Variable position = scope.declareVariable(int.class, "position");
-        Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder");
+        Variable pageBuilder = scope.declareVariable(PageBuilder.class, "pageBuilder");
+        Variable mapBlockBuilder = scope.declareVariable(BlockBuilder.class, "mapBlockBuilder");
+        Variable singleMapBlockWriter = scope.declareVariable(BlockBuilder.class, "singleMapBlockWriter");
         Variable keyElement = scope.declareVariable(keyJavaType, "keyElement");
         Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
         Variable keep = scope.declareVariable(Boolean.class, "keep");
@@ -152,12 +165,13 @@ public final class MapFilterFunction
         // invoke block.getPositionCount()
         body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
 
-        // create the interleaved block builder
-        body.append(blockBuilder.set(newInstance(
-                InterleavedBlockBuilder.class,
-                constantType(binder, mapType).invoke("getTypeParameters", List.class),
-                newInstance(BlockBuilderStatus.class),
-                positionCount)));
+        // prepare the single map block builder
+        body.append(pageBuilder.set(state.cast(PageBuilder.class)));
+        body.append(new IfStatement()
+                .condition(pageBuilder.invoke("isFull", boolean.class))
+                .ifTrue(pageBuilder.invoke("reset", void.class)));
+        body.append(mapBlockBuilder.set(pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(0))));
+        body.append(singleMapBlockWriter.set(mapBlockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
         BytecodeNode loadKeyElement;
@@ -192,12 +206,22 @@ public final class MapFilterFunction
                         .append(new IfStatement("if (keep != null && keep) ...")
                                 .condition(and(notEqual(keep, constantNull(Boolean.class)), keep.cast(boolean.class)))
                                 .ifTrue(new BytecodeBlock()
-                                        .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
-                                        .append(valueSqlType.invoke("appendTo", void.class, block, add(position, constantInt(1)), blockBuilder))))));
+                                        .append(keySqlType.invoke("appendTo", void.class, block, position, singleMapBlockWriter))
+                                        .append(valueSqlType.invoke("appendTo", void.class, block, add(position, constantInt(1)), singleMapBlockWriter))))));
 
-        body.append(blockBuilder.invoke("build", Block.class).ret());
+        body.append(mapBlockBuilder
+                .invoke("closeEntry", BlockBuilder.class)
+                .pop());
+        body.append(pageBuilder.invoke("declarePosition", void.class));
+        body.append(constantType(binder, mapType)
+                .invoke(
+                        "getObject",
+                        Object.class,
+                        mapBlockBuilder.cast(Block.class),
+                        subtract(mapBlockBuilder.invoke("getPositionCount", int.class), constantInt(1)))
+                .ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "filter", Block.class, BinaryFunctionInterface.class);
+        return methodHandle(generatedClass, "filter", Object.class, Block.class, BinaryFunctionInterface.class);
     }
 }
