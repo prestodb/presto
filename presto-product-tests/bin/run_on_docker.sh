@@ -206,13 +206,8 @@ fi
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-# start external services
-# Tempto fails if cassandra is not running. It will
-# be removed from the list of EXTERNAL_SERVICES for
-# singlenode-sqlserver once we resolve
-# https://github.com/prestodb/tempto/issues/190
 if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
-  EXTERNAL_SERVICES="hadoop-master cassandra sqlserver"
+  EXTERNAL_SERVICES="hadoop-master sqlserver"
 else
   EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
 fi
