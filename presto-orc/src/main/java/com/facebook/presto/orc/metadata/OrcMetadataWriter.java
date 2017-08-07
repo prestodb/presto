@@ -216,8 +216,8 @@ public class OrcMetadataWriter
 
         if (columnStatistics.getStringStatistics() != null) {
             builder.setStringStatistics(OrcProto.StringStatistics.newBuilder()
-                    .setMinimum(columnStatistics.getStringStatistics().getMin().toStringUtf8())
-                    .setMaximum(columnStatistics.getStringStatistics().getMax().toStringUtf8())
+                    .setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()))
+                    .setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()))
                     .build());
         }
 
