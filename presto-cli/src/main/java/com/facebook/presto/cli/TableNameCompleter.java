@@ -50,24 +50,21 @@ public class TableNameCompleter
 
         tableCache = CacheBuilder.newBuilder()
                 .refreshAfterWrite(RELOAD_TIME_MINUTES, TimeUnit.MINUTES)
-                .build(asyncReloading(new CacheLoader<String, List<String>>()
-                {
-                    @Override
-                    public List<String> load(String schemaName)
-                    {
-                        return queryMetadata(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName));
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::listTables), executor));
 
         functionCache = CacheBuilder.newBuilder()
-                .build(asyncReloading(new CacheLoader<String, List<String>>()
-                {
-                    @Override
-                    public List<String> load(String schemaName)
-                    {
-                        return queryMetadata("SHOW FUNCTIONS");
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::listFunctions), executor));
+    }
+
+    private List<String> listTables(String schemaName)
+    {
+        return queryMetadata(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName));
+    }
+
+    @SuppressWarnings("unused")
+    private List<String> listFunctions(String schemaName)
+    {
+        return queryMetadata("SHOW FUNCTIONS");
     }
 
     private List<String> queryMetadata(String query)

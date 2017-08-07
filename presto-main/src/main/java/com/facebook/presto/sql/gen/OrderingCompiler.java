@@ -67,15 +67,7 @@ public class OrderingCompiler
     private final LoadingCache<PagesIndexComparatorCacheKey, PagesIndexOrdering> pagesIndexOrderings = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
-            .build(new CacheLoader<PagesIndexComparatorCacheKey, PagesIndexOrdering>()
-            {
-                @Override
-                public PagesIndexOrdering load(PagesIndexComparatorCacheKey key)
-                        throws Exception
-                {
-                    return internalCompilePagesIndexOrdering(key.getSortTypes(), key.getSortChannels(), key.getSortOrders());
-                }
-            });
+            .build(CacheLoader.from(key -> internalCompilePagesIndexOrdering(key.getSortTypes(), key.getSortChannels(), key.getSortOrders())));
 
     @Managed
     @Nested
@@ -100,7 +92,6 @@ public class OrderingCompiler
 
     @VisibleForTesting
     public PagesIndexOrdering internalCompilePagesIndexOrdering(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
-            throws Exception
     {
         requireNonNull(sortChannels, "sortChannels is null");
         requireNonNull(sortOrders, "sortOrders is null");

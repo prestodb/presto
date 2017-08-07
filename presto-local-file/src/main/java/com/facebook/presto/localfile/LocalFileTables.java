@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
-import javax.annotation.Nonnull;
 import javax.inject.Inject;
 
 import java.io.File;
@@ -81,16 +80,7 @@ public class LocalFileTables
 
         cachedFiles = CacheBuilder.newBuilder()
                 .expireAfterWrite(10, SECONDS)
-                .build(new CacheLoader<SchemaTableName, List<File>>()
-                {
-                    @Override
-                    public List<File> load(@Nonnull SchemaTableName key)
-                            throws Exception
-                    {
-                        DataLocation dataLocation = tableDataLocations.get(key);
-                        return dataLocation.files();
-                    }
-                });
+                .build(CacheLoader.from(key -> tableDataLocations.get(key).files()));
     }
 
     public LocalFileTableHandle getTable(SchemaTableName tableName)
