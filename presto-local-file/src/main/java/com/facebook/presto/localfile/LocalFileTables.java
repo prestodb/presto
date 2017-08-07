@@ -14,12 +14,14 @@
 package com.facebook.presto.localfile;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -39,6 +41,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class LocalFileTables
@@ -108,7 +111,13 @@ public class LocalFileTables
 
     public List<File> getFiles(SchemaTableName table)
     {
-        return cachedFiles.getUnchecked(table);
+        try {
+            return cachedFiles.getUnchecked(table);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
     }
 
     public static class HttpRequestLogTable
