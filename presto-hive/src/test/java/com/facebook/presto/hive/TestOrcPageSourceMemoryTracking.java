@@ -385,7 +385,7 @@ public class TestOrcPageSourceMemoryTracking
         // done... in the current implementation finish is not set until output returns a null page
         assertNull(operator.getOutput());
         assertTrue(operator.isFinished());
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 0L, 500L);
     }
 
     private class TestPreparer
@@ -509,7 +509,9 @@ public class TestOrcPageSourceMemoryTracking
                     cursorProcessor,
                     pageProcessor,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
-                    types);
+                    types,
+                    new DataSize(0, BYTE),
+                    0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
             return operator;

@@ -41,6 +41,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -49,18 +50,25 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.toValues;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
+import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -101,7 +109,9 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 ImmutableList.of(),
-                ImmutableList.of(VARCHAR));
+                ImmutableList.of(VARCHAR),
+                new DataSize(0, BYTE),
+                0);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -112,6 +122,55 @@ public class TestScanFilterAndProjectOperator
 
         assertEquals(actual.getRowCount(), expected.getRowCount());
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testPageSourceMergeOutput()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .addSequencePage(100, 0)
+                .addSequencePage(100, 0)
+                .addSequencePage(100, 0)
+                .addSequencePage(100, 0)
+                .build();
+
+        RowExpression filter = call(
+                Signature.internalOperator(EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+                BOOLEAN,
+                field(0, BIGINT),
+                constant(10L, BIGINT));
+        List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
+        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.of(filter), projections, "key");
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections);
+
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                new PlanNodeId("0"),
+                (session, split, columns) -> new FixedPageSource(input),
+                cursorProcessor,
+                pageProcessor,
+                ImmutableList.of(),
+                ImmutableList.of(BIGINT),
+                new DataSize(64, KILOBYTE),
+                2);
+
+        SourceOperator operator = factory.createOperator(newDriverContext());
+        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.noMoreSplits();
+
+        List<Page> actual = toPages(operator);
+        assertEquals(actual.size(), 1);
+
+        List<Page> expected = rowPagesBuilder(BIGINT)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .build();
+
+        assertPageEquals(ImmutableList.of(BIGINT), actual.get(0), expected.get(0));
     }
 
     @Test
@@ -137,7 +196,9 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 () -> pageProcessor,
                 ImmutableList.of(),
-                ImmutableList.of(BIGINT));
+                ImmutableList.of(BIGINT),
+                new DataSize(0, BYTE),
+                0);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -169,7 +230,9 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 ImmutableList.of(),
-                ImmutableList.of(VARCHAR));
+                ImmutableList.of(VARCHAR),
+                new DataSize(0, BYTE),
+                0);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -219,7 +282,9 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 ImmutableList.of(),
-                ImmutableList.of(BIGINT));
+                ImmutableList.of(BIGINT),
+                new DataSize(0, BYTE),
+                0);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -277,7 +342,9 @@ public class TestScanFilterAndProjectOperator
                 cursorProcessor,
                 pageProcessor,
                 ImmutableList.of(),
-                ImmutableList.of(BIGINT));
+                ImmutableList.of(BIGINT),
+                new DataSize(0, BYTE),
+                0);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
