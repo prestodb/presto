@@ -53,10 +53,6 @@ function stop_unnecessary_hadoop_services() {
 function cleanup_docker_containers() {
   # stop containers started with "up"
   docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
-
-  # docker logs processes are being terminated as soon as docker container are stopped
-  # wait for docker logs termination
-  wait
 }
 
 function termination_handler(){
@@ -85,9 +81,6 @@ docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
 
 # start containers
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
-
-# start docker logs for hadoop container
-docker-compose -f "${DOCKER_COMPOSE_LOCATION}" logs --no-color hadoop-master &
 
 # wait until hadoop processes is started
 retry check_hadoop
