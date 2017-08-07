@@ -85,7 +85,7 @@ public class PlanNodeStatsEstimate
     public PlanNodeStatsEstimate mapSymbolColumnStatistics(Symbol symbol, Function<SymbolStatsEstimate, SymbolStatsEstimate> mappingFunction)
     {
         return buildFrom(this)
-                .addSymbolStatistics(symbol, mappingFunction.apply(symbolStatistics.get(symbol)))
+                .addSymbolStatistics(symbol, mappingFunction.apply(getSymbolStatistics(symbol)))
                 .build();
     }
 
