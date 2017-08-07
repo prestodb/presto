@@ -50,7 +50,7 @@ public class RuleAssert
     private final Metadata metadata;
     private final CostCalculator costCalculator;
     private Session session;
-    private final Rule rule;
+    private final Rule<?> rule;
 
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
@@ -150,15 +150,23 @@ public class RuleAssert
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        PlanNodeMatcher matcher = new PlanNodeMatcher(lookup);
-        Match match = matcher.match(rule.getPattern(), memoRoot);
-        if (!rule.isEnabled(session) || match.isEmpty()) {
-            return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
+        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(symbolAllocator, lookup, session)));
+    }
+
+    private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
+    {
+        PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
+        Match<T> match = matcher.match(rule.getPattern(), planNode);
+
+        Optional<PlanNode> result;
+        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
+            result = Optional.empty();
+        }
+        else {
+            result = rule.apply(match.value(), match.captures(), context);
         }
 
-        Optional<PlanNode> result = inTransaction(session -> rule.apply(match.value(), match.captures(), ruleContext(symbolAllocator, lookup, session)));
-
-        return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
+        return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);
     }
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
