@@ -51,15 +51,7 @@ public class NetworkLocationCache
         this.cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(1, DAYS)
                 .refreshAfterWrite(12, HOURS)
-                .build(asyncReloading(new CacheLoader<HostAddress, NetworkLocation>()
-                {
-                    @Override
-                    public NetworkLocation load(HostAddress host)
-                            throws Exception
-                    {
-                        return locate(host);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::locate), executor));
 
         this.negativeCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(NEGATIVE_CACHE_DURATION.toMillis(), MILLISECONDS)

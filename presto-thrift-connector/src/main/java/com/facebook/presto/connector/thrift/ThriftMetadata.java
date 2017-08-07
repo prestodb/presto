@@ -40,7 +40,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
-import javax.annotation.Nonnull;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -81,15 +80,7 @@ public class ThriftMetadata
         this.tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(EXPIRE_AFTER_WRITE.toMillis(), MILLISECONDS)
                 .refreshAfterWrite(REFRESH_AFTER_WRITE.toMillis(), MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<SchemaTableName, Optional<ConnectorTableMetadata>>()
-                {
-                    @Override
-                    public Optional<ConnectorTableMetadata> load(@Nonnull SchemaTableName schemaTableName)
-                            throws Exception
-                    {
-                        return getTableMetadataInternal(schemaTableName);
-                    }
-                }, metadataRefreshExecutor));
+                .build(asyncReloading(CacheLoader.from(this::getTableMetadataInternal), metadataRefreshExecutor));
     }
 
     @Override

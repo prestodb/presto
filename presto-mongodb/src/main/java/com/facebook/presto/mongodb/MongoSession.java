@@ -119,15 +119,7 @@ public class MongoSession
         this.tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(1, HOURS)  // TODO: Configure
                 .refreshAfterWrite(1, MINUTES)
-                .build(new CacheLoader<SchemaTableName, MongoTable>()
-                {
-                    @Override
-                    public MongoTable load(SchemaTableName key)
-                            throws TableNotFoundException
-                    {
-                        return loadTableSchema(key);
-                    }
-                });
+                .build(CacheLoader.from(this::loadTableSchema));
     }
 
     public void shutdown()

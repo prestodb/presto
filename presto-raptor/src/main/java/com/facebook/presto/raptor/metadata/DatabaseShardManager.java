@@ -116,25 +116,11 @@ public class DatabaseShardManager
 
     private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
             .maximumSize(10_000)
-            .build(new CacheLoader<String, Integer>()
-            {
-                @Override
-                public Integer load(String nodeIdentifier)
-                {
-                    return loadNodeId(nodeIdentifier);
-                }
-            });
+            .build(CacheLoader.from(this::loadNodeId));
 
     private final LoadingCache<Long, Map<Integer, String>> bucketAssignmentsCache = CacheBuilder.newBuilder()
             .expireAfterWrite(1, SECONDS)
-            .build(new CacheLoader<Long, Map<Integer, String>>()
-            {
-                @Override
-                public Map<Integer, String> load(Long distributionId)
-                {
-                    return loadBucketAssignments(distributionId);
-                }
-            });
+            .build(CacheLoader.from(this::loadBucketAssignments));
 
     @Inject
     public DatabaseShardManager(

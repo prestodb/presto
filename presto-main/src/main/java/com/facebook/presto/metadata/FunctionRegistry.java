@@ -349,60 +349,29 @@ public class FunctionRegistry
 
         specializedFunctionKeyCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(new CacheLoader<Signature, SpecializedFunctionKey>()
-                {
-                    @Override
-                    public SpecializedFunctionKey load(Signature key)
-                    {
-                        return doGetSpecializedFunctionKey(key);
-                    }
-                });
+                .build(CacheLoader.from(this::doGetSpecializedFunctionKey));
 
+        // TODO the function map should be updated, so that this cast can be removed
         specializedScalarCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(new CacheLoader<SpecializedFunctionKey, ScalarFunctionImplementation>()
-                {
-                    @Override
-                    public ScalarFunctionImplementation load(SpecializedFunctionKey key)
-                            throws Exception
-                    {
-                        // TODO the function map should be updated, so that this cast can be removed
-                        SqlScalarFunction scalarFunction = (SqlScalarFunction) key.getFunction();
-                        return scalarFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
-                    }
-                });
+                .build(CacheLoader.from(key -> ((SqlScalarFunction) key.getFunction())
+                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
 
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(new CacheLoader<SpecializedFunctionKey, InternalAggregationFunction>()
-                {
-                    @Override
-                    public InternalAggregationFunction load(SpecializedFunctionKey key)
-                            throws Exception
-                    {
-                        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) key.getFunction();
-                        return aggregationFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
-                    }
-                });
+                .build(CacheLoader.from(key -> ((SqlAggregationFunction) key.getFunction())
+                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
 
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(new CacheLoader<SpecializedFunctionKey, WindowFunctionSupplier>()
+                .build(CacheLoader.from(key ->
                 {
-                    @Override
-                    public WindowFunctionSupplier load(SpecializedFunctionKey key)
-                            throws Exception
-                    {
-                        if (key.getFunction() instanceof SqlAggregationFunction) {
-                            SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) key.getFunction();
-                            return supplier(aggregationFunction.getSignature(), specializedAggregationCache.getUnchecked(key));
-                        }
-                        else {
-                            SqlWindowFunction windowFunction = (SqlWindowFunction) key.getFunction();
-                            return windowFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
-                        }
+                    if (key.getFunction() instanceof SqlAggregationFunction) {
+                        return supplier(key.getFunction().getSignature(), specializedAggregationCache.getUnchecked(key));
                     }
-                });
+                    return ((SqlWindowFunction) key.getFunction())
+                            .specialize(key.getBoundVariables(), key.getArity(), typeManager, this);
+                }));
 
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)

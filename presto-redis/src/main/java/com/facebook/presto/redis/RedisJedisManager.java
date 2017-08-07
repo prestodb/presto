@@ -50,7 +50,7 @@ public class RedisJedisManager
             NodeManager nodeManager)
     {
         this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConfig is null");
-        this.jedisPoolCache = CacheBuilder.newBuilder().build(new JedisPoolCacheLoader());
+        this.jedisPoolCache = CacheBuilder.newBuilder().build(CacheLoader.from(this::createConsumer));
         this.jedisPoolConfig = new JedisPoolConfig();
     }
 
@@ -83,20 +83,14 @@ public class RedisJedisManager
         }
     }
 
-    private class JedisPoolCacheLoader
-            extends CacheLoader<HostAddress, JedisPool>
+    private JedisPool createConsumer(HostAddress host)
     {
-        @Override
-        public JedisPool load(HostAddress host)
-                throws Exception
-        {
-            log.info("Creating new JedisPool for %s", host);
-            return new JedisPool(jedisPoolConfig,
-                    host.getHostText(),
-                    host.getPort(),
-                    toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
-                    redisConnectorConfig.getRedisPassword(),
-                    redisConnectorConfig.getRedisDataBaseIndex());
-        }
+        log.info("Creating new JedisPool for %s", host);
+        return new JedisPool(jedisPoolConfig,
+                host.getHostText(),
+                host.getPort(),
+                toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
+                redisConnectorConfig.getRedisPassword(),
+                redisConnectorConfig.getRedisDataBaseIndex());
     }
 }

@@ -1276,14 +1276,7 @@ public class AddExchanges
     {
         // Calculating the matches can be a bit expensive, so cache the results between comparisons
         LoadingCache<List<LocalProperty<Symbol>>, List<Optional<LocalProperty<Symbol>>>> matchCache = CacheBuilder.newBuilder()
-                .build(new CacheLoader<List<LocalProperty<Symbol>>, List<Optional<LocalProperty<Symbol>>>>()
-                {
-                    @Override
-                    public List<Optional<LocalProperty<Symbol>>> load(List<LocalProperty<Symbol>> actualProperties)
-                    {
-                        return LocalProperties.match(actualProperties, preferred.getLocalProperties());
-                    }
-                });
+                .build(CacheLoader.from(actualProperties -> LocalProperties.match(actualProperties, preferred.getLocalProperties())));
 
         return (actual1, actual2) -> {
             List<Optional<LocalProperty<Symbol>>> matchLayout1 = matchCache.getUnchecked(actual1.getLocalProperties());

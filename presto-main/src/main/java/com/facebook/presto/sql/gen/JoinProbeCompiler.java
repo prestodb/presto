@@ -78,15 +78,8 @@ public class JoinProbeCompiler
     private final LoadingCache<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory> joinProbeFactories = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
-            .build(new CacheLoader<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory>()
-            {
-                @Override
-                public HashJoinOperatorFactoryFactory load(JoinOperatorCacheKey key)
-                        throws Exception
-                {
-                    return internalCompileJoinOperatorFactory(key.getTypes(), key.getProbeOutputChannels(), key.getProbeChannels(), key.getProbeHashChannel());
-                }
-            });
+            .build(CacheLoader.from(key ->
+                    internalCompileJoinOperatorFactory(key.getTypes(), key.getProbeOutputChannels(), key.getProbeChannels(), key.getProbeHashChannel())));
 
     @Managed
     @Nested

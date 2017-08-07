@@ -133,31 +133,19 @@ public class SqlTaskManager
 
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
 
-        queryContexts = CacheBuilder.newBuilder().weakValues().build(new CacheLoader<QueryId, QueryContext>()
-        {
-            @Override
-            public QueryContext load(QueryId key)
-                    throws Exception
-            {
-                return new QueryContext(
-                        key,
+        queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
+                queryId -> new QueryContext(
+                        queryId,
                         maxQueryMemoryPerNode,
                         localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
                         localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
                         taskNotificationExecutor,
                         driverYieldExecutor,
                         maxQuerySpillPerNode,
-                        localSpillManager.getSpillSpaceTracker());
-            }
-        });
+                        localSpillManager.getSpillSpaceTracker())));
 
-        tasks = CacheBuilder.newBuilder().build(new CacheLoader<TaskId, SqlTask>()
-        {
-            @Override
-            public SqlTask load(TaskId taskId)
-                    throws Exception
-            {
-                return new SqlTask(
+        tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
+                taskId -> new SqlTask(
                         taskId,
                         locationFactory.createLocalTaskLocation(taskId),
                         nodeInfo.getNodeId(),
@@ -168,9 +156,7 @@ public class SqlTaskManager
                             finishedTaskStats.merge(sqlTask.getIoStats());
                             return null;
                         },
-                        maxBufferSize);
-            }
-        });
+                        maxBufferSize)));
     }
 
     @Override
