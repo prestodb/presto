@@ -75,6 +75,8 @@ public final class SystemSessionProperties
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
+    public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
+    public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -334,7 +336,21 @@ public final class SystemSessionProperties
                         FORCE_SINGLE_NODE_OUTPUT,
                         "Force single node output",
                         featuresConfig.isForceSingleNodeOutput(),
-                        true));
+                        true),
+                new PropertyMetadata<>(
+                        FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE,
+                        "Experimental: Minimum output page size for filter and project operators",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getFilterAndProjectMinOutputPageSize(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                integerSessionProperty(
+                        FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT,
+                        "Experimental: Minimum output page row count for filter and project operators",
+                        featuresConfig.getFilterAndProjectMinOutputPageRowCount(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -524,5 +540,15 @@ public final class SystemSessionProperties
     public static boolean isForceSingleNodeOutput(Session session)
     {
         return session.getSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.class);
+    }
+
+    public static DataSize getFilterAndProjectMinOutputPageSize(Session session)
+    {
+        return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE, DataSize.class);
+    }
+
+    public static int getFilterAndProjectMinOutputPageRowCount(Session session)
+    {
+        return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
     }
 }

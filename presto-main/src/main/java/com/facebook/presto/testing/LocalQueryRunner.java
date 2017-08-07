@@ -182,6 +182,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
+import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -828,7 +830,7 @@ public class LocalQueryRunner
         };
     }
 
-    public OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> columnTypes)
+    public OperatorFactory createHashProjectOperator(Session session, int operatorId, PlanNodeId planNodeId, List<Type> columnTypes)
     {
         ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Integer> symbolToInputMapping = ImmutableMap.builder();
@@ -860,7 +862,9 @@ public class LocalQueryRunner
                 operatorId,
                 planNodeId,
                 () -> new PageProcessor(Optional.empty(), projections.build()),
-                ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
+                ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))),
+                getFilterAndProjectMinOutputPageSize(session),
+                getFilterAndProjectMinOutputPageRowCount(session));
     }
 
     private Split getLocalQuerySplit(Session session, TableLayoutHandle handle)
