@@ -25,11 +25,13 @@ import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public class SliceArrayBlock
         extends AbstractVariableWidthBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceArrayBlock.class).instanceSize();
+    private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
     private final int positionCount;
     private final Slice[] values;
     private final long sizeInBytes;
@@ -232,6 +234,10 @@ public class SliceArrayBlock
             }
             if (value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
                 sizeInBytes += value.getRetainedSize();
+            }
+            else if (value != EMPTY_SLICE) {
+                // EMPTY_SLICE is a singleton in the system
+                sizeInBytes += SLICE_INSTANCE_SIZE;
             }
         }
         return sizeInBytes;
