@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -105,11 +106,16 @@ public class PageProcessor
         return projections;
     }
 
+    private static boolean isUnloadedLazyBlock(Block block)
+    {
+        return (block instanceof LazyBlock) && !((LazyBlock) block).isLoaded();
+    }
+
     private static long calculateRetainedSizeWithoutLoading(Page page)
     {
         long retainedSizeInBytes = 0;
         for (Block block : page.getBlocks()) {
-            if (!(block instanceof LazyBlock) || ((LazyBlock) block).isLoaded()) {
+            if (!isUnloadedLazyBlock(block)) {
                 retainedSizeInBytes += block.getRetainedSizeInBytes();
             }
         }
@@ -190,10 +196,25 @@ public class PageProcessor
 
         private void updateRetainedSize()
         {
-            retainedSizeInBytes = calculateRetainedSizeWithoutLoading(page);
+            // increment the size only when it is the first reference
+            retainedSizeInBytes = 0;
+            ReferenceCountMap referenceCountMap = new ReferenceCountMap();
+            for (Block block : page.getBlocks()) {
+                if (!isUnloadedLazyBlock(block)) {
+                    block.retainedBytesForEachPart((object, size) -> {
+                        if (referenceCountMap.incrementReference(object) == 1) {
+                            retainedSizeInBytes += size;
+                        }
+                    });
+                }
+            }
             for (Block previouslyComputedResult : previouslyComputedResults) {
                 if (previouslyComputedResult != null) {
-                    retainedSizeInBytes += previouslyComputedResult.getRetainedSizeInBytes();
+                    previouslyComputedResult.retainedBytesForEachPart((object, size) -> {
+                        if (referenceCountMap.incrementReference(object) == 1) {
+                            retainedSizeInBytes += size;
+                        }
+                    });
                 }
             }
         }
