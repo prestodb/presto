@@ -39,7 +39,9 @@ public class MemoryPool
     private final long maxBytes;
 
     @GuardedBy("this")
-    private long freeBytes;
+    private long reservedBytes;
+    @GuardedBy("this")
+    private long reservedRevocableBytes;
 
     @Nullable
     @GuardedBy("this")
@@ -48,13 +50,14 @@ public class MemoryPool
     @GuardedBy("this")
     // TODO: It would be better if we just tracked QueryContexts, but their lifecycle is managed by a weak reference, so we can't do that
     private final Map<QueryId, Long> queryMemoryReservations = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
 
     public MemoryPool(MemoryPoolId id, DataSize size)
     {
         this.id = requireNonNull(id, "name is null");
         requireNonNull(size, "size is null");
         maxBytes = size.toBytes();
-        freeBytes = size.toBytes();
     }
 
     public MemoryPoolId getId()
@@ -64,7 +67,7 @@ public class MemoryPool
 
     public synchronized MemoryPoolInfo getInfo()
     {
-        return new MemoryPoolInfo(maxBytes, freeBytes, queryMemoryReservations);
+        return new MemoryPoolInfo(maxBytes, reservedBytes, reservedRevocableBytes, queryMemoryReservations, queryMemoryRevocableReservations);
     }
 
     /**
@@ -76,8 +79,25 @@ public class MemoryPool
         if (bytes != 0) {
             queryMemoryReservations.merge(queryId, bytes, Long::sum);
         }
-        freeBytes -= bytes;
-        if (freeBytes <= 0) {
+        reservedBytes += bytes;
+        if (getFreeBytes() <= 0) {
+            if (future == null) {
+                future = SettableFuture.create();
+            }
+            checkState(!future.isDone(), "future is already completed");
+            return future;
+        }
+        return NOT_BLOCKED;
+    }
+
+    public synchronized ListenableFuture<?> reserveRevocable(QueryId queryId, long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        if (bytes != 0) {
+            queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
+        }
+        reservedRevocableBytes += bytes;
+        if (getFreeBytes() <= 0) {
             if (future == null) {
                 future = SettableFuture.create();
             }
@@ -93,10 +113,10 @@ public class MemoryPool
     public synchronized boolean tryReserve(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
-        if (freeBytes - bytes < 0) {
+        if (getFreeBytes() - bytes < 0) {
             return false;
         }
-        freeBytes -= bytes;
+        reservedBytes += bytes;
         if (bytes != 0) {
             queryMemoryReservations.merge(queryId, bytes, Long::sum);
         }
@@ -106,7 +126,7 @@ public class MemoryPool
     public synchronized void free(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(freeBytes + bytes <= maxBytes, "tried to free more memory than is reserved");
+        checkArgument(reservedBytes >= bytes, "tried to free more memory than is reserved");
         if (bytes == 0) {
             // Freeing zero bytes is a no-op
             return;
@@ -122,8 +142,34 @@ public class MemoryPool
         else {
             queryMemoryReservations.put(queryId, queryReservation);
         }
-        freeBytes += bytes;
-        if (freeBytes > 0 && future != null) {
+        reservedBytes -= bytes;
+        if (getFreeBytes() > 0 && future != null) {
+            future.set(null);
+            future = null;
+        }
+    }
+
+    public synchronized void freeRevocable(QueryId queryId, long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(reservedRevocableBytes >= bytes, "tried to free more revocable memory than is reserved");
+        if (bytes == 0) {
+            // Freeing zero bytes is a no-op
+            return;
+        }
+
+        Long queryReservation = queryMemoryRevocableReservations.get(queryId);
+        requireNonNull(queryReservation, "queryReservation is null");
+        checkArgument(queryReservation - bytes >= 0, "tried to free more revocable memory than is reserved by query");
+        queryReservation -= bytes;
+        if (queryReservation == 0) {
+            queryMemoryRevocableReservations.remove(queryId);
+        }
+        else {
+            queryMemoryRevocableReservations.put(queryId, queryReservation);
+        }
+        reservedRevocableBytes -= bytes;
+        if (getFreeBytes() > 0 && future != null) {
             future.set(null);
             future = null;
         }
@@ -135,7 +181,7 @@ public class MemoryPool
     @Managed
     public synchronized long getFreeBytes()
     {
-        return freeBytes;
+        return maxBytes - reservedBytes - reservedRevocableBytes;
     }
 
     @Managed
@@ -144,13 +190,27 @@ public class MemoryPool
         return maxBytes;
     }
 
+    @Managed
+    public long getReservedBytes()
+    {
+        return reservedBytes;
+    }
+
+    @Managed
+    public long getReservedRevocableBytes()
+    {
+        return reservedRevocableBytes;
+    }
+
     @Override
     public synchronized String toString()
     {
         return toStringHelper(this)
                 .add("id", id)
                 .add("maxBytes", maxBytes)
-                .add("freeBytes", freeBytes)
+                .add("freeBytes", getFreeBytes())
+                .add("reservedBytes", reservedBytes)
+                .add("reservedRevocableBytes", reservedRevocableBytes)
                 .add("future", future)
                 .toString();
     }
