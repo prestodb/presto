@@ -25,7 +25,9 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -53,6 +55,8 @@ public class MemoryPool
     @GuardedBy("this")
     private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
 
+    private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
+
     public MemoryPool(MemoryPoolId id, DataSize size)
     {
         this.id = requireNonNull(id, "name is null");
@@ -70,56 +74,93 @@ public class MemoryPool
         return new MemoryPoolInfo(maxBytes, reservedBytes, reservedRevocableBytes, queryMemoryReservations, queryMemoryRevocableReservations);
     }
 
+    public void addListener(MemoryPoolListener listener)
+    {
+        listeners.add(requireNonNull(listener, "listener cannot be null"));
+    }
+
+    public void removeListener(MemoryPoolListener listener)
+    {
+        listeners.remove(requireNonNull(listener, "listener cannot be null"));
+    }
+
     /**
      * Reserves the given number of bytes. Caller should wait on the returned future, before allocating more memory.
      */
-    public synchronized ListenableFuture<?> reserve(QueryId queryId, long bytes)
+    public ListenableFuture<?> reserve(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
-        if (bytes != 0) {
-            queryMemoryReservations.merge(queryId, bytes, Long::sum);
-        }
-        reservedBytes += bytes;
-        if (getFreeBytes() <= 0) {
-            if (future == null) {
-                future = SettableFuture.create();
+
+        ListenableFuture<?> result;
+        synchronized (this) {
+            if (bytes != 0) {
+                queryMemoryReservations.merge(queryId, bytes, Long::sum);
             }
-            checkState(!future.isDone(), "future is already completed");
-            return future;
+            reservedBytes += bytes;
+            if (getFreeBytes() <= 0) {
+                if (future == null) {
+                    future = SettableFuture.create();
+                }
+                checkState(!future.isDone(), "future is already completed");
+                result = future;
+            }
+            else {
+                result = NOT_BLOCKED;
+            }
         }
-        return NOT_BLOCKED;
+
+        onMemoryReserved();
+        return result;
     }
 
-    public synchronized ListenableFuture<?> reserveRevocable(QueryId queryId, long bytes)
+    private void onMemoryReserved()
+    {
+        listeners.forEach(listener -> listener.onMemoryReserved(this));
+    }
+
+    public ListenableFuture<?> reserveRevocable(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
-        if (bytes != 0) {
-            queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
-        }
-        reservedRevocableBytes += bytes;
-        if (getFreeBytes() <= 0) {
-            if (future == null) {
-                future = SettableFuture.create();
+
+        ListenableFuture<?> result;
+        synchronized (this) {
+            if (bytes != 0) {
+                queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
             }
-            checkState(!future.isDone(), "future is already completed");
-            return future;
+            reservedRevocableBytes += bytes;
+            if (getFreeBytes() <= 0) {
+                if (future == null) {
+                    future = SettableFuture.create();
+                }
+                checkState(!future.isDone(), "future is already completed");
+                result = future;
+            }
+            else {
+                result = NOT_BLOCKED;
+            }
         }
-        return NOT_BLOCKED;
+
+        onMemoryReserved();
+        return result;
     }
 
     /**
      * Try to reserve the given number of bytes. Return value indicates whether the caller may use the requested memory.
      */
-    public synchronized boolean tryReserve(QueryId queryId, long bytes)
+    public boolean tryReserve(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
-        if (getFreeBytes() - bytes < 0) {
-            return false;
+        synchronized (this) {
+            if (getFreeBytes() - bytes < 0) {
+                return false;
+            }
+            reservedBytes += bytes;
+            if (bytes != 0) {
+                queryMemoryReservations.merge(queryId, bytes, Long::sum);
+            }
         }
-        reservedBytes += bytes;
-        if (bytes != 0) {
-            queryMemoryReservations.merge(queryId, bytes, Long::sum);
-        }
+
+        onMemoryReserved();
         return true;
     }
 
