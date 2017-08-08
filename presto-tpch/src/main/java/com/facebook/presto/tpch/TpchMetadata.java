@@ -32,9 +32,17 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.tpch.statistics.ColumnStatisticsData;
+import com.facebook.presto.tpch.statistics.StatisticsEstimator;
+import com.facebook.presto.tpch.statistics.TableStatisticsData;
+import com.facebook.presto.tpch.statistics.TableStatisticsDataRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,7 +69,13 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Maps.asMap;
+import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class TpchMetadata
@@ -76,6 +90,9 @@ public class TpchMetadata
     public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
 
     private static final Set<String> ORDER_STATUS_VALUES = ImmutableSet.of("F", "O", "P");
+    private static final Set<Slice> ORDER_STATUS_VALUES_SLICES = ORDER_STATUS_VALUES.stream()
+            .map(Slices::utf8Slice)
+            .collect(toImmutableSet());
     private static final Set<NullableValue> ORDER_STATUS_NULLABLE_VALUES = ORDER_STATUS_VALUES.stream()
             .map(value -> new NullableValue(getPrestoType(OrderColumn.ORDER_STATUS.getType()), Slices.utf8Slice(value)))
             .collect(toSet());
@@ -84,6 +101,7 @@ public class TpchMetadata
     private final Set<String> tableNames;
     private final boolean predicatePushdownEnabled;
     private final ColumnNaming columnNaming;
+    private final StatisticsEstimator statisticsEstimator;
 
     public TpchMetadata(String connectorId)
     {
@@ -100,6 +118,15 @@ public class TpchMetadata
         this.connectorId = connectorId;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
         this.columnNaming = columnNaming;
+        this.statisticsEstimator = createStatisticsEstimator();
+    }
+
+    private static StatisticsEstimator createStatisticsEstimator()
+    {
+        ObjectMapper objectMapper = new ObjectMapper()
+                .registerModule(new Jdk8Module());
+        TableStatisticsDataRepository tableStatisticsDataRepository = new TableStatisticsDataRepository(objectMapper);
+        return new StatisticsEstimator(tableStatisticsDataRepository);
     }
 
     @Override
@@ -247,57 +274,96 @@ public class TpchMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
-        TpchTableHandle table = (TpchTableHandle) tableHandle;
-        return new TableStatistics(new Estimate(getRowCount(table, Optional.of(constraint.getSummary()))), ImmutableMap.of());
+        TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
+        String tableName = tpchTableHandle.getTableName();
+        TpchTable<?> tpchTable = TpchTable.getTable(tableName);
+        Map<TpchColumn<?>, List<Object>> columnValuesRestrictions = getColumnValuesRestrictions(tpchTable, constraint);
+        Optional<TableStatisticsData> optionalTableStatisticsData = statisticsEstimator.estimateStats(tpchTable, columnValuesRestrictions, tpchTableHandle.getScaleFactor());
+
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tpchTableHandle);
+        return optionalTableStatisticsData
+                .map(tableStatisticsData -> toTableStatistics(optionalTableStatisticsData.get(), tpchTableHandle, columnHandles))
+                .orElse(TableStatistics.EMPTY_STATISTICS);
     }
 
-    private long getRowCount(TpchTableHandle tpchTableHandle, Optional<TupleDomain<ColumnHandle>> predicate)
+    private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, Constraint<ColumnHandle> constraint)
     {
-        // todo expose row counts from airlift-tpch instead of hardcoding it here
-        // todo add stats for columns
-        String tableName = tpchTableHandle.getTableName();
-        double scaleFactor = tpchTableHandle.getScaleFactor();
-        switch (tableName.toLowerCase()) {
-            case "customer":
-                return (long) (150_000 * scaleFactor);
-            case "orders":
-                Set<String> orderStatusValues = predicate.map(tupleDomain ->
-                        ORDER_STATUS_NULLABLE_VALUES.stream()
-                                .filter(convertToPredicate(tupleDomain, OrderColumn.ORDER_STATUS))
-                                .map(nullableValue -> ((Slice) nullableValue.getValue()).toStringUtf8())
-                                .collect(toSet()))
-                        .orElse(ORDER_STATUS_VALUES);
-
-                long totalRows = 0L;
-                if (orderStatusValues.contains("F")) {
-                    totalRows = 729_413;
-                }
-                if (orderStatusValues.contains("O")) {
-                    totalRows += 732_044;
-                }
-                if (orderStatusValues.contains("P")) {
-                    totalRows += 38_543;
-                }
-                return (long) (totalRows * scaleFactor);
-            case "lineitem":
-                return (long) (6_000_000 * scaleFactor);
-            case "part":
-                return (long) (200_000 * scaleFactor);
-            case "partsupp":
-                return (long) (800_000 * scaleFactor);
-            case "supplier":
-                return (long) (10_000 * scaleFactor);
-            case "nation":
-                return 25;
-            case "region":
-                return 5;
-            default:
-                throw new IllegalArgumentException("unknown tpch table name '" + tableName + "'");
+        TupleDomain<ColumnHandle> constraintSummary = constraint.getSummary();
+        if (constraintSummary.isAll()) {
+            return emptyMap();
+        }
+        else if (constraintSummary.isNone()) {
+            Set<TpchColumn<?>> columns = ImmutableSet.copyOf(tpchTable.getColumns());
+            return asMap(columns, key -> emptyList());
+        }
+        else {
+            Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
+            Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(ORDER_STATUS)));
+            Optional<Map<TpchColumn<?>, List<Object>>> allowedColumnValues = orderStatusDomain.map(domain -> {
+                List<Object> allowedValues = ORDER_STATUS_VALUES_SLICES.stream()
+                        .filter(domain::includesNullableValue)
+                        .collect(toList());
+                return avoidTrivialOrderStatusRestriction(allowedValues);
+            });
+            return allowedColumnValues.orElse(emptyMap());
         }
     }
 
+    private Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
+    {
+        if (allowedValues.containsAll(ORDER_STATUS_VALUES_SLICES)) {
+            return emptyMap();
+        }
+        else {
+            return ImmutableMap.of(ORDER_STATUS, allowedValues);
+        }
+    }
+
+    private TableStatistics toTableStatistics(TableStatisticsData tableStatisticsData, TpchTableHandle tpchTableHandle, Map<String, ColumnHandle> columnHandles)
+    {
+        TableStatistics.Builder builder = TableStatistics.builder()
+                .setRowCount(new Estimate(tableStatisticsData.getRowCount()));
+        tableStatisticsData.getColumns().forEach((columnName, stats) -> {
+            TpchColumnHandle columnHandle = (TpchColumnHandle) getColumnHandle(tpchTableHandle, columnHandles, columnName);
+            builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType(), tableStatisticsData.getRowCount()));
+        });
+        return builder.build();
+    }
+
+    private ColumnHandle getColumnHandle(TpchTableHandle tpchTableHandle, Map<String, ColumnHandle> columnHandles, String columnName)
+    {
+        TpchTable<?> table = TpchTable.getTable(tpchTableHandle.getTableName());
+        return columnHandles.get(columnNaming.getName(table.getColumn(columnName)));
+    }
+
+    private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType, long rowCount)
+    {
+        return ColumnStatistics.builder()
+                .addRange(rangeBuilder -> rangeBuilder
+                        .setDistinctValuesCount(stats.getDistinctValuesCount().map(Estimate::new).orElse(Estimate.unknownValue()))
+                        .setLowValue(stats.getMin().map(value -> toPrestoValue(value, columnType)))
+                        .setHighValue(stats.getMax().map(value -> toPrestoValue(value, columnType)))
+                        .setFraction(new Estimate((1))))
+                .setNullsFraction(Estimate.zeroValue())
+                .build();
+    }
+
+    private Object toPrestoValue(Object tpchValue, Type columnType)
+    {
+        if (columnType instanceof VarcharType) {
+            return Slices.utf8Slice((String) tpchValue);
+        }
+        if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
+            return ((Number) tpchValue).longValue();
+        }
+        if (columnType.equals(DOUBLE)) {
+            return ((Number) tpchValue).doubleValue();
+        }
+        throw new IllegalArgumentException("unsupported column type " + columnType);
+    }
+
     @VisibleForTesting
-    TpchColumnHandle toColumnHandle(TpchColumn column)
+    TpchColumnHandle toColumnHandle(TpchColumn<?> column)
     {
         return new TpchColumnHandle(columnNaming.getName(column), getPrestoType(column.getType()));
     }
