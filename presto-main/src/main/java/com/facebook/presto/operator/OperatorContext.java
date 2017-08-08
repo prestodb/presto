@@ -486,7 +486,7 @@ public class OperatorContext
                 driverContext.reserveSystemMemory(bytes);
             }
             else {
-                checkArgument(reservedBytes + bytes >= 0, "tried to free %s bytes of memory from %s bytes reserved", -bytes, reservedBytes);
+                checkArgument(reservedBytes + bytes >= 0, "tried to free %s bytes of system memory from %s bytes reserved", -bytes, reservedBytes);
                 driverContext.freeSystemMemory(-bytes);
             }
             reservedBytes += bytes;
