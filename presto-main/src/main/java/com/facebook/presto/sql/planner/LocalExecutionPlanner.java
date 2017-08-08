@@ -181,7 +181,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.getOperatorMemoryLimitBeforeSpill;
+import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
@@ -950,9 +950,9 @@ public class LocalExecutionPlanner
             }
 
             boolean spillEnabled = isSpillEnabled(context.getSession());
-            DataSize memoryLimitBeforeSpill = getOperatorMemoryLimitBeforeSpill(context.getSession());
+            DataSize unspillMemoryLimit = getAggregationOperatorUnspillMemoryLimit(context.getSession());
 
-            return planGroupByAggregation(node, source, context.getNextOperatorId(), spillEnabled, memoryLimitBeforeSpill);
+            return planGroupByAggregation(node, source, context.getNextOperatorId(), spillEnabled, unspillMemoryLimit);
         }
 
         @Override
@@ -1944,7 +1944,7 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 int operatorId,
                 boolean spillEnabled,
-                DataSize memoryLimitBeforeSpill)
+                DataSize unspillMemoryLimit)
         {
             List<Symbol> groupBySymbols = node.getGroupingKeys();
 
@@ -2010,7 +2010,7 @@ public class LocalExecutionPlanner
                     10_000,
                     maxPartialAggregationMemorySize,
                     spillEnabled,
-                    memoryLimitBeforeSpill,
+                    unspillMemoryLimit,
                     spillerFactory,
                     joinCompiler);
 

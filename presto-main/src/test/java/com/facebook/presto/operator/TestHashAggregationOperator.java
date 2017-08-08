@@ -113,8 +113,8 @@ public class TestHashAggregationOperator
         return new Object[][] {{true}, {false}};
     }
 
-    @DataProvider(name = "hashEnabledAndMemoryLimitBeforeSpillValues")
-    public static Object[][] hashEnabledAndMemoryLimitBeforeSpillValuesProvider()
+    @DataProvider(name = "hashEnabledAndMemoryLimitForMergeValues")
+    public static Object[][] hashEnabledAndMemoryLimitForMergeValuesProvider()
     {
         return new Object[][] {
                 {true, 8, Integer.MAX_VALUE},
@@ -130,8 +130,8 @@ public class TestHashAggregationOperator
         executor.shutdownNow();
     }
 
-    @Test(dataProvider = "hashEnabledAndMemoryLimitBeforeSpillValues")
-    public void testHashAggregation(boolean hashEnabled, long memoryLimitBeforeSpill, long memoryLimitForMergeWithMemory)
+    @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
+    public void testHashAggregation(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
             throws Exception
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -149,7 +149,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0, 500)
                 .build();
 
-        boolean spillEnabled = memoryLimitBeforeSpill > 0;
+        boolean spillEnabled = memoryLimitForMerge > 0;
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -169,12 +169,12 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE),
                 spillEnabled,
-                succinctBytes(memoryLimitBeforeSpill),
+                succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler);
 
-        DriverContext driverContext = createDriverContext(memoryLimitBeforeSpill);
+        DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
@@ -193,8 +193,8 @@ public class TestHashAggregationOperator
         assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
     }
 
-    @Test(dataProvider = "hashEnabledAndMemoryLimitBeforeSpillValues")
-    public void testHashAggregationWithGlobals(boolean hashEnabled, long memoryLimitBeforeSpill, long memoryLimitForMergeWithMemory)
+    @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
+    public void testHashAggregationWithGlobals(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
             throws Exception
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -229,13 +229,13 @@ public class TestHashAggregationOperator
                 groupIdChannel,
                 100_000,
                 new DataSize(16, MEGABYTE),
-                memoryLimitBeforeSpill > 0,
-                succinctBytes(memoryLimitBeforeSpill),
+                memoryLimitForMerge > 0,
+                succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler);
 
-        DriverContext driverContext = createDriverContext(memoryLimitBeforeSpill);
+        DriverContext driverContext = createDriverContext(memoryLimitForMerge);
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row(null, 42L, 0L, null, null, null, 0L, 0L)
                 .row(null, 49L, 0L, null, null, null, 0L, 0L)
@@ -283,8 +283,8 @@ public class TestHashAggregationOperator
         toPages(operatorFactory, driverContext, input);
     }
 
-    @Test(dataProvider = "hashEnabledAndMemoryLimitBeforeSpillValues")
-    public void testHashBuilderResize(boolean hashEnabled, long memoryLimitBeforeSpill, long memoryLimitForMergeWithMemory)
+    @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
+    public void testHashBuilderResize(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
@@ -298,7 +298,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100)
                 .build();
 
-        DriverContext driverContext = createDriverContext(memoryLimitBeforeSpill);
+        DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
@@ -313,8 +313,8 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 new DataSize(16, MEGABYTE),
-                memoryLimitBeforeSpill > 0,
-                succinctBytes(memoryLimitBeforeSpill),
+                memoryLimitForMerge > 0,
+                succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler);
