@@ -79,6 +79,7 @@ public class DriverContext
     private final AtomicLong memoryReservation = new AtomicLong();
     private final AtomicLong peakMemoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
+    private final AtomicLong revocableMemoryReservation = new AtomicLong();
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
@@ -194,6 +195,13 @@ public class DriverContext
         return future;
     }
 
+    public ListenableFuture<?> reserveRevocableMemory(long bytes)
+    {
+        ListenableFuture<?> future = pipelineContext.reserveRevocableMemory(bytes);
+        revocableMemoryReservation.getAndAdd(bytes);
+        return future;
+    }
+
     public ListenableFuture<?> reserveSystemMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -228,6 +236,17 @@ public class DriverContext
         memoryReservation.getAndAdd(-bytes);
     }
 
+    public void freeRevocableMemory(long bytes)
+    {
+        if (bytes == 0) {
+            return;
+        }
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
+        pipelineContext.freeRevocableMemory(bytes);
+        revocableMemoryReservation.getAndAdd(-bytes);
+    }
+
     public void freeSystemMemory(long bytes)
     {
         if (bytes == 0) {
@@ -256,6 +275,11 @@ public class DriverContext
     public long getMemoryUsage()
     {
         return memoryReservation.get();
+    }
+
+    public long getRevocableMemoryUsage()
+    {
+        return revocableMemoryReservation.get();
     }
 
     public void moreMemoryAvailable()
@@ -393,6 +417,7 @@ public class DriverContext
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 succinctBytes(memoryReservation.get()),
                 succinctBytes(peakMemoryReservation.get()),
+                succinctBytes(revocableMemoryReservation.get()),
                 succinctBytes(systemMemoryReservation.get()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
