@@ -117,6 +117,12 @@ public class InMemoryHashAggregationBuilder
     @Override
     public void close()
     {
+        if (partial) {
+            systemMemoryContext.setBytes(0);
+        }
+        else {
+            operatorContext.setMemoryReservation(0);
+        }
     }
 
     @Override
