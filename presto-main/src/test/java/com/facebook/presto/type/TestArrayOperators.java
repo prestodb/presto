@@ -25,6 +25,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -45,6 +46,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.TimeZone;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -296,6 +298,21 @@ public class TestArrayOperators
                         asMap(ImmutableList.of("none", "three"), asList(null, 3L)),
                         ImmutableMap.of(),
                         asMap(ImmutableList.of("h1", "h2"), asList(null, null)),
+                        null));
+
+        assertFunction("CAST(JSON '[" +
+                        "[1, \"two\"], " +
+                        "[3, null], " +
+                        "{\"k1\": 1, \"k2\": \"two\"}, " +
+                        "{\"k2\": null, \"k1\": 3}, " +
+                        "null]' " +
+                        "AS ARRAY<ROW(k1 BIGINT, k2 VARCHAR)>)",
+                new ArrayType(new RowType(ImmutableList.of(BIGINT, VARCHAR), Optional.of(ImmutableList.of("k1", "k2")))),
+                asList(
+                        asList(1L, "two"),
+                        asList(3L, null),
+                        asList(1L, "two"),
+                        asList(3L, null),
                         null));
 
         // invalid cast
