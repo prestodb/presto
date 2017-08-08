@@ -219,23 +219,28 @@ public class OperatorContext
 
     public void reserveMemory(long bytes)
     {
-        ListenableFuture<?> future = driverContext.reserveMemory(bytes);
-        if (!future.isDone()) {
-            SettableFuture<?> currentMemoryFuture = memoryFuture.get();
+        updateMemoryFuture(driverContext.reserveMemory(bytes), memoryFuture);
+        memoryReservation.addAndGet(bytes);
+    }
+
+    private static void updateMemoryFuture(ListenableFuture<?> memoryPoolFuture, AtomicReference<SettableFuture<?>> targetFutureReference)
+    {
+        if (!memoryPoolFuture.isDone()) {
+            SettableFuture<?> currentMemoryFuture = targetFutureReference.get();
             while (currentMemoryFuture.isDone()) {
                 SettableFuture<?> settableFuture = SettableFuture.create();
                 // We can't replace one that's not done, because the task may be blocked on that future
-                if (memoryFuture.compareAndSet(currentMemoryFuture, settableFuture)) {
+                if (targetFutureReference.compareAndSet(currentMemoryFuture, settableFuture)) {
                     currentMemoryFuture = settableFuture;
                 }
                 else {
-                    currentMemoryFuture = memoryFuture.get();
+                    currentMemoryFuture = targetFutureReference.get();
                 }
             }
 
             SettableFuture<?> finalMemoryFuture = currentMemoryFuture;
             // Create a new future, so that this operator can un-block before the pool does, if it's moved to a new pool
-            Futures.addCallback(future, new FutureCallback<Object>()
+            Futures.addCallback(memoryPoolFuture, new FutureCallback<Object>()
             {
                 @Override
                 public void onSuccess(Object result)
@@ -250,7 +255,6 @@ public class OperatorContext
                 }
             });
         }
-        memoryReservation.addAndGet(bytes);
     }
 
     public void freeMemory(long bytes)
