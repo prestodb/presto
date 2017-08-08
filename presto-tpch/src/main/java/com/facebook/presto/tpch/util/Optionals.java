@@ -16,6 +16,7 @@ package com.facebook.presto.tpch.util;
 
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.BinaryOperator;
 
 public class Optionals
 {
@@ -24,5 +25,18 @@ public class Optionals
     public static <S, T, R> Optional<R> withBoth(Optional<? extends S> left, Optional<? extends T> right, BiFunction<S, T, R> binaryFunction)
     {
         return left.flatMap(l -> right.map(r -> binaryFunction.apply(l, r)));
+    }
+
+    public static <T> Optional<T> combine(Optional<T> left, Optional<T> right, BinaryOperator<T> combiner)
+    {
+        if (left.isPresent() && right.isPresent()) {
+            return Optional.of(combiner.apply(left.get(), right.get()));
+        }
+        else if (left.isPresent()) {
+            return left;
+        }
+        else {
+            return right;
+        }
     }
 }

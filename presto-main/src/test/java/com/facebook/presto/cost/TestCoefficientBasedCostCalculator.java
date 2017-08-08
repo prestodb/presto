@@ -59,7 +59,7 @@ public class TestCoefficientBasedCostCalculator
                         node(FilterNode.class,
                                 node(TableScanNode.class)
                                         .withCost(PlanNodeCost.builder()
-                                                .setOutputRowCount(new Estimate(385.0))
+                                                .setOutputRowCount(new Estimate(363.0))
                                                 .setOutputSizeInBytes(unknownValue())
                                                 .build()))));
 
@@ -68,7 +68,7 @@ public class TestCoefficientBasedCostCalculator
                         node(FilterNode.class,
                                 node(TableScanNode.class)
                                         .withCost(PlanNodeCost.builder()
-                                                .setOutputRowCount(new Estimate(0.0))
+                                                .setOutputRowCount(new Estimate(15000.0))
                                                 .setOutputSizeInBytes(unknownValue())
                                                 .build()))));
     }
