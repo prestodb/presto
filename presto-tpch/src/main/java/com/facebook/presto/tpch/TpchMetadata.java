@@ -383,8 +383,7 @@ public class TpchMetadata
         return "sf" + scaleFactor;
     }
 
-    @VisibleForTesting
-    static double schemaNameToScaleFactor(String schemaName)
+    public static double schemaNameToScaleFactor(String schemaName)
     {
         if (TINY_SCHEMA_NAME.equals(schemaName)) {
             return TINY_SCALE_FACTOR;
