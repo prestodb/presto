@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -42,6 +43,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Only calling getDriverStats is ThreadSafe
@@ -433,6 +435,18 @@ public class DriverContext
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
                 ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitDriverContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return operatorContexts.stream()
+                .map(operatorContext -> operatorContext.accept(visitor, context))
+                .collect(toList());
     }
 
     public boolean isPartitioned()
