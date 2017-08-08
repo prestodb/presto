@@ -34,10 +34,6 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -61,6 +57,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
@@ -405,13 +404,13 @@ public class TpchMetadata
     {
         switch (tpchType.getBase()) {
             case IDENTIFIER:
-                return BigintType.BIGINT;
+                return BIGINT;
             case INTEGER:
-                return IntegerType.INTEGER;
+                return INTEGER;
             case DATE:
-                return DateType.DATE;
+                return DATE;
             case DOUBLE:
-                return DoubleType.DOUBLE;
+                return DOUBLE;
             case VARCHAR:
                 return createVarcharType((int) (long) tpchType.getPrecision().get());
         }
