@@ -31,6 +31,7 @@ public class SingleRowBlockWriter
     private int positionsWritten;
 
     private int currentFieldIndexToWrite;
+    private boolean fieldBlockBuilderReturned;
 
     SingleRowBlockWriter(int startOffset, BlockBuilder[] fieldBlockBuilders)
     {
@@ -41,6 +42,24 @@ public class SingleRowBlockWriter
             initialBlockBuilderSize += fieldBlockBuilders[i].getSizeInBytes();
         }
         this.initialBlockBuilderSize = initialBlockBuilderSize;
+    }
+
+    /**
+     * Obtains the field {@code BlockBuilder}.
+     * <p>
+     * This method is used to perform random write to {@code SingleRowBlockWriter}.
+     * Each field {@code BlockBuilder} must be written EXACTLY once.
+     * <p>
+     * Field {@code BlockBuilder} can only be obtained before any sequential write has done.
+     * Once obtained, sequential write is no longer allowed.
+     */
+    public BlockBuilder getFieldBlockBuilder(int fieldIndex)
+    {
+        if (currentFieldIndexToWrite != 0) {
+            throw new IllegalStateException("field block builder can only be obtained before any sequential write has done");
+        }
+        fieldBlockBuilderReturned = true;
+        return fieldBlockBuilders[fieldIndex];
     }
 
     @Override
@@ -160,6 +179,9 @@ public class SingleRowBlockWriter
     @Override
     public int getPositionCount()
     {
+        if (fieldBlockBuilderReturned) {
+            throw new IllegalStateException("field block builder has been returned");
+        }
         return positionsWritten;
     }
 
@@ -184,11 +206,19 @@ public class SingleRowBlockWriter
     @Override
     public String toString()
     {
-        return format("RowBlock{SingleRowBlockWriter=%d, positionCount=%d", numFields, getPositionCount());
+        if (!fieldBlockBuilderReturned) {
+            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=false, positionCount=%d}", numFields, getPositionCount());
+        }
+        else {
+            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=true}");
+        }
     }
 
     private void checkFieldIndexToWrite()
     {
+        if (fieldBlockBuilderReturned) {
+            throw new IllegalStateException("cannot do sequential write after getFieldBlockBuilder is called");
+        }
         if (currentFieldIndexToWrite >= numFields) {
             throw new IllegalStateException("currentFieldIndexToWrite is not valid");
         }
