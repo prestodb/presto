@@ -39,6 +39,7 @@ import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -296,7 +297,8 @@ public class TpchMetadata
         }
     }
 
-    private TpchColumnHandle toColumnHandle(TpchColumn column)
+    @VisibleForTesting
+    TpchColumnHandle toColumnHandle(TpchColumn column)
     {
         return new TpchColumnHandle(columnNaming.getName(column), getPrestoType(column.getType()));
     }
@@ -381,7 +383,8 @@ public class TpchMetadata
         return "sf" + scaleFactor;
     }
 
-    private static double schemaNameToScaleFactor(String schemaName)
+    @VisibleForTesting
+    static double schemaNameToScaleFactor(String schemaName)
     {
         if (TINY_SCHEMA_NAME.equals(schemaName)) {
             return TINY_SCALE_FACTOR;
