@@ -65,6 +65,7 @@ public class TestSqlTaskManager
     public static final OutputBufferId OUT = new OutputBufferId(0);
 
     private final TaskExecutor taskExecutor;
+    private final TaskManagementExecutor taskManagementExecutor;
     private final LocalMemoryManager localMemoryManager;
     private final LocalSpillManager localSpillManager;
 
@@ -74,6 +75,7 @@ public class TestSqlTaskManager
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
+        taskManagementExecutor = new TaskManagementExecutor();
     }
 
     @AfterClass
@@ -81,6 +83,7 @@ public class TestSqlTaskManager
             throws Exception
     {
         taskExecutor.stop();
+        taskManagementExecutor.close();
     }
 
     @Test
@@ -281,6 +284,7 @@ public class TestSqlTaskManager
                 new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
                 new NodeInfo("test"),
                 localMemoryManager,
+                taskManagementExecutor,
                 config,
                 new NodeMemoryConfig(),
                 localSpillManager,
