@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.MemoryPoolListener;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.TraversingQueryContextVisitor;
 import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
@@ -34,6 +35,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -52,8 +54,12 @@ public class MemoryRevokingScheduler
     private final double memoryRevokingThreshold;
     private final double memoryRevokingTarget;
 
+    private final MemoryPoolListener memoryPoolListener = MemoryPoolListener.onMemoryReserved(this::onMemoryReserved);
+
     @Nullable
     private ScheduledFuture<?> scheduledFuture;
+
+    private final AtomicBoolean checkPending = new AtomicBoolean();
 
     @Inject
     public MemoryRevokingScheduler(
@@ -105,9 +111,15 @@ public class MemoryRevokingScheduler
     @PostConstruct
     public void start()
     {
+        registerPeriodicCheck();
+        registerPoolListeners();
+    }
+
+    private void registerPeriodicCheck()
+    {
         this.scheduledFuture = taskManagementExecutor.scheduleWithFixedDelay(() -> {
             try {
-                requestMemoryRevokingIfNeeded(currentTasksSupplier.get());
+                requestMemoryRevokingIfNeeded();
             }
             catch (Throwable e) {
                 log.error(e, "Error requesting system memory revoking");
@@ -122,27 +134,85 @@ public class MemoryRevokingScheduler
             scheduledFuture.cancel(true);
             scheduledFuture = null;
         }
+
+        memoryPools.forEach(memoryPool -> memoryPool.removeListener(memoryPoolListener));
     }
 
     @VisibleForTesting
-    synchronized void requestMemoryRevokingIfNeeded(Collection<SqlTask> sqlTasks)
+    void registerPoolListeners()
     {
-        memoryPools.forEach(memoryPool -> requestMemoryRevokingIfNeeded(memoryPool, sqlTasks));
+        memoryPools.forEach(memoryPool -> memoryPool.addListener(memoryPoolListener));
     }
 
-    private void requestMemoryRevokingIfNeeded(MemoryPool memoryPool, Collection<SqlTask> sqlTasks)
+    private void onMemoryReserved(MemoryPool memoryPool)
     {
-        long freeBytes = memoryPool.getFreeBytes();
-        if (freeBytes > memoryPool.getMaxBytes() * (1.0 - memoryRevokingThreshold)) {
-            return;
-        }
+        try {
+            if (!memoryRevokingNeeded(memoryPool)) {
+                return;
+            }
 
-        long remainingBytesToRevoke = (long) (-freeBytes + (memoryPool.getMaxBytes() * (1.0 - memoryRevokingTarget)));
-        remainingBytesToRevoke -= getMemoryAlreadyBeingRevoked(memoryPool, sqlTasks);
+            if (checkPending.compareAndSet(false, true)) {
+                log.debug("Scheduling check for %s", memoryPool);
+                scheduleRevoking();
+            }
+        }
+        catch (Throwable e) {
+            log.error(e, "Error when acting on memory pool reservation");
+        }
+    }
+
+    @VisibleForTesting
+    void requestMemoryRevokingIfNeeded()
+    {
+        if (checkPending.compareAndSet(false, true)) {
+            runMemoryRevoking();
+        }
+    }
+
+    private void scheduleRevoking()
+    {
+        taskManagementExecutor.execute(() -> {
+            try {
+                runMemoryRevoking();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error requesting memory revoking");
+            }
+        });
+    }
+
+    private synchronized void runMemoryRevoking()
+    {
+        if (checkPending.getAndSet(false)) {
+            Collection<SqlTask> sqlTasks = null;
+            for (MemoryPool memoryPool : memoryPools) {
+                if (!memoryRevokingNeeded(memoryPool)) {
+                    continue;
+                }
+
+                if (sqlTasks == null) {
+                    sqlTasks = requireNonNull(currentTasksSupplier.get());
+                }
+
+                requestMemoryRevoking(memoryPool, sqlTasks);
+            }
+        }
+    }
+
+    private void requestMemoryRevoking(MemoryPool memoryPool, Collection<SqlTask> sqlTasks)
+    {
+        long remainingBytesToRevoke = (long) (-memoryPool.getFreeBytes() + (memoryPool.getMaxBytes() * (1.0 - memoryRevokingTarget)));
+        remainingBytesToRevoke -= getMemoryAlreadyBeingRevoked(sqlTasks, memoryPool);
         requestRevoking(memoryPool, sqlTasks, remainingBytesToRevoke);
     }
 
-    private long getMemoryAlreadyBeingRevoked(MemoryPool memoryPool, Collection<SqlTask> sqlTasks)
+    private boolean memoryRevokingNeeded(MemoryPool memoryPool)
+    {
+        return memoryPool.getReservedRevocableBytes() > 0
+                && memoryPool.getFreeBytes() <= memoryPool.getMaxBytes() * (1.0 - memoryRevokingThreshold);
+    }
+
+    private long getMemoryAlreadyBeingRevoked(Collection<SqlTask> sqlTasks, MemoryPool memoryPool)
     {
         return sqlTasks.stream()
                 .filter(task -> task.getTaskInfo().getTaskStatus().getState() == TaskState.RUNNING)
