@@ -1,0 +1,20 @@
+{
+  "rowCount" : 5,
+  "columns" : {
+    "r_regionkey" : {
+      "distinctValuesCount" : 5,
+      "min" : 0,
+      "max" : 4
+    },
+    "r_name" : {
+      "distinctValuesCount" : 5,
+      "min" : "AFRICA",
+      "max" : "MIDDLE EAST"
+    },
+    "r_comment" : {
+      "distinctValuesCount" : 5,
+      "min" : "ges. thinly even pinto beans ca",
+      "max" : "uickly special accounts cajole carefully blithely close requests. carefully final asymptotes haggle furiousl"
+    }
+  }
+}
