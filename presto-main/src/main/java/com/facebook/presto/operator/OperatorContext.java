@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.management.ManagementFactory;
@@ -45,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
- * Only calling getOperatorStats is ThreadSafe
+ * Only {@link #getOperatorStats()} and revocable-memory-related operations are ThreadSafe
  */
 public class OperatorContext
 {
@@ -75,7 +76,8 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
-    private final AtomicReference<SettableFuture<?>> memoryFuture = new AtomicReference<>();
+    private final AtomicReference<SettableFuture<?>> memoryFuture;
+    private final AtomicReference<SettableFuture<?>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
@@ -85,11 +87,27 @@ public class OperatorContext
     private final AtomicLong finishUserNanos = new AtomicLong();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    /*
+     * For reviewer: the revocable memory is a state accessed by multiple threads (the thread executing
+     * operator and memory revoking thread) and it requires synchronization. Since this class is currently
+     * not thread safe, the following options were considered:
+     * - apply & document synchronization of members related to revocable memory (currently implemented)
+     * - make this class thread safe (atomics are not enough, as e.g. `memoryFuture` and `memoryReservation`
+     *   should not be changed independently)
+     * - extract memory-related members to a new class (e.g. `MemoryReservation`) and make that class
+     *   thread safe
+     */
+    @GuardedBy("this")
+    private long revocableMemoryReservation = 0;
     private final OperatorSystemMemoryContext systemMemoryContext;
     private final SpillContext spillContext;
 
     private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
+
+    // memoryRevokingRequestedFuture is done iff memory revoking was requested for operator
+    @GuardedBy("this")
+    private SettableFuture<?> memoryRevokingRequestedFuture = SettableFuture.create();
 
     public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor)
     {
@@ -101,9 +119,11 @@ public class OperatorContext
         this.systemMemoryContext = new OperatorSystemMemoryContext(this.driverContext);
         this.spillContext = new OperatorSpillContext(this.driverContext);
         this.executor = requireNonNull(executor, "executor is null");
-        SettableFuture<Object> future = SettableFuture.create();
-        future.set(null);
-        this.memoryFuture.set(future);
+
+        this.memoryFuture = new AtomicReference<>(SettableFuture.create());
+        this.memoryFuture.get().set(null);
+        this.revocableMemoryFuture = new AtomicReference<>(SettableFuture.create());
+        this.revocableMemoryFuture.get().set(null);
 
         collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
     }
@@ -223,6 +243,17 @@ public class OperatorContext
         memoryReservation.addAndGet(bytes);
     }
 
+    public synchronized void reserveRevocableMemory(long bytes)
+    {
+        updateMemoryFuture(driverContext.reserveRevocableMemory(bytes), revocableMemoryFuture);
+        revocableMemoryReservation += bytes;
+    }
+
+    public synchronized long getReservedRevocableBytes()
+    {
+        return revocableMemoryReservation;
+    }
+
     private static void updateMemoryFuture(ListenableFuture<?> memoryPoolFuture, AtomicReference<SettableFuture<?>> targetFutureReference)
     {
         if (!memoryPoolFuture.isDone()) {
@@ -255,6 +286,28 @@ public class OperatorContext
                 }
             });
         }
+    }
+
+    public synchronized void setRevocableMemoryReservation(long newRevocableMemoryReservation)
+    {
+        checkArgument(newRevocableMemoryReservation >= 0, "newRevocableMemoryReservation is negative");
+
+        long delta = newRevocableMemoryReservation - revocableMemoryReservation;
+
+        if (delta > 0) {
+            reserveRevocableMemory(delta);
+        }
+        else {
+            freeRevocableMemory(-delta);
+        }
+    }
+
+    public synchronized void freeRevocableMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= revocableMemoryReservation, "tried to free more revocable memory than is reserved");
+        driverContext.freeRevocableMemory(bytes);
+        revocableMemoryReservation -= bytes;
     }
 
     public void freeMemory(long bytes)
@@ -338,6 +391,33 @@ public class OperatorContext
         return true;
     }
 
+    public synchronized boolean isMemoryRevokingRequested()
+    {
+        return memoryRevokingRequestedFuture.isDone();
+    }
+
+    /**
+     * Returns how much revocable memory will be revoked by the operator
+     */
+    public synchronized long requestMemoryRevoking()
+    {
+        boolean alreadyRequested = isMemoryRevokingRequested();
+        if (!alreadyRequested && revocableMemoryReservation > 0) {
+            memoryRevokingRequestedFuture.set(null);
+            return revocableMemoryReservation;
+        }
+        return 0;
+    }
+
+    public synchronized void resetMemoryRevokingRequested()
+    {
+        SettableFuture<?> currentFuture = memoryRevokingRequestedFuture;
+        if (!currentFuture.isDone()) {
+            return;
+        }
+        memoryRevokingRequestedFuture = SettableFuture.create();
+    }
+
     public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
     {
         requireNonNull(infoSupplier, "infoProvider is null");
@@ -408,6 +488,7 @@ public class OperatorContext
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(memoryReservation.get()),
+                succinctBytes(getReservedRevocableBytes()),
                 succinctBytes(systemMemoryContext.getReservedBytes()),
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);

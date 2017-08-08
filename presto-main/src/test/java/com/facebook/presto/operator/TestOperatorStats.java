@@ -63,6 +63,7 @@ public class TestOperatorStats
 
             new DataSize(20, BYTE),
             new DataSize(21, BYTE),
+            new DataSize(22, BYTE),
             Optional.empty(),
             NON_MERGEABLE_INFO);
 
@@ -98,6 +99,7 @@ public class TestOperatorStats
 
             new DataSize(20, BYTE),
             new DataSize(21, BYTE),
+            new DataSize(22, BYTE),
             Optional.empty(),
             MERGEABLE_INFO);
 
@@ -141,7 +143,8 @@ public class TestOperatorStats
         assertEquals(actual.getFinishUser(), new Duration(19, NANOSECONDS));
 
         assertEquals(actual.getMemoryReservation(), new DataSize(20, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(21, BYTE));
+        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(21, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(22, BYTE));
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
         assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
     }
@@ -177,7 +180,8 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getFinishUser(), new Duration(3 * 19, NANOSECONDS));
         assertEquals(actual.getMemoryReservation(), new DataSize(3 * 20, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
+        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 21, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 22, BYTE));
         assertEquals(actual.getInfo(), null);
     }
 
@@ -212,7 +216,8 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getFinishUser(), new Duration(3 * 19, NANOSECONDS));
         assertEquals(actual.getMemoryReservation(), new DataSize(3 * 20, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
+        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 21, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 22, BYTE));
         assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
         assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
     }
