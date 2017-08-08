@@ -49,7 +49,7 @@ public class TestLocalBinarySpilledQueries
         featuresConfig.setSpillerSpillPaths(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
         featuresConfig.setOptimizeMixedDistinctAggregations(true);
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, featuresConfig);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, featuresConfig, false, true); //revoke memory constantly
 
         // add the tpch catalog
         // local queries run directly against the generator
