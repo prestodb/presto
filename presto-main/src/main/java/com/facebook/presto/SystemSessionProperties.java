@@ -64,7 +64,7 @@ public final class SystemSessionProperties
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
-    public static final String OPERATOR_MEMORY_LIMIT_BEFORE_SPILL = "operator_memory_limit_before_spill";
+    public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
@@ -267,11 +267,11 @@ public final class SystemSessionProperties
                         },
                         value -> value),
                 new PropertyMetadata<>(
-                        OPERATOR_MEMORY_LIMIT_BEFORE_SPILL,
-                        "Experimental: Operator memory limit before spill",
+                        AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
+                        "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
                         VARCHAR,
                         DataSize.class,
-                        featuresConfig.getOperatorMemoryLimitBeforeSpill(),
+                        featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
@@ -453,11 +453,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(SPILL_ENABLED, Boolean.class);
     }
 
-    public static DataSize getOperatorMemoryLimitBeforeSpill(Session session)
+    public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
     {
-        DataSize memoryLimitBeforeSpill = session.getSystemProperty(OPERATOR_MEMORY_LIMIT_BEFORE_SPILL, DataSize.class);
-        checkArgument(memoryLimitBeforeSpill.toBytes() >= 0, "%s must be positive", OPERATOR_MEMORY_LIMIT_BEFORE_SPILL);
-        return memoryLimitBeforeSpill;
+        DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
+        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        return memoryLimitForMerge;
     }
 
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)

@@ -41,7 +41,7 @@ public class TestQuerySpillLimits
             .setCatalog("tpch")
             .setSchema("sf1")
             .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
-            .setSystemProperty(SystemSessionProperties.OPERATOR_MEMORY_LIMIT_BEFORE_SPILL, "1B") //spill constantly
+            .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "1B") //spill constantly
             .build();
 
     private File spillPath;
@@ -67,7 +67,7 @@ public class TestQuerySpillLimits
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
                 .put("experimental.spill-enabled", "true")
-                .put("experimental.operator-memory-limit-before-spill", "1B")
+                .put("experimental.aggregation-operator-unspill-memory-limit", "1B")
                 .put("experimental.max-spill-per-node", "10B")
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .build();
@@ -83,7 +83,7 @@ public class TestQuerySpillLimits
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
                 .put("experimental.spill-enabled", "true")
-                .put("experimental.operator-memory-limit-before-spill", "1B")
+                .put("experimental.aggregation-operator-unspill-memory-limit", "1B")
                 .put("experimental.query-max-spill-per-node", "10B")
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .build();
