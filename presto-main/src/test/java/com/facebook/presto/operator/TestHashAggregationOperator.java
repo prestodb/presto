@@ -244,6 +244,49 @@ public class TestHashAggregationOperator
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(groupByChannels.size()));
     }
 
+    @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
+    public void testHashAggregationMemoryReservation(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    {
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        InternalAggregationFunction arrayAggColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
+
+        List<Integer> hashChannels = Ints.asList(1);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);
+        List<Page> input = rowPagesBuilder
+                .addSequencePage(10, 100, 0)
+                .addSequencePage(10, 200, 0)
+                .addSequencePage(10, 300, 0)
+                .build();
+
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.MEGABYTE))
+                .addPipelineContext(0, true, true)
+                .addDriverContext();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                hashChannels,
+                ImmutableList.of(),
+                Step.SINGLE,
+                true,
+                ImmutableList.of(arrayAggColumn.bind(ImmutableList.of(0), Optional.empty())),
+                rowPagesBuilder.getHashChannel(),
+                Optional.empty(),
+                100_000,
+                new DataSize(16, MEGABYTE),
+                memoryLimitForMerge > 0,
+                succinctBytes(memoryLimitForMerge),
+                succinctBytes(memoryLimitForMergeWithMemory),
+                spillerFactory,
+                joinCompiler);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+        toPages(operator, input.iterator());
+        assertEquals(operator.getOperatorContext().getOperatorStats().getMemoryReservation().toBytes(), 0);
+    }
+
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
     public void testMemoryLimit(boolean hashEnabled)
     {

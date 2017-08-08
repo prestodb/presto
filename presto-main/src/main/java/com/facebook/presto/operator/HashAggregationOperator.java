@@ -475,6 +475,8 @@ public class HashAggregationOperator
         if (aggregationBuilder != null) {
             aggregationBuilder.recordHashCollisions(hashCollisionsCounter);
             aggregationBuilder.close();
+            // aggregationBuilder.close() will release all memory reserved in memory accounting.
+            // The reference must be set to null afterwards to avoid unaccounted memory.
             aggregationBuilder = null;
         }
         operatorContext.setMemoryReservation(0);
