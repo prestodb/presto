@@ -17,11 +17,13 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.SingleRowBlockWriter;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.RowType.RowField;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.BigintOperators;
@@ -46,9 +48,12 @@ import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -74,9 +79,11 @@ import static com.facebook.presto.util.JsonUtil.ObjectKeyProvider.createObjectKe
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
+import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -173,6 +180,9 @@ public final class JsonUtil
         }
         if (type instanceof MapType) {
             return isValidJsonObjectKeyType(((MapType) type).getKeyType()) && canCastFromJson(((MapType) type).getValueType());
+        }
+        if (type instanceof RowType) {
+            return type.getTypeParameters().stream().allMatch(JsonUtil::canCastFromJson);
         }
         return false;
     }
@@ -889,6 +899,14 @@ public final class JsonUtil
                             createBlockBuilderAppender(mapType.getKeyType()),
                             createBlockBuilderAppender(mapType.getValueType()),
                             mapType.getKeyType());
+                case StandardTypes.ROW:
+                    RowType rowType = (RowType) type;
+                    List<RowField> rowFields = rowType.getFields();
+                    BlockBuilderAppender[] fieldAppenders = new BlockBuilderAppender[rowFields.size()];
+                    for (int i = 0; i < fieldAppenders.length; i++) {
+                        fieldAppenders[i] = createBlockBuilderAppender(rowFields.get(i).getType());
+                    }
+                    return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields));
                 default:
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
             }
@@ -1157,6 +1175,110 @@ public final class JsonUtil
                 position += 2;
             }
             blockBuilder.closeEntry();
+        }
+    }
+
+    private static class RowBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        BlockBuilderAppender[] fieldAppenders;
+        Optional<Map<String, Integer>> fieldNameToIndex;
+
+        RowBlockBuilderAppender(BlockBuilderAppender[] fieldAppenders, Optional<Map<String, Integer>> fieldNameToIndex)
+        {
+            this.fieldAppenders = fieldAppenders;
+            this.fieldNameToIndex = fieldNameToIndex;
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+                blockBuilder.appendNull();
+                return;
+            }
+
+            if (parser.getCurrentToken() != START_ARRAY && parser.getCurrentToken() != START_OBJECT) {
+                throw new JsonCastException(format("Expected a json array or object, but got %s", parser.getText()));
+            }
+
+            parseJsonToSingleRowBlock(
+                    parser,
+                    (SingleRowBlockWriter) blockBuilder.beginBlockEntry(),
+                    fieldAppenders,
+                    fieldNameToIndex);
+            blockBuilder.closeEntry();
+        }
+    }
+
+    public static Optional<Map<String, Integer>> getFieldNameToIndex(List<RowField> rowFields)
+    {
+        if (!rowFields.get(0).getName().isPresent()) {
+            return Optional.empty();
+        }
+
+        Map<String, Integer> fieldNameToIndex = new HashMap<>(rowFields.size());
+        for (int i = 0; i < rowFields.size(); i++) {
+            fieldNameToIndex.put(rowFields.get(i).getName().get(), i);
+        }
+        return Optional.of(fieldNameToIndex);
+    }
+
+    // TODO: Once CAST function supports cachedInstanceFactory or directly write to BlockBuilder,
+    // JsonToRowCast::toRow can use RowBlockBuilderAppender::append to parse JSON and append to the block builder.
+    // Thus there will be single call to this method, so this method can be inlined.
+    public static void parseJsonToSingleRowBlock(
+            JsonParser parser,
+            SingleRowBlockWriter singleRowBlockWriter,
+            BlockBuilderAppender[] fieldAppenders,
+            Optional<Map<String, Integer>> fieldNameToIndex)
+            throws IOException
+    {
+        if (parser.getCurrentToken() == START_ARRAY) {
+            for (int i = 0; i < fieldAppenders.length; i++) {
+                parser.nextToken();
+                fieldAppenders[i].append(parser, singleRowBlockWriter);
+            }
+            if (parser.nextToken() != JsonToken.END_ARRAY) {
+                throw new JsonCastException(format("Expected json array ending, but got %s", parser.getText()));
+            }
+        }
+        else {
+            verify(parser.getCurrentToken() == START_OBJECT);
+            if (!fieldNameToIndex.isPresent()) {
+                throw new JsonCastException("Cannot cast a JSON object to anonymous row type. Input must be a JSON array.");
+            }
+            boolean[] fieldWritten = new boolean[fieldAppenders.length];
+            int numFieldsWritten = 0;
+
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                if (parser.currentToken() != FIELD_NAME) {
+                    throw new JsonCastException(format("Expected a json field name, but got %s", parser.getText()));
+                }
+                String fieldName = parser.getText().toLowerCase();
+                Integer fieldIndex = fieldNameToIndex.get().get(fieldName);
+                parser.nextToken();
+                if (fieldIndex != null) {
+                    if (fieldWritten[fieldIndex]) {
+                        throw new JsonCastException("Duplicate field: " + fieldName);
+                    }
+                    fieldWritten[fieldIndex] = true;
+                    numFieldsWritten++;
+                    fieldAppenders[fieldIndex].append(parser, singleRowBlockWriter.getFieldBlockBuilder(fieldIndex));
+                }
+                else {
+                    parser.skipChildren();
+                }
+            }
+
+            if (numFieldsWritten != fieldAppenders.length) {
+                String missingFieldNames = fieldNameToIndex.get().entrySet().stream()
+                        .filter(entry -> !fieldWritten[entry.getValue()])
+                        .map(Map.Entry::getKey)
+                        .collect(Collectors.joining(", "));
+                throw new JsonCastException("Missing fields: " + missingFieldNames);
+            }
         }
     }
 
