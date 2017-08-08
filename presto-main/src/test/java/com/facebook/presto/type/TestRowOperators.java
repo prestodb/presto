@@ -17,14 +17,21 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -37,8 +44,12 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -47,12 +58,28 @@ import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 
 public class TestRowOperators
         extends AbstractTestFunctions
 {
     public TestRowOperators() {}
+
+    @BeforeClass
+    public void setUp()
+    {
+        registerScalar(getClass());
+    }
+
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.JSON)
+    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    {
+        return slice;
+    }
 
     @Test
     public void testRowTypeLookup()
@@ -123,6 +150,165 @@ public class TestRowOperators
     }
 
     @Test
+    public void testJsonToRow()
+            throws Exception
+    {
+        // special values
+        assertFunction("CAST(CAST (null AS JSON) AS ROW(BIGINT))", new RowType(ImmutableList.of(BIGINT), Optional.empty()), null);
+        assertFunction("CAST(JSON 'null' AS ROW(BIGINT))", new RowType(ImmutableList.of(BIGINT), Optional.empty()), null);
+        assertFunction("CAST(JSON '[null, null]' AS ROW(VARCHAR, BIGINT))", new RowType(ImmutableList.of(VARCHAR, BIGINT), Optional.empty()), Lists.newArrayList(null, null));
+        assertFunction(
+                "CAST(JSON '{\"k2\": null, \"k1\": null}' AS ROW(k1 VARCHAR, k2 BIGINT))",
+                new RowType(ImmutableList.of(VARCHAR, BIGINT), Optional.of(ImmutableList.of("k1", "k2"))),
+                Lists.newArrayList(null, null));
+
+        // allow json object contains non-exist field name
+        assertFunction(
+                "CAST(JSON '{\"k1\": [1, 2], \"used\": 3, \"k2\": [4, 5]}' AS ROW(used BIGINT))",
+                new RowType(ImmutableList.of(BIGINT), Optional.of(ImmutableList.of("used"))),
+                ImmutableList.of(3L));
+        assertFunction(
+                "CAST(JSON '[{\"k1\": [1, 2], \"used\": 3, \"k2\": [4, 5]}]' AS ARRAY<ROW(used BIGINT)>)",
+                new ArrayType(new RowType(ImmutableList.of(BIGINT), Optional.of(ImmutableList.of("used")))),
+                ImmutableList.of(ImmutableList.of(3L)));
+
+        // fields out of order
+        assertFunction(
+                "CAST(unchecked_to_json('{\"k4\": 4, \"k2\": 2, \"k3\": 3, \"k1\": 1}') AS ROW(k1 BIGINT, k2 BIGINT, k3 BIGINT, k4 BIGINT))",
+                new RowType(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT), Optional.of(ImmutableList.of("k1", "k2", "k3", "k4"))),
+                ImmutableList.of(1L, 2L, 3L, 4L));
+        assertFunction(
+                "CAST(unchecked_to_json('[{\"k4\": 4, \"k2\": 2, \"k3\": 3, \"k1\": 1}]') AS ARRAY<ROW(k1 BIGINT, k2 BIGINT, k3 BIGINT, k4 BIGINT)>)",
+                new ArrayType(new RowType(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT), Optional.of(ImmutableList.of("k1", "k2", "k3", "k4")))),
+                ImmutableList.of(ImmutableList.of(1L, 2L, 3L, 4L)));
+
+        // boolean
+        assertFunction("CAST(JSON '[true, false, 12, 0, 12.3, 0.0, \"true\", \"false\", null]' AS ROW(BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN))",
+                new RowType(ImmutableList.of(BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN), Optional.empty()),
+                asList(true, false, true, false, true, false, true, false, null));
+
+        assertFunction("CAST(JSON '{\"k1\": true, \"k2\": false, \"k3\": 12, \"k4\": 0, \"k5\": 12.3, \"k6\": 0.0, \"k7\": \"true\", \"k8\": \"false\", \"k9\": null}' AS ROW(k1 BOOLEAN, k2 BOOLEAN, k3 BOOLEAN, k4 BOOLEAN, k5 BOOLEAN, k6 BOOLEAN, k7 BOOLEAN, k8 BOOLEAN, k9 BOOLEAN))",
+                new RowType(ImmutableList.of(BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN),
+                        Optional.of(ImmutableList.of("k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9"))),
+                asList(true, false, true, false, true, false, true, false, null));
+
+        // tinyint, smallint, integer, bigint
+        assertFunction(
+                "CAST(JSON '[12,12345,123456789,1234567890123456789,null,null,null,null]' AS ROW(TINYINT, SMALLINT, INTEGER, BIGINT, TINYINT, SMALLINT, INTEGER, BIGINT))",
+                new RowType(ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, TINYINT, SMALLINT, INTEGER, BIGINT), Optional.empty()),
+                asList((byte) 12, (short) 12345, 123456789, 1234567890123456789L, null, null, null, null));
+
+        assertFunction(
+                "CAST(JSON '{\"tinyint_value\": 12, \"tinyint_null\":null, " +
+                        "\"smallint_value\":12345, \"smallint_null\":null, " +
+                        " \"integer_value\":123456789, \"integer_null\": null, " +
+                        "\"bigint_value\":1234567890123456789, \"bigint_null\": null}' " +
+                        "AS ROW(tinyint_value TINYINT, smallint_value SMALLINT, integer_value INTEGER, bigint_value BIGINT, " +
+                        "tinyint_null TINYINT, smallint_null SMALLINT, integer_null INTEGER, bigint_null BIGINT))",
+                new RowType(
+                        ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, TINYINT, SMALLINT, INTEGER, BIGINT),
+                        Optional.of(ImmutableList.of(
+                                "tinyint_value", "smallint_value", "integer_value", "bigint_value",
+                                "tinyint_null", "smallint_null", "integer_null", "bigint_null"))),
+                asList((byte) 12, (short) 12345, 123456789, 1234567890123456789L, null, null, null, null));
+
+        // real, double, decimal
+        assertFunction(
+                "CAST(JSON '[12345.67,1234567890.1,123.456,12345678.12345678,null,null,null]' AS ROW(REAL, DOUBLE, DECIMAL(10, 5), DECIMAL(38, 8), REAL, DOUBLE, DECIMAL(7, 7)))",
+                new RowType(ImmutableList.of(REAL, DOUBLE, createDecimalType(10, 5), createDecimalType(38, 8), REAL, DOUBLE, createDecimalType(7, 7)), Optional.empty()),
+                asList(12345.67f, 1234567890.1, decimal("123.45600"), decimal("12345678.12345678"), null, null, null));
+
+        assertFunction(
+                "CAST(JSON '{" +
+                        "\"real_value\": 12345.67, \"real_null\": null, " +
+                        "\"double_value\": 1234567890.1, \"double_null\": null, " +
+                        "\"decimal_value1\": 123.456, \"decimal_value2\": 12345678.12345678, \"decimal_null\": null}' " +
+                        "AS ROW(real_value REAL, double_value DOUBLE, decimal_value1 DECIMAL(10, 5), decimal_value2 DECIMAL(38, 8), " +
+                        "real_null REAL, double_null DOUBLE, decimal_null DECIMAL(7, 7)))",
+                new RowType(
+                        ImmutableList.of(REAL, DOUBLE, createDecimalType(10, 5), createDecimalType(38, 8), REAL, DOUBLE, createDecimalType(7, 7)),
+                        Optional.of(ImmutableList.of(
+                                "real_value", "double_value", "decimal_value1", "decimal_value2",
+                                "real_null", "double_null", "decimal_null"))),
+                asList(12345.67f, 1234567890.1, decimal("123.45600"), decimal("12345678.12345678"), null, null, null));
+
+        // varchar, json
+        assertFunction(
+                "CAST(JSON '[\"puppies\", [1, 2, 3], null, null]' AS ROW(VARCHAR, JSON, VARCHAR, JSON))",
+                new RowType(ImmutableList.of(VARCHAR, JSON, VARCHAR, JSON), Optional.empty()),
+                asList("puppies", "[1,2,3]", null, "null"));
+
+        assertFunction(
+                "CAST(JSON '{\"varchar_value\": \"puppies\", \"json_value\": [1, 2, 3], \"varchar_null\": null, \"json_null\": null}' " +
+                        "AS ROW(varchar_value VARCHAR, json_value JSON, varchar_null VARCHAR, json_null JSON))",
+                new RowType(
+                        ImmutableList.of(VARCHAR, JSON, VARCHAR, JSON),
+                        Optional.of(ImmutableList.of("varchar_value", "json_value", "varchar_null", "json_null"))),
+                asList("puppies", "[1,2,3]", null, "null"));
+
+        // nested array/map/row
+        assertFunction("CAST(JSON '[" +
+                        "[1, 2, null, 3], [], null, " +
+                        "{\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, {}, null, " +
+                        "[1, 2, null, 3], null, " +
+                        "{\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, null]' " +
+                        "AS ROW(ARRAY<BIGINT>, ARRAY<BIGINT>, ARRAY<BIGINT>, " +
+                        "MAP<VARCHAR, BIGINT>, MAP<VARCHAR, BIGINT>, MAP<VARCHAR, BIGINT>, " +
+                        "ROW(BIGINT, BIGINT, BIGINT, BIGINT), ROW(BIGINT)," +
+                        "ROW(a BIGINT, b BIGINT, three BIGINT, none BIGINT), ROW(nothing BIGINT)))",
+                new RowType(
+                        ImmutableList.of(
+                                new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT),
+                                mapType(VARCHAR, BIGINT), mapType(VARCHAR, BIGINT), mapType(VARCHAR, BIGINT),
+                                new RowType(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT), Optional.empty()), new RowType(ImmutableList.of(BIGINT), Optional.empty()),
+                                new RowType(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT), Optional.of(ImmutableList.of("a", "b", "three", "none"))), new RowType(ImmutableList.of(BIGINT), Optional.of(ImmutableList.of("nothing")))),
+                        Optional.empty()),
+                asList(
+                        asList(1L, 2L, null, 3L), emptyList(), null,
+                        asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)), ImmutableMap.of(), null,
+                        asList(1L, 2L, null, 3L), null,
+                        asList(1L, 2L, 3L, null), null));
+
+        assertFunction("CAST(JSON '{" +
+                        "\"array2\": [1, 2, null, 3], " +
+                        "\"array1\": [], " +
+                        "\"array3\": null, " +
+                        "\"map3\": {\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, " +
+                        "\"map1\": {}, " +
+                        "\"map2\": null, " +
+                        "\"rowAsJsonArray1\": [1, 2, null, 3], " +
+                        "\"rowAsJsonArray2\": null, " +
+                        "\"rowAsJsonObject2\": {\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, " +
+                        "\"rowAsJsonObject1\": null}' " +
+                        "AS ROW(array1 ARRAY<BIGINT>, array2 ARRAY<BIGINT>, array3 ARRAY<BIGINT>, " +
+                        "map1 MAP<VARCHAR, BIGINT>, map2 MAP<VARCHAR, BIGINT>, map3 MAP<VARCHAR, BIGINT>, " +
+                        "rowAsJsonArray1 ROW(BIGINT, BIGINT, BIGINT, BIGINT), rowAsJsonArray2 ROW(BIGINT)," +
+                        "rowAsJsonObject1 ROW(nothing BIGINT), rowAsJsonObject2 ROW(a BIGINT, b BIGINT, three BIGINT, none BIGINT)))",
+                new RowType(
+                        ImmutableList.of(
+                                new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT),
+                                mapType(VARCHAR, BIGINT), mapType(VARCHAR, BIGINT), mapType(VARCHAR, BIGINT),
+                                new RowType(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT), Optional.empty()), new RowType(ImmutableList.of(BIGINT), Optional.empty()),
+                                new RowType(ImmutableList.of(BIGINT), Optional.of(ImmutableList.of("nothing"))), new RowType(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT), Optional.of(ImmutableList.of("a", "b", "three", "none")))),
+                        Optional.of(ImmutableList.of(
+                                "array1", "array2", "array3",
+                                "map1", "map2", "map3",
+                                "rowasjsonarray1", "rowasjsonarray2",
+                                "rowasjsonobject1", "rowasjsonobject2"))),
+                asList(
+                        emptyList(), asList(1L, 2L, null, 3L), null,
+                        ImmutableMap.of(), null, asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)),
+                        asList(1L, 2L, null, 3L), null,
+                        null, asList(1L, 2L, 3L, null)));
+
+        // invalid cast
+        assertInvalidCast("CAST(unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}') AS ROW(a BIGINT, b BIGINT))", "Cannot cast to row(a bigint,b bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}");
+        assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY<ROW(a BIGINT, b BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
+        assertInvalidCast("CAST(JSON '{\"a\":1,\"c\":3}' AS ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT))", "Cannot cast to row(a bigint,b bigint,c bigint,d bigint). Missing fields: b, d\n{\"a\":1,\"c\":3}");
+        assertInvalidCast("CAST(JSON '[{\"a\":1,\"c\":3}]' AS ARRAY<ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint,c bigint,d bigint)). Missing fields: b, d\n[{\"a\":1,\"c\":3}]");
+    }
+
+    @Test
     public void testFieldAccessor()
             throws Exception
     {
@@ -143,7 +329,7 @@ public class TestRowOperators
         assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, b DOUBLE)).b", DOUBLE, 2.0);
         assertFunction("CAST(ROW(CAST(ROW('aa') AS ROW(a VARCHAR))) AS ROW(a ROW(a VARCHAR))).a.a", createUnboundedVarcharType(), "aa");
         assertFunction("CAST(ROW(ROW('ab')) AS ROW(a ROW(b VARCHAR))).a.b", VARCHAR, "ab");
-        assertFunction("CAST(ROW(ARRAY[NULL]) AS ROW(a ARRAY(BIGINT))).a", new ArrayType(BIGINT), Arrays.asList((Integer) null));
+        assertFunction("CAST(ROW(ARRAY[NULL]) AS ROW(a ARRAY(BIGINT))).a", new ArrayType(BIGINT), asList((Integer) null));
 
         // Row type is not case sensitive
         assertFunction("CAST(ROW(1) AS ROW(A BIGINT)).A", BIGINT, 1L);

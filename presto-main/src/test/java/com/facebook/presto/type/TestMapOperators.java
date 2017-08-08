@@ -408,6 +408,23 @@ public class TestMapOperators
                                 asMap(ImmutableList.of("h1", "h2"), asList(null, null)),
                                 null)));
 
+        assertFunction("CAST(JSON '{" +
+                        "\"row1\": [1, \"two\"], " +
+                        "\"row2\": [3, null], " +
+                        "\"row3\": {\"k1\": 1, \"k2\": \"two\"}, " +
+                        "\"row4\": {\"k2\": null, \"k1\": 3}, " +
+                        "\"row5\": null}' " +
+                        "AS MAP<VARCHAR, ROW(k1 BIGINT, k2 VARCHAR)>)",
+                mapType(VARCHAR, new RowType(ImmutableList.of(BIGINT, VARCHAR), Optional.of(ImmutableList.of("k1", "k2")))),
+                asMap(
+                        ImmutableList.of("row1", "row2", "row3", "row4", "row5"),
+                        asList(
+                                asList(1L, "two"),
+                                asList(3L, null),
+                                asList(1L, "two"),
+                                asList(3L, null),
+                                null)));
+
         // invalid cast
         assertInvalidCast("CAST(JSON '{\"[]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)", "Cannot cast JSON to map(array(bigint),bigint)");
 
