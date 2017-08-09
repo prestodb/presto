@@ -52,7 +52,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -109,7 +108,7 @@ public class PlanFragmenter
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
         {
-            Set<Symbol> dependencies = extractSymbols(root);
+            Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(root);
 
             List<PlanNodeId> schedulingOrder = findAllTableScanPlanNodeId(root);
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
@@ -124,15 +123,6 @@ public class PlanFragmenter
                     properties.getPartitioningScheme());
 
             return new SubPlan(fragment, properties.getChildren());
-        }
-
-        private static Set<Symbol> extractSymbols(PlanNode planNode)
-        {
-            return searchFrom(planNode)
-                    .findAll()
-                    .stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
-                    .collect(toImmutableSet());
         }
 
         private List<PlanNodeId> findAllTableScanPlanNodeId(PlanNode root)
