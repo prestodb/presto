@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -92,7 +93,7 @@ public class Memo
 
     private PlanNode extract(PlanNode node)
     {
-        return resolveGroupReferences(node, Lookup.from(this::resolve));
+        return resolveGroupReferences(node, Lookup.from(planNode -> ImmutableList.of(this.resolve(planNode))));
     }
 
     public PlanNode replace(int group, PlanNode node, String reason)
