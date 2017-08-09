@@ -21,6 +21,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
+import com.facebook.presto.sql.planner.iterative.rule.DesugarAtTimeZone;
+import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
@@ -173,7 +175,14 @@ public class PlanOptimizers
                         new PushProjectionThroughExchange()));
 
         builder.add(
-                new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableList.of(new DesugaringOptimizer(metadata, sqlParser)),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new DesugarLambdaExpression().rules())
+                                .addAll(new DesugarAtTimeZone(metadata, sqlParser).rules())
+                                .build()
+                ),
                 new IterativeOptimizer(
                         stats,
                         ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions()),

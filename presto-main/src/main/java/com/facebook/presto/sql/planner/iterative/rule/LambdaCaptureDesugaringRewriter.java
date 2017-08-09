@@ -12,13 +12,16 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
@@ -31,24 +34,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class LambdaCaptureDesugaringRewriter
 {
-    private final Map<Symbol, Type> symbolTypes;
-    private final SymbolAllocator symbolAllocator;
-
-    public LambdaCaptureDesugaringRewriter(Map<Symbol, Type> symbolTypes, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Map<Symbol, Type> symbolTypes, SymbolAllocator symbolAllocator)
     {
-        this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
-        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        checkState(!(expression instanceof GroupingOperation), "GroupingOperation should have been re-written to a FunctionCall before execution");
+
+        if (expression instanceof SymbolReference) {
+            return expression;
+        }
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(symbolTypes, symbolAllocator), expression, new Context());
     }
 
-    public Expression rewrite(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression, new Context());
-    }
+    private LambdaCaptureDesugaringRewriter() {}
 
     private static Expression replaceSymbols(Expression expression, ImmutableMap<Symbol, Symbol> symbolMapping)
     {
@@ -68,9 +70,18 @@ public class LambdaCaptureDesugaringRewriter
                 expression);
     }
 
-    public class Visitor
+    private static class Visitor
             extends ExpressionRewriter<Context>
     {
+        private final Map<Symbol, Type> symbolTypes;
+        private final SymbolAllocator symbolAllocator;
+
+        public Visitor(final Map<Symbol, Type> symbolTypes, final SymbolAllocator symbolAllocator)
+        {
+            this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        }
+
         @Override
         public Expression rewriteLambdaExpression(LambdaExpression node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
