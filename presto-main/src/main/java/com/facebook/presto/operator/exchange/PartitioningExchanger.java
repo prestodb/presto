@@ -17,28 +17,28 @@ import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class PartitioningExchanger
-        implements Consumer<Page>
+        implements Exchanger
 {
     private final List<Consumer<PageReference>> buffers;
     private final LongConsumer memoryTracker;
     private final LocalPartitionGenerator partitionGenerator;
-    private final IntList[] partitionAssignments;
+    private final List<PageBuilder> pageBuilders;
+    private final List<? extends Type> types;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
@@ -49,6 +49,7 @@ class PartitioningExchanger
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryTracker = requireNonNull(memoryTracker, "memoryTracker is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
         HashGenerator hashGenerator;
         if (hashChannel.isPresent()) {
@@ -62,40 +63,61 @@ class PartitioningExchanger
         }
         partitionGenerator = new LocalPartitionGenerator(hashGenerator, buffers.size());
 
-        partitionAssignments = new IntList[partitions.size()];
-        for (int i = 0; i < partitionAssignments.length; i++) {
-            partitionAssignments[i] = new IntArrayList();
-        }
+        pageBuilders = IntStream.range(0, buffers.size())
+                .mapToObj(i -> new PageBuilder(types))
+                .collect(toImmutableList());
     }
 
     @Override
-    public synchronized void accept(Page page)
+    public synchronized void exchange(Page page)
     {
-        // reset the assignment lists
-        for (IntList partitionAssignment : partitionAssignments) {
-            partitionAssignment.clear();
-        }
-
-        // assign each row to a partition
+        long initialRetainedSize = getRetainedSizeInBytes();
         for (int position = 0; position < page.getPositionCount(); position++) {
             int partition = partitionGenerator.getPartition(position, page);
-            partitionAssignments[partition].add(position);
+            PageBuilder pageBuilder = pageBuilders.get(partition);
+            appendRow(pageBuilder, page, position);
         }
+        flush(false);
+        long finalRetainedSize = getRetainedSizeInBytes();
+        memoryTracker.accept(finalRetainedSize - initialRetainedSize);
+    }
 
-        // build a page for each partition
-        Block[] sourceBlocks = page.getBlocks();
-        Block[] outputBlocks = new Block[sourceBlocks.length];
-        for (int partition = 0; partition < buffers.size(); partition++) {
-            List<Integer> positions = partitionAssignments[partition];
-            if (!positions.isEmpty()) {
-                for (int i = 0; i < sourceBlocks.length; i++) {
-                    outputBlocks[i] = sourceBlocks[i].copyPositions(positions);
-                }
+    @Override
+    public void flush()
+    {
+        long initialRetainedSize = getRetainedSizeInBytes();
+        flush(true);
+        long finalRetainedSize = getRetainedSizeInBytes();
+        memoryTracker.accept(finalRetainedSize - initialRetainedSize);
+    }
 
-                Page pageSplit = new Page(positions.size(), outputBlocks);
+    private void appendRow(PageBuilder pageBuilder, Page page, int position)
+    {
+        pageBuilder.declarePosition();
+
+        for (int channel = 0; channel < types.size(); channel++) {
+            Type type = types.get(channel);
+            type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+        }
+    }
+
+    private void flush(boolean force)
+    {
+        for (int partition = 0; partition < pageBuilders.size(); partition++) {
+            PageBuilder partitionPageBuilder = pageBuilders.get(partition);
+            if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
+                Page pageSplit = partitionPageBuilder.build();
+                partitionPageBuilder.reset();
                 memoryTracker.accept(pageSplit.getRetainedSizeInBytes());
                 buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> memoryTracker.accept(-pageSplit.getRetainedSizeInBytes())));
             }
         }
+    }
+
+    private long getRetainedSizeInBytes()
+    {
+        return pageBuilders.stream()
+                .mapToLong(PageBuilder::getRetainedSizeInBytes)
+                .sum();
     }
 }

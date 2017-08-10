@@ -36,7 +36,7 @@ public class LocalExchangeSink
     }
 
     private final List<Type> types;
-    private final Consumer<Page> exchanger;
+    private final Exchanger exchanger;
     private final LocalExchangeMemoryManager memoryManager;
     private final Consumer<LocalExchangeSink> onFinish;
 
@@ -44,7 +44,7 @@ public class LocalExchangeSink
 
     public LocalExchangeSink(
             List<Type> types,
-            Consumer<Page> exchanger,
+            Exchanger exchanger,
             LocalExchangeMemoryManager memoryManager,
             Consumer<LocalExchangeSink> onFinish)
     {
@@ -62,6 +62,7 @@ public class LocalExchangeSink
     public void finish()
     {
         if (finished.compareAndSet(false, true)) {
+            exchanger.flush();
             onFinish.accept(this);
         }
     }
@@ -85,7 +86,7 @@ public class LocalExchangeSink
 
         // there can be a race where finished is set between the check above and here
         // it is expected that the exchanger ignores pages after finish
-        exchanger.accept(page);
+        exchanger.exchange(page);
     }
 
     public ListenableFuture<?> waitForWriting()

@@ -24,7 +24,7 @@ import java.util.function.LongConsumer;
 import static java.util.Objects.requireNonNull;
 
 class RandomExchanger
-        implements Consumer<Page>
+        implements Exchanger
 {
     private final List<Consumer<PageReference>> buffers;
     private final LongConsumer memoryTracker;
@@ -36,7 +36,7 @@ class RandomExchanger
     }
 
     @Override
-    public void accept(Page page)
+    public void exchange(Page page)
     {
         memoryTracker.accept(page.getRetainedSizeInBytes());
 
