@@ -396,6 +396,7 @@ public class TestHttpRemoteTask
                     ++version,
                     taskState,
                     initialTaskStatus.getSelf(),
+                    "fake",
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),

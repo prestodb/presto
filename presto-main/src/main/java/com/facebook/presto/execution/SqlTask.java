@@ -61,6 +61,7 @@ public class SqlTask
     private final TaskId taskId;
     private final String taskInstanceId;
     private final URI location;
+    private final String nodeId;
     private final TaskStateMachine taskStateMachine;
     private final OutputBuffer outputBuffer;
     private final QueryContext queryContext;
@@ -76,6 +77,7 @@ public class SqlTask
     public SqlTask(
             TaskId taskId,
             URI location,
+            String nodeId,
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
@@ -85,6 +87,7 @@ public class SqlTask
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
         this.location = requireNonNull(location, "location is null");
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
@@ -215,6 +218,7 @@ public class SqlTask
                 versionNumber,
                 state,
                 location,
+                nodeId,
                 failures,
                 taskStats.getQueuedPartitionedDrivers(),
                 taskStats.getRunningPartitionedDrivers(),
