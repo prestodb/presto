@@ -44,6 +44,7 @@ import com.facebook.presto.cost.ProjectStatsRule;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator.New;
+import com.facebook.presto.cost.SemiJoinStatsRule;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TableScanStatsRule;
 import com.facebook.presto.cost.UnionStatsRule;
@@ -501,6 +502,7 @@ public class ServerMainModule
         rules.add(new AggregationStatsRule());
         rules.add(new UnionStatsRule());
         rules.add(new IntersectStatsRule());
+        rules.add(new SemiJoinStatsRule());
 
         ImmutableList.Builder<ComposableStatsCalculator.Normalizer> normalizers = ImmutableList.builder();
         normalizers.add(new EnsureStatsMatchOutput());
