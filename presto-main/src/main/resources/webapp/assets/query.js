@@ -78,7 +78,9 @@ let TaskList = React.createClass({
                             </a>
                         </Td>
                         <Td column="host" value={ getHostname(task.taskStatus.self) }>
-                            { showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self) }
+                            <a href={ "/v1/worker/" + task.taskStatus.nodeId + "/status"} className="link-light">
+                                { showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self) }
+                            </a>
                         </Td>
                         <Td column="state" value={ formatState(task.taskStatus.state, task.stats.fullyBlocked) }>
                             { formatState(task.taskStatus.state, task.stats.fullyBlocked) }

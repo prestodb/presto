@@ -19,6 +19,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CoefficientBasedCostCalculator;
@@ -420,6 +421,7 @@ public class ServerMainModule
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);
+        jsonCodecBinder(binder).bindJsonCodec(ServerInfo.class);
 
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
@@ -526,6 +528,8 @@ public class ServerMainModule
         if (coordinator) {
             binder.install(new FailureDetectorModule());
             jaxrsBinder(binder).bind(NodeResource.class);
+            jaxrsBinder(binder).bind(WorkerResource.class);
+            httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
         }
         else {
             binder.bind(FailureDetector.class).toInstance(new FailureDetector()
