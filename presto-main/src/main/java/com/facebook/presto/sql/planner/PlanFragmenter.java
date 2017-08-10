@@ -43,10 +43,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -110,7 +110,7 @@ public class PlanFragmenter
         {
             Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(root);
 
-            List<PlanNodeId> schedulingOrder = findAllTableScanPlanNodeId(root);
+            List<PlanNodeId> schedulingOrder = scheduleOrder(root);
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
@@ -123,16 +123,6 @@ public class PlanFragmenter
                     properties.getPartitioningScheme());
 
             return new SubPlan(fragment, properties.getChildren());
-        }
-
-        private List<PlanNodeId> findAllTableScanPlanNodeId(PlanNode root)
-        {
-            return searchFrom(root)
-                    .where(TableScanNode.class::isInstance)
-                    .<TableScanNode>findAll()
-                    .stream()
-                    .map(TableScanNode::getId)
-                    .collect(toImmutableList());
         }
 
         @Override
