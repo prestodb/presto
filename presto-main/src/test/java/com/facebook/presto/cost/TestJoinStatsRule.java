@@ -20,7 +20,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -198,7 +197,7 @@ public class TestJoinStatsRule
         assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
                 Optional.empty(),
                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN))),
-                LEFT_STATS, RIGHT_STATS)).equalTo(antiJoinStats);
+                LEFT_STATS, RIGHT_STATS).getStats()).equalTo(antiJoinStats);
     }
 
     @Test
@@ -211,7 +210,29 @@ public class TestJoinStatsRule
         assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
                 Optional.empty(),
                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(RIGHT_JOIN_COLUMN), new Symbol(LEFT_JOIN_COLUMN))),
-                RIGHT_STATS, LEFT_STATS)).equalTo(antiJoinStats);
+                RIGHT_STATS, LEFT_STATS).getStats()).equalTo(antiJoinStats);
+    }
+
+    @Test
+    public void testStatsForLeftAntiJoinWithNoClauses()
+    {
+        assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
+                Optional.empty(),
+                ImmutableList.of(),
+                LEFT_STATS, RIGHT_STATS).getStats()).equalTo(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0));
+    }
+
+    @Test
+    public void testStatsForLeftAntiJoinWithMultipleClauses()
+    {
+        PlanNodeStatsEstimate antiJoinStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
+                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 5.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
+                LEFT_OTHER_COLUMN_STATS).mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
+
+        assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
+                Optional.empty(),
+                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN)), new JoinNode.EquiJoinClause(new Symbol(LEFT_OTHER_COLUMN), new Symbol(RIGHT_OTHER_COLUMN))),
+                LEFT_STATS, RIGHT_STATS).getStats()).equalTo(antiJoinStats);
     }
 
     @Test
@@ -263,7 +284,7 @@ public class TestJoinStatsRule
                 symbolStatistics(LEFT_JOIN_COLUMN, -5.0, 20.0, (LEFT_ROWS_COUNT * LEFT_JOIN_COLUMN_NULLS + RIGHT_ROWS_COUNT * 0.2) / TOTAL_ROWS_COUNT, 25),
                 symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * LEFT_ROWS_COUNT + RIGHT_ROWS_COUNT) / TOTAL_ROWS_COUNT, 1));
 
-        assertThat(JOIN_STATS_RULE.addAntiJoinStats(LEFT_STATS, statsToAdd, ImmutableSet.of(new Symbol(LEFT_JOIN_COLUMN)))).equalTo(addedStats);
+        assertThat(JOIN_STATS_RULE.addAntiJoinStats(LEFT_STATS, statsToAdd, Optional.of((new Symbol(LEFT_JOIN_COLUMN))))).equalTo(addedStats);
     }
 
     private void assertJoinStats(JoinNode.Type joinType, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats, PlanNodeStatsEstimate resultStats)
