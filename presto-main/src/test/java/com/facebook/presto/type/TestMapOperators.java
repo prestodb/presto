@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
@@ -39,6 +40,7 @@ import org.testng.annotations.Test;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
@@ -778,6 +780,57 @@ public class TestMapOperators
     }
 
     @Test
+    public void testMapEntries()
+    {
+        Type unknownEntryType = entryType(UNKNOWN, UNKNOWN);
+
+        assertFunction("map_entries(null)", unknownEntryType, null);
+        assertFunction("map_entries(MAP(ARRAY[], null))", unknownEntryType, null);
+        assertFunction("map_entries(MAP(null, ARRAY[]))", unknownEntryType, null);
+        assertFunction("map_entries(MAP(ARRAY[1, 2, 3], null))", entryType(INTEGER, UNKNOWN), null);
+        assertFunction("map_entries(MAP(null, ARRAY[1, 2, 3]))", entryType(UNKNOWN, INTEGER), null);
+        assertFunction("map_entries(MAP(ARRAY[], ARRAY[]))", unknownEntryType, ImmutableList.of());
+        assertFunction("map_entries(MAP(ARRAY[1], ARRAY['x']))", entryType(INTEGER, createVarcharType(1)), ImmutableList.of(ImmutableList.of(1, "x")));
+        assertFunction("map_entries(MAP(ARRAY[1, 2], ARRAY['x', 'y']))", entryType(INTEGER, createVarcharType(1)), ImmutableList.of(ImmutableList.of(1, "x"), ImmutableList.of(2, "y")));
+
+        assertFunction(
+                "map_entries(MAP(ARRAY['x', 'y'], ARRAY[ARRAY[1, 2], ARRAY[3, 4]]))",
+                entryType(createVarcharType(1), new ArrayType(INTEGER)),
+                ImmutableList.of(ImmutableList.of("x", ImmutableList.of(1, 2)), ImmutableList.of("y", ImmutableList.of(3, 4))));
+        assertFunction(
+                "map_entries(MAP(ARRAY[ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]], ARRAY[5.0, 6.0]))",
+                entryType(new ArrayType(DOUBLE), DOUBLE),
+                ImmutableList.of(ImmutableList.of(ImmutableList.of(1.0, 2.0), 5.0), ImmutableList.of(ImmutableList.of(3.0, 4.0), 6.0)));
+        assertFunction(
+                "map_entries(MAP(ARRAY['x', 'y'], ARRAY[MAP(ARRAY[1], ARRAY[2]), MAP(ARRAY[3], ARRAY[4])]))",
+                entryType(createVarcharType(1), mapType(INTEGER, INTEGER)),
+                ImmutableList.of(ImmutableList.of("x", ImmutableMap.of(1, 2)), ImmutableList.of("y", ImmutableMap.of(3, 4))));
+        assertFunction(
+                "map_entries(MAP(ARRAY[MAP(ARRAY[1], ARRAY[2]), MAP(ARRAY[3], ARRAY[4])], ARRAY['x', 'y']))",
+                entryType(mapType(INTEGER, INTEGER), createVarcharType(1)),
+                ImmutableList.of(ImmutableList.of(ImmutableMap.of(1, 2), "x"), ImmutableList.of(ImmutableMap.of(3, 4), "y")));
+
+        // null values
+        List<Object> expectedEntries = ImmutableList.of(asList("x", null), asList("y", null));
+        assertFunction("map_entries(MAP(ARRAY['x', 'y'], ARRAY[null, null]))", entryType(createVarcharType(1), UNKNOWN), expectedEntries);
+
+        assertCachedInstanceHasBoundedRetainedSize("map_entries(MAP(ARRAY[1, 2], ARRAY['x', 'y']))");
+    }
+
+    @Test
+    public void testEntryMappings()
+    {
+        assertFunction(
+                "map_from_entries(map_entries(MAP(ARRAY[1, 2, 3], ARRAY['x', 'y', 'z'])))",
+                mapType(INTEGER, createVarcharType(1)),
+                ImmutableMap.of(1, "x", 2, "y", 3, "z"));
+        assertFunction(
+                "map_entries(map_from_entries(ARRAY[(1, 'x'), (2, 'y'), (3, 'z')]))",
+                entryType(INTEGER, createVarcharType(1)),
+                ImmutableList.of(ImmutableList.of(1, "x"), ImmutableList.of(2, "y"), ImmutableList.of(3, "z")));
+    }
+
+    @Test
     public void testMapHashOperator()
     {
         assertMapHashOperator("MAP(ARRAY[1], ARRAY[2])", INTEGER, INTEGER, ImmutableList.of(1, 2));
@@ -806,5 +859,10 @@ public class TestMapOperators
     private static SqlTimestamp sqlTimestamp(long millisUtc)
     {
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+    }
+
+    private static Type entryType(Type keyType, Type valueType)
+    {
+        return new ArrayType(new RowType(ImmutableList.of(keyType, valueType), Optional.empty()));
     }
 }

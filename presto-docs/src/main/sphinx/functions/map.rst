@@ -42,6 +42,12 @@ Map Functions
 
         SELECT map_from_entries(ARRAY[(1, 'x'), (2, 'y')]); -- {1 -> 'x', 2 -> 'y'}
 
+.. function:: map_entries(map<K,V>) -> array<row<K,V>>
+
+    Returns an array of all entries in the given map. ::
+
+        SELECT map_entries(MAP(ARRAY[1, 2], ARRAY['x', 'y'])); -- [ROW(1, 'x'), ROW(2, 'y')]
+
 .. function:: map_concat(map1<K,V>, map2<K,V>, ..., mapN<K,V>) -> map<K,V>
 
    Returns the union of all the given maps. If a key is found in multiple given maps,
