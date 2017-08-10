@@ -16,7 +16,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -46,13 +49,15 @@ public class TestPickTableLayout
             new TpchTableLayoutHandle(new TpchTableHandle("local", "nation", 1.0), Optional.empty()));
 
     private RuleSet pickTableLayout;
+    private RuleSet pickTableLayoutReplaceExisting;
     private TableHandle nationTableHandle;
     private TableLayoutHandle nationTableLayoutHandle;
 
     @BeforeMethod
     public void setUpPerMethod()
     {
-        pickTableLayout = new PickTableLayout(tester().getMetadata());
+        pickTableLayout = new PickTableLayout(tester().getMetadata(), new SqlParser(), false);
+        pickTableLayoutReplaceExisting = new PickTableLayout(tester().getMetadata(), new SqlParser(), true);
 
         ConnectorId connectorId = tester().getCurrentConnectorId();
         nationTableHandle = new TableHandle(
@@ -82,6 +87,48 @@ public class TestPickTableLayout
                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
                         BooleanLiteral.TRUE_LITERAL,
                         Optional.of(DUMMY_TABLE_LAYOUT_HANDLE)))
+                .doesNotFire();
+    }
+
+    @Test
+    public void replacesExistingLayoutWhenConfigured()
+    {
+        // The TPCH connector returns a TableLayout, but that TableLayout doesn't handle any of the constraints.
+        // However, we know that the rule fired because the constraints and TableLayout are included in the new plan.
+        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
+                .put("nationkey", singleValue(BIGINT, 44L))
+                .build();
+        tester().assertThat(pickTableLayoutReplaceExisting)
+                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
+                                BooleanLiteral.TRUE_LITERAL,
+                                Optional.of(DUMMY_TABLE_LAYOUT_HANDLE))))
+                .matches(
+                        filter("nationkey = BIGINT '44'",
+                                constrainedTableScanWithTableLayout("nation", filterConstraint, ImmutableMap.of("nationkey", "nationkey"))));
+    }
+
+    @Test
+    public void doesNotFireIfConstraintHasNotChanged()
+    {
+        // The TPCH connector returns a TableLayout, but that TableLayout doesn't handle any of the constraints.
+        // However, we know that the rule fired because the constraints and TableLayout are included in the new plan.
+        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
+                .put("nationkey", singleValue(BIGINT, 44L))
+                .build();
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(pickTableLayoutReplaceExisting)
+                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
+                                TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, filterConstraint.get("nationkey"))),
+                                expression("nationkey = BIGINT '44'"),
+                                Optional.of(DUMMY_TABLE_LAYOUT_HANDLE))))
                 .doesNotFire();
     }
 

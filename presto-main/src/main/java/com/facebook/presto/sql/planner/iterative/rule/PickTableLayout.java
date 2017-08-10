@@ -16,13 +16,13 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.optimizations.TableLayoutRewriter;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.google.common.collect.ImmutableSet;
 
@@ -38,11 +38,11 @@ public class PickTableLayout
 {
     private final ImmutableSet<Rule<?>> rules;
 
-    public PickTableLayout(Metadata metadata)
+    public PickTableLayout(Metadata metadata, SqlParser sqlParser, boolean replaceExistingLayout)
     {
         rules = ImmutableSet.of(
-                new PickTableLayoutForPredicate(metadata),
-                new PickTableLayoutWithoutPredicate(metadata));
+                new PickTableLayoutForPredicate(metadata, sqlParser, replaceExistingLayout),
+                new PickTableLayoutWithoutPredicate(metadata, sqlParser));
     }
 
     @Override
@@ -55,10 +55,14 @@ public class PickTableLayout
             implements Rule<FilterNode>
     {
         private final Metadata metadata;
+        private final SqlParser sqlParser;
+        private final boolean replaceExistingLayout;
 
-        private PickTableLayoutForPredicate(Metadata metadata)
+        private PickTableLayoutForPredicate(Metadata metadata, SqlParser sqlParser, boolean replaceExistingLayout)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.replaceExistingLayout = replaceExistingLayout;
+            this.sqlParser = sqlParser;
         }
 
         private static final Pattern<FilterNode> PATTERN = filter();
@@ -78,19 +82,13 @@ public class PickTableLayout
                 return Optional.empty();
             }
 
-            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
-            PlanNode rewrittenTableScan = tableLayoutRewriter.planTableScan((TableScanNode) source, filterNode.getPredicate());
-
-            if (rewrittenTableScan instanceof TableScanNode || rewrittenTableScan instanceof ValuesNode || (((FilterNode) rewrittenTableScan).getPredicate() != filterNode.getPredicate())) {
-                return Optional.of(rewrittenTableScan);
-            }
-
-            return Optional.empty();
+            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator(), sqlParser);
+            return tableLayoutRewriter.planTableScan((TableScanNode) source, filterNode.getPredicate());
         }
 
         private boolean shouldRewriteTableLayout(TableScanNode source)
         {
-            return !source.getLayout().isPresent() || source.getOriginalConstraint() == BooleanLiteral.TRUE_LITERAL;
+            return !source.getLayout().isPresent() || replaceExistingLayout || source.getOriginalConstraint() == BooleanLiteral.TRUE_LITERAL;
         }
     }
 
@@ -98,10 +96,12 @@ public class PickTableLayout
             implements Rule<TableScanNode>
     {
         private final Metadata metadata;
+        private final SqlParser sqlParser;
 
-        private PickTableLayoutWithoutPredicate(Metadata metadata)
+        private PickTableLayoutWithoutPredicate(Metadata metadata, SqlParser sqlParser)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         }
 
         private static final Pattern<TableScanNode> PATTERN = tableScan();
@@ -119,8 +119,8 @@ public class PickTableLayout
                 return Optional.empty();
             }
 
-            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
-            return Optional.of(tableLayoutRewriter.planTableScan(tableScanNode, BooleanLiteral.TRUE_LITERAL));
+            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator(), sqlParser);
+            return tableLayoutRewriter.planTableScan(tableScanNode, BooleanLiteral.TRUE_LITERAL);
         }
     }
 }

@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -37,18 +38,21 @@ public class PickLayout
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final SqlParser sqlParser;
 
-    public PickLayout(Metadata metadata)
+    public PickLayout(Metadata metadata, SqlParser sqlParser)
     {
         requireNonNull(metadata, "metadata is null");
+        requireNonNull(sqlParser, "sqlParser is null");
 
         this.metadata = metadata;
+        this.sqlParser = sqlParser;
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, session, symbolAllocator, idAllocator), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, session, symbolAllocator, idAllocator, this.sqlParser), plan);
     }
 
     private static class Rewriter
@@ -56,9 +60,9 @@ public class PickLayout
     {
         private final TableLayoutRewriter tableLayoutRewriter;
 
-        public Rewriter(Metadata metadata, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+        public Rewriter(Metadata metadata, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, SqlParser sqlParser)
         {
-            this.tableLayoutRewriter = new TableLayoutRewriter(metadata, session, symbolAllocator, idAllocator);
+            this.tableLayoutRewriter = new TableLayoutRewriter(metadata, session, symbolAllocator, idAllocator, sqlParser);
         }
 
         @Override
@@ -71,7 +75,7 @@ public class PickLayout
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
             if (node.getSource() instanceof TableScanNode && !((TableScanNode) node.getSource()).getLayout().isPresent()) {
-                return tableLayoutRewriter.planTableScan((TableScanNode) node.getSource(), node.getPredicate());
+                return tableLayoutRewriter.planTableScan((TableScanNode) node.getSource(), node.getPredicate()).orElse(node);
             }
 
             return context.defaultRewrite(node);
@@ -84,7 +88,7 @@ public class PickLayout
                 return node;
             }
 
-            return tableLayoutRewriter.planTableScan(node, BooleanLiteral.TRUE_LITERAL);
+            return tableLayoutRewriter.planTableScan(node, BooleanLiteral.TRUE_LITERAL).orElse(node);
         }
     }
 }

@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -40,6 +41,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -50,16 +52,18 @@ public class TableLayoutRewriter
     private final Session session;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
+    private final SqlParser sqlParser;
 
-    public TableLayoutRewriter(Metadata metadata, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public TableLayoutRewriter(Metadata metadata, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, SqlParser sqlParser)
     {
         this.metadata = metadata;
         this.session = session;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
+        this.sqlParser = sqlParser;
     }
 
-    public PlanNode planTableScan(TableScanNode node, Expression predicate)
+    public Optional<PlanNode> planTableScan(TableScanNode node, Expression predicate)
     {
         Expression deterministicPredicate = stripNonDeterministicConjuncts(predicate);
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
@@ -80,12 +84,12 @@ public class TableLayoutRewriter
                 .filter(layoutHasAllNeededOutputs(node))
                 .collect(toImmutableList());
         if (layouts.isEmpty()) {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
+            return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
         TableLayoutResult layout = layouts.get(0);
 
-        TableScanNode result = new TableScanNode(
+        TableScanNode rewrittenTableScan = new TableScanNode(
                 node.getId(),
                 node.getTable(),
                 node.getOutputSymbols(),
@@ -100,11 +104,15 @@ public class TableLayoutRewriter
                 stripDeterministicConjuncts(predicate),
                 DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
 
+        PlanNode result = rewrittenTableScan;
         if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
-            return new FilterNode(idAllocator.getNextId(), result, resultingPredicate);
+            result = new FilterNode(idAllocator.getNextId(), rewrittenTableScan, resultingPredicate);
         }
 
-        return result;
+        if (result instanceof FilterNode && !planChanged(node, rewrittenTableScan, predicate, resultingPredicate)) {
+            return Optional.empty();
+        }
+        return Optional.of(result);
     }
 
     private Predicate<TableLayoutResult> layoutHasAllNeededOutputs(TableScanNode node)
@@ -114,5 +122,15 @@ public class TableLayoutRewriter
             return !layout.getLayout().getColumns().isPresent()
                     || layout.getLayout().getColumns().get().containsAll(columnHandles);
         };
+    }
+
+    private boolean planChanged(TableScanNode oldTableScan, TableScanNode rewrittenTableScan, Expression oldPredicate, Expression rewrittenPredicate)
+    {
+        if (!new ExpressionEquivalence(metadata, sqlParser).areExpressionsEquivalent(session, oldPredicate, rewrittenPredicate, symbolAllocator.getTypes())) {
+            if (!ImmutableSet.copyOf(extractConjuncts(oldPredicate)).equals(ImmutableSet.copyOf(extractConjuncts(rewrittenPredicate)))) {
+                return true;
+            }
+        }
+        return !rewrittenTableScan.getCurrentConstraint().equals(oldTableScan.getCurrentConstraint());
     }
 }
