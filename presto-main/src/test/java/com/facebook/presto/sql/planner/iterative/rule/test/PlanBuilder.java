@@ -314,13 +314,24 @@ public class PlanBuilder
 
     public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, Expression originalConstraint, Optional<TableLayoutHandle> tableLayout)
     {
+        return tableScan(
+                tableHandle,
+                symbols,
+                assignments,
+                TupleDomain.all(),
+                originalConstraint,
+                tableLayout);
+    }
+
+    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments, TupleDomain<ColumnHandle> constraint, Expression originalConstraint, Optional<TableLayoutHandle> tableLayout)
+    {
         return new TableScanNode(
                 idAllocator.getNextId(),
                 tableHandle,
                 symbols,
                 assignments,
                 tableLayout,
-                TupleDomain.all(),
+                constraint,
                 originalConstraint);
     }
 

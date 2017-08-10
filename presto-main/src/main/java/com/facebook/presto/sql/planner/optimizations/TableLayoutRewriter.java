@@ -85,7 +85,7 @@ public class TableLayoutRewriter
 
         TableLayoutResult layout = layouts.get(0);
 
-        TableScanNode result = new TableScanNode(
+        TableScanNode rewrittenTableScan = new TableScanNode(
                 node.getId(),
                 node.getTable(),
                 node.getOutputSymbols(),
@@ -100,8 +100,9 @@ public class TableLayoutRewriter
                 stripDeterministicConjuncts(predicate),
                 DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
 
+        PlanNode result = rewrittenTableScan;
         if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
-            return new FilterNode(idAllocator.getNextId(), result, resultingPredicate);
+            result = new FilterNode(idAllocator.getNextId(), rewrittenTableScan, resultingPredicate);
         }
 
         return result;

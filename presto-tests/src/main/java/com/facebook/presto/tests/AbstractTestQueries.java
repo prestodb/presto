@@ -5864,6 +5864,10 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
+
+        assertQuery(
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'customer' AND column_name = 'custkey' LIMIT 1",
+                "SELECT 'customer' table_name");
     }
 
     @Test
