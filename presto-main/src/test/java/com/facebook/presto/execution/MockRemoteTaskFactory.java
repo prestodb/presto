@@ -215,7 +215,7 @@ public class MockRemoteTaskFactory
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }
 
-            return new TaskInfo(new TaskStatus(taskStateMachine.getTaskId(), TASK_INSTANCE_ID, nextTaskInfoVersion.getAndIncrement(), state, location, failures, 0, 0, new DataSize(0, BYTE)),
+            return new TaskInfo(new TaskStatus(taskStateMachine.getTaskId(), TASK_INSTANCE_ID, nextTaskInfoVersion.getAndIncrement(), state, location, nodeId, failures, 0, 0, new DataSize(0, BYTE)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -233,6 +233,7 @@ public class MockRemoteTaskFactory
                     nextTaskInfoVersion.get(),
                     taskStateMachine.getState(),
                     location,
+                    nodeId,
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),
