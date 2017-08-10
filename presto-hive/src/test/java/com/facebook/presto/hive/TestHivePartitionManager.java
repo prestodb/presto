@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -35,19 +34,10 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
-import java.net.URI;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -120,94 +110,6 @@ public class TestHivePartitionManager
 
         assertEquals(result.getPartitions().size(), 1);
         assertEquals(result.getPartitions().get(0).getPartitionId(), EXPECTED_PARTITION_VALUE);
-    }
-
-    private static class TestingHdfsEnvironment
-            extends HdfsEnvironment
-    {
-        public TestingHdfsEnvironment()
-        {
-            super(
-                    new HiveHdfsConfiguration(new HdfsConfigurationUpdater(new HiveClientConfig())),
-                    new HiveClientConfig(),
-                    new NoHdfsAuthentication());
-        }
-
-        @Override
-        public FileSystem getFileSystem(String user, Path path, Configuration configuration)
-        {
-            return new TestingHdfsFileSystem();
-        }
-    }
-
-    private static class TestingHdfsFileSystem
-            extends FileSystem
-    {
-        @Override
-        public boolean delete(Path f, boolean recursive)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean rename(Path src, Path dst)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void setWorkingDirectory(Path dir)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FileStatus[] listStatus(Path f)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean mkdirs(Path f, FsPermission permission)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FSDataInputStream open(Path f, int buffersize)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FileStatus getFileStatus(Path f)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Path getWorkingDirectory()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public URI getUri()
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 
     private static class TestingExtendedHiveMetastore
