@@ -32,8 +32,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -58,27 +56,11 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessorCompiler
 {
-    private MetadataManager metadataManager;
-    private ExpressionCompiler compiler;
-
-    @BeforeMethod
-    public void setup()
-    {
-        metadataManager = createTestMetadataManager();
-        compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown()
-    {
-        metadataManager = null;
-        compiler = null;
-    }
-
     @Test
     public void testNoCaching()
-            throws Throwable
     {
+        MetadataManager metadataManager = createTestMetadataManager();
+        ExpressionCompiler compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
         Signature signature = new Signature("concat", SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
@@ -92,8 +74,9 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityRLE()
-            throws Exception
     {
+        MetadataManager metadataManager = createTestMetadataManager();
+        ExpressionCompiler compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
 
         Slice varcharValue = Slices.utf8Slice("hello");
@@ -113,8 +96,9 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityFilterOnDictionary()
-            throws Exception
     {
+        MetadataManager metadataManager = createTestMetadataManager();
+        ExpressionCompiler compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
         CallExpression lengthVarchar = new CallExpression(
                 new Signature("length", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
@@ -143,8 +127,9 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityFilterOnRLE()
-            throws Exception
     {
+        MetadataManager metadataManager = createTestMetadataManager();
+        ExpressionCompiler compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
@@ -162,8 +147,9 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testSanityColumnarDictionary()
-            throws Exception
     {
+        MetadataManager metadataManager = createTestMetadataManager();
+        ExpressionCompiler compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
@@ -178,8 +164,9 @@ public class TestPageProcessorCompiler
 
     @Test
     public void testNonDeterministicProject()
-            throws Exception
     {
+        MetadataManager metadataManager = createTestMetadataManager();
+        ExpressionCompiler compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
                 new Signature("random", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)), BIGINT, singletonList(constant(10L, BIGINT)));
