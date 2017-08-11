@@ -17,7 +17,6 @@ import com.facebook.presto.execution.TaskManager;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -47,13 +46,6 @@ public class MemoryResource
     public MemoryInfo getMemoryInfo(MemoryPoolAssignmentsRequest request)
     {
         taskManager.updateMemoryPoolAssignments(request);
-        return memoryManager.getInfo();
-    }
-
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    public MemoryInfo getMemoryInfo()
-    {
         return memoryManager.getInfo();
     }
 }
