@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
     <meta name="description" content="Query Details - Presto">
-    <title>Query Overview - Presto</title>
+    <title>Worker Status - Presto</title>
 
     <link rel="icon" href="assets/favicon.ico">
 
@@ -19,14 +19,14 @@
     <![endif]-->
 
     <!-- React (comment out for development)-->
-    <script src="vendor/react/react-15.0.1.min.js"></script>
-    <script src="vendor/react/react-dom-15.0.1.min.js"></script>
+    <!--<script src="vendor/react/react-15.0.1.min.js"></script>-->
+    <!--<script src="vendor/react/react-dom-15.0.1.min.js"></script>-->
+    <!--<script src="vendor/react/react-dom-server-15.0.1.min.js"></script>-->
 
     <!-- React (uncomment for development)-->
-    <!--
     <script src="vendor/react/react-15.0.1.js"></script>
     <script src="vendor/react/react-dom-15.0.1.js"></script>
-    -->
+    <script src="vendor/react/react-dom-server-15.0.1.js"></script>
 
     <!-- jQuery -->
     <script type="text/javascript" src="vendor/jquery/jquery-2.2.3.min.js"></script>
@@ -37,18 +37,11 @@
     <!-- Sparkline -->
     <script type="text/javascript" src="vendor/jquery.sparkline/jquery.sparkline.min.js"></script>
 
-    <!-- Reactable -->
-    <script type="text/javascript" src="vendor/reactable/reactable.js"></script>
-
-    <!-- Code highlighting -->
-    <link rel="stylesheet" href="vendor/highlightjs/9.3/styles/solarized-dark.css">
-    <script src="vendor/highlightjs/9.3/highlight.pack.js"></script>
+    <!-- CSS loader -->
+    <link href="vendor/css-loaders/loader.css" rel="stylesheet">
 
     <!-- Clipboard -->
     <script src="vendor/clipboardjs/clipboard.min.js"></script>
-
-    <!-- CSS loader -->
-    <link href="vendor/css-loaders/loader.css" rel="stylesheet">
 
     <!-- Custom CSS -->
     <link href="assets/presto.css" rel="stylesheet">
@@ -69,7 +62,7 @@
                             <a href="/"><img src="assets/logo.png"/></a>
                         </td>
                         <td>
-                            <span class="navbar-brand">Query Details</span>
+                            <span class="navbar-brand">Worker Status</span>
                         </td>
                     </tr>
                 </table>
@@ -99,17 +92,18 @@
         </div>
     </nav>
 
-    <div id="query-detail"><div class="loader">Loading...</div></div>
-
+    <div id="worker-status">
+        <div class="loader">Loading...</div>
+    </div>
 </div> <!-- /container -->
 
 
 <script type="text/javascript">
-    window.setInterval(updateClusterInfo, 1000)
+window.setInterval(updateClusterInfo, 1000)
 </script>
 
 <script src="vendor/react/browser.min.js"></script>
-<script type="text/babel" src="assets/query.js"></script>
+<script type="text/babel" src="assets/worker.js"></script>
 
 <!-- Fonts -->
 <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700" rel="stylesheet">
