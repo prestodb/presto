@@ -423,6 +423,10 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(ServerInfoResource.class);
         jsonCodecBinder(binder).bindJsonCodec(ServerInfo.class);
 
+        // node status resource
+        jaxrsBinder(binder).bind(StatusResource.class);
+        jsonCodecBinder(binder).bindJsonCodec(NodeStatus.class);
+
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PluginManagerConfig.class);

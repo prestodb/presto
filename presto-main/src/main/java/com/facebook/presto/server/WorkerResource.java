@@ -64,7 +64,7 @@ public class WorkerResource
 
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(node.getHttpUri())
-                        .appendPath("v1/info")
+                        .appendPath("v1/status")
                         .build())
                 .build();
 
