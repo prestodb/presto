@@ -450,7 +450,7 @@ public class SqlQueryManager
             }
         });
 
-        addStatsListener(queryExecution);
+        addStatsListeners(queryExecution);
 
         queries.put(queryId, queryExecution);
 
@@ -626,9 +626,12 @@ public class SqlQueryManager
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
     }
 
-    private void addStatsListener(QueryExecution queryExecution)
+    private void addStatsListeners(QueryExecution queryExecution)
     {
         Object lock = new Object();
+
+        // QUEUED is the initial state, the counter can be incremented immediately
+        stats.queryQueued();
 
         AtomicBoolean started = new AtomicBoolean();
         queryExecution.addStateChangeListener(newValue -> {
