@@ -29,7 +29,7 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 @Path("/v1/status")
 public class StatusResource
 {
-    private final String nodeId;
+    private final NodeInfo nodeInfo;
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
@@ -39,7 +39,7 @@ public class StatusResource
     @Inject
     public StatusResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, LocalMemoryManager memoryManager)
     {
-        this.nodeId = requireNonNull(nodeInfo, "nodeInfo is null").getNodeId();
+        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
@@ -50,6 +50,14 @@ public class StatusResource
     @Produces(APPLICATION_JSON)
     public NodeStatus getStatus()
     {
-        return new NodeStatus(nodeId, version, environment, coordinator, nanosSince(startTime), memoryManager.getInfo());
+        return new NodeStatus(
+                nodeInfo.getNodeId(),
+                version,
+                environment,
+                coordinator,
+                nanosSince(startTime),
+                nodeInfo.getInternalAddress(),
+                nodeInfo.getExternalAddress(),
+                memoryManager.getInfo());
     }
 }

@@ -59,7 +59,7 @@ public class ServerInfoResource
 
     @GET
     @Produces(APPLICATION_JSON)
-    public ServerInfo getServerInfo()
+    public ServerInfo getInfo()
     {
         return new ServerInfo(version, environment, coordinator, Optional.of(nanosSince(startTime)));
     }

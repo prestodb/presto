@@ -138,6 +138,10 @@ pre {
     border-top-color: #dedede;
 }
 
+.h4-hr {
+    margin: 0 0 10px 0;
+}
+
 .wrap-text {
     word-break: break-all;
 }
@@ -749,4 +753,32 @@ g .operator-stats:hover {
 .edge-class {
     stroke-width: 5px;
     fill: #fff;
+}
+
+/** ============== **/
+/**   Worker Page  **/
+/** ============== **/
+
+.query-memory-list-item {
+    border-bottom: 1px solid #383838;
+}
+
+.query-memory-list-header {
+    font-size: 13px;
+}
+
+.pool-memory {
+    background-color: #015b75;
+    padding: 4px;
+    font-size: 75%;
+    width: 100%;
+}
+
+.memory-progress-bar {
+    padding: 4px 0 0;
+    min-width: 0;
+}
+
+.memory-progress-bar-info {
+    background-color: #4d4d4d;
 }

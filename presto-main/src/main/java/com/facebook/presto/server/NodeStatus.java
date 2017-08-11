@@ -28,6 +28,8 @@ public class NodeStatus
     private final String environment;
     private final boolean coordinator;
     private final Duration uptime;
+    private final String externalAddress;
+    private final String internalAddress;
     private final MemoryInfo memoryInfo;
 
     @JsonCreator
@@ -37,6 +39,8 @@ public class NodeStatus
             @JsonProperty("environment") String environment,
             @JsonProperty("coordinator") boolean coordinator,
             @JsonProperty("uptime") Duration uptime,
+            @JsonProperty("externalAddress") String externalAddress,
+            @JsonProperty("internalAddress") String internalAddress,
             @JsonProperty("memoryInfo") MemoryInfo memoryInfo)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -44,6 +48,8 @@ public class NodeStatus
         this.environment = requireNonNull(environment, "environment is null");
         this.coordinator = coordinator;
         this.uptime = requireNonNull(uptime, "uptime is null");
+        this.externalAddress = requireNonNull(externalAddress, "externalAddress is null");
+        this.internalAddress = requireNonNull(internalAddress, "internalAddress is null");
         this.memoryInfo = requireNonNull(memoryInfo, "memoryInfo is null");
     }
 
@@ -75,6 +81,18 @@ public class NodeStatus
     public Duration getUptime()
     {
         return uptime;
+    }
+
+    @JsonProperty
+    public String getExternalAddress()
+    {
+        return externalAddress;
+    }
+
+    @JsonProperty
+    public String getInternalAddress()
+    {
+        return internalAddress;
     }
 
     @JsonProperty
