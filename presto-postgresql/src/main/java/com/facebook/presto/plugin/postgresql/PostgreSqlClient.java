@@ -76,6 +76,6 @@ public class PostgreSqlClient
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, escape),
                 escapeNamePattern(tableName, escape),
-                new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW"});
+                new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE"});
     }
 }

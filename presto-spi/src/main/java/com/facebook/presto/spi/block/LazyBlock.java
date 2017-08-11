@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -164,24 +165,32 @@ public class LazyBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         assureLoaded();
         return block.getSizeInBytes();
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
         assureLoaded();
         return block.getRegionSizeInBytes(position, length);
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         assureLoaded();
         return INSTANCE_SIZE + block.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        assureLoaded();
+        block.retainedBytesForEachPart(consumer);
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -231,6 +240,11 @@ public class LazyBlock
             throw new IllegalStateException("block already set");
         }
         this.block = requireNonNull(block, "block is null");
+    }
+
+    public boolean isLoaded()
+    {
+        return block != null;
     }
 
     @Override

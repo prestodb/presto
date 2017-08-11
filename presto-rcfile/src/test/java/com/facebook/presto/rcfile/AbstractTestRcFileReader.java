@@ -178,8 +178,8 @@ public abstract class AbstractTestRcFileReader
         tester.testRoundTrip(
                 REAL,
                 doubleSequence(-500.12f, 1.0f, 3_000).stream()
-                    .map(Double::floatValue)
-                    .collect(toList()));
+                        .map(Double::floatValue)
+                        .collect(toList()));
     }
 
     @Test

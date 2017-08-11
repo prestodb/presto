@@ -40,13 +40,13 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
@@ -65,7 +65,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
@@ -73,6 +73,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
@@ -92,6 +94,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
@@ -230,6 +233,87 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByWithSubquerySelectExpression()
+            throws Exception
+    {
+        analyze("SELECT (SELECT t1.a) FROM t1 GROUP BY a");
+        analyze("SELECT (SELECT a) FROM t1 GROUP BY t1.a");
+
+        // u.a is not GROUP-ed BY and it is used in select Subquery expression
+        analyze("SELECT (SELECT u.a FROM (values 1) u(a)) " +
+                "FROM t1 u GROUP BY b");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:16: Subquery uses 'u.a' which must appear in GROUP BY clause",
+                "SELECT (SELECT u.a from (values 1) x(a)) FROM t1 u GROUP BY b");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:16: Subquery uses 'a' which must appear in GROUP BY clause",
+                "SELECT (SELECT a+2) FROM t1 GROUP BY a+1");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:36: Subquery uses 'u.a' which must appear in GROUP BY clause",
+                "SELECT (SELECT 1 FROM t1 WHERE a = u.a) FROM t1 u GROUP BY b");
+
+        // (t1.)a is not part of GROUP BY
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT (SELECT a as a) FROM t1 GROUP BY b");
+
+        // u.a is not GROUP-ed BY but select Subquery expression is using a different (shadowing) u.a
+        analyze("SELECT (SELECT 1 FROM t1 u WHERE a = u.a) FROM t1 u GROUP BY b");
+    }
+
+    @Test
+    public void testGroupByWithExistsSelectExpression()
+            throws Exception
+    {
+        analyze("SELECT EXISTS(SELECT t1.a) FROM t1 GROUP BY a");
+        analyze("SELECT EXISTS(SELECT a) FROM t1 GROUP BY t1.a");
+
+        // u.a is not GROUP-ed BY and it is used in select Subquery expression
+        analyze("SELECT EXISTS(SELECT u.a FROM (values 1) u(a)) " +
+                "FROM t1 u GROUP BY b");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:22: Subquery uses 'u.a' which must appear in GROUP BY clause",
+                "SELECT EXISTS(SELECT u.a from (values 1) x(a)) FROM t1 u GROUP BY b");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:22: Subquery uses 'a' which must appear in GROUP BY clause",
+                "SELECT EXISTS(SELECT a+2) FROM t1 GROUP BY a+1");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:42: Subquery uses 'u.a' which must appear in GROUP BY clause",
+                "SELECT EXISTS(SELECT 1 FROM t1 WHERE a = u.a) FROM t1 u GROUP BY b");
+
+        // (t1.)a is not part of GROUP BY
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT EXISTS(SELECT a as a) FROM t1 GROUP BY b");
+
+        // u.a is not GROUP-ed BY but select Subquery expression is using a different (shadowing) u.a
+        analyze("SELECT EXISTS(SELECT 1 FROM t1 u WHERE a = u.a) FROM t1 u GROUP BY b");
+    }
+
+    @Test
+    public void testGroupByWithSubquerySelectExpressionWithDereferenceExpression()
+    {
+        analyze("SELECT (SELECT t.a.someField) " +
+                "FROM (VALUES ROW(CAST(ROW(1) AS ROW(someField BIGINT)), 2)) t(a, b) " +
+                "GROUP BY a");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:16: Subquery uses 't.a' which must appear in GROUP BY clause",
+                "SELECT (SELECT t.a.someField) " +
+                        "FROM (VALUES ROW(CAST(ROW(1) AS ROW(someField BIGINT)), 2)) t(a, b) " +
+                        "GROUP BY b");
+    }
+
+    @Test
     public void testOrderByInvalidOrdinal()
             throws Exception
     {
@@ -257,18 +341,58 @@ public class TestAnalyzer
     public void testAggregationsNotAllowed()
             throws Exception
     {
-        assertFails(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, "SELECT * FROM t1 WHERE sum(a) > 1");
-        assertFails(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, "SELECT * FROM t1 GROUP BY sum(a)");
-        assertFails(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, "SELECT * FROM t1 JOIN t2 ON sum(t1.a) = t2.a");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 WHERE sum(a) > 1");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 GROUP BY sum(a)");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 JOIN t2 ON sum(t1.a) = t2.a");
     }
 
     @Test
     public void testWindowsNotAllowed()
             throws Exception
     {
-        assertFails(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, "SELECT * FROM t1 WHERE foo() over () > 1");
-        assertFails(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, "SELECT * FROM t1 GROUP BY rank() over ()");
-        assertFails(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, "SELECT * FROM t1 JOIN t2 ON sum(t1.a) over () = t2.a");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 WHERE foo() over () > 1");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 GROUP BY rank() over ()");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 JOIN t2 ON sum(t1.a) over () = t2.a");
+    }
+
+    @Test
+    public void testGrouping()
+            throws Exception
+    {
+        analyze("SELECT a, b, sum(c), grouping(a, b) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))");
+        analyze("SELECT grouping(t1.a) FROM t1 GROUP BY a");
+        analyze("SELECT grouping(b) FROM t1 GROUP BY t1.b");
+        analyze("SELECT grouping(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a) FROM t1 GROUP BY a");
+    }
+
+    @Test
+    public void testGroupingNotAllowed()
+            throws Exception
+    {
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT a, b, sum(c) FROM t1 WHERE grouping(a, b) GROUP BY GROUPING SETS ((a), (a, b))");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT a, b, sum(c) FROM t1 GROUP BY grouping(a, b)");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT t1.a, t1.b FROM t1 JOIN t2 ON grouping(t1.a, t1.b) > t2.a");
+
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, "SELECT grouping(a) FROM t1");
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, "SELECT * FROM t1 ORDER BY grouping(a)");
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, "SELECT grouping(a) FROM t1 GROUP BY b");
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, "SELECT grouping(a.field) FROM (VALUES ROW(CAST(ROW(1) AS ROW(field BIGINT)))) t(a) GROUP BY a.field");
+
+        assertFails(REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING, "SELECT a FROM t1 GROUP BY a ORDER BY grouping(a)");
+    }
+
+    @Test
+    public void testGroupingTooManyArguments()
+            throws Exception
+    {
+        String grouping = "GROUPING(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a," +
+                "a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a," +
+                "a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a," +
+                "a, a)";
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, String.format("SELECT a, b, %s + 1 FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, String.format("SELECT a, b, %s as g FROM t1 GROUP BY a, b HAVING g > 0", grouping));
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, String.format("SELECT a, b, rank() OVER (PARTITION BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, String.format("SELECT a, b, rank() OVER (PARTITION BY a ORDER BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
     }
 
     @Test
@@ -389,6 +513,41 @@ public class TestAnalyzer
     {
         // TODO: validate output
         analyze("SELECT t1.* FROM t1 ORDER BY a");
+    }
+
+    @Test
+    public void testOrderByWithGroupByAndSubquerySelectExpression()
+            throws Exception
+    {
+        analyze("SELECT a FROM t1 GROUP BY a ORDER BY (SELECT a)");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:46: Subquery uses 'b' which must appear in GROUP BY clause",
+                "SELECT a FROM t1 GROUP BY a ORDER BY (SELECT b)");
+
+        analyze("SELECT a AS b FROM t1 GROUP BY t1.a ORDER BY (SELECT b)");
+
+        assertFails(
+                REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION,
+                "line 2:22: Invalid reference to output projection attribute from ORDER BY aggregation",
+                "SELECT a AS b FROM t1 GROUP BY t1.a \n" +
+                        "ORDER BY MAX((SELECT b))");
+
+        analyze("SELECT a FROM t1 GROUP BY a ORDER BY MAX((SELECT x FROM (VALUES 4) t(x)))");
+
+        analyze("SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
+                "FROM (VALUES (1, 2)) t(a, b)\n" +
+                "GROUP BY b\n" +
+                "ORDER BY (SELECT x.someField)");
+
+        assertFails(
+                REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION,
+                "line 4:22: Invalid reference to output projection attribute from ORDER BY aggregation",
+                "SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
+                        "FROM (VALUES (1, 2)) t(a, b)\n" +
+                        "GROUP BY b\n" +
+                        "ORDER BY MAX((SELECT x.someField))");
     }
 
     @Test
@@ -844,6 +1003,14 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupingWithWrongColumnsAndNoGroupBy()
+            throws Exception
+    {
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, "SELECT a, SUM(b), GROUPING(a, b, c, d) FROM t1 GROUP BY GROUPING SETS ((a, b), (c))");
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, "SELECT a, SUM(b), GROUPING(a, b) FROM t1");
+    }
+
+    @Test
     public void testMismatchedUnionQueries()
             throws Exception
     {
@@ -893,9 +1060,19 @@ public class TestAnalyzer
     public void testCreateTableAsColumns()
             throws Exception
     {
+        // TODO: validate output
+        analyze("CREATE TABLE test(a) AS SELECT 123");
+        analyze("CREATE TABLE test(a, b) AS SELECT 1, 2");
+        analyze("CREATE TABLE test(a) AS (VALUES 1)");
+
         assertFails(COLUMN_NAME_NOT_SPECIFIED, "CREATE TABLE test AS SELECT 123");
         assertFails(DUPLICATE_COLUMN_NAME, "CREATE TABLE test AS SELECT 1 a, 2 a");
         assertFails(COLUMN_TYPE_UNKNOWN, "CREATE TABLE test AS SELECT null a");
+        assertFails(MISMATCHED_COLUMN_ALIASES, 1, 19, "CREATE TABLE test(x) AS SELECT 1, 2");
+        assertFails(MISMATCHED_COLUMN_ALIASES, 1, 19, "CREATE TABLE test(x, y) AS SELECT 1");
+        assertFails(MISMATCHED_COLUMN_ALIASES, 1, 19, "CREATE TABLE test(x, y) AS (VALUES 1)");
+        assertFails(DUPLICATE_COLUMN_NAME, 1, 24, "CREATE TABLE test(abc, AbC) AS SELECT 1, 2");
+        assertFails(COLUMN_TYPE_UNKNOWN, 1, 1, "CREATE TABLE test(x) AS SELECT null");
     }
 
     @Test
@@ -1059,6 +1236,10 @@ public class TestAnalyzer
                 MUST_BE_AGGREGATE_OR_GROUP_BY,
                 ".* must be an aggregate expression or appear in GROUP BY clause",
                 "SELECT apply(1, y -> x + y) FROM (VALUES (1,2)) t(x, y) GROUP BY x+y");
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                ".* must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT apply(1, x -> y + transform(array[1], z -> x)[1]) FROM (VALUES (1, 2)) t(x,y) GROUP BY y + transform(array[1], z -> x)[1]");
     }
 
     @Test
@@ -1074,23 +1255,27 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testLambdaWithAggregation()
+    public void testLambdaWithAggregationAndGrouping()
             throws Exception
     {
         assertFails(
-                CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS,
-                ".* Lambda expression cannot contain aggregations or window functions: .*",
+                CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING,
+                ".* Lambda expression cannot contain aggregations, window functions or grouping operations: .*",
                 "SELECT transform(ARRAY[1], y -> max(x)) FROM (VALUES 10) t(x)");
 
         // use of aggregation/window function on lambda variable
         assertFails(
-                CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS,
-                ".* Lambda expression cannot contain aggregations or window functions: .*",
+                CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING,
+                ".* Lambda expression cannot contain aggregations, window functions or grouping operations: .*",
                 "SELECT apply(1, x -> max(x)) FROM (VALUES (1,2)) t(x,y) GROUP BY y");
         assertFails(
-                CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS,
-                ".* Lambda expression cannot contain aggregations or window functions: .*",
+                CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING,
+                ".* Lambda expression cannot contain aggregations, window functions or grouping operations: .*",
                 "SELECT apply(CAST(ROW(1) AS ROW(someField BIGINT)), x -> max(x.someField)) FROM (VALUES (1,2)) t(x,y) GROUP BY y");
+        assertFails(
+                CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING,
+                ".* Lambda expression cannot contain aggregations, window functions or grouping operations: .*",
+                "SELECT apply(1, x -> grouping(x)) FROM (VALUES (1, 2)) t(x, y) GROUP BY y");
     }
 
     @Test
@@ -1104,6 +1289,70 @@ public class TestAnalyzer
                 NOT_SUPPORTED,
                 ".* Lambda expression cannot contain subqueries",
                 "SELECT apply(1, i -> (SELECT i)) FROM (VALUES 1) t(x)");
+
+        // GROUP BY column captured in lambda
+        analyze(
+                "SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
+
+        // non-GROUP BY column captured in lambda
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:34: Subquery uses 'a' which must appear in GROUP BY clause",
+                "SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
+                        "FROM t1 u GROUP BY b");
+        // TODO #7784
+//        assertFails(
+//                MUST_BE_AGGREGATE_OR_GROUP_BY,
+//                "line 1:34: Subquery uses '\"u.a\"' which must appear in GROUP BY clause",
+//                "SELECT (SELECT apply(0, x -> x + u.a) from (values 1) x(a)) " +
+//                        "FROM t1 u GROUP BY b");
+
+        // name shadowing
+        analyze("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
+        analyze("SELECT (SELECT apply(0, a -> a + a)) FROM t1 u GROUP BY b");
+    }
+
+    @Test
+    public void testLambdaWithSubqueryInOrderBy()
+    {
+        analyze("SELECT a FROM t1 ORDER BY (SELECT apply(0, x -> x + a))");
+        analyze("SELECT a AS output_column FROM t1 ORDER BY (SELECT apply(0, x -> x + output_column))");
+        analyze("SELECT count(*) FROM t1 GROUP BY a ORDER BY (SELECT apply(0, x -> x + a))");
+        analyze("SELECT count(*) AS output_column FROM t1 GROUP BY a ORDER BY (SELECT apply(0, x -> x + output_column))");
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:71: Subquery uses 'b' which must appear in GROUP BY clause",
+                "SELECT count(*) FROM t1 GROUP BY a ORDER BY (SELECT apply(0, x -> x + b))");
+    }
+
+    @Test
+    public void testLambdaWithInvalidParameterCount()
+    {
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:17: Expected a lambda that takes 1 argument\\(s\\) but got 2", "SELECT apply(5, (x, y) -> 6)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:17: Expected a lambda that takes 1 argument\\(s\\) but got 3", "SELECT apply(5, (x, y, z) -> 6)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:21: Expected a lambda that takes 1 argument\\(s\\) but got 2", "SELECT TRY(apply(5, (x, y) -> x + 1) / 0)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:21: Expected a lambda that takes 1 argument\\(s\\) but got 3", "SELECT TRY(apply(5, (x, y, z) -> x + 1) / 0)");
+
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:29: Expected a lambda that takes 1 argument\\(s\\) but got 2", "SELECT filter(ARRAY [5, 6], (x, y) -> x = 5)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:29: Expected a lambda that takes 1 argument\\(s\\) but got 3", "SELECT filter(ARRAY [5, 6], (x, y, z) -> x = 5)");
+
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:52: Expected a lambda that takes 2 argument\\(s\\) but got 1", "SELECT map_filter(map(ARRAY [5, 6], ARRAY [5, 6]), (x) -> x = 1)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:52: Expected a lambda that takes 2 argument\\(s\\) but got 3", "SELECT map_filter(map(ARRAY [5, 6], ARRAY [5, 6]), (x, y, z) -> x = y + z)");
+
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:33: Expected a lambda that takes 2 argument\\(s\\) but got 1", "SELECT reduce(ARRAY [5, 20], 0, (s) -> s, s -> s)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:33: Expected a lambda that takes 2 argument\\(s\\) but got 3", "SELECT reduce(ARRAY [5, 20], 0, (s, x, z) -> s + x, s -> s + z)");
+
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:32: Expected a lambda that takes 1 argument\\(s\\) but got 2", "SELECT transform(ARRAY [5, 6], (x, y) -> x + y)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:32: Expected a lambda that takes 1 argument\\(s\\) but got 3", "SELECT transform(ARRAY [5, 6], (x, y, z) -> x + y + z)");
+
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:49: Expected a lambda that takes 2 argument\\(s\\) but got 1", "SELECT transform_keys(map(ARRAY[1], ARRAY [2]), k -> k)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:52: Expected a lambda that takes 2 argument\\(s\\) but got 3", "SELECT transform_keys(MAP(ARRAY['a'], ARRAY['b']), (k, v, x) -> k + 1)");
+
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:51: Expected a lambda that takes 2 argument\\(s\\) but got 1", "SELECT transform_values(map(ARRAY[1], ARRAY [2]), k -> k)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:51: Expected a lambda that takes 2 argument\\(s\\) but got 3", "SELECT transform_values(map(ARRAY[1], ARRAY [2]), (k, v, x) -> k + 1)");
+
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:39: Expected a lambda that takes 2 argument\\(s\\) but got 1", "SELECT zip_with(ARRAY[1], ARRAY['a'], x -> x)");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:39: Expected a lambda that takes 2 argument\\(s\\) but got 3", "SELECT zip_with(ARRAY[1], ARRAY['a'], (x, y, z) -> (x, y, z))");
     }
 
     @Test
@@ -1189,6 +1438,26 @@ public class TestAnalyzer
         // HLL is neither orderable nor comparable
         assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS HyperLogLog) < ALL (VALUES cast(NULL AS HyperLogLog))");
         assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS HyperLogLog) = ANY (VALUES cast(NULL AS HyperLogLog))");
+    }
+
+    @Test
+    public void testJoinUnnest()
+            throws Exception
+    {
+        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) CROSS JOIN UNNEST(x)");
+        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN UNNEST(x) ON true");
+        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true");
+        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true");
+    }
+
+    @Test
+    public void testJoinLateral()
+            throws Exception
+    {
+        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) CROSS JOIN LATERAL(VALUES x)");
+        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN LATERAL(VALUES x) ON true");
+        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN LATERAL(VALUES x) ON true");
+        analyze("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true");
     }
 
     @BeforeMethod(alwaysRun = true)

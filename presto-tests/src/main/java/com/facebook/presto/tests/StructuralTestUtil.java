@@ -13,24 +13,39 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class StructuralTestUtil
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
+    static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
+
     private StructuralTestUtil() {}
 
     public static boolean arrayBlocksEqual(Type elementType, Block block1, Block block2)
@@ -79,23 +94,29 @@ public final class StructuralTestUtil
 
     public static Block mapBlockOf(Type keyType, Type valueType, Object key, Object value)
     {
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 1024);
-        appendToBlockBuilder(keyType, key, blockBuilder);
-        appendToBlockBuilder(valueType, value, blockBuilder);
-        return blockBuilder.build();
+        MapType mapType = mapType(keyType, valueType);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 10);
+        BlockBuilder singleMapBlockWriter = blockBuilder.beginBlockEntry();
+        appendToBlockBuilder(keyType, key, singleMapBlockWriter);
+        appendToBlockBuilder(valueType, value, singleMapBlockWriter);
+        blockBuilder.closeEntry();
+        return mapType.getObject(blockBuilder, 0);
     }
 
     public static Block mapBlockOf(Type keyType, Type valueType, Object[] keys, Object[] values)
     {
         checkArgument(keys.length == values.length, "keys/values must have the same length");
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 1024);
+        MapType mapType = mapType(keyType, valueType);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 10);
+        BlockBuilder singleMapBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < keys.length; i++) {
             Object key = keys[i];
             Object value = values[i];
-            appendToBlockBuilder(keyType, key, blockBuilder);
-            appendToBlockBuilder(valueType, value, blockBuilder);
+            appendToBlockBuilder(keyType, key, singleMapBlockWriter);
+            appendToBlockBuilder(valueType, value, singleMapBlockWriter);
         }
-        return blockBuilder.build();
+        blockBuilder.closeEntry();
+        return mapType.getObject(blockBuilder, 0);
     }
 
     public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
@@ -129,5 +150,12 @@ public final class StructuralTestUtil
             Slice sliceDecimal = Decimals.encodeUnscaledValue(decimal.unscaledValue());
             return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
         }
+    }
+
+    public static MapType mapType(Type keyType, Type valueType)
+    {
+        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(valueType.getTypeSignature())));
     }
 }

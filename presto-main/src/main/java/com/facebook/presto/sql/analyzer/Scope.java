@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +39,7 @@ public class Scope
 {
     private final Optional<Scope> parent;
     private final boolean queryBoundary;
+    private final RelationId relationId;
     private final RelationType relation;
     private final Map<String, WithQuery> namedQueries;
 
@@ -54,10 +56,12 @@ public class Scope
     private Scope(
             Optional<Scope> parent,
             boolean queryBoundary,
+            RelationId relationId,
             RelationType relation,
             Map<String, WithQuery> namedQueries)
     {
         this.parent = requireNonNull(parent, "parent is null");
+        this.relationId = requireNonNull(relationId, "relationId is null");
         this.queryBoundary = queryBoundary;
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
@@ -85,6 +89,11 @@ public class Scope
         return Optional.empty();
     }
 
+    public RelationId getRelationId()
+    {
+        return relationId;
+    }
+
     public RelationType getRelationType()
     {
         return relation;
@@ -108,7 +117,7 @@ public class Scope
     {
         QualifiedName name = null;
         if (expression instanceof Identifier) {
-            name = QualifiedName.of(((Identifier) expression).getName());
+            name = QualifiedName.of(((Identifier) expression).getValue());
         }
         else if (expression instanceof DereferenceExpression) {
             name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
@@ -185,15 +194,25 @@ public class Scope
         return Optional.empty();
     }
 
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(relationId)
+                .toString();
+    }
+
     public static final class Builder
     {
+        private RelationId relationId = RelationId.anonymous();
         private RelationType relationType = new RelationType();
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
         private boolean queryBoundary;
 
-        public Builder withRelationType(RelationType relationType)
+        public Builder withRelationType(RelationId relationId, RelationType relationType)
         {
+            this.relationId = requireNonNull(relationId, "relationId is null");
             this.relationType = requireNonNull(relationType, "relationType is null");
             return this;
         }
@@ -227,7 +246,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, queryBoundary, relationType, namedQueries);
+            return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
         }
     }
 }

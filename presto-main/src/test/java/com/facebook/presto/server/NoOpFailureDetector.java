@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.failureDetector.FailureDetector;
+import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.discovery.client.ServiceDescriptor;
 
@@ -26,5 +27,11 @@ public class NoOpFailureDetector
     public Set<ServiceDescriptor> getFailed()
     {
         return ImmutableSet.of();
+    }
+
+    @Override
+    public State getState(HostAddress hostAddress)
+    {
+        return State.UNKNOWN;
     }
 }

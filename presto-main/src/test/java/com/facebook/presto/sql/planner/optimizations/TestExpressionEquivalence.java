@@ -29,7 +29,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.planner.DependencyExtractor.extractUnique;
+import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertFalse;

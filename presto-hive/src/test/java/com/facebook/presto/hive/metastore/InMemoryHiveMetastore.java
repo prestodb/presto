@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -51,11 +52,11 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.TestingHiveMetastore.deleteDirectory;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -78,6 +79,10 @@ public class InMemoryHiveMetastore
     private final Map<SchemaTableName, Table> views = new HashMap<>();
     @GuardedBy("this")
     private final Map<PartitionName, Partition> partitions = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<SchemaTableName, Map<String, ColumnStatisticsObj>> columnStatistics = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<PartitionName, Map<String, ColumnStatisticsObj>> partitionColumnStatistics = new HashMap<>();
     @GuardedBy("this")
     private final Map<String, Set<String>> roleGrants = new HashMap<>();
     @GuardedBy("this")
@@ -230,7 +235,7 @@ public class InMemoryHiveMetastore
                 if (location != null) {
                     File directory = new File(new Path(location).toUri());
                     checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
-                    deleteRecursively(directory);
+                    deleteDirectory(directory);
                 }
             }
         }
@@ -429,6 +434,58 @@ public class InMemoryHiveMetastore
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         return Optional.ofNullable(relations.get(schemaTableName));
+    }
+
+    @Override
+    public synchronized Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        if (!columnStatistics.containsKey(schemaTableName)) {
+            return Optional.empty();
+        }
+
+        Map<String, ColumnStatisticsObj> columnStatisticsMap = columnStatistics.get(schemaTableName);
+        return Optional.of(columnNames.stream()
+                .filter(columnStatisticsMap::containsKey)
+                .map(columnStatisticsMap::get)
+                .collect(toImmutableSet()));
+    }
+
+    public synchronized void setColumnStatistics(String databaseName, String tableName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    {
+        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        columnStatistics.computeIfAbsent(schemaTableName, key -> new HashMap<>()).put(columnName, columnStatisticsObj);
+    }
+
+    @Override
+    public synchronized Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        ImmutableMap.Builder<String, Set<ColumnStatisticsObj>> result = ImmutableMap.builder();
+        for (String partitionName : partitionNames) {
+            PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
+            if (!partitionColumnStatistics.containsKey(partitionKey)) {
+                continue;
+            }
+
+            Map<String, ColumnStatisticsObj> columnStatistics = partitionColumnStatistics.get(partitionKey);
+            result.put(
+                    partitionName,
+                    columnNames.stream()
+                            .filter(columnStatistics::containsKey)
+                            .map(columnStatistics::get)
+                            .collect(toImmutableSet()));
+        }
+        return Optional.of(result.build());
+    }
+
+    public synchronized void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    {
+        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
+        PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
+        partitionColumnStatistics
+                .computeIfAbsent(partitionKey, key -> new HashMap<>())
+                .put(columnName, columnStatisticsObj);
     }
 
     @Override

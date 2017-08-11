@@ -13,34 +13,37 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
+
 public class MergeLimits
-    implements Rule
+        implements Rule<LimitNode>
 {
+    private static final Capture<LimitNode> CHILD = newCapture();
+
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .with(source().matching(limit().capturedAs(CHILD)));
+
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Pattern<LimitNode> getPattern()
     {
-        if (!(node instanceof LimitNode)) {
-            return Optional.empty();
-        }
+        return PATTERN;
+    }
 
-        LimitNode parent = (LimitNode) node;
-
-        PlanNode source = lookup.resolve(parent.getSource());
-        if (!(source instanceof LimitNode)) {
-            return Optional.empty();
-        }
-
-        LimitNode child = (LimitNode) source;
+    @Override
+    public Optional<PlanNode> apply(LimitNode parent, Captures captures, Context context)
+    {
+        LimitNode child = captures.get(CHILD);
 
         return Optional.of(
                 new LimitNode(

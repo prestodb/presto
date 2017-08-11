@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class PushTableWriteThroughUnion
         implements PlanOptimizer
 {
@@ -99,8 +100,8 @@ public class PushTableWriteThroughUnion
                         unionOriginalSource,
                         node.getTarget(),
                         node.getColumns().stream()
-                            .map(column -> unionNode.getSymbolMapping().get(column).get(index))
-                            .collect(Collectors.toList()),
+                                .map(column -> unionNode.getSymbolMapping().get(column).get(index))
+                                .collect(Collectors.toList()),
                         node.getColumnNames(),
                         newSymbols.build(),
                         node.getPartitioningScheme()));

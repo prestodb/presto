@@ -52,8 +52,8 @@ public class RenameColumnTask
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
 
-        String source = statement.getSource().toLowerCase(ENGLISH);
-        String target = statement.getTarget().toLowerCase(ENGLISH);
+        String source = statement.getSource().getValue().toLowerCase(ENGLISH);
+        String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
 
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);

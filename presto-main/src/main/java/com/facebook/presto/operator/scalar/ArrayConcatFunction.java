@@ -98,6 +98,7 @@ public final class ArrayConcatFunction
                 false,
                 nCopies(arity, false),
                 nCopies(arity, false),
+                nCopies(arity, Optional.empty()),
                 methodHandleAndConstructor.getMethodHandle(),
                 Optional.of(methodHandleAndConstructor.getConstructor()),
                 isDeterministic());

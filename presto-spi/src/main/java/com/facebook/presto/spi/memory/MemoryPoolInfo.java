@@ -26,15 +26,24 @@ import static java.util.Collections.unmodifiableMap;
 public final class MemoryPoolInfo
 {
     private final long maxBytes;
-    private final long freeBytes;
+    private final long reservedBytes;
+    private final long reservedRevocableBytes;
     private final Map<QueryId, Long> queryMemoryReservations;
+    private final Map<QueryId, Long> queryMemoryRevocableReservations;
 
     @JsonCreator
-    public MemoryPoolInfo(@JsonProperty("maxBytes") long maxBytes, @JsonProperty("freeBytes") long freeBytes, @JsonProperty("queryMemoryReservations") Map<QueryId, Long> queryMemoryReservations)
+    public MemoryPoolInfo(
+            @JsonProperty("maxBytes") long maxBytes,
+            @JsonProperty("reservedBytes") long reservedBytes,
+            @JsonProperty("reservedRevocableBytes") long reservedRevocableBytes,
+            @JsonProperty("queryMemoryReservations") Map<QueryId, Long> queryMemoryReservations,
+            @JsonProperty("queryMemoryRevocableReservations") Map<QueryId, Long> queryMemoryRevocableReservations)
     {
         this.maxBytes = maxBytes;
-        this.freeBytes = freeBytes;
+        this.reservedBytes = reservedBytes;
+        this.reservedRevocableBytes = reservedRevocableBytes;
         this.queryMemoryReservations = unmodifiableMap(new HashMap<>(queryMemoryReservations));
+        this.queryMemoryRevocableReservations = unmodifiableMap(new HashMap<>(queryMemoryReservations));
     }
 
     @JsonProperty
@@ -46,7 +55,19 @@ public final class MemoryPoolInfo
     @JsonProperty
     public long getFreeBytes()
     {
-        return freeBytes;
+        return maxBytes - reservedBytes - reservedRevocableBytes;
+    }
+
+    @JsonProperty
+    public long getReservedBytes()
+    {
+        return reservedBytes;
+    }
+
+    @JsonProperty
+    public long getReservedRevocableBytes()
+    {
+        return reservedRevocableBytes;
     }
 
     @JsonProperty
@@ -55,9 +76,15 @@ public final class MemoryPoolInfo
         return queryMemoryReservations;
     }
 
+    @JsonProperty
+    public Map<QueryId, Long> getQueryMemoryRevocableReservations()
+    {
+        return queryMemoryRevocableReservations;
+    }
+
     @Override
     public String toString()
     {
-        return format("maxBytes=%s,freeBytes=%s", maxBytes, freeBytes);
+        return format("maxBytes=%s,reservedBytes=%s,reserveRevocableBytes=%s", maxBytes, reservedBytes, reservedRevocableBytes);
     }
 }

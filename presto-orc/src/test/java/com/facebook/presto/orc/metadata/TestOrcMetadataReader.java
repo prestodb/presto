@@ -36,7 +36,7 @@ public class TestOrcMetadataReader
         Slice minSlice = Slices.utf8Slice("");
 
         for (int i = startCodePoint; i < endCodePoint; i++) {
-            String value = new String(new int[] { i }, 0, 1);
+            String value = new String(new int[] {i}, 0, 1);
             if (firstSurrogateCharacter(value) == -1) {
                 assertEquals(getMinSlice(value), Slices.utf8Slice(value));
             }
@@ -48,7 +48,7 @@ public class TestOrcMetadataReader
         // Test with prefix
         String prefix = "apple";
         for (int i = startCodePoint; i < endCodePoint; i++) {
-            String value = prefix + new String(new int[] { i }, 0, 1);
+            String value = prefix + new String(new int[] {i}, 0, 1);
             if (firstSurrogateCharacter(value) == -1) {
                 assertEquals(getMinSlice(value), Slices.utf8Slice(value));
             }
@@ -64,10 +64,10 @@ public class TestOrcMetadataReader
     {
         int startCodePoint = MIN_CODE_POINT;
         int endCodePoint = MAX_CODE_POINT;
-        Slice maxByte = Slices.wrappedBuffer(new byte[] { (byte) 0xFF });
+        Slice maxByte = Slices.wrappedBuffer(new byte[] {(byte) 0xFF});
 
         for (int i = startCodePoint; i < endCodePoint; i++) {
-            String value = new String(new int[] { i }, 0, 1);
+            String value = new String(new int[] {i}, 0, 1);
             if (firstSurrogateCharacter(value) == -1) {
                 assertEquals(getMaxSlice(value), Slices.utf8Slice(value));
             }
@@ -80,7 +80,7 @@ public class TestOrcMetadataReader
         String prefix = "apple";
         Slice maxSlice = concatSlices(Slices.utf8Slice(prefix), maxByte);
         for (int i = startCodePoint; i < endCodePoint; i++) {
-            String value = prefix + new String(new int[] { i }, 0, 1);
+            String value = prefix + new String(new int[] {i}, 0, 1);
             if (firstSurrogateCharacter(value) == -1) {
                 assertEquals(getMaxSlice(value), Slices.utf8Slice(value));
             }

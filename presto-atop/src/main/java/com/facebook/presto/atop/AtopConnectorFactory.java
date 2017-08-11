@@ -70,18 +70,16 @@ public class AtopConnectorFactory
                             context.getNodeManager().getEnvironment(),
                             connectorId),
                     installModuleIf(
-                        AtopConnectorConfig.class,
+                            AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),
-                            new AllowAllAccessControlModule()
-                    ),
+                            new AllowAllAccessControlModule()),
                     installModuleIf(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_FILE),
                             binder -> {
                                 binder.install(new FileBasedAccessControlModule());
                                 binder.install(new JsonModule());
-                            })
-                    );
+                            }));
 
             Injector injector = app
                     .strictConfig()

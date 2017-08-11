@@ -23,12 +23,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -48,6 +49,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -61,6 +63,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -77,10 +80,10 @@ public class BenchmarkTransformKey
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * NUM_TYPES)
-    public Object benchmark(BenchmarkData data)
+    public List<Page> benchmark(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().process(SESSION, data.getPage());
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -98,7 +101,7 @@ public class BenchmarkTransformKey
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata);
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
             Object increment;
@@ -114,7 +117,7 @@ public class BenchmarkTransformKey
                 default:
                     throw new UnsupportedOperationException();
             }
-            MapType mapType = new MapType(elementType, elementType);
+            MapType mapType = mapType(elementType, elementType);
             Signature signature = new Signature(
                     name,
                     FunctionKind.SCALAR,

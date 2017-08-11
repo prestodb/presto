@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
@@ -24,9 +23,11 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -48,8 +49,10 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -59,7 +62,6 @@ import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +70,6 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -76,7 +77,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -87,6 +87,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -94,7 +95,7 @@ class QueryPlanner
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
-    private final IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
+    private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
     private final Metadata metadata;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
@@ -103,7 +104,7 @@ class QueryPlanner
             Analysis analysis,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
-            IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap,
+            Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
             Session session)
     {
@@ -169,7 +170,10 @@ class QueryPlanner
                 List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
                 builder = project(builder, Iterables.concat(outputs, orderByAggregates));
                 outputs = toSymbolReferences(computeOutputs(builder, outputs));
-                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), orderByAggregates);
+                List<Expression> complexOrderByAggregatesToRemap = orderByAggregates.stream()
+                        .filter(expression -> !analysis.getColumnReferences().contains(NodeRef.of(expression)))
+                        .collect(toImmutableList());
+                builder = planBuilderFor(builder, analysis.getScope(node.getOrderBy().get()), complexOrderByAggregatesToRemap);
             }
 
             builder = window(builder, node.getOrderBy().get());
@@ -217,7 +221,7 @@ class QueryPlanner
 
         // create table scan
         PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols.build(), columns.build(), Optional.empty(), TupleDomain.all(), null);
-        Scope scope = Scope.builder().withRelationType(new RelationType(fields.build())).build();
+        Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build());
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
@@ -405,8 +409,9 @@ class QueryPlanner
     {
         TranslationMap translations = subPlan.copyTranslations();
 
-        Assignments assignments = Assignments.builder().putAll(coerce(uncoerced, subPlan, translations))
-                .putAll(Assignments.identity(alreadyCoerced))
+        Assignments assignments = Assignments.builder()
+                .putAll(coerce(uncoerced, subPlan, translations))
+                .putIdentities(alreadyCoerced)
                 .build();
 
         return new PlanBuilder(translations, new ProjectNode(
@@ -518,8 +523,9 @@ class QueryPlanner
         aggregationTranslations.copyMappingsFrom(groupingTranslations);
 
         // 2.d. Rewrite aggregates
-        ImmutableMap.Builder<Symbol, FunctionCall> aggregationAssignments = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
+        Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), aggregate);
@@ -533,34 +539,27 @@ class QueryPlanner
                 rewritten = ((Cast) rewritten).getExpression();
                 needPostProjectionCoercion = true;
             }
-            aggregationAssignments.put(newSymbol, (FunctionCall) rewritten);
             aggregationTranslations.put(parametersReplaced, newSymbol);
 
-            functions.put(newSymbol, analysis.getFunctionSignature(aggregate));
+            Optional<Symbol> marker = Optional.empty();
+            if (aggregate.isDistinct()) {
+                Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
+                marker = Optional.ofNullable(argumentMarkers.get(args));
+                Symbol aggregateSymbol = aggregationTranslations.get(aggregate);
+                if (!marker.isPresent()) {
+                    if (args.size() == 1) {
+                        marker = Optional.of(symbolAllocator.newSymbol(getOnlyElement(args), BOOLEAN, "distinct"));
+                    }
+                    else {
+                        marker = Optional.of(symbolAllocator.newSymbol(aggregateSymbol.getName(), BOOLEAN, "distinct"));
+                    }
+                    argumentMarkers.put(args, marker.get());
+                }
+            }
+            aggregations.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
         }
 
         // 2.e. Mark distinct rows for each aggregate that has DISTINCT
-        // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
-        Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
-        // Map from aggregate functions to marker symbols
-        Map<Symbol, Symbol> masks = new HashMap<>();
-        for (FunctionCall aggregate : Iterables.filter(analysis.getAggregates(node), FunctionCall::isDistinct)) {
-            Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
-            Symbol marker = argumentMarkers.get(args);
-            Symbol aggregateSymbol = aggregationTranslations.get(aggregate);
-            if (marker == null) {
-                if (args.size() == 1) {
-                    marker = symbolAllocator.newSymbol(getOnlyElement(args), BOOLEAN, "distinct");
-                }
-                else {
-                    marker = symbolAllocator.newSymbol(aggregateSymbol.getName(), BOOLEAN, "distinct");
-                }
-                argumentMarkers.put(args, marker);
-            }
-
-            masks.put(aggregateSymbol, marker);
-        }
-
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
             builder.addAll(groupingSymbols.stream()
@@ -584,9 +583,7 @@ class QueryPlanner
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                aggregationAssignments.build(),
-                functions.build(),
-                masks,
+                aggregations.build(),
                 groupingSymbols,
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
@@ -600,7 +597,39 @@ class QueryPlanner
         if (needPostProjectionCoercion) {
             return explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
         }
-        return subPlan;
+
+        // 4. Project and re-write all grouping functions
+        return handleGroupingOperations(subPlan, node, groupIdSymbol);
+    }
+
+    private PlanBuilder handleGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<Symbol> groupIdSymbol)
+    {
+        if (analysis.getGroupingOperations(node).isEmpty()) {
+            return subPlan;
+        }
+
+        TranslationMap newTranslations = subPlan.copyTranslations();
+
+        Assignments.Builder projections = Assignments.builder();
+        projections.putIdentities(subPlan.getRoot().getOutputSymbols());
+
+        for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
+            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, node, analysis, metadata, groupIdSymbol);
+            Type coercion = analysis.getCoercion(groupingOperation);
+            Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(groupingOperation));
+            if (coercion != null) {
+                rewritten = new Cast(
+                        rewritten,
+                        coercion.getTypeSignature().toString(),
+                        false,
+                        metadata.getTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
+            }
+            projections.put(symbol, rewritten);
+            newTranslations.addIntermediateMapping(groupingOperation, rewritten);
+            newTranslations.put(rewritten, symbol);
+        }
+
+        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), analysis.getParameters());
     }
 
     private PlanBuilder window(PlanBuilder subPlan, OrderBy node)
@@ -757,8 +786,6 @@ class QueryPlanner
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             ImmutableMap.of(),
-                            ImmutableMap.of(),
-                            ImmutableMap.of(),
                             ImmutableList.of(subPlan.getRoot().getOutputSymbols()),
                             AggregationNode.Step.SINGLE,
                             Optional.empty(),
@@ -800,7 +827,7 @@ class QueryPlanner
 
         PlanNode planNode;
         if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderBySymbols.build(), orderings, false);
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderBySymbols.build(), orderings, TopNNode.Step.SINGLE);
         }
         else {
             planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderBySymbols.build(), orderings);
@@ -840,9 +867,8 @@ class QueryPlanner
 
     private static Map<Expression, Symbol> symbolsForExpressions(PlanBuilder builder, Iterable<? extends Expression> expressions)
     {
-        Set<Expression> added = new HashSet<>();
-        return StreamSupport.stream(expressions.spliterator(), false)
-                .filter(added::add)
+        return stream(expressions)
+                .distinct()
                 .collect(toImmutableMap(expression -> expression, builder::translate));
     }
 

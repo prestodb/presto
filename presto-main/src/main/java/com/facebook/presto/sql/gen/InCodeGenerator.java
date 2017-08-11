@@ -122,7 +122,7 @@ public class InCodeGenerator
         Type type = arguments.get(0).getType();
         Class<?> javaType = type.getJavaType();
 
-        SwitchGenerationCase switchGenerationCase  = checkSwitchGenerationCase(type, values);
+        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
 
         Signature hashCodeSignature = internalOperator(HASH_CODE, BIGINT, ImmutableList.of(type));
         MethodHandle hashCodeFunction = generatorContext.getRegistry().getScalarFunctionImplementation(hashCodeSignature).getMethodHandle();

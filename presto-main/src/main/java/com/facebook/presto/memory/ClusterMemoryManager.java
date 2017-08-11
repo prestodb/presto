@@ -351,7 +351,7 @@ public class ClusterMemoryManager
             pools.remove(removed);
             if (changeListeners.containsKey(removed)) {
                 for (Consumer<MemoryPoolInfo> listener : changeListeners.get(removed)) {
-                    listenerExecutor.execute(() -> listener.accept(new MemoryPoolInfo(0, 0, ImmutableMap.of())));
+                    listenerExecutor.execute(() -> listener.accept(new MemoryPoolInfo(0, 0, 0, ImmutableMap.of(), ImmutableMap.of())));
                 }
             }
         }

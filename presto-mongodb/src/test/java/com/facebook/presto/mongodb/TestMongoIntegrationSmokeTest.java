@@ -70,7 +70,8 @@ public class TestMongoIntegrationSmokeTest
                 ", 3.14 _double" +
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
-                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp";
+                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
+                ", ObjectId('ffffffffffffffffffffffff') _objectid";
 
         assertUpdate(query, 1);
 
@@ -150,6 +151,23 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[DATE '2014-09-30'] FROM tmp_map6");
         assertUpdate("CREATE TABLE tmp_map7 AS SELECT MAP(ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'], ARRAY[TIMESTAMP '2001-08-22 03:04:05.321']) AS col", 1);
         assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
+    }
+
+    @Test
+    public void testCollectionNameContainsDots()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE \"tmp.dot1\" AS SELECT 'foo' _varchar", 1);
+        assertQuery("SELECT _varchar FROM \"tmp.dot1\"", "SELECT 'foo'");
+        assertUpdate("DROP TABLE \"tmp.dot1\"");
+    }
+
+    @Test
+    public void testObjectIds()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE tmp_objectid AS SELECT ObjectId('ffffffffffffffffffffffff') AS id", 1);
+        assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
     }
 
     private void assertOneNotNullResult(String query)

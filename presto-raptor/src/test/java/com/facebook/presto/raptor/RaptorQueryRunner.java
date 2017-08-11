@@ -126,6 +126,7 @@ public final class RaptorQueryRunner
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")
                 .setSchema(schema)
+                .setSystemProperty("enable_intermediate_aggregations", "true")
                 .build();
     }
 

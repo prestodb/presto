@@ -27,10 +27,12 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -41,6 +43,8 @@ public class HiveTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
+    public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -84,6 +88,23 @@ public class HiveTableProperties
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(Collectors.toList())),
                         value -> value),
+                new PropertyMetadata<>(
+                        ORC_BLOOM_FILTER_COLUMNS,
+                        "ORC Bloom filter index columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((Collection<?>) value).stream()
+                                .map(String.class::cast)
+                                .map(name -> name.toLowerCase(ENGLISH))
+                                .collect(toImmutableList()),
+                        value -> value),
+                doubleSessionProperty(
+                        ORC_BLOOM_FILTER_FPP,
+                        "ORC Bloom filter false positive probability",
+                        config.getOrcDefaultBloomFilterFpp(),
+                        false),
                 integerSessionProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false));
     }
 
@@ -128,5 +149,15 @@ public class HiveTableProperties
     private static List<String> getBucketedBy(Map<String, Object> tableProperties)
     {
         return (List<String>) tableProperties.get(BUCKETED_BY_PROPERTY);
+    }
+
+    public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)
+    {
+        return (List<String>) tableProperties.get(ORC_BLOOM_FILTER_COLUMNS);
+    }
+
+    public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
+    {
+        return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
     }
 }

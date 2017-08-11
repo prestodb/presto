@@ -23,10 +23,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.airlift.tpch.OrderColumn;
@@ -54,6 +53,7 @@ import org.openjdk.jmh.util.Statistics;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -62,17 +62,19 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.airlift.testing.FileUtils.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.stream.Collectors.toList;
 
 @State(Scope.Thread)
@@ -91,7 +93,6 @@ public class HiveFileFormatBenchmark
 
     @SuppressWarnings("deprecation")
     private static final HiveClientConfig CONFIG = new HiveClientConfig()
-            .setRcfileOptimizedReaderEnabled(true)
             .setParquetOptimizedReaderEnabled(true);
 
     private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG)
@@ -110,15 +111,13 @@ public class HiveFileFormatBenchmark
             "LARGE_MAP_VARCHAR_DOUBLE",
             "MAP_INT_DOUBLE",
             "LARGE_MAP_INT_DOUBLE",
-            "LARGE_ARRAY_VARCHAR",
-    })
+            "LARGE_ARRAY_VARCHAR"})
     private DataSet dataSet;
 
     @Param({
             "NONE",
             "SNAPPY",
-            "GZIP",
-    })
+            "GZIP"})
     private HiveCompressionCodec compression;
 
     @Param({
@@ -131,8 +130,7 @@ public class HiveFileFormatBenchmark
             "HIVE_RCTEXT",
             "HIVE_ORC",
             "HIVE_DWRF",
-            "HIVE_PARQUET",
-    })
+            "HIVE_PARQUET"})
     private FileFormat fileFormat;
 
     private TestData data;
@@ -164,8 +162,9 @@ public class HiveFileFormatBenchmark
 
     @TearDown
     public void tearDown()
+            throws IOException
     {
-        deleteRecursively(targetDir);
+        deleteRecursively(targetDir.toPath(), ALLOW_INSECURE);
     }
 
     @SuppressWarnings("PublicField")
@@ -282,7 +281,7 @@ public class HiveFileFormatBenchmark
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = new MapType(createUnboundedVarcharType(), DOUBLE);
+                Type type = mapType(createUnboundedVarcharType(), DOUBLE);
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -321,7 +320,7 @@ public class HiveFileFormatBenchmark
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = new MapType(createUnboundedVarcharType(), DOUBLE);
+                Type type = mapType(createUnboundedVarcharType(), DOUBLE);
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -356,7 +355,7 @@ public class HiveFileFormatBenchmark
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = new MapType(INTEGER, DOUBLE);
+                Type type = mapType(INTEGER, DOUBLE);
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -395,7 +394,7 @@ public class HiveFileFormatBenchmark
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = new MapType(INTEGER, DOUBLE);
+                Type type = mapType(INTEGER, DOUBLE);
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -628,5 +627,16 @@ public class HiveFileFormatBenchmark
     private static int nextRandomBetween(Random random, int min, int max)
     {
         return min + random.nextInt(max - min);
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private static File createTempDir(String prefix)
+    {
+        try {
+            return createTempDirectory(prefix).toFile();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

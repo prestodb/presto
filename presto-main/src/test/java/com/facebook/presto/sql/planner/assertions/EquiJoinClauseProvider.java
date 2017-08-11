@@ -33,4 +33,10 @@ class EquiJoinClauseProvider
     {
         return new JoinNode.EquiJoinClause(left.toSymbol(aliases), right.toSymbol(aliases));
     }
+
+    @Override
+    public String toString()
+    {
+        return left + " = " + right;
+    }
 }

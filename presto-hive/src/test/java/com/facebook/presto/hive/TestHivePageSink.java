@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slices;
-import io.airlift.testing.FileUtils;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemColumn;
 import io.airlift.tpch.LineItemGenerator;
@@ -72,6 +71,8 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.lang.String.format;
@@ -112,7 +113,7 @@ public class TestHivePageSink
             }
         }
         finally {
-            FileUtils.deleteRecursively(tempDir);
+            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
         }
     }
 
@@ -134,7 +135,7 @@ public class TestHivePageSink
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
         int rows = 0;
-        for (LineItem lineItem :  new LineItemGenerator(0.01, 1, 1)) {
+        for (LineItem lineItem : new LineItemGenerator(0.01, 1, 1)) {
             rows++;
             if (rows >= NUM_ROWS) {
                 break;
@@ -206,7 +207,7 @@ public class TestHivePageSink
         splitProperties.setProperty(SERIALIZATION_LIB, config.getHiveStorageFormat().getSerDe());
         splitProperties.setProperty("columns", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toList())));
         splitProperties.setProperty("columns.types", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(HiveType::getHiveTypeName).collect(toList())));
-        HiveSplit split = new HiveSplit(CLIENT_ID, SCHEMA_NAME, TABLE_NAME, "", "file:///" + outputFile.getAbsolutePath(), 0, outputFile.length(), splitProperties, ImmutableList.of(), ImmutableList.of(), OptionalInt.empty(), false, TupleDomain.all(), ImmutableMap.of());
+        HiveSplit split = new HiveSplit(CLIENT_ID, SCHEMA_NAME, TABLE_NAME, "", "file:///" + outputFile.getAbsolutePath(), 0, outputFile.length(), outputFile.length(), splitProperties, ImmutableList.of(), ImmutableList.of(), OptionalInt.empty(), false, TupleDomain.all(), ImmutableMap.of());
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
         return provider.createPageSource(transaction, getSession(config), split, ImmutableList.copyOf(getColumnHandles()));
     }

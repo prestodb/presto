@@ -169,7 +169,7 @@ public class PhasedExecutionSchedule
     }
 
     private static class Visitor
-            extends PlanVisitor<PlanFragmentId, Set<PlanFragmentId>>
+            extends PlanVisitor<Set<PlanFragmentId>, PlanFragmentId>
     {
         private final Map<PlanFragmentId, PlanFragment> fragments;
         private final DirectedGraph<PlanFragmentId, DefaultEdge> graph;
@@ -184,7 +184,13 @@ public class PhasedExecutionSchedule
 
         public Set<PlanFragmentId> processFragment(PlanFragmentId planFragmentId)
         {
-            return fragmentSources.computeIfAbsent(planFragmentId, fragmentId -> processFragment(fragments.get(fragmentId)));
+            if (fragmentSources.containsKey(planFragmentId)) {
+                return fragmentSources.get(planFragmentId);
+            }
+
+            Set<PlanFragmentId> fragment = processFragment(fragments.get(planFragmentId));
+            fragmentSources.put(planFragmentId, fragment);
+            return fragment;
         }
 
         private Set<PlanFragmentId> processFragment(PlanFragment fragment)

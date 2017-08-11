@@ -17,9 +17,9 @@ import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Objects.requireNonNull;
 
 public class LongDecimalWithOverflowStateFactory
@@ -53,6 +53,7 @@ public class LongDecimalWithOverflowStateFactory
             extends AbstractGroupedAccumulatorState
             implements LongDecimalWithOverflowState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedLongDecimalWithOverflowState.class).instanceSize();
         protected final ObjectBigArray<Slice> unscaledDecimals = new ObjectBigArray<>();
         protected final LongBigArray overflows = new LongBigArray();
         protected long numberOfElements;
@@ -95,14 +96,15 @@ public class LongDecimalWithOverflowStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return unscaledDecimals.sizeOf() + overflows.sizeOf() + numberOfElements * SingleLongDecimalWithOverflowState.SIZE;
+            return INSTANCE_SIZE + unscaledDecimals.sizeOf() + overflows.sizeOf() + numberOfElements * SingleLongDecimalWithOverflowState.SIZE;
         }
     }
 
     public static class SingleLongDecimalWithOverflowState
             implements LongDecimalWithOverflowState
     {
-        public static final int SIZE = SIZE_OF_LONG + UNSCALED_DECIMAL_128_SLICE_LENGTH;
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleLongDecimalWithOverflowState.class).instanceSize();
+        public static final int SIZE = ClassLayout.parseClass(Slice.class).instanceSize() + UNSCALED_DECIMAL_128_SLICE_LENGTH;
 
         protected Slice unscaledDecimal;
         protected long overflow;
@@ -135,9 +137,9 @@ public class LongDecimalWithOverflowStateFactory
         public long getEstimatedSize()
         {
             if (getLongDecimal() == null) {
-                return SIZE_OF_LONG;
+                return INSTANCE_SIZE;
             }
-            return SIZE;
+            return INSTANCE_SIZE + SIZE;
         }
     }
 }

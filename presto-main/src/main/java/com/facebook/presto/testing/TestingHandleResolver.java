@@ -21,6 +21,8 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 
 public class TestingHandleResolver
         implements ConnectorHandleResolver
@@ -28,7 +30,7 @@ public class TestingHandleResolver
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
-        return TestingMetadata.InMemoryTableHandle.class;
+        return TestingTableHandle.class;
     }
 
     @Override
@@ -40,7 +42,7 @@ public class TestingHandleResolver
     @Override
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
-        return TestingMetadata.InMemoryColumnHandle.class;
+        return TestingColumnHandle.class;
     }
 
     @Override

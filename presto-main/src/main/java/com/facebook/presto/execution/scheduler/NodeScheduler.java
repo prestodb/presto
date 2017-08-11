@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.stats.CounterStat;
 
 import javax.annotation.PreDestroy;
@@ -313,7 +314,7 @@ public class NodeScheduler
         if (blockedFutures.isEmpty()) {
             return immediateFuture(null);
         }
-        return whenAnyComplete(blockedFutures);
+        return getFirstCompleteAndCancelOthers(blockedFutures);
     }
 
     public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
@@ -324,6 +325,20 @@ public class NodeScheduler
         List<ListenableFuture<?>> stateChangeFutures = existingTasks.stream()
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
                 .collect(toImmutableList());
-        return whenAnyComplete(stateChangeFutures);
+        return getFirstCompleteAndCancelOthers(stateChangeFutures);
+    }
+
+    private static ListenableFuture<?> getFirstCompleteAndCancelOthers(List<ListenableFuture<?>> blockedFutures)
+    {
+        // wait for the first task to unblock and then cancel all futures to free up resources
+        ListenableFuture<?> result = whenAnyComplete(blockedFutures);
+        result.addListener(
+                () -> {
+                    for (ListenableFuture<?> blockedFuture : blockedFutures) {
+                        blockedFuture.cancel(true);
+                    }
+                },
+                MoreExecutors.directExecutor());
+        return result;
     }
 }

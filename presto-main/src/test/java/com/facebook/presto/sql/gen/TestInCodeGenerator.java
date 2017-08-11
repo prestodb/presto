@@ -55,14 +55,12 @@ public class TestInCodeGenerator
                         CAST,
                         SCALAR,
                         INTEGER.getTypeSignature(),
-                        DOUBLE.getTypeSignature()
-                ),
+                        DOUBLE.getTypeSignature()),
                 INTEGER,
-                Collections.singletonList(constant(12345678901234.0, DOUBLE))
-        ));
+                Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        for  (int i = 6; i <= 32; ++i) {
+        for (int i = 6; i <= 32; ++i) {
             values.add(constant(i, INTEGER));
         }
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
@@ -87,14 +85,12 @@ public class TestInCodeGenerator
                         CAST,
                         SCALAR,
                         BIGINT.getTypeSignature(),
-                        DOUBLE.getTypeSignature()
-                ),
+                        DOUBLE.getTypeSignature()),
                 BIGINT,
-                Collections.singletonList(constant(12345678901234.0, DOUBLE))
-        ));
+                Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        for  (long i = 6; i <= 32; ++i) {
+        for (long i = 6; i <= 32; ++i) {
             values.add(constant(i, BIGINT));
         }
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
@@ -112,7 +108,7 @@ public class TestInCodeGenerator
         values.add(constant(3L, DATE));
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
 
-        for  (long i = 4; i <= 32; ++i) {
+        for (long i = 4; i <= 32; ++i) {
             values.add(constant(i, DATE));
         }
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
@@ -133,7 +129,7 @@ public class TestInCodeGenerator
         values.add(constant(null, DOUBLE));
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
 
-        for  (int i = 5; i <= 32; ++i) {
+        for (int i = 5; i <= 32; ++i) {
             values.add(constant(i + 0.5, DOUBLE));
         }
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
@@ -154,7 +150,7 @@ public class TestInCodeGenerator
         values.add(constant(null, VARCHAR));
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
 
-        for  (int i = 5; i <= 32; ++i) {
+        for (int i = 5; i <= 32; ++i) {
             values.add(constant(Slices.utf8Slice(String.valueOf(i)), VARCHAR));
         }
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);

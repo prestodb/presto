@@ -20,17 +20,20 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -55,14 +58,27 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessorCompiler
 {
-    private static final MetadataManager METADATA_MANAGER = createTestMetadataManager();
+    private MetadataManager metadataManager;
+    private ExpressionCompiler compiler;
+
+    @BeforeMethod
+    public void setup()
+    {
+        metadataManager = createTestMetadataManager();
+        compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+    {
+        metadataManager = null;
+        compiler = null;
+    }
 
     @Test
     public void testNoCaching()
             throws Throwable
     {
-        MetadataManager metadata = METADATA_MANAGER;
-        ExpressionCompiler compiler = new ExpressionCompiler(metadata);
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
         Signature signature = new Signature("concat", SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
@@ -78,8 +94,7 @@ public class TestPageProcessorCompiler
     public void testSanityRLE()
             throws Exception
     {
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
 
         Slice varcharValue = Slices.utf8Slice("hello");
         Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
@@ -105,8 +120,7 @@ public class TestPageProcessorCompiler
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR))).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = getOnlyElement(processor.process(null, page));
@@ -134,8 +148,7 @@ public class TestPageProcessorCompiler
         Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT))).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT))).get();
 
         Page page = new Page(createRLEBlock(5L, 100));
         Page outputPage = getOnlyElement(processor.process(null, page));
@@ -151,8 +164,7 @@ public class TestPageProcessorCompiler
     public void testSanityColumnarDictionary()
             throws Exception
     {
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = getOnlyElement(processor.process(null, page));
@@ -174,10 +186,9 @@ public class TestPageProcessorCompiler
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
 
-        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression)).get();
+        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression)).get();
 
-        assertFalse(new DeterminismEvaluator(METADATA_MANAGER.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
+        assertFalse(new DeterminismEvaluator(metadataManager.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
         Page outputPage = getOnlyElement(processor.process(null, page));
@@ -192,7 +203,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

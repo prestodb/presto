@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.174-SNAPSHOT</version>
+        <version>0.183-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tests</artifactId>
@@ -69,11 +69,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>http-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>http-server</artifactId>
         </dependency>
 
@@ -125,6 +120,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
         </dependency>
 
         <dependency>

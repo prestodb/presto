@@ -14,15 +14,59 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.function.Function;
+
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public interface Lookup
 {
     /**
      * Resolves a node by materializing GroupReference nodes
-     * representing symbolic references to other nodes.
-     *
+     * representing symbolic references to other nodes. This method
+     * is deprecated since is assumes group contains only one node.
+     * <p>
      * If the node is not a GroupReference, it returns the
      * argument as is.
      */
-    PlanNode resolve(PlanNode node);
+    @Deprecated
+    default PlanNode resolve(PlanNode node)
+    {
+        return getOnlyElement(resolveGroup(node));
+    }
+
+    /**
+     * Resolves nodes by materializing GroupReference nodes
+     * representing symbolic references to other nodes.
+     * <p>
+     * If the node is not a GroupReference, it returns the
+     * singleton of the argument node.
+     */
+    List<PlanNode> resolveGroup(PlanNode node);
+
+    /**
+     * A Lookup implementation that does not perform lookup. It satisfies contract
+     * by rejecting {@link GroupReference}-s.
+     */
+    static Lookup noLookup()
+    {
+        return node -> {
+            verify(!(node instanceof GroupReference), "Unexpected GroupReference");
+            return ImmutableList.of(node);
+        };
+    }
+
+    static Lookup from(Function<GroupReference, List<PlanNode>> resolver)
+    {
+        return node -> {
+            if (node instanceof GroupReference) {
+                return resolver.apply((GroupReference) node);
+            }
+
+            return ImmutableList.of(node);
+        };
+    }
 }

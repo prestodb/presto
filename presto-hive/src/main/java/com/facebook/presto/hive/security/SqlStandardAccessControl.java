@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -160,6 +161,14 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanDropColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+            denyDropColumn(tableName.toString());
+        }
+    }
+
+    @Override
     public void checkCanRenameColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
@@ -247,7 +256,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
         if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             return;
@@ -260,7 +269,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             return;

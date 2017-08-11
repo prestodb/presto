@@ -33,6 +33,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.SQLException;
 
+import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
@@ -52,7 +53,7 @@ import static com.teradata.tempto.fulfillment.table.TableHandle.tableHandle;
 import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInUTC;
+import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
@@ -138,15 +139,13 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
+                        parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
                         "ala ma    ",
                         true,
-                        "kot binarny".getBytes()
-                )
-        );
+                        "kot binarny".getBytes()));
     }
 
     @Requires(OrcRequirements.class)
@@ -172,7 +171,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
+                        parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -204,7 +203,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
+                        parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -230,8 +229,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_varchar", "varchar(10)"),
                 row("c_char", "char(10)"),
                 row("c_boolean", "boolean"),
-                row("c_binary", "varbinary")
-        );
+                row("c_binary", "varbinary"));
     }
 
     private void assertColumnTypes(QueryResult queryResult)
@@ -253,8 +251,7 @@ public class TestAllDatatypesFromHiveConnector
                     LONGNVARCHAR,
                     CHAR,
                     BOOLEAN,
-                    LONGVARBINARY
-            );
+                    LONGVARBINARY);
         }
         else if (usingTeradataJdbcDriver(connection)) {
             assertThat(queryResult).hasColumns(
@@ -272,8 +269,7 @@ public class TestAllDatatypesFromHiveConnector
                     VARCHAR,
                     CHAR,
                     BOOLEAN,
-                    VARBINARY
-            );
+                    VARBINARY);
         }
         else {
             throw new IllegalStateException();
@@ -296,7 +292,7 @@ public class TestAllDatatypesFromHiveConnector
                 "234.567," +
                 "346," +
                 "345.67800," +
-                "'" + parseTimestampInUTC("2015-05-10 12:15:35.123").toString() + "'," +
+                "'" + parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE).toString() + "'," +
                 "'ala ma kota'," +
                 "'ala ma kot'," +
                 "'ala ma    '," +
@@ -318,8 +314,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_varchar", "varchar(10)"),
                 row("c_char", "char(10)"),
                 row("c_boolean", "boolean"),
-                row("c_binary", "varbinary")
-        );
+                row("c_binary", "varbinary"));
 
         QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
         assertThat(queryResult).hasColumns(
@@ -336,8 +331,7 @@ public class TestAllDatatypesFromHiveConnector
                 LONGNVARCHAR,
                 CHAR,
                 BOOLEAN,
-                LONGVARBINARY
-        );
+                LONGVARBINARY);
 
         assertThat(queryResult).containsOnly(
                 row(
@@ -349,7 +343,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
+                        parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE),
                         "ala ma kota",
                         "ala ma kot",
                         "ala ma    ",

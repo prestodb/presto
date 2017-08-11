@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -67,6 +68,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -77,10 +79,13 @@ import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Collections.emptyIterator;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
 public class BackgroundHiveSplitLoader
@@ -259,13 +264,15 @@ public class BackgroundHiveSplitLoader
                         file.getBlockLocations(),
                         0,
                         file.getLen(),
+                        file.getLen(),
                         files.getSchema(),
                         files.getPartitionKeys(),
                         splittable,
                         session,
                         OptionalInt.empty(),
                         files.getEffectivePredicate(),
-                        files.getColumnCoercions()));
+                        files.getColumnCoercions(),
+                        getPathDomain(files.getEffectivePredicate())));
                 if (!future.isDone()) {
                     fileIterators.addFirst(files);
                     return future;
@@ -284,6 +291,7 @@ public class BackgroundHiveSplitLoader
         Properties schema = getPartitionSchema(table, partition.getPartition());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
         TupleDomain<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
+        Optional<Domain> pathDomain = getPathDomain(effectivePredicate);
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(path);
@@ -301,13 +309,13 @@ public class BackgroundHiveSplitLoader
                 TextInputFormat targetInputFormat = new TextInputFormat();
                 // get the configuration for the target path -- it may be a different hdfs instance
                 Configuration targetConfiguration = hdfsEnvironment.getConfiguration(targetPath);
-                JobConf targetJob = new JobConf(targetConfiguration);
+                JobConf targetJob = toJobConf(targetConfiguration);
                 targetJob.setInputFormat(TextInputFormat.class);
                 targetInputFormat.configure(targetJob);
                 FileInputFormat.setInputPaths(targetJob, targetPath);
                 InputSplit[] targetSplits = targetInputFormat.getSplits(targetJob, 0);
 
-                if (addSplitsToSource(targetSplits, partitionName, partitionKeys, schema, effectivePredicate, partition.getColumnCoercions())) {
+                if (addSplitsToSource(targetSplits, partitionName, partitionKeys, schema, effectivePredicate, partition.getColumnCoercions(), pathDomain)) {
                     return;
                 }
             }
@@ -317,11 +325,11 @@ public class BackgroundHiveSplitLoader
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
         if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
-            JobConf jobConf = new JobConf(configuration);
+            JobConf jobConf = toJobConf(configuration);
             FileInputFormat.setInputPaths(jobConf, path);
             InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
 
-            addSplitsToSource(splits, partitionName, partitionKeys, schema, effectivePredicate, partition.getColumnCoercions());
+            addSplitsToSource(splits, partitionName, partitionKeys, schema, effectivePredicate, partition.getColumnCoercions(), pathDomain);
             return;
         }
 
@@ -343,13 +351,15 @@ public class BackgroundHiveSplitLoader
                         file.getBlockLocations(),
                         0,
                         file.getLen(),
+                        file.getLen(),
                         iterator.getSchema(),
                         iterator.getPartitionKeys(),
                         splittable,
                         session,
                         OptionalInt.of(bucketNumber),
                         effectivePredicate,
-                        partition.getColumnCoercions()));
+                        partition.getColumnCoercions(),
+                        pathDomain));
             }
 
             addToHiveSplitSourceRoundRobin(iteratorList);
@@ -373,13 +383,15 @@ public class BackgroundHiveSplitLoader
                         file.getBlockLocations(),
                         0,
                         file.getLen(),
+                        file.getLen(),
                         iterator.getSchema(),
                         iterator.getPartitionKeys(),
                         splittable,
                         session,
                         OptionalInt.of(bucketIndex),
                         iterator.getEffectivePredicate(),
-                        partition.getColumnCoercions()));
+                        partition.getColumnCoercions(),
+                        pathDomain));
             }
 
             addToHiveSplitSourceRoundRobin(iteratorList);
@@ -395,7 +407,8 @@ public class BackgroundHiveSplitLoader
             List<HivePartitionKey> partitionKeys,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveType> columnCoercions)
+            Map<Integer, HiveType> columnCoercions,
+            Optional<Domain> pathDomain)
             throws IOException
     {
         for (InputSplit inputSplit : targetSplits) {
@@ -408,13 +421,16 @@ public class BackgroundHiveSplitLoader
                     targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
                     split.getStart(),
                     split.getLength(),
+                    file.getLen(),
                     schema,
                     partitionKeys,
                     false,
                     session,
                     OptionalInt.empty(),
                     effectivePredicate,
-                    columnCoercions));
+                    columnCoercions,
+                    pathDomain));
+
             if (stopped) {
                 return true;
             }
@@ -494,21 +510,28 @@ public class BackgroundHiveSplitLoader
             BlockLocation[] blockLocations,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             boolean splittable,
             ConnectorSession session,
             OptionalInt bucketNumber,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveType> columnCoercions)
+            Map<Integer, HiveType> columnCoercions,
+            Optional<Domain> pathDomain)
             throws IOException
     {
+        if (!pathMatchesPredicate(pathDomain, path)) {
+            return emptyIterator();
+        }
+
         boolean forceLocalScheduling = HiveSessionProperties.isForceLocalScheduling(session);
 
         if (splittable) {
             PeekingIterator<BlockLocation> blockLocationIterator = Iterators.peekingIterator(Arrays.stream(blockLocations).iterator());
 
-            return new AbstractIterator<HiveSplit>() {
+            return new AbstractIterator<HiveSplit>()
+            {
                 private long chunkOffset = 0;
 
                 @Override
@@ -548,6 +571,7 @@ public class BackgroundHiveSplitLoader
                             path,
                             blockLocation.getOffset() + chunkOffset,
                             chunkLength,
+                            fileSize,
                             schema,
                             partitionKeys,
                             addresses,
@@ -583,6 +607,7 @@ public class BackgroundHiveSplitLoader
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
                     partitionKeys,
                     addresses,
@@ -644,5 +669,26 @@ public class BackgroundHiveSplitLoader
             return table.getStorage().getLocation();
         }
         return partition.get().getStorage().getLocation();
+    }
+
+    private static Optional<Domain> getPathDomain(TupleDomain<HiveColumnHandle> effectivePredicate)
+    {
+        if (!effectivePredicate.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        return effectivePredicate.getDomains().get().entrySet().stream()
+                .filter(entry -> isPathColumnHandle(entry.getKey()))
+                .findFirst()
+                .map(Map.Entry::getValue);
+    }
+
+    private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)
+    {
+        if (!pathDomain.isPresent()) {
+            return true;
+        }
+
+        return pathDomain.get().includesNullableValue(utf8Slice(path));
     }
 }

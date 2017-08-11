@@ -94,6 +94,7 @@ public class HivePageSourceProvider
                 hiveSplit.getBucketNumber(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
+                hiveSplit.getFileSize(),
                 hiveSplit.getSchema(),
                 hiveSplit.getEffectivePredicate(),
                 hiveColumns,
@@ -117,6 +118,7 @@ public class HivePageSourceProvider
             OptionalInt bucketNumber,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> hiveColumns,
@@ -135,11 +137,11 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
                     extractRegularColumnHandles(regularColumnMappings, true),
                     effectivePredicate,
-                    hiveStorageTimeZone
-            );
+                    hiveStorageTimeZone);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(
@@ -161,6 +163,7 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
+                    fileSize,
                     schema,
                     extractRegularColumnHandles(regularColumnMappings, doCoercion),
                     effectivePredicate,

@@ -15,20 +15,23 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -37,9 +40,11 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.binaryExpression;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestSimplifyExpressions
 {
@@ -118,11 +123,14 @@ public class TestSimplifyExpressions
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
         assertEquals(
-                normalize(simplifyExpressions(actualExpression)),
+                normalize(simplifyFilterExpressions(actualExpression)),
+                normalize(expectedExpression));
+        assertEquals(
+                normalize(simplifyJoinExpressions(actualExpression)),
                 normalize(expectedExpression));
     }
 
-    private static Expression simplifyExpressions(Expression expression)
+    private static Expression simplifyFilterExpressions(Expression expression)
     {
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
         FilterNode filterNode = new FilterNode(
@@ -137,9 +145,33 @@ public class TestSimplifyExpressions
         return simplifiedNode.getPredicate();
     }
 
+    private static Expression simplifyJoinExpressions(Expression expression)
+    {
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        JoinNode joinNode = new JoinNode(
+                planNodeIdAllocator.getNextId(),
+                INNER,
+                new ValuesNode(planNodeIdAllocator.getNextId(), emptyList(), emptyList()),
+                new ValuesNode(planNodeIdAllocator.getNextId(), emptyList(), emptyList()),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.of(expression),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+        JoinNode simplifiedNode = (JoinNode) SIMPLIFIER.optimize(
+                joinNode,
+                TEST_SESSION,
+                booleanSymbolTypeMapFor(expression),
+                new SymbolAllocator(),
+                planNodeIdAllocator);
+        assertTrue(joinNode.getFilter().isPresent(), "joinNode filter is absent");
+        return simplifiedNode.getFilter().get();
+    }
+
     private static Map<Symbol, Type> booleanSymbolTypeMapFor(Expression expression)
     {
-        return DependencyExtractor.extractUnique(expression).stream()
+        return SymbolsExtractor.extractUnique(expression).stream()
                 .collect(Collectors.toMap(symbol -> symbol, symbol -> BOOLEAN));
     }
 

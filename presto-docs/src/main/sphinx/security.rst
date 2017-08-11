@@ -9,3 +9,5 @@ Security
     security/cli
     security/ldap
     security/tls
+    security/built-in-system-access-control
+    security/internal-communication

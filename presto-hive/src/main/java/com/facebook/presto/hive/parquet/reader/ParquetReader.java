@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -203,14 +204,13 @@ public class ParquetReader
             }
             return RunLengthEncodedBlock.create(parameters.get(0), null, batchSize);
         }
-        InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[] {blocks[0], blocks[1]});
         int[] offsets = new int[batchSize + 1];
         for (int i = 1; i < offsets.length; i++) {
-            int elementPositionCount = keyOffsets.getInt(i - 1) * 2;
-            elementOffsets.add(elementPositionCount);
+            int elementPositionCount = keyOffsets.getInt(i - 1);
+            elementOffsets.add(elementPositionCount * 2);
             offsets[i] = offsets[i - 1] + elementPositionCount;
         }
-        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, interleavedBlock);
+        return ((MapType) type).createBlockFromKeyValue(new boolean[batchSize], offsets, blocks[0], blocks[1]);
     }
 
     public Block readStruct(Type type, List<String> path)

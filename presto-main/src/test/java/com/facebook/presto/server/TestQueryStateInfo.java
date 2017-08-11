@@ -41,6 +41,8 @@ import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -59,7 +61,9 @@ public class TestQueryStateInfo
                 groupRootAX,
                 new DataSize(6000, BYTE),
                 1,
+                null,
                 10,
+                null,
                 CAN_QUEUE,
                 0,
                 new DataSize(4000, BYTE),
@@ -71,7 +75,9 @@ public class TestQueryStateInfo
                 groupRootAY,
                 new DataSize(8000, BYTE),
                 1,
+                new Duration(10, HOURS),
                 10,
+                new Duration(1, DAYS),
                 CAN_RUN,
                 0,
                 new DataSize(0, BYTE),
@@ -83,7 +89,9 @@ public class TestQueryStateInfo
                 groupRootA,
                 new DataSize(8000, BYTE),
                 1,
+                null,
                 10,
+                null,
                 CAN_QUEUE,
                 1,
                 new DataSize(4000, BYTE),
@@ -95,7 +103,9 @@ public class TestQueryStateInfo
                 groupRootB,
                 new DataSize(8000, BYTE),
                 1,
+                new Duration(10, HOURS),
                 10,
+                new Duration(1, DAYS),
                 CAN_QUEUE,
                 0,
                 new DataSize(4000, BYTE),
@@ -107,7 +117,9 @@ public class TestQueryStateInfo
                 new ResourceGroupId("root"),
                 new DataSize(10000, BYTE),
                 2,
+                null,
                 20,
+                null,
                 CAN_QUEUE,
                 0,
                 new DataSize(6000, BYTE),
@@ -226,6 +238,7 @@ public class TestQueryStateInfo
                         100,
                         17,
                         18,
+                        34,
                         19,
                         20.0,
                         DataSize.valueOf("21GB"),

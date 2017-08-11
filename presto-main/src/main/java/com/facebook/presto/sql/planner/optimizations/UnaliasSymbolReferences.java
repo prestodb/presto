@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -169,7 +170,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputSymbol()));
+            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputSymbol()), node.isVerbose());
         }
 
         @Override
@@ -276,7 +277,7 @@ public class UnaliasSymbolReferences
                     node.getPartitioningScheme().getPartitioning().translate(this::canonicalize),
                     outputs.build(),
                     canonicalize(node.getPartitioningScheme().getHashColumn()),
-                    node.getPartitioningScheme().isReplicateNulls(),
+                    node.getPartitioningScheme().isReplicateNullsAndAny(),
                     node.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs);
@@ -343,7 +344,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalize(node.getHashSymbol()));
+            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctSymbols()), canonicalize(node.getHashSymbol()));
         }
 
         @Override
@@ -436,7 +437,17 @@ public class UnaliasSymbolReferences
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
 
-            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation);
+            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation, node.getOriginSubquery());
+        }
+
+        @Override
+        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getInput());
+            PlanNode subquery = context.rewrite(node.getSubquery());
+            List<Symbol> canonicalCorrelation = canonicalizeAndDistinct(node.getCorrelation());
+
+            return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType(), node.getOriginSubquery());
         }
 
         @Override
@@ -444,15 +455,8 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Symbol symbol : node.getOrderBy()) {
-                Symbol canonical = canonicalize(symbol);
-                symbols.add(canonical);
-                orderings.put(canonical, node.getOrderings().get(symbol));
-            }
-
-            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial());
+            SymbolMapper mapper = new SymbolMapper(mapping);
+            return mapper.map(node, source, node.getId());
         }
 
         @Override
@@ -733,7 +737,7 @@ public class UnaliasSymbolReferences
                     scheme.getPartitioning().translate(this::canonicalize),
                     outputs.build(),
                     canonicalize(scheme.getHashColumn()),
-                    scheme.isReplicateNulls(),
+                    scheme.isReplicateNullsAndAny(),
                     scheme.getBucketToPartition());
         }
     }

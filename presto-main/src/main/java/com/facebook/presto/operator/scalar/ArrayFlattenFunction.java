@@ -32,6 +32,7 @@ import java.lang.invoke.MethodHandle;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.Math.toIntExact;
 
 public class ArrayFlattenFunction
         extends SqlScalarFunction
@@ -84,7 +85,7 @@ public class ArrayFlattenFunction
             return type.createBlockBuilder(new BlockBuilderStatus(), 0).build();
         }
 
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount(), array.getSizeInBytes() / array.getPositionCount());
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount(), toIntExact(array.getSizeInBytes() / array.getPositionCount()));
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!array.isNull(i)) {
                 Block subArray = (Block) arrayType.getObject(array, i);

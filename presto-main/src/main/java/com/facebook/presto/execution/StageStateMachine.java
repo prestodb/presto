@@ -214,6 +214,7 @@ public class StageStateMachine
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int runningDrivers = 0;
+        int blockedDrivers = 0;
         int completedDrivers = 0;
 
         long cumulativeMemory = 0;
@@ -231,6 +232,7 @@ public class StageStateMachine
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
 
+        long bufferedDataSize = 0;
         long outputDataSize = 0;
         long outputPositions = 0;
 
@@ -252,6 +254,7 @@ public class StageStateMachine
             totalDrivers += taskStats.getTotalDrivers();
             queuedDrivers += taskStats.getQueuedDrivers();
             runningDrivers += taskStats.getRunningDrivers();
+            blockedDrivers += taskStats.getBlockedDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeMemory += taskStats.getCumulativeMemory();
@@ -272,6 +275,7 @@ public class StageStateMachine
             processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
+            bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
@@ -296,6 +300,7 @@ public class StageStateMachine
                 totalDrivers,
                 queuedDrivers,
                 runningDrivers,
+                blockedDrivers,
                 completedDrivers,
 
                 cumulativeMemory,
@@ -312,6 +317,7 @@ public class StageStateMachine
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
+                succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
                 outputPositions,
                 ImmutableList.copyOf(operatorToStats.values()));

@@ -62,7 +62,6 @@ public final class MapEqualOperator
                         return null;
                     }
                     return (Boolean) valueEqualsFunction.invoke(leftValue, rightValue);
-                }
-        );
+                });
     }
 }

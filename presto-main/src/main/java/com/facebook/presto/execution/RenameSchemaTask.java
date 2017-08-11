@@ -45,7 +45,7 @@ public class RenameSchemaTask
     {
         Session session = stateMachine.getSession();
         CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
-        CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget());
+        CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
 
         if (!metadata.schemaExists(session, source)) {
             throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", source);
@@ -55,9 +55,9 @@ public class RenameSchemaTask
             throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Target schema '%s' already exists", target);
         }
 
-        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, statement.getTarget());
+        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, statement.getTarget().getValue());
 
-        metadata.renameSchema(session, source, statement.getTarget());
+        metadata.renameSchema(session, source, statement.getTarget().getValue());
 
         return immediateFuture(null);
     }

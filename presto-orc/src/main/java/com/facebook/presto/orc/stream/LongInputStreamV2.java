@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import java.io.IOException;
 import java.io.InputStream;
 
-import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -32,6 +31,7 @@ import static java.lang.Math.toIntExact;
 public class LongInputStreamV2
         implements LongInputStream
 {
+    private static final int MIN_REPEAT_SIZE = 3;
     private static final int MAX_LITERAL_SIZE = 512;
 
     private enum EncodingType
@@ -65,7 +65,7 @@ public class LongInputStreamV2
         // read the first 2 bits and determine the encoding type
         int firstByte = input.read();
         if (firstByte < 0) {
-            throw new OrcCorruptionException("Read past end of RLE integer from %s", input);
+            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Read past end of RLE integer");
         }
 
         int enc = (firstByte >>> 6) & 0x03;
@@ -188,7 +188,7 @@ public class LongInputStreamV2
         long[] unpackedPatch = new long[patchListLength];
 
         if ((patchWidth + patchGapWidth) > 64 && !skipCorrupt) {
-            throw new OrcCorruptionException("ORC file is corrupt");
+            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Invalid RLEv2 encoded stream");
         }
 
         int bitSize = LongDecode.getClosestFixedBits(patchWidth + patchGapWidth);

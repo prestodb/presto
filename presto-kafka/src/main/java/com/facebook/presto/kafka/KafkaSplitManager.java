@@ -99,7 +99,7 @@ public class KafkaSplitManager
                 SimpleConsumer leaderConsumer = consumerManager.getConsumer(partitionLeader);
                 // Kafka contains a reverse list of "end - start" pairs for the splits
 
-                long[] offsets = findAllOffsets(leaderConsumer,  metadata.topic(), part.partitionId());
+                long[] offsets = findAllOffsets(leaderConsumer, metadata.topic(), part.partitionId());
 
                 for (int i = offsets.length - 1; i > 0; i--) {
                     KafkaSplit split = new KafkaSplit(

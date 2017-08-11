@@ -15,29 +15,53 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionOfflineException;
+import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import org.apache.hadoop.hive.metastore.api.Date;
+import org.apache.hadoop.hive.metastore.api.DateColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.Decimal;
+import org.apache.hadoop.hive.metastore.api.DecimalColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.DoubleColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.LongColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
 
+import javax.annotation.Nullable;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -343,6 +367,113 @@ public class MetastoreUtil
         return partitionBuilder.build();
     }
 
+    public static HiveColumnStatistics fromMetastoreApiColumnStatistics(ColumnStatisticsObj columnStatistics)
+    {
+        if (columnStatistics.getStatsData().isSetLongStats()) {
+            LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
+            return new HiveColumnStatistics<>(
+                    longStatsData.isSetLowValue() ? Optional.of(longStatsData.getLowValue()) : Optional.empty(),
+                    longStatsData.isSetHighValue() ? Optional.of(longStatsData.getHighValue()) : Optional.empty(),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(longStatsData.getNumNulls()),
+                    OptionalLong.of(longStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetDoubleStats()) {
+            DoubleColumnStatsData doubleStatsData = columnStatistics.getStatsData().getDoubleStats();
+            return new HiveColumnStatistics<>(
+                    doubleStatsData.isSetLowValue() ? Optional.of(doubleStatsData.getLowValue()) : Optional.empty(),
+                    doubleStatsData.isSetHighValue() ? Optional.of(doubleStatsData.getHighValue()) : Optional.empty(),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(doubleStatsData.getNumNulls()),
+                    OptionalLong.of(doubleStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetDecimalStats()) {
+            DecimalColumnStatsData decimalStatsData = columnStatistics.getStatsData().getDecimalStats();
+            return new HiveColumnStatistics<>(
+                    decimalStatsData.isSetLowValue() ? fromMetastoreDecimal(decimalStatsData.getLowValue()) : Optional.empty(),
+                    decimalStatsData.isSetHighValue() ? fromMetastoreDecimal(decimalStatsData.getHighValue()) : Optional.empty(),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(decimalStatsData.getNumNulls()),
+                    OptionalLong.of(decimalStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetBooleanStats()) {
+            BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
+            return new HiveColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.of(booleanStatsData.getNumTrues()),
+                    OptionalLong.of(booleanStatsData.getNumFalses()),
+                    OptionalLong.of(booleanStatsData.getNumNulls()),
+                    OptionalLong.of((booleanStatsData.getNumFalses() > 0 ? 1 : 0) + (booleanStatsData.getNumTrues() > 0 ? 1 : 0)));
+        }
+        else if (columnStatistics.getStatsData().isSetDateStats()) {
+            DateColumnStatsData dateStatsData = columnStatistics.getStatsData().getDateStats();
+            return new HiveColumnStatistics<>(
+                    dateStatsData.isSetLowValue() ? fromMetastoreDate(dateStatsData.getLowValue()) : Optional.empty(),
+                    dateStatsData.isSetHighValue() ? fromMetastoreDate(dateStatsData.getHighValue()) : Optional.empty(),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(dateStatsData.getNumNulls()),
+                    OptionalLong.of(dateStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetStringStats()) {
+            StringColumnStatsData stringStatsData = columnStatistics.getStatsData().getStringStats();
+            return new HiveColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.of(stringStatsData.getMaxColLen()),
+                    OptionalDouble.of(stringStatsData.getAvgColLen()),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(stringStatsData.getNumNulls()),
+                    OptionalLong.of(stringStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetBinaryStats()) {
+            BinaryColumnStatsData binaryStatsData = columnStatistics.getStatsData().getBinaryStats();
+            return new HiveColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.of(binaryStatsData.getMaxColLen()),
+                    OptionalDouble.of(binaryStatsData.getAvgColLen()),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(binaryStatsData.getNumNulls()),
+                    OptionalLong.empty());
+        }
+        else {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
+        }
+    }
+
+    private static Optional<LocalDate> fromMetastoreDate(Date date)
+    {
+        if (date == null) {
+            return Optional.empty();
+        }
+        return Optional.of(LocalDate.ofEpochDay(date.getDaysSinceEpoch()));
+    }
+
+    private static Optional<BigDecimal> fromMetastoreDecimal(@Nullable Decimal decimal)
+    {
+        if (decimal == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale()));
+    }
+
     private static PrincipalType fromMetastoreApiPrincipalType(org.apache.hadoop.hive.metastore.api.PrincipalType principalType)
     {
         switch (principalType) {
@@ -454,5 +585,36 @@ public class MetastoreUtil
                 .setSorted(storageDescriptor.isSetSortCols() && !storageDescriptor.getSortCols().isEmpty())
                 .setSkewed(storageDescriptor.isSetSkewedInfo() && storageDescriptor.getSkewedInfo().isSetSkewedColNames() && !storageDescriptor.getSkewedInfo().getSkewedColNames().isEmpty())
                 .setSerdeParameters(serdeInfo.getParameters() == null ? ImmutableMap.of() : serdeInfo.getParameters());
+    }
+
+    public static void verifyOnline(SchemaTableName tableName, Optional<String> partitionName, ProtectMode protectMode, Map<String, String> parameters)
+    {
+        if (protectMode.offline) {
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
+            }
+            throw new TableOfflineException(tableName, false, null);
+        }
+
+        String prestoOffline = parameters.get(PRESTO_OFFLINE);
+        if (!isNullOrEmpty(prestoOffline)) {
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
+            }
+            throw new TableOfflineException(tableName, true, prestoOffline);
+        }
+    }
+
+    public static void verifyCanDropColumn(ExtendedHiveMetastore metastore, String databaseName, String tableName, String columnName)
+    {
+        Table table = metastore.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop partition columns");
+        }
+        if (table.getDataColumns().size() <= 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
+        }
     }
 }

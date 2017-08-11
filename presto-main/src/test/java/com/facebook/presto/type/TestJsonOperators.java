@@ -14,7 +14,17 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -23,15 +33,41 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestJsonOperators
         extends AbstractTestFunctions
 {
     // Some of the tests in this class are expected to fail when coercion between primitive presto types changes behavior
+
+    private LocalQueryRunner runner;
+
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        runner = new LocalQueryRunner(TEST_SESSION);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+    {
+        if (runner != null) {
+            runner.close();
+            runner = null;
+        }
+    }
 
     @Test
     public void testCastToBigint()
@@ -59,6 +95,78 @@ public class TestJsonOperators
     }
 
     @Test
+    public void testCastToInteger()
+    {
+        assertFunction("cast(JSON 'null' as INTEGER)", INTEGER, null);
+        assertFunction("cast(JSON '128' as INTEGER)", INTEGER, 128);
+        assertInvalidFunction("cast(JSON '12345678901' as INTEGER)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(JSON '128.9' as INTEGER)", INTEGER, 129);
+        assertInvalidFunction("cast(JSON '12345678901.0' as INTEGER)", INVALID_CAST_ARGUMENT); // overflow. unexpected behavior. coherent with rest of Presto.
+        assertFunction("cast(JSON '1e-324' as INTEGER)", INTEGER, 0);
+        assertInvalidFunction("cast(JSON '1e309' as INTEGER)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(JSON 'true' as INTEGER)", INTEGER, 1);
+        assertFunction("cast(JSON 'false' as INTEGER)", INTEGER, 0);
+        assertFunction("cast(JSON '\"128\"' as INTEGER)", INTEGER, 128);
+        assertInvalidFunction("cast(JSON '\"12345678901234567890\"' as INTEGER)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"128.9\"' as INTEGER)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"true\"' as INTEGER)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"false\"' as INTEGER)", INVALID_CAST_ARGUMENT);
+
+        assertFunction("cast(JSON ' 128' as INTEGER)", INTEGER, 128); // leading space
+
+        assertFunction("cast(json_extract('{\"x\":999}', '$.x') as INTEGER)", INTEGER, 999);
+        assertInvalidCast("cast(JSON '{ \"x\" : 123}' as INTEGER)");
+    }
+
+    @Test
+    public void testCastToSmallint()
+    {
+        assertFunction("cast(JSON 'null' as SMALLINT)", SMALLINT, null);
+        assertFunction("cast(JSON '128' as SMALLINT)", SMALLINT, (short) 128);
+        assertInvalidFunction("cast(JSON '123456' as SMALLINT)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(JSON '128.9' as SMALLINT)", SMALLINT, (short) 129);
+        assertInvalidFunction("cast(JSON '123456.0' as SMALLINT)", INVALID_CAST_ARGUMENT); // overflow. unexpected behavior. coherent with rest of Presto.
+        assertFunction("cast(JSON '1e-324' as SMALLINT)", SMALLINT, (short) 0);
+        assertInvalidFunction("cast(JSON '1e309' as SMALLINT)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(JSON 'true' as SMALLINT)", SMALLINT, (short) 1);
+        assertFunction("cast(JSON 'false' as SMALLINT)", SMALLINT, (short) 0);
+        assertFunction("cast(JSON '\"128\"' as SMALLINT)", SMALLINT, (short) 128);
+        assertInvalidFunction("cast(JSON '\"123456\"' as SMALLINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"128.9\"' as SMALLINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"true\"' as SMALLINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"false\"' as SMALLINT)", INVALID_CAST_ARGUMENT);
+
+        assertFunction("cast(JSON ' 128' as SMALLINT)", SMALLINT, (short) 128); // leading space
+
+        assertFunction("cast(json_extract('{\"x\":999}', '$.x') as SMALLINT)", SMALLINT, (short) 999);
+        assertInvalidCast("cast(JSON '{ \"x\" : 123}' as SMALLINT)");
+    }
+
+    @Test
+    public void testCastToTinyint()
+    {
+        assertFunction("cast(JSON 'null' as TINYINT)", TINYINT, null);
+        assertFunction("cast(JSON '12' as TINYINT)", TINYINT, (byte) 12);
+        assertInvalidFunction("cast(JSON '1234' as TINYINT)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(JSON '12.9' as TINYINT)", TINYINT, (byte) 13);
+        assertInvalidFunction("cast(JSON '1234.0' as TINYINT)", INVALID_CAST_ARGUMENT); // overflow. unexpected behavior. coherent with rest of Presto.
+        assertFunction("cast(JSON '1e-324' as TINYINT)", TINYINT, (byte) 0);
+        assertInvalidFunction("cast(JSON '1e309' as TINYINT)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(JSON 'true' as TINYINT)", TINYINT, (byte) 1);
+        assertFunction("cast(JSON 'false' as TINYINT)", TINYINT, (byte) 0);
+        assertFunction("cast(JSON '\"12\"' as TINYINT)", TINYINT, (byte) 12);
+        assertInvalidFunction("cast(JSON '\"1234\"' as TINYINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"12.9\"' as TINYINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"true\"' as TINYINT)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(JSON '\"false\"' as TINYINT)", INVALID_CAST_ARGUMENT);
+
+        assertFunction("cast(JSON ' 12' as TINYINT)", TINYINT, (byte) 12); // leading space
+
+        assertFunction("cast(json_extract('{\"x\":99}', '$.x') as TINYINT)", TINYINT, (byte) 99);
+        assertInvalidCast("cast(JSON '{ \"x\" : 123}' as TINYINT)");
+    }
+
+    @Test
     public void testTypeConstructor()
             throws Exception
     {
@@ -72,8 +180,12 @@ public class TestJsonOperators
     {
         assertFunction("cast(cast (null as integer) as JSON)", JSON, null);
         assertFunction("cast(cast (null as bigint) as JSON)", JSON, null);
+        assertFunction("cast(cast (null as smallint) as JSON)", JSON, null);
+        assertFunction("cast(cast (null as tinyint) as JSON)", JSON, null);
         assertFunction("cast(128 as JSON)", JSON, "128");
         assertFunction("cast(BIGINT '128' as JSON)", JSON, "128");
+        assertFunction("cast(SMALLINT '128' as JSON)", JSON, "128");
+        assertFunction("cast(TINYINT '127' as JSON)", JSON, "127");
     }
 
     @Test
@@ -107,11 +219,50 @@ public class TestJsonOperators
     public void testCastFromDouble()
             throws Exception
     {
-        assertFunction("cast(cast (null as double) as JSON)", JSON, null);
+        assertFunction("cast(cast(null as double) as JSON)", JSON, null);
         assertFunction("cast(3.14 as JSON)", JSON, "3.14");
         assertFunction("cast(nan() as JSON)", JSON, "\"NaN\"");
         assertFunction("cast(infinity() as JSON)", JSON, "\"Infinity\"");
         assertFunction("cast(-infinity() as JSON)", JSON, "\"-Infinity\"");
+    }
+
+    @Test
+    public void testCastFromReal()
+            throws Exception
+    {
+        assertFunction("cast(cast(null as REAL) as JSON)", JSON, null);
+        assertFunction("cast(REAL '3.14' as JSON)", JSON, "3.14");
+        assertFunction("cast(cast(nan() as REAL) as JSON)", JSON, "\"NaN\"");
+        assertFunction("cast(cast(infinity() as REAL) as JSON)", JSON, "\"Infinity\"");
+        assertFunction("cast(cast(-infinity() as REAL) as JSON)", JSON, "\"-Infinity\"");
+    }
+
+    @Test
+    public void testCastToReal()
+            throws Exception
+    {
+        assertFunction("cast(JSON 'null' as REAL)", REAL, null);
+        assertFunction("cast(JSON '-128' as REAL)", REAL, -128.0f);
+        assertFunction("cast(JSON '128' as REAL)", REAL, 128.0f);
+        assertFunction("cast(JSON '12345678901234567890' as REAL)", REAL, 1.2345679e19f);
+        assertFunction("cast(JSON '128.9' as REAL)", REAL, 128.9f);
+        assertFunction("cast(JSON '1e-46' as REAL)", REAL, 0.0f); // smaller than minimum subnormal positive
+        assertFunction("cast(JSON '1e39' as REAL)", REAL, Float.POSITIVE_INFINITY); // overflow
+        assertFunction("cast(JSON '-1e39' as REAL)", REAL, Float.NEGATIVE_INFINITY); // underflow
+        assertFunction("cast(JSON 'true' as REAL)", REAL, 1.0f);
+        assertFunction("cast(JSON 'false' as REAL)", REAL, 0.0f);
+        assertFunction("cast(JSON '\"128\"' as REAL)", REAL, 128.0f);
+        assertFunction("cast(JSON '\"12345678901234567890\"' as REAL)", REAL, 1.2345679e19f);
+        assertFunction("cast(JSON '\"128.9\"' as REAL)", REAL, 128.9f);
+        assertFunction("cast(JSON '\"NaN\"' as REAL)", REAL, Float.NaN);
+        assertFunction("cast(JSON '\"Infinity\"' as REAL)", REAL, Float.POSITIVE_INFINITY);
+        assertFunction("cast(JSON '\"-Infinity\"' as REAL)", REAL, Float.NEGATIVE_INFINITY);
+        assertInvalidFunction("cast(JSON '\"true\"' as REAL)", INVALID_CAST_ARGUMENT);
+
+        assertFunction("cast(JSON ' 128.9' as REAL)", REAL, 128.9f); // leading space
+
+        assertFunction("cast(json_extract('{\"x\":1.23}', '$.x') as REAL)", REAL, 1.23f);
+        assertInvalidCast("cast(JSON '{ \"x\" : 123}' as REAL)");
     }
 
     @Test
@@ -207,8 +358,40 @@ public class TestJsonOperators
         assertFunction("CAST(from_unixtime(1) AS JSON)", JSON, "\"" + sqlTimestamp(1000).toString() + "\"");
     }
 
+    @Test
+    public void testCastWithJsonParse()
+    {
+        // the test is to make sure ExpressionOptimizer works with cast + json_parse
+        assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY<ARRAY<INTEGER>>", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
+        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", INVALID_CAST_ARGUMENT, "Cannot cast to array(integer)");
+        assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP<VARCHAR,INTEGER>", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
+        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", INVALID_CAST_ARGUMENT, "Cannot cast JSON to map(array(integer),array(integer))");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", INVALID_CAST_ARGUMENT, "Cannot cast to map(boolean,boolean)");
+    }
+
     private static SqlTimestamp sqlTimestamp(long millisUtc)
     {
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+    }
+
+    private void assertCastWithJsonParse(String json, String castSqlType, Type expectedType, Object expected)
+    {
+        // building queries with VALUES to avoid constant folding
+        MaterializedResult result = runner.execute((new StringBuilder()).append("SELECT CAST(JSON_PARSE(col) AS ").append(castSqlType).append(") FROM (VALUES('").append(json).append("')) AS t(col)").toString());
+        assertEquals(result.getTypes().size(), 1);
+        assertEquals(result.getTypes().get(0), expectedType);
+        assertEquals(result.getOnlyValue(), expected);
+    }
+
+    private void assertInvalidCastWithJsonParse(String json, String castSqlType, StandardErrorCode errorCode, String errorMessage)
+    {
+        try {
+            MaterializedResult a = runner.execute((new StringBuilder()).append("SELECT CAST(JSON_PARSE(col) AS ").append(castSqlType).append(") FROM (VALUES('").append(json).append("')) AS t(col)").toString());
+            fail("expect to fail");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().startsWith(errorMessage));
+            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+        }
     }
 }

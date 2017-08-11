@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -24,50 +22,49 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleType;
+import static com.facebook.presto.sql.planner.plan.Patterns.sample;
+import static com.facebook.presto.sql.planner.plan.SampleNode.Type.BERNOULLI;
+
 /**
  * Transforms:
- *
  * <pre>
  * - Sample(BERNOULLI, p)
  *     - X
  * </pre>
- *
  * Into:
- *
  * <pre>
  * - Filter (rand() < p)
  *     - X
  * </pre>
  */
 public class ImplementBernoulliSampleAsFilter
-        implements Rule
+        implements Rule<SampleNode>
 {
+    private static final Pattern<SampleNode> PATTERN = sample()
+            .with(sampleType().equalTo(BERNOULLI));
+
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Pattern<SampleNode> getPattern()
     {
-        if (!(node instanceof SampleNode)) {
-            return Optional.empty();
-        }
+        return PATTERN;
+    }
 
-        SampleNode sample = (SampleNode) node;
-
-        if (sample.getSampleType() != SampleNode.Type.BERNOULLI) {
-            return Optional.empty();
-        }
-
+    @Override
+    public Optional<PlanNode> apply(SampleNode sample, Captures captures, Context context)
+    {
         return Optional.of(new FilterNode(
-                node.getId(),
+                sample.getId(),
                 sample.getSource(),
                 new ComparisonExpression(
                         ComparisonExpressionType.LESS_THAN,
-                        new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()),
+                        new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
                         new DoubleLiteral(Double.toString(sample.getSampleRatio())))));
     }
 }

@@ -25,10 +25,11 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -58,6 +59,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -95,7 +97,7 @@ public class BenchmarkMapConcat
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata);
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
             List<String> leftKeys;
             List<String> rightKeys;
@@ -120,7 +122,7 @@ public class BenchmarkMapConcat
                     throw new UnsupportedOperationException();
             }
 
-            MapType mapType = new MapType(createUnboundedVarcharType(), DOUBLE);
+            MapType mapType = mapType(createUnboundedVarcharType(), DOUBLE);
 
             Block leftKeyBlock = createKeyBlock(POSITIONS, leftKeys);
             Block leftValueBlock = createValueBlock(POSITIONS, leftKeys.size());
@@ -160,7 +162,7 @@ public class BenchmarkMapConcat
 
         private static Block createMapBlock(int positionCount, Block keyBlock, Block valueBlock)
         {
-            InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[]{keyBlock, valueBlock});
+            InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[] {keyBlock, valueBlock});
             int[] offsets = new int[positionCount + 1];
             int mapSize = keyBlock.getPositionCount() / positionCount;
             for (int i = 0; i < offsets.length; i++) {
@@ -176,7 +178,7 @@ public class BenchmarkMapConcat
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = i % keys.size();
             }
-            return new DictionaryBlock(positionCount * keys.size(), keyDictionaryBlock, keyIds);
+            return new DictionaryBlock(keyDictionaryBlock, keyIds);
         }
 
         private static Block createValueBlock(int positionCount, int mapSize)

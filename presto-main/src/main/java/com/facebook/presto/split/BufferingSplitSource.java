@@ -15,6 +15,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -43,6 +44,12 @@ public class BufferingSplitSource
     public ConnectorId getConnectorId()
     {
         return source.getConnectorId();
+    }
+
+    @Override
+    public ConnectorTransactionHandle getTransactionHandle()
+    {
+        return source.getTransactionHandle();
     }
 
     @Override

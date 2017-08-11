@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -63,6 +64,7 @@ public class OperatorStats
     private final Duration finishUser;
 
     private final DataSize memoryReservation;
+    private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
     private final Optional<BlockedReason> blockedReason;
 
@@ -100,6 +102,7 @@ public class OperatorStats
             @JsonProperty("finishUser") Duration finishUser,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
@@ -139,6 +142,7 @@ public class OperatorStats
         this.finishUser = requireNonNull(finishUser, "finishUser is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
         this.blockedReason = blockedReason;
 
@@ -290,6 +294,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getSystemMemoryReservation()
     {
         return systemMemoryReservation;
@@ -340,6 +350,7 @@ public class OperatorStats
         long finishUser = this.finishUser.roundTo(NANOSECONDS);
 
         long memoryReservation = this.memoryReservation.toBytes();
+        long revocableMemoryReservation = this.revocableMemoryReservation.toBytes();
         long systemMemoryReservation = this.systemMemoryReservation.toBytes();
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
@@ -372,6 +383,7 @@ public class OperatorStats
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
             memoryReservation += operator.getMemoryReservation().toBytes();
+            revocableMemoryReservation += operator.getRevocableMemoryReservation().toBytes();
             systemMemoryReservation += operator.getSystemMemoryReservation().toBytes();
             if (operator.getBlockedReason().isPresent()) {
                 blockedReason = operator.getBlockedReason();
@@ -414,6 +426,7 @@ public class OperatorStats
                 new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(memoryReservation),
+                succinctBytes(revocableMemoryReservation),
                 succinctBytes(systemMemoryReservation),
                 blockedReason,
 
@@ -463,6 +476,7 @@ public class OperatorStats
                 finishCpu,
                 finishUser,
                 memoryReservation,
+                revocableMemoryReservation,
                 systemMemoryReservation,
                 blockedReason,
                 (info != null && info.isFinal()) ? info : null);

@@ -146,6 +146,11 @@ public class TransactionManager
         }
     }
 
+    public boolean transactionExists(TransactionId transactionId)
+    {
+        return tryGetTransactionMetadata(transactionId).isPresent();
+    }
+
     public TransactionInfo getTransactionInfo(TransactionId transactionId)
     {
         return getTransactionMetadata(transactionId).getTransactionInfo();
@@ -399,8 +404,7 @@ public class TransactionManager
                 catalogMetadata = new CatalogMetadata(
                         metadata.getConnectorId(), metadata.getConnectorMetadata(), metadata.getTransactionHandle(),
                         informationSchema.getConnectorId(), informationSchema.getConnectorMetadata(), informationSchema.getTransactionHandle(),
-                        systemTables.getConnectorId(), systemTables.getConnectorMetadata(), systemTables.getTransactionHandle()
-                );
+                        systemTables.getConnectorId(), systemTables.getConnectorMetadata(), systemTables.getTransactionHandle());
 
                 this.catalogMetadata.put(catalog.getConnectorId(), catalogMetadata);
                 this.catalogMetadata.put(catalog.getInformationSchemaId(), catalogMetadata);
@@ -459,7 +463,7 @@ public class TransactionManager
                 ListenableFuture<?> future = Futures.allAsList(connectorIdToMetadata.values().stream()
                         .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
                         .collect(toList()));
-                addExceptionCallback(future, throwable ->  {
+                addExceptionCallback(future, throwable -> {
                     abortInternal();
                     log.error(throwable, "Read-only connector should not throw exception on commit");
                 });

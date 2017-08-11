@@ -53,7 +53,7 @@ public class KafkaRecordSet
     private static final Logger log = Logger.get(KafkaRecordSet.class);
 
     private static final int KAFKA_READ_BUFFER_SIZE = 100_000;
-    private static final byte [] EMPTY_BYTE_ARRAY = new byte [0];
+    private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
     private final KafkaSplit split;
     private final KafkaSimpleConsumerManager consumerManager;

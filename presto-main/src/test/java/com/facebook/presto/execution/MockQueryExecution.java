@@ -18,11 +18,15 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -35,8 +39,10 @@ import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class MockQueryExecution
         implements QueryExecution
@@ -95,7 +101,50 @@ public class MockQueryExecution
                 URI.create("http://test"),
                 ImmutableList.of(),
                 "SELECT 1",
-                new QueryStats(),
+                new QueryStats(
+                        new DateTime(1),
+                        new DateTime(2),
+                        new DateTime(3),
+                        new DateTime(4),
+                        new Duration(6, NANOSECONDS),
+                        new Duration(5, NANOSECONDS),
+                        new Duration(7, NANOSECONDS),
+                        new Duration(8, NANOSECONDS),
+
+                        new Duration(100, NANOSECONDS),
+                        new Duration(200, NANOSECONDS),
+
+                        9,
+                        10,
+                        11,
+
+                        12,
+                        13,
+                        15,
+                        30,
+                        16,
+
+                        17.0,
+                        new DataSize(18, BYTE),
+                        new DataSize(19, BYTE),
+
+                        true,
+                        new Duration(20, NANOSECONDS),
+                        new Duration(21, NANOSECONDS),
+                        new Duration(22, NANOSECONDS),
+                        new Duration(23, NANOSECONDS),
+                        false,
+                        ImmutableSet.of(),
+
+                        new DataSize(24, BYTE),
+                        25,
+
+                        new DataSize(26, BYTE),
+                        27,
+
+                        new DataSize(28, BYTE),
+                        29,
+                        ImmutableList.of()),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),
@@ -116,6 +165,12 @@ public class MockQueryExecution
     public QueryState getState()
     {
         return state;
+    }
+
+    @Override
+    public Plan getQueryPlan()
+    {
+        throw new UnsupportedOperationException();
     }
 
     public Throwable getFailureCause()
@@ -220,6 +275,12 @@ public class MockQueryExecution
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<QueryType> getQueryType()
+    {
+        return Optional.empty();
     }
 
     private void fireStateChange()

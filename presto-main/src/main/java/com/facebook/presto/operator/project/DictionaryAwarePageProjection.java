@@ -75,9 +75,11 @@ public class DictionaryAwarePageProjection
         if (block instanceof RunLengthEncodedBlock) {
             Block value = ((RunLengthEncodedBlock) block).getValue();
             Optional<Block> projectedValue = processDictionary(session, value);
-            // single value block is always considered effective
-            verify(projectedValue.isPresent());
-            return new RunLengthEncodedBlock(projectedValue.get(), selectedPositions.size());
+            // single value block is always considered effective, but the processing could have thrown
+            // in that case we fallback and process again so the correct error message sent
+            if (projectedValue.isPresent()) {
+                return new RunLengthEncodedBlock(projectedValue.get(), selectedPositions.size());
+            }
         }
 
         if (block instanceof DictionaryBlock) {
@@ -113,7 +115,16 @@ public class DictionaryAwarePageProjection
         lastInputDictionary = dictionary;
 
         if (shouldProcessDictionary) {
-            lastOutputDictionary = Optional.of(projection.project(session, new Page(dictionary), SelectedPositions.positionsRange(0, dictionary.getPositionCount())));
+            try {
+                lastOutputDictionary = Optional.of(projection.project(session, new Page(dictionary), SelectedPositions.positionsRange(0, dictionary.getPositionCount())));
+            }
+            catch (Exception ignored) {
+                // Processing of dictionary failed, but we ignore the exception here
+                // and force reprocessing of the whole block using the normal code.
+                // The second pass may not fail due to filtering.
+                // todo dictionary processing should be able to tolerate failures of unused elements
+                lastOutputDictionary = Optional.empty();
+            }
         }
         else {
             lastOutputDictionary = Optional.empty();

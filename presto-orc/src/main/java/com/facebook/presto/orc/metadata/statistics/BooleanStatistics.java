@@ -13,8 +13,15 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class BooleanStatistics
 {
+    // 1 byte to denote if null + 1 byte for the value
+    public static final long BOOLEAN_VALUE_BYTES = Byte.BYTES + Byte.BYTES;
+
     private final long trueValueCount;
 
     public BooleanStatistics(long trueValueCount)
@@ -25,5 +32,32 @@ public class BooleanStatistics
     public long getTrueValueCount()
     {
         return trueValueCount;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        BooleanStatistics that = (BooleanStatistics) o;
+        return trueValueCount == that.trueValueCount;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(trueValueCount);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("trueValueCount", trueValueCount)
+                .toString();
     }
 }

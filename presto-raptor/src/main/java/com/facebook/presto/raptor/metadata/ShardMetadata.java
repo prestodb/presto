@@ -25,10 +25,12 @@ import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
+import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalLong;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ShardMetadata
@@ -40,6 +42,7 @@ public class ShardMetadata
     private final long rowCount;
     private final long compressedSize;
     private final long uncompressedSize;
+    private final OptionalLong xxhash64;
     private final OptionalLong rangeStart;
     private final OptionalLong rangeEnd;
 
@@ -51,6 +54,7 @@ public class ShardMetadata
             long rowCount,
             long compressedSize,
             long uncompressedSize,
+            OptionalLong xxhash64,
             OptionalLong rangeStart,
             OptionalLong rangeEnd)
     {
@@ -67,6 +71,7 @@ public class ShardMetadata
         this.rowCount = rowCount;
         this.compressedSize = compressedSize;
         this.uncompressedSize = uncompressedSize;
+        this.xxhash64 = requireNonNull(xxhash64, "xxhash64 is null");
         this.rangeStart = requireNonNull(rangeStart, "rangeStart is null");
         this.rangeEnd = requireNonNull(rangeEnd, "rangeEnd is null");
     }
@@ -106,6 +111,11 @@ public class ShardMetadata
         return uncompressedSize;
     }
 
+    public OptionalLong getXxhash64()
+    {
+        return xxhash64;
+    }
+
     public OptionalLong getRangeStart()
     {
         return rangeStart;
@@ -126,9 +136,11 @@ public class ShardMetadata
                 rowCount,
                 compressedSize,
                 uncompressedSize,
+                xxhash64,
                 OptionalLong.of(rangeStart),
                 OptionalLong.of(rangeEnd));
     }
+
     @Override
     public String toString()
     {
@@ -142,6 +154,9 @@ public class ShardMetadata
 
         if (bucketNumber.isPresent()) {
             stringHelper.add("bucketNumber", bucketNumber.getAsInt());
+        }
+        if (xxhash64.isPresent()) {
+            stringHelper.add("xxhash64", format("%16x", xxhash64.getAsLong()));
         }
         if (rangeStart.isPresent()) {
             stringHelper.add("rangeStart", rangeStart.getAsLong());
@@ -168,6 +183,7 @@ public class ShardMetadata
                 Objects.equals(rowCount, that.rowCount) &&
                 Objects.equals(compressedSize, that.compressedSize) &&
                 Objects.equals(uncompressedSize, that.uncompressedSize) &&
+                Objects.equals(xxhash64, that.xxhash64) &&
                 Objects.equals(shardUuid, that.shardUuid) &&
                 Objects.equals(rangeStart, that.rangeStart) &&
                 Objects.equals(rangeEnd, that.rangeEnd);
@@ -184,6 +200,7 @@ public class ShardMetadata
                 rowCount,
                 compressedSize,
                 uncompressedSize,
+                xxhash64,
                 rangeStart,
                 rangeEnd);
     }
@@ -203,6 +220,7 @@ public class ShardMetadata
                     r.getLong("row_count"),
                     r.getLong("compressed_size"),
                     r.getLong("uncompressed_size"),
+                    getOptionalLong(r, "xxhash64"),
                     OptionalLong.empty(),
                     OptionalLong.empty());
         }

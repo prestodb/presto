@@ -26,19 +26,19 @@ public final class RenameSchema
         extends Statement
 {
     private final QualifiedName source;
-    private final String target;
+    private final Identifier target;
 
-    public RenameSchema(QualifiedName source, String target)
+    public RenameSchema(QualifiedName source, Identifier target)
     {
         this(Optional.empty(), source, target);
     }
 
-    public RenameSchema(NodeLocation location, QualifiedName source, String target)
+    public RenameSchema(NodeLocation location, QualifiedName source, Identifier target)
     {
         this(Optional.of(location), source, target);
     }
 
-    private RenameSchema(Optional<NodeLocation> location, QualifiedName source, String target)
+    private RenameSchema(Optional<NodeLocation> location, QualifiedName source, Identifier target)
     {
         super(location);
         this.source = requireNonNull(source, "source is null");
@@ -50,7 +50,7 @@ public final class RenameSchema
         return source;
     }
 
-    public String getTarget()
+    public Identifier getTarget()
     {
         return target;
     }

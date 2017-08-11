@@ -26,6 +26,10 @@ General Aggregate Functions
 
     Returns the average (arithmetic mean) of all input values.
 
+.. function:: avg(time interval type) -> time interval type
+
+    Returns the average interval length of all input values.
+
 .. function:: bool_and(boolean) -> boolean
 
     Returns ``TRUE`` if every input value is ``TRUE``, otherwise ``FALSE``.

@@ -28,12 +28,13 @@ import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -62,13 +63,13 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.scalar.CombineHashFunction.getHash;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 
@@ -112,7 +113,7 @@ public class BenchmarkArrayHashCodeOperator
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
             metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkOldArrayHash.class).getFunctions());
             metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkAnotherArrayHash.class).getFunctions());
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata);
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[1];
             Type elementType;

@@ -534,11 +534,12 @@ public class StatementResource
                 maxWait = new Duration(0, MILLISECONDS);
             }
 
-            if (bytes == 0) {
+            List<RowIterable> rowIterables = pages.build();
+            if (rowIterables.isEmpty()) {
                 return null;
             }
 
-            return Iterables.concat(pages.build());
+            return Iterables.concat(rowIterables);
         }
 
         private static boolean isQueryStarted(QueryInfo queryInfo)
@@ -624,7 +625,7 @@ public class StatementResource
                     .setNodes(globalUniqueNodes(outputStage).size())
                     .setTotalSplits(queryStats.getTotalDrivers())
                     .setQueuedSplits(queryStats.getQueuedDrivers())
-                    .setRunningSplits(queryStats.getRunningDrivers())
+                    .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
                     .setCompletedSplits(queryStats.getCompletedDrivers())
                     .setUserTimeMillis(queryStats.getTotalUserTime().toMillis())
                     .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
@@ -662,7 +663,7 @@ public class StatementResource
                     .setNodes(uniqueNodes.size())
                     .setTotalSplits(stageStats.getTotalDrivers())
                     .setQueuedSplits(stageStats.getQueuedDrivers())
-                    .setRunningSplits(stageStats.getRunningDrivers())
+                    .setRunningSplits(stageStats.getRunningDrivers() + stageStats.getBlockedDrivers())
                     .setCompletedSplits(stageStats.getCompletedDrivers())
                     .setUserTimeMillis(stageStats.getTotalUserTime().toMillis())
                     .setCpuTimeMillis(stageStats.getTotalCpuTime().toMillis())

@@ -40,6 +40,7 @@ public class HashBuildBenchmark
         extends AbstractOperatorBenchmark
 {
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
+
     public HashBuildBenchmark(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hash_build", 4, 5);

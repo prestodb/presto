@@ -28,6 +28,8 @@ public final class TestGroups
     public static final String BLACKHOLE_CONNECTOR = "blackhole";
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
+    public static final String MYSQL = "mysql";
+    public static final String PRESTO_JDBC = "presto_jdbc";
     public static final String SIMBA_JDBC = "simba_jdbc";
     public static final String QUERY_ENGINE = "qe";
     public static final String COMPARISON = "comparison";
@@ -55,6 +57,8 @@ public final class TestGroups
     public static final String SQL_SERVER = "sqlserver";
     public static final String LDAP = "ldap";
     public static final String LDAP_CLI = "ldap_cli";
+    public static final String SKIP_ON_CDH = "skip_on_cdh";
+    public static final String TLS = "tls";
 
     private TestGroups() {}
 }

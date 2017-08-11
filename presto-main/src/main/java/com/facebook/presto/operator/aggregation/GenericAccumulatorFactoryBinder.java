@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 
 import java.lang.reflect.Constructor;
@@ -62,5 +63,11 @@ public class GenericAccumulatorFactoryBinder
     public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel)
     {
         return new GenericAccumulatorFactory(stateSerializer, stateFactory, accumulatorConstructor, groupedAccumulatorConstructor, argumentChannels, maskChannel);
+    }
+
+    @VisibleForTesting
+    public AccumulatorStateSerializer<?> getStateSerializer()
+    {
+        return stateSerializer;
     }
 }

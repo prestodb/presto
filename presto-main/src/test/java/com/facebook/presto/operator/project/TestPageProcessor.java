@@ -16,11 +16,14 @@ package com.facebook.presto.operator.project;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static com.facebook.presto.operator.project.PageProcessor.MAX_PAGE_SIZE_IN_BYTES;
@@ -36,6 +40,8 @@ import static com.facebook.presto.operator.project.SelectedPositions.positionsRa
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static java.lang.String.join;
+import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -138,6 +144,43 @@ public class TestPageProcessor
         // output should be one page containing no columns (only a count)
         List<Page> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 0);
+    }
+
+    @Test
+    public void testSelectNoneFilterLazyLoad()
+            throws Exception
+    {
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(1, BIGINT)));
+
+        // if channel 1 is loaded, test will fail
+        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
+            throw new AssertionError("Lazy block should not be loaded");
+        }));
+
+        PageProcessorOutput output = pageProcessor.process(SESSION, inputPage);
+        assertEquals(output.getRetainedSizeInBytes(), 0);
+
+        List<Page> outputPages = ImmutableList.copyOf(output);
+        assertEquals(outputPages.size(), 0);
+    }
+
+    @Test
+    public void testProjectLazyLoad()
+            throws Exception
+    {
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()));
+
+        // if channel 1 is loaded, test will fail
+        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
+            throw new AssertionError("Lazy block should not be loaded");
+        }));
+
+        PageProcessorOutput output = pageProcessor.process(SESSION, inputPage);
+        assertEquals(output.getRetainedSizeInBytes(), createLongSequenceBlock(0, 100).getRetainedSizeInBytes());
+
+        List<Page> outputPages = ImmutableList.copyOf(output);
+        assertEquals(outputPages.size(), 1);
+        assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0), new Page(createLongSequenceBlock(0, 100)));
     }
 
     @Test
@@ -246,6 +289,28 @@ public class TestPageProcessor
         assertTrue(firstProjection.getInvocationCount() < secondProjection.getInvocationCount());
     }
 
+    @Test
+    public void testRetainedSize()
+            throws Exception
+    {
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, VARCHAR), new InputPageProjection(1, VARCHAR)));
+
+        // create 2 columns X 800 rows of strings with each string's size = 10KB
+        // this can force previouslyComputedResults to be saved given the page is 16MB in size
+        String value = join("", nCopies(10_000, "a"));
+        List<String> values = nCopies(800, value);
+        Page inputPage = new Page(createStringsBlock(values), createStringsBlock(values));
+        PageProcessorOutput output = pageProcessor.process(SESSION, inputPage);
+
+        // force a compute
+        // one block of previouslyComputedResults will be saved given the first column is with 8MB
+        output.hasNext();
+
+        // verify we do not count block sizes twice
+        // comparing with the input page, the output page also contains an extra instance size for previouslyComputedResults
+        assertEquals(output.getRetainedSizeInBytes() - ClassLayout.parseClass(VariableWidthBlock.class).instanceSize(), inputPage.getRetainedSizeInBytes());
+    }
+
     private static class InvocationCountPageProjection
             implements PageProjection
     {
@@ -293,6 +358,36 @@ public class TestPageProcessor
         }
     }
 
+    public static class LazyPagePageProjection
+            implements PageProjection
+    {
+        @Override
+        public Type getType()
+        {
+            return BIGINT;
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return true;
+        }
+
+        @Override
+        public InputChannels getInputChannels()
+        {
+            return new InputChannels(0, 1);
+        }
+
+        @Override
+        public Block project(ConnectorSession session, Page page, SelectedPositions selectedPositions)
+        {
+            Block block = page.getBlock(0);
+            block.assureLoaded();
+            return block;
+        }
+    }
+
     private static class TestingPageFilter
             implements PageFilter
     {
@@ -312,7 +407,7 @@ public class TestPageProcessor
         @Override
         public InputChannels getInputChannels()
         {
-            return new InputChannels();
+            return new InputChannels(0);
         }
 
         @Override
@@ -322,7 +417,7 @@ public class TestPageProcessor
         }
     }
 
-    private static class SelectAllFilter
+    public static class SelectAllFilter
             implements PageFilter
     {
         @Override
@@ -334,7 +429,7 @@ public class TestPageProcessor
         @Override
         public InputChannels getInputChannels()
         {
-            return new InputChannels();
+            return new InputChannels(0);
         }
 
         @Override
@@ -356,7 +451,7 @@ public class TestPageProcessor
         @Override
         public InputChannels getInputChannels()
         {
-            return new InputChannels();
+            return new InputChannels(0);
         }
 
         @Override

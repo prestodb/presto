@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra.util;
 
+import com.datastax.driver.core.VersionNumber;
 import com.facebook.presto.cassandra.CassandraClusteringPredicatesExtractor;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTable;
@@ -26,8 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
@@ -38,6 +37,7 @@ public class TestCassandraClusteringPredicatesExtractor
     private static CassandraColumnHandle col3;
     private static CassandraColumnHandle col4;
     private static CassandraTable cassandraTable;
+    private static VersionNumber cassandraVersion;
 
     @BeforeTest
     void setUp()
@@ -50,6 +50,8 @@ public class TestCassandraClusteringPredicatesExtractor
 
         cassandraTable = new CassandraTable(
                 new CassandraTableHandle("cassandra", "test", "records"), ImmutableList.of(col1, col2, col3, col4));
+
+        cassandraVersion = VersionNumber.parse("2.1.5");
     }
 
     @Test
@@ -60,9 +62,9 @@ public class TestCassandraClusteringPredicatesExtractor
                         col1, Domain.singleValue(BIGINT, 23L),
                         col2, Domain.singleValue(BIGINT, 34L),
                         col4, Domain.singleValue(BIGINT, 26L)));
-        CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(cassandraTable.getClusteringKeyColumns(), tupleDomain);
-        List<String> predicate = predicatesExtractor.getClusteringKeyPredicates();
-        assertEquals(predicate.get(0), new StringBuilder("\"clusteringKey1\" = 34").toString());
+        CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(cassandraTable.getClusteringKeyColumns(), tupleDomain, cassandraVersion);
+        String predicate = predicatesExtractor.getClusteringKeyPredicates();
+        assertEquals(predicate, new StringBuilder("\"clusteringKey1\" = 34").toString());
     }
 
     @Test
@@ -72,7 +74,7 @@ public class TestCassandraClusteringPredicatesExtractor
                 ImmutableMap.of(
                         col2, Domain.singleValue(BIGINT, 34L),
                         col4, Domain.singleValue(BIGINT, 26L)));
-        CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(cassandraTable.getClusteringKeyColumns(), tupleDomain);
+        CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(cassandraTable.getClusteringKeyColumns(), tupleDomain, cassandraVersion);
         TupleDomain<ColumnHandle> unenforcedPredicates = TupleDomain.withColumnDomains(ImmutableMap.of(col4, Domain.singleValue(BIGINT, 26L)));
         assertEquals(predicatesExtractor.getUnenforcedConstraints(), unenforcedPredicates);
     }

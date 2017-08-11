@@ -14,9 +14,9 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
-import com.facebook.presto.spi.block.ArrayElementBlockWriter;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.SingleArrayBlockWriter;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
@@ -40,21 +40,21 @@ public class TestSimpleRowType
     {
         ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) TYPE.createBlockBuilder(new BlockBuilderStatus(), 3);
 
-        ArrayElementBlockWriter arrayElementBlockWriter;
+        SingleArrayBlockWriter singleArrayBlockWriter;
 
-        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(arrayElementBlockWriter, 1);
-        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("cat"));
+        singleArrayBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleArrayBlockWriter, 1);
+        VARCHAR.writeSlice(singleArrayBlockWriter, utf8Slice("cat"));
         blockBuilder.closeEntry();
 
-        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(arrayElementBlockWriter, 2);
-        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("cats"));
+        singleArrayBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleArrayBlockWriter, 2);
+        VARCHAR.writeSlice(singleArrayBlockWriter, utf8Slice("cats"));
         blockBuilder.closeEntry();
 
-        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(arrayElementBlockWriter, 3);
-        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("dog"));
+        singleArrayBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleArrayBlockWriter, 3);
+        VARCHAR.writeSlice(singleArrayBlockWriter, utf8Slice("dog"));
         blockBuilder.closeEntry();
 
         return blockBuilder.build();
@@ -64,12 +64,12 @@ public class TestSimpleRowType
     protected Object getGreaterValue(Object value)
     {
         ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) TYPE.createBlockBuilder(new BlockBuilderStatus(), 1);
-        ArrayElementBlockWriter arrayElementBlockWriter;
+        SingleArrayBlockWriter singleArrayBlockWriter;
 
         Block block = (Block) value;
-        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(arrayElementBlockWriter, block.getSingleValueBlock(0).getLong(0, 0) + 1);
-        VARCHAR.writeSlice(arrayElementBlockWriter, block.getSingleValueBlock(1).getSlice(0, 0, 1));
+        singleArrayBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleArrayBlockWriter, block.getSingleValueBlock(0).getLong(0, 0) + 1);
+        VARCHAR.writeSlice(singleArrayBlockWriter, block.getSingleValueBlock(1).getSlice(0, 0, 1));
         blockBuilder.closeEntry();
 
         return TYPE.getObject(blockBuilder.build(), 0);

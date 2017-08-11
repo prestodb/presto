@@ -29,6 +29,8 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,6 +49,7 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrincipalType.ROLE;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -54,7 +57,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
@@ -204,7 +208,7 @@ public class TestingHiveMetastore
             for (String location : locations) {
                 File directory = new File(URI.create(location));
                 checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
-                deleteRecursively(directory);
+                deleteDirectory(directory);
             }
         }
     }
@@ -354,6 +358,30 @@ public class TestingHiveMetastore
     }
 
     @Override
+    public synchronized void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        SchemaTableName name = new SchemaTableName(databaseName, tableName);
+        Table oldTable = getRequiredTable(name);
+
+        verifyCanDropColumn(this, databaseName, tableName, columnName);
+        if (!oldTable.getColumn(columnName).isPresent()) {
+            throw new ColumnNotFoundException(name, columnName);
+        }
+
+        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+        for (Column fieldSchema : oldTable.getDataColumns()) {
+            if (!fieldSchema.getName().equals(columnName)) {
+                newDataColumns.add(fieldSchema);
+            }
+        }
+
+        Table newTable = Table.builder(oldTable)
+                .setDataColumns(newDataColumns.build())
+                .build();
+        relations.put(name, newTable);
+    }
+
+    @Override
     public synchronized Optional<List<String>> getAllTables(String databaseName)
     {
         if (!databases.containsKey(databaseName)) {
@@ -409,7 +437,7 @@ public class TestingHiveMetastore
         if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
             File directory = new File(URI.create(partition.getStorage().getLocation()));
             checkArgument(isParentDir(directory, baseDirectory), "Partition directory must be inside of the metastore base directory");
-            deleteRecursively(directory);
+            deleteDirectory(directory);
         }
     }
 
@@ -492,6 +520,18 @@ public class TestingHiveMetastore
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         return Optional.ofNullable(relations.get(schemaTableName));
+    }
+
+    @Override
+    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        return Optional.of(ImmutableMap.of());
+    }
+
+    @Override
+    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        return Optional.of(ImmutableMap.of());
     }
 
     private synchronized Table getRequiredTable(SchemaTableName tableName)
@@ -599,6 +639,16 @@ public class TestingHiveMetastore
         // a table can only be owned by a user
         Optional<Table> table = getTable(databaseName, tableName);
         return table.isPresent() && user.equals(table.get().getOwner());
+    }
+
+    static void deleteDirectory(File dir)
+    {
+        try {
+            deleteRecursively(dir.toPath(), ALLOW_INSECURE);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static class PartitionName

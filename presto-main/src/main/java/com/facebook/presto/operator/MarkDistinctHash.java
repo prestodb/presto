@@ -36,6 +36,7 @@ public class MarkDistinctHash
     {
         this(session, types, channels, hashChannel, 10_000, joinCompiler);
     }
+
     public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues, JoinCompiler joinCompiler)
     {
         this.groupByHash = createGroupByHash(session, types, channels, hashChannel, expectedDistinctValues, joinCompiler);

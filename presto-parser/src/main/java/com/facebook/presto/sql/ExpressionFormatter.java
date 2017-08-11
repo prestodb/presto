@@ -40,6 +40,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
@@ -287,13 +288,18 @@ public final class ExpressionFormatter
         @Override
         protected String visitIdentifier(Identifier node, Void context)
         {
-            return formatIdentifier(node.getName());
+            if (!node.isDelimited()) {
+                return node.getValue();
+            }
+            else {
+                return '"' + node.getValue().replace("\"", "\"\"") + '"';
+            }
         }
 
         @Override
         protected String visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, Void context)
         {
-            return formatIdentifier(node.getName());
+            return formatExpression(node.getName(), parameters);
         }
 
         @Override
@@ -306,7 +312,7 @@ public final class ExpressionFormatter
         protected String visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             String baseString = process(node.getBase(), context);
-            return baseString + "." + formatIdentifier(node.getFieldName());
+            return baseString + "." + process(node.getField());
         }
 
         private static String formatQualifiedName(QualifiedName name)
@@ -367,9 +373,14 @@ public final class ExpressionFormatter
         @Override
         protected String visitBindExpression(BindExpression node, Void context)
         {
-            return "\"$INTERNAL$BIND\"(" +
-                    process(node.getValue(), context) + ", " +
-                    process(node.getFunction(), context) + ")";
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("\"$INTERNAL$BIND\"(");
+            for (Expression value : node.getValues()) {
+                builder.append(process(value, context) + ", ");
+            }
+            builder.append(process(node.getFunction(), context) + ")");
+            return builder.toString();
         }
 
         @Override
@@ -633,6 +644,11 @@ public final class ExpressionFormatter
                     .append(process(node.getSubquery(), context))
                     .append(")")
                     .toString();
+        }
+
+        public String visitGroupingOperation(GroupingOperation node, Void context)
+        {
+            return "GROUPING (" + joinExpressions(node.getGroupingColumns()) + ")";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)

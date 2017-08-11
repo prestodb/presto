@@ -56,14 +56,14 @@ public class TestSpillSpaceTracker
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
     }
 
-    @Test (expectedExceptions = ExceededSpillLimitException.class)
+    @Test(expectedExceptions = ExceededSpillLimitException.class)
     public void testSpillOutOfSpace()
     {
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
         spillSpaceTracker.reserve(MAX_DATA_SIZE.toBytes() + 1);
     }
 
-    @Test (expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testFreeToMuch()
     {
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);

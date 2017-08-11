@@ -22,10 +22,10 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -48,8 +48,7 @@ public final class ZipFunction
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(ZipFunction.class, "zip", List.class, Block[].class);
 
-    static
-    {
+    static {
         ZIP_FUNCTIONS = new ZipFunction[MAX_ARITY - MIN_ARITY + 1];
         for (int arity = MIN_ARITY; arity <= MAX_ARITY; arity++) {
             ZIP_FUNCTIONS[arity - MIN_ARITY] = new ZipFunction(arity);

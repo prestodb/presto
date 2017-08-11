@@ -17,9 +17,12 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -36,11 +39,19 @@ public class MemoryPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final MemoryPagesStore pagesStore;
+    private final HostAddress currentHostAddress;
 
     @Inject
-    public MemoryPageSinkProvider(MemoryPagesStore pagesStore)
+    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, NodeManager nodeManager)
+    {
+        this(pagesStore, requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getHostAndPort());
+    }
+
+    @VisibleForTesting
+    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, HostAddress currentHostAddress)
     {
         this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+        this.currentHostAddress = requireNonNull(currentHostAddress, "currentHostAddress is null");
     }
 
     @Override
@@ -53,7 +64,7 @@ public class MemoryPageSinkProvider
 
         pagesStore.cleanUp(memoryOutputTableHandle.getActiveTableIds());
         pagesStore.initialize(tableId);
-        return new MemoryPageSink(pagesStore, tableId);
+        return new MemoryPageSink(pagesStore, currentHostAddress, tableId);
     }
 
     @Override
@@ -65,18 +76,22 @@ public class MemoryPageSinkProvider
         checkState(memoryInsertTableHandle.getActiveTableIds().contains(tableId));
 
         pagesStore.cleanUp(memoryInsertTableHandle.getActiveTableIds());
-        return new MemoryPageSink(pagesStore, tableId);
+        pagesStore.initialize(tableId);
+        return new MemoryPageSink(pagesStore, currentHostAddress, tableId);
     }
 
     private static class MemoryPageSink
             implements ConnectorPageSink
     {
         private final MemoryPagesStore pagesStore;
+        private final HostAddress currentHostAddress;
         private final long tableId;
+        private long addedRows;
 
-        public MemoryPageSink(MemoryPagesStore pagesStore, long tableId)
+        public MemoryPageSink(MemoryPagesStore pagesStore, HostAddress currentHostAddress, long tableId)
         {
             this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+            this.currentHostAddress = requireNonNull(currentHostAddress, "currentHostAddress is null");
             this.tableId = tableId;
         }
 
@@ -84,13 +99,14 @@ public class MemoryPageSinkProvider
         public CompletableFuture<?> appendPage(Page page)
         {
             pagesStore.add(tableId, page);
+            addedRows += page.getPositionCount();
             return NOT_BLOCKED;
         }
 
         @Override
         public CompletableFuture<Collection<Slice>> finish()
         {
-            return completedFuture(ImmutableList.of());
+            return completedFuture(ImmutableList.of(new MemoryDataFragment(currentHostAddress, addedRows).toSlice()));
         }
 
         @Override

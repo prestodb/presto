@@ -17,8 +17,8 @@ import com.facebook.presto.array.DoubleBigArray;
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import io.airlift.stats.QuantileDigest;
+import org.openjdk.jol.info.ClassLayout;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static java.util.Objects.requireNonNull;
 
 public class DigestAndPercentileStateFactory
@@ -52,6 +52,7 @@ public class DigestAndPercentileStateFactory
             extends AbstractGroupedAccumulatorState
             implements DigestAndPercentileState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedDigestAndPercentileState.class).instanceSize();
         private final ObjectBigArray<QuantileDigest> digests = new ObjectBigArray<>();
         private final DoubleBigArray percentiles = new DoubleBigArray();
         private long size;
@@ -97,13 +98,14 @@ public class DigestAndPercentileStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return size + digests.sizeOf() + percentiles.sizeOf();
+            return INSTANCE_SIZE + size + digests.sizeOf() + percentiles.sizeOf();
         }
     }
 
     public static class SingleDigestAndPercentileState
             implements DigestAndPercentileState
     {
+        public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleDigestAndPercentileState.class).instanceSize();
         private QuantileDigest digest;
         private double percentile;
 
@@ -140,10 +142,11 @@ public class DigestAndPercentileStateFactory
         @Override
         public long getEstimatedSize()
         {
-            if (digest == null) {
-                return SIZE_OF_DOUBLE;
+            long estimatedSize = INSTANCE_SIZE;
+            if (digest != null) {
+                estimatedSize += digest.estimatedInMemorySizeInBytes();
             }
-            return digest.estimatedInMemorySizeInBytes() + SIZE_OF_DOUBLE;
+            return estimatedSize;
         }
     }
 }

@@ -16,10 +16,12 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -28,10 +30,11 @@ public class ArrayBlockBuilder
         extends AbstractArrayBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize();
 
     private int positionCount;
 
+    @Nullable
     private BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private int initialEntryCount;
@@ -40,9 +43,9 @@ public class ArrayBlockBuilder
     private boolean[] valueIsNull = new boolean[0];
 
     private final BlockBuilder values;
-    private int currentEntrySize;
+    private boolean currentEntryOpened;
 
-    private int retainedSizeInBytes;
+    private long retainedSizeInBytes;
 
     /**
      * Caller of this constructor is responsible for making sure `valuesBlock` is constructed with the same `blockBuilderStatus` as the one in the argument
@@ -74,9 +77,9 @@ public class ArrayBlockBuilder
     /**
      * Caller of this private constructor is responsible for making sure `values` is constructed with the same `blockBuilderStatus` as the one in the argument
      */
-    private ArrayBlockBuilder(BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int expectedEntries)
+    private ArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int expectedEntries)
     {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = blockBuilderStatus;
         this.values = requireNonNull(values, "values is null");
         this.initialEntryCount = max(expectedEntries, 1);
 
@@ -90,15 +93,24 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
-        return values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * positionCount);
+        return values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * (long) positionCount);
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
-        return retainedSizeInBytes;
+        return retainedSizeInBytes + values.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(values, values.getRetainedSizeInBytes());
+        consumer.accept(offsets, sizeOf(offsets));
+        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
@@ -128,8 +140,8 @@ public class ArrayBlockBuilder
     @Override
     public BlockBuilder writeObject(Object value)
     {
-        if (currentEntrySize != 0) {
-            throw new IllegalStateException("Expected entry size to be exactly " + 0 + " but was " + currentEntrySize);
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
 
         Block block = (Block) value;
@@ -143,36 +155,36 @@ public class ArrayBlockBuilder
             }
         }
 
-        currentEntrySize++;
+        currentEntryOpened = true;
         return this;
     }
 
     @Override
-    public ArrayElementBlockWriter beginBlockEntry()
+    public SingleArrayBlockWriter beginBlockEntry()
     {
-        if (currentEntrySize != 0) {
-            throw new IllegalStateException("Expected current entry size to be exactly 0 but was " + currentEntrySize);
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was closed");
         }
-        currentEntrySize++;
-        return new ArrayElementBlockWriter(values, values.getPositionCount());
+        currentEntryOpened = true;
+        return new SingleArrayBlockWriter(values, values.getPositionCount());
     }
 
     @Override
     public BlockBuilder closeEntry()
     {
-        if (currentEntrySize != 1) {
-            throw new IllegalStateException("Expected entry size to be exactly 1 but was " + currentEntrySize);
+        if (!currentEntryOpened) {
+            throw new IllegalStateException("Expected entry to be opened but was closed");
         }
 
         entryAdded(false);
-        currentEntrySize = 0;
+        currentEntryOpened = false;
         return this;
     }
 
     @Override
     public BlockBuilder appendNull()
     {
-        if (currentEntrySize > 0) {
+        if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before a null can be written");
         }
 
@@ -189,7 +201,9 @@ public class ArrayBlockBuilder
         valueIsNull[positionCount] = isNull;
         positionCount++;
 
-        blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+        }
     }
 
     private void growCapacity()
@@ -210,35 +224,19 @@ public class ArrayBlockBuilder
 
     private void updateDataSize()
     {
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets));
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets);
+        if (blockBuilderStatus != null) {
+            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
+        }
     }
 
     @Override
     public ArrayBlock build()
     {
-        if (currentEntrySize > 0) {
+        if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return new ArrayBlock(positionCount, valueIsNull, offsets, values.build());
-    }
-
-    @Override
-    public void reset(BlockBuilderStatus blockBuilderStatus)
-    {
-        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-
-        initialized = false;
-        initialEntryCount = calculateBlockResetSize(getPositionCount());
-
-        valueIsNull = new boolean[0];
-        offsets = new int[1];
-
-        values.reset(blockBuilderStatus);
-
-        currentEntrySize = 0;
-        positionCount = 0;
-
-        updateDataSize();
     }
 
     @Override

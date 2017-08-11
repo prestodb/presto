@@ -139,8 +139,7 @@ public class TestCompactionSetCreator
                 shardWithTemporalRange(TIMESTAMP, day1 + 100, day2 + 100), // day1
                 shardWithTemporalRange(TIMESTAMP, day1 - 100, day2 - 100), // day1
                 shardWithTemporalRange(TIMESTAMP, day2 - 100, day3 - 100),  // day2
-                shardWithTemporalRange(TIMESTAMP, day1, day4) // day2
-        );
+                shardWithTemporalRange(TIMESTAMP, day1, day4)); // day2
 
         long tableId = temporalTableInfo.getTableId();
         Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);

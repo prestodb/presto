@@ -1,6 +1,11 @@
-================
-Binary Functions
-================
+==============================
+Binary Functions and Operators
+==============================
+
+Binary Operators
+----------------
+
+The ``||`` operator performs concatenation.
 
 Binary Functions
 ----------------
@@ -9,6 +14,13 @@ Binary Functions
     :noindex:
 
     Returns the length of ``binary`` in bytes.
+
+.. function:: concat(binary1, ..., binaryN) -> varbinary
+    :noindex:
+
+    Returns the concatenation of ``binary1``, ``binary2``, ``...``, ``binaryN``.
+    This function provides the same functionality as the
+    SQL-standard concatenation operator (``||``).
 
 .. function:: to_base64(binary) -> varchar
 
@@ -41,6 +53,19 @@ Binary Functions
 .. function:: from_big_endian_64(binary) -> bigint
 
     Decodes ``bigint`` value from a 64-bit 2's complement big endian ``binary``.
+
+.. function:: to_ieee754_32(real) -> varbinary
+
+    Encodes ``real`` in a 32-bit big-endian binary according to IEEE 754 single-precision floating-point format.
+
+.. function:: to_ieee754_64(double) -> varbinary
+
+    Encodes ``double`` in a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
+
+.. function:: crc32(binary) -> bigint
+
+    Computes the CRC-32 of ``binary``. For general purpose hashing, use
+    :func:`xxhash64`, as it is much faster and produces a better quality hash.
 
 .. function:: md5(binary) -> varbinary
 

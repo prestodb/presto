@@ -62,4 +62,15 @@ public class MatchResult
     {
         return newAliases;
     }
+
+    @Override
+    public String toString()
+    {
+        if (matches) {
+            return "MATCH";
+        }
+        else {
+            return "NO MATCH";
+        }
+    }
 }

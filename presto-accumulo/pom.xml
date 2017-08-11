@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.174-SNAPSHOT</version>
+        <version>0.183-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-accumulo</artifactId>
@@ -315,6 +315,12 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

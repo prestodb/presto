@@ -22,15 +22,15 @@ import java.util.Optional;
 public class LambdaArgumentDeclaration
         extends Expression
 {
-    private final String name;
+    private final Identifier name;
 
-    public LambdaArgumentDeclaration(String name)
+    public LambdaArgumentDeclaration(Identifier name)
     {
         super(Optional.empty());
         this.name = name;
     }
 
-    public String getName()
+    public Identifier getName()
     {
         return name;
     }

@@ -14,9 +14,11 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Collection;
@@ -37,12 +39,14 @@ public class AggregationMatcher
     private final Map<Symbol, Symbol> masks;
     private final List<List<String>> groupingSets;
     private final Optional<Symbol> groupId;
+    private final Step step;
 
-    public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId)
+    public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
     {
         this.masks = masks;
         this.groupingSets = groupingSets;
         this.groupId = groupId;
+        this.step = step;
     }
 
     @Override
@@ -52,7 +56,7 @@ public class AggregationMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;
@@ -68,7 +72,7 @@ public class AggregationMatcher
         List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
-                .filter(entry -> entry.getValue().isDistinct())
+                .filter(entry -> entry.getValue().getCall().isDistinct())
                 .map(entry -> entry.getKey())
                 .collect(Collectors.toList());
 
@@ -86,6 +90,10 @@ public class AggregationMatcher
             if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i), symbolAliases)) {
                 return NO_MATCH;
             }
+        }
+
+        if (step != aggregationNode.getStep()) {
+            return NO_MATCH;
         }
 
         return match();
@@ -116,6 +124,7 @@ public class AggregationMatcher
                 .add("groupingSets", groupingSets)
                 .add("masks", masks)
                 .add("groudId", groupId)
+                .add("step", step)
                 .toString();
     }
 }

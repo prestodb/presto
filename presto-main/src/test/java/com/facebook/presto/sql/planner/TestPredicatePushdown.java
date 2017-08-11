@@ -23,6 +23,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
@@ -42,5 +43,21 @@ public class TestPredicatePushdown
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber")))))));
+    }
+
+    @Test
+    public void testPushDownToLhsOfSemiJoin()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders)) " +
+                        "WHERE linenumber = 2",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_NUMBER = 2",
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey",
+                                                        "LINE_NUMBER", "linenumber",
+                                                        "LINE_QUANTITY", "quantity")))),
+                                anyTree(tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
     }
 }

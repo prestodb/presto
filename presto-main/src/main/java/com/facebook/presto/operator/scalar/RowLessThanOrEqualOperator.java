@@ -16,9 +16,9 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;

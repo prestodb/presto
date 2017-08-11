@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public final class OuterLookupSource
         implements LookupSource
 {
-    public static Supplier<LookupSource> createOuterLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier)
+    public static TrackingLookupSourceSupplier createOuterLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier)
     {
         return new OuterLookupSourceSupplier(lookupSourceSupplier);
     }
@@ -95,12 +95,6 @@ public final class OuterLookupSource
     }
 
     @Override
-    public OuterPositionIterator getOuterPositionIterator()
-    {
-        return outerPositionTracker.getOuterPositionIterator();
-    }
-
-    @Override
     public void close()
     {
         lookupSource.close();
@@ -140,7 +134,7 @@ public final class OuterLookupSource
 
     @ThreadSafe
     private static class OuterLookupSourceSupplier
-            implements Supplier<LookupSource>
+            implements TrackingLookupSourceSupplier
     {
         private final Supplier<LookupSource> lookupSourceSupplier;
         private final OuterPositionTracker outerPositionTracker;
@@ -152,9 +146,14 @@ public final class OuterLookupSource
         }
 
         @Override
-        public LookupSource get()
+        public LookupSource getLookupSource()
         {
             return new OuterLookupSource(lookupSourceSupplier.get(), outerPositionTracker);
+        }
+
+        public OuterPositionIterator getOuterPositionIterator()
+        {
+            return outerPositionTracker.getOuterPositionIterator();
         }
     }
 

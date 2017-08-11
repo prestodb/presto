@@ -78,18 +78,16 @@ public class Assignments
     }
 
     private final Map<Symbol, Expression> assignments;
-    private final List<Symbol> outputs;
 
     @JsonCreator
     public Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
     {
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        this.outputs = ImmutableList.copyOf(assignments.keySet());
     }
 
     public List<Symbol> getOutputs()
     {
-        return outputs;
+        return ImmutableList.copyOf(assignments.keySet());
     }
 
     @JsonProperty("assignments")
@@ -164,6 +162,32 @@ public class Assignments
     public int size()
     {
         return assignments.size();
+    }
+
+    public boolean isEmpty()
+    {
+        return size() == 0;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Assignments that = (Assignments) o;
+
+        return assignments.equals(that.assignments);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return assignments.hashCode();
     }
 
     public static class Builder

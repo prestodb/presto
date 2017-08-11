@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
+import com.facebook.presto.spi.block.LazyBlock;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.Iterators;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -30,9 +32,11 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
+import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterators.singletonIterator;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -83,17 +87,39 @@ public class PageProcessor
             }
 
             if (projections.isEmpty()) {
-                return new PageProcessorOutput(page.getRetainedSizeInBytes(), Iterators.singletonIterator(new Page(selectedPositions.size())));
+                return new PageProcessorOutput(() -> calculateRetainedSizeWithoutLoading(page), singletonIterator(new Page(selectedPositions.size())));
             }
 
             if (selectedPositions.size() != page.getPositionCount()) {
-                return new PageProcessorOutput(page.getRetainedSizeInBytes(), new PositionsPageProcessorIterator(session, page, selectedPositions));
+                PositionsPageProcessorIterator pages = new PositionsPageProcessorIterator(session, page, selectedPositions);
+                return new PageProcessorOutput(pages::getRetainedSizeInBytes, pages);
             }
         }
 
-        return new PageProcessorOutput(
-                page.getRetainedSizeInBytes(),
-                new PositionsPageProcessorIterator(session, page, SelectedPositions.positionsRange(0, page.getPositionCount())));
+        PositionsPageProcessorIterator pages = new PositionsPageProcessorIterator(session, page, positionsRange(0, page.getPositionCount()));
+        return new PageProcessorOutput(pages::getRetainedSizeInBytes, pages);
+    }
+
+    @VisibleForTesting
+    public List<PageProjection> getProjections()
+    {
+        return projections;
+    }
+
+    private static boolean isUnloadedLazyBlock(Block block)
+    {
+        return (block instanceof LazyBlock) && !((LazyBlock) block).isLoaded();
+    }
+
+    private static long calculateRetainedSizeWithoutLoading(Page page)
+    {
+        long retainedSizeInBytes = 0;
+        for (Block block : page.getBlocks()) {
+            if (!isUnloadedLazyBlock(block)) {
+                retainedSizeInBytes += block.getRetainedSizeInBytes();
+            }
+        }
+        return retainedSizeInBytes;
     }
 
     private class PositionsPageProcessorIterator
@@ -104,6 +130,7 @@ public class PageProcessor
 
         private SelectedPositions selectedPositions;
         private final Block[] previouslyComputedResults;
+        private long retainedSizeInBytes;
 
         public PositionsPageProcessorIterator(ConnectorSession session, Page page, SelectedPositions selectedPositions)
         {
@@ -111,6 +138,12 @@ public class PageProcessor
             this.page = page;
             this.selectedPositions = selectedPositions;
             this.previouslyComputedResults = new Block[projections.size()];
+            updateRetainedSize();
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return retainedSizeInBytes;
         }
 
         @Override
@@ -118,6 +151,7 @@ public class PageProcessor
         {
             while (true) {
                 if (selectedPositions.isEmpty()) {
+                    updateRetainedSize();
                     return endOfData();
                 }
 
@@ -155,7 +189,33 @@ public class PageProcessor
                     }
                 }
 
+                updateRetainedSize();
                 return page;
+            }
+        }
+
+        private void updateRetainedSize()
+        {
+            // increment the size only when it is the first reference
+            retainedSizeInBytes = 0;
+            ReferenceCountMap referenceCountMap = new ReferenceCountMap();
+            for (Block block : page.getBlocks()) {
+                if (!isUnloadedLazyBlock(block)) {
+                    block.retainedBytesForEachPart((object, size) -> {
+                        if (referenceCountMap.incrementReference(object) == 1) {
+                            retainedSizeInBytes += size;
+                        }
+                    });
+                }
+            }
+            for (Block previouslyComputedResult : previouslyComputedResults) {
+                if (previouslyComputedResult != null) {
+                    previouslyComputedResult.retainedBytesForEachPart((object, size) -> {
+                        if (referenceCountMap.incrementReference(object) == 1) {
+                            retainedSizeInBytes += size;
+                        }
+                    });
+                }
             }
         }
 

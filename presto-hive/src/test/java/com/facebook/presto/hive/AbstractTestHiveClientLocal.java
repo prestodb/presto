@@ -25,8 +25,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.io.File;
+import java.io.IOException;
 
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 public abstract class AbstractTestHiveClientLocal
         extends AbstractTestHiveClient
@@ -56,8 +58,9 @@ public abstract class AbstractTestHiveClientLocal
 
     @AfterClass(alwaysRun = true)
     public void cleanup()
+            throws IOException
     {
-        deleteRecursively(tempDir);
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 
     @Override
@@ -80,4 +83,7 @@ public abstract class AbstractTestHiveClientLocal
 
     @Override
     public void testGetTableNames() {}
+
+    @Override
+    public void testGetTableSchemaOffline() {}
 }

@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Result of fetching Partitions in the HivePartitionManager interface.
- *
+ * <p>
  * Results are comprised of two parts:
  * 1) The actual partitions
  * 2) The TupleDomain that represents the values that the connector was not able to pre-evaluate

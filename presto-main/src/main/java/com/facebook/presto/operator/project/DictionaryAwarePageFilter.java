@@ -64,10 +64,12 @@ public class DictionaryAwarePageFilter
 
         if (block instanceof RunLengthEncodedBlock) {
             Block value = ((RunLengthEncodedBlock) block).getValue();
-            Optional<boolean[]> selectedDictionaryPositions = processDictionary(session, value);
-            // single value block is always considered effective
-            verify(selectedDictionaryPositions.isPresent());
-            return SelectedPositions.positionsRange(0, selectedDictionaryPositions.get()[0] ? page.getPositionCount() : 0);
+            Optional<boolean[]> selectedPosition = processDictionary(session, value);
+            // single value block is always considered effective, but the processing could have thrown
+            // in that case we fallback and process again so the correct error message sent
+            if (selectedPosition.isPresent()) {
+                return SelectedPositions.positionsRange(0, selectedPosition.get()[0] ? page.getPositionCount() : 0);
+            }
         }
 
         if (block instanceof DictionaryBlock) {
@@ -101,8 +103,17 @@ public class DictionaryAwarePageFilter
         lastInputDictionary = dictionary;
 
         if (shouldProcessDictionary) {
-            SelectedPositions selectedDictionaryPositions = filter.filter(session, new Page(dictionary));
-            lastOutputDictionary = Optional.of(toPositionsMask(selectedDictionaryPositions, dictionary.getPositionCount()));
+            try {
+                SelectedPositions selectedDictionaryPositions = filter.filter(session, new Page(dictionary));
+                lastOutputDictionary = Optional.of(toPositionsMask(selectedDictionaryPositions, dictionary.getPositionCount()));
+            }
+            catch (Exception ignored) {
+                // Processing of dictionary failed, but we ignore the exception here
+                // and force reprocessing of the whole block using the normal code.
+                // The second pass may not fail due to filtering.
+                // todo dictionary processing should be able to tolerate failures of unused elements
+                lastOutputDictionary = Optional.empty();
+            }
         }
         else {
             lastOutputDictionary = Optional.empty();

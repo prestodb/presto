@@ -130,7 +130,8 @@ public class InCodeGeneratorBenchmark
                 BOOLEAN,
                 arguments);
 
-        processor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
     }
 
     @Benchmark

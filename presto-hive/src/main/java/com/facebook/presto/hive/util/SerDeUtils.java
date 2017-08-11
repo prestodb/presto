@@ -216,12 +216,13 @@ public final class SerDeUtils
         ObjectInspector keyInspector = inspector.getMapKeyObjectInspector();
         ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
         BlockBuilder currentBuilder;
-        if (builder != null) {
-            currentBuilder = builder.beginBlockEntry();
+
+        boolean builderSynthesized = false;
+        if (builder == null) {
+            builderSynthesized = true;
+            builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
         }
-        else {
-            currentBuilder = new InterleavedBlockBuilder(typeParameters, new BlockBuilderStatus(), map.size());
-        }
+        currentBuilder = builder.beginBlockEntry();
 
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
@@ -231,13 +232,12 @@ public final class SerDeUtils
             }
         }
 
-        if (builder != null) {
-            builder.closeEntry();
-            return null;
+        builder.closeEntry();
+        if (builderSynthesized) {
+            return (Block) type.getObject(builder, 0);
         }
         else {
-            Block resultBlock = currentBuilder.build();
-            return resultBlock;
+            return null;
         }
     }
 

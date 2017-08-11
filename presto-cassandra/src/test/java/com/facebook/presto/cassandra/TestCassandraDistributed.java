@@ -76,6 +76,12 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testDropColumn()
+    {
+        // Cassandra does not support dropping columns
+    }
+
+    @Override
     public void testInsert()
     {
         // Cassandra connector currently does not support insert
@@ -129,5 +135,11 @@ public class TestCassandraDistributed
     public void testDescribeOutputNamedAndUnnamed()
     {
         // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testWrittenStats()
+    {
+        // Cassandra connector currently does not support create table nor insert
     }
 }

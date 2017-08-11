@@ -36,6 +36,12 @@ Map Functions
 
     See also :func:`map_agg` and :func:`multimap_agg` for creating a map as an aggregation.
 
+.. function:: map_from_entries(array<row<K,V>>) -> map<K,V>
+
+    Returns a map created from the given array of entries. ::
+
+        SELECT map_from_entries(ARRAY[(1, 'x'), (2, 'y')]); -- {1 -> 'x', 2 -> 'y'}
+
 .. function:: map_concat(map1<K,V>, map2<K,V>, ..., mapN<K,V>) -> map<K,V>
 
    Returns the union of all the given maps. If a key is found in multiple given maps,

@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -24,25 +23,29 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
+import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+import static com.facebook.presto.sql.planner.plan.Patterns.markDistinct;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 
 public class PushLimitThroughMarkDistinct
-        implements Rule
+        implements Rule<LimitNode>
 {
+    private static final Capture<MarkDistinctNode> CHILD = newCapture();
+
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .with(source().matching(markDistinct().capturedAs(CHILD)));
+
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+    public Pattern<LimitNode> getPattern()
     {
-        if (!(node instanceof LimitNode)) {
-            return Optional.empty();
-        }
+        return PATTERN;
+    }
 
-        LimitNode parent = (LimitNode) node;
-
-        PlanNode child = lookup.resolve(parent.getSource());
-        if (!(child instanceof MarkDistinctNode)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(transpose(parent, child));
+    @Override
+    public Optional<PlanNode> apply(LimitNode parent, Captures captures, Context context)
+    {
+        return Optional.of(transpose(parent, captures.get(CHILD)));
     }
 }

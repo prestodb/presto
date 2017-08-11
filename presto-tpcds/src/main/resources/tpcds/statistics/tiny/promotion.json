@@ -1,0 +1,119 @@
+{
+  "rowCount" : 3,
+  "columns" : {
+    "p_promo_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 3
+    },
+    "p_promo_id" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAADAAAAAAA"
+    },
+    "p_start_date_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 2450118,
+      "max" : 2450675
+    },
+    "p_end_date_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 2450150,
+      "max" : 2450712
+    },
+    "p_item_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 686,
+      "max" : 1468
+    },
+    "p_cost" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 100000,
+      "max" : 100000
+    },
+    "p_response_targe" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1
+    },
+    "p_promo_name" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "able",
+      "max" : "pri"
+    },
+    "p_channel_dmail" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Y",
+      "max" : "Y"
+    },
+    "p_channel_email" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N"
+    },
+    "p_channel_catalog" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N"
+    },
+    "p_channel_tv" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N"
+    },
+    "p_channel_radio" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N"
+    },
+    "p_channel_press" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N"
+    },
+    "p_channel_event" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N"
+    },
+    "p_channel_demo" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N"
+    },
+    "p_channel_details" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Companies shall not pr",
+      "max" : "So willing buildings coul"
+    },
+    "p_purpose" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown"
+    },
+    "p_discount_active" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N"
+    }
+  }
+}

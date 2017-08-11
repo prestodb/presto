@@ -33,7 +33,7 @@ public class TestMissingShardComparator
     }
 
     private static class DummyMissingShardRunnable
-        implements MissingShardRunnable
+            implements MissingShardRunnable
     {
         private final boolean active;
 

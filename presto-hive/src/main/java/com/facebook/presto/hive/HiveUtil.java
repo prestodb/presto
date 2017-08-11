@@ -28,8 +28,11 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.compress.lzo.LzoCodec;
+import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
@@ -89,11 +92,12 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpaces;
+import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -104,6 +108,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.Byte.parseByte;
 import static java.lang.Double.parseDouble;
@@ -116,6 +121,7 @@ import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
@@ -148,7 +154,7 @@ public final class HiveUtil
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSS").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSSSS").getParser(),
-                };
+        };
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
         HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
     }
@@ -167,13 +173,23 @@ public final class HiveUtil
         setReadColumns(configuration, readHiveColumnIndexes);
 
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
-        JobConf jobConf = new JobConf(configuration);
+        JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
         // propagate serialization configuration to getRecordReader
         schema.stringPropertyNames().stream()
                 .filter(name -> name.startsWith("serialization."))
                 .forEach(name -> jobConf.set(name, schema.getProperty(name)));
+
+        // add Airlift LZO and LZOP to head of codecs list so as to not override existing entries
+        List<String> codecs = newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(jobConf.get("io.compression.codecs", "")));
+        if (!codecs.contains(LzoCodec.class.getName())) {
+            codecs.add(0, LzoCodec.class.getName());
+        }
+        if (!codecs.contains(LzopCodec.class.getName())) {
+            codecs.add(0, LzopCodec.class.getName());
+        }
+        jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
 
         try {
             return retry()
@@ -201,7 +217,7 @@ public final class HiveUtil
     {
         String inputFormatName = getInputFormatName(schema);
         try {
-            JobConf jobConf = new JobConf(configuration);
+            JobConf jobConf = toJobConf(configuration);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
@@ -688,7 +704,7 @@ public final class HiveUtil
 
     public static Slice charPartitionKey(String value, String name, Type columnType)
     {
-        Slice partitionKey = trimSpaces(Slices.utf8Slice(value));
+        Slice partitionKey = trimTrailingSpaces(Slices.utf8Slice(value));
         CharType charType = (CharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
@@ -751,11 +767,6 @@ public final class HiveUtil
         }
 
         return columns.build();
-    }
-
-    public static Slice base64Decode(byte[] bytes)
-    {
-        return Slices.wrappedBuffer(Base64.getDecoder().decode(bytes));
     }
 
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)

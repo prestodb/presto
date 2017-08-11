@@ -133,7 +133,7 @@ public class HdfsConfigurationUpdater
         return result;
     }
 
-    public void updateConfiguration(PrestoHadoopConfiguration config)
+    public void updateConfiguration(Configuration config)
     {
         copy(resourcesConfiguration, config);
 
@@ -248,6 +248,12 @@ public class HdfsConfigurationUpdater
 
         @Override
         public void reloadCachedMappings()
+        {
+            // no-op
+        }
+
+        @Override
+        public void reloadCachedMappings(List<String> names)
         {
             // no-op
         }

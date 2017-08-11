@@ -28,7 +28,7 @@ public abstract class AbstractArrayBlock
 
     protected abstract boolean[] getValueIsNull();
 
-    private int getOffset(int position)
+    int getOffset(int position)
     {
         return getOffsets()[position + getOffsetBase()];
     }
@@ -90,7 +90,7 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
         int positionCount = getPositionCount();
         if (position < 0 || length < 0 || position + length > positionCount) {
@@ -100,7 +100,7 @@ public abstract class AbstractArrayBlock
         int valueStart = getOffsets()[getOffsetBase() + position];
         int valueEnd = getOffsets()[getOffsetBase() + position + length];
 
-        return getValues().getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * length);
+        return getValues().getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) length);
     }
 
     @Override

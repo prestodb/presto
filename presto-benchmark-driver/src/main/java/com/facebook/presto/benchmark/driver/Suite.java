@@ -26,11 +26,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static java.util.Objects.requireNonNull;
 
@@ -93,11 +93,11 @@ public class Suite
             return ImmutableList.copyOf(queries);
         }
 
-        List<BenchmarkQuery> filteredQueries = StreamSupport.stream(queries.spliterator(), false)
+        List<BenchmarkQuery> filteredQueries = stream(queries)
                 .filter(query -> getQueryNamePatterns().stream().anyMatch(pattern -> pattern.matcher(query.getName()).matches()))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
-        return ImmutableList.copyOf(filteredQueries);
+        return filteredQueries;
     }
 
     @Override

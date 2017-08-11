@@ -1,0 +1,137 @@
+{
+  "rowCount" : 18000,
+  "columns" : {
+    "i_item_sk" : {
+      "distinctValuesCount" : 18000,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 18000
+    },
+    "i_item_id" : {
+      "distinctValuesCount" : 9000,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAAAABAAAA",
+      "max" : "AAAAAAAAPPPBAAAA"
+    },
+    "i_rec_start_date" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 46,
+      "min" : 10161,
+      "max" : 11622
+    },
+    "i_rec_end_date" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 9000,
+      "min" : 10891,
+      "max" : 11621
+    },
+    "i_item_desc" : {
+      "distinctValuesCount" : 13453,
+      "nullsCount" : 51,
+      "min" : "A",
+      "max" : "Young, working horses see mentally "
+    },
+    "i_current_price" : {
+      "distinctValuesCount" : 2688,
+      "nullsCount" : 45,
+      "min" : 9,
+      "max" : 9999
+    },
+    "i_wholesale_cost" : {
+      "distinctValuesCount" : 2040,
+      "nullsCount" : 46,
+      "min" : 2,
+      "max" : 8736
+    },
+    "i_brand_id" : {
+      "distinctValuesCount" : 948,
+      "nullsCount" : 44,
+      "min" : 1001001,
+      "max" : 10016017
+    },
+    "i_brand" : {
+      "distinctValuesCount" : 712,
+      "nullsCount" : 40,
+      "min" : "amalgamalg #1",
+      "max" : "univunivamalg #9"
+    },
+    "i_class_id" : {
+      "distinctValuesCount" : 16,
+      "nullsCount" : 35,
+      "min" : 1,
+      "max" : 16
+    },
+    "i_class" : {
+      "distinctValuesCount" : 99,
+      "nullsCount" : 43,
+      "min" : "accent",
+      "max" : "womens watch"
+    },
+    "i_category_id" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 42,
+      "min" : 1,
+      "max" : 10
+    },
+    "i_category" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 43,
+      "min" : "Books",
+      "max" : "Women"
+    },
+    "i_manufact_id" : {
+      "distinctValuesCount" : 994,
+      "nullsCount" : 38,
+      "min" : 1,
+      "max" : 1000
+    },
+    "i_manufact" : {
+      "distinctValuesCount" : 989,
+      "nullsCount" : 43,
+      "min" : "able",
+      "max" : "pripripri"
+    },
+    "i_size" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 41,
+      "min" : "N/A",
+      "max" : "small"
+    },
+    "i_formulation" : {
+      "distinctValuesCount" : 13497,
+      "nullsCount" : 43,
+      "min" : "0001145946rose283864",
+      "max" : "yellow97669389506333"
+    },
+    "i_color" : {
+      "distinctValuesCount" : 92,
+      "nullsCount" : 45,
+      "min" : "almond",
+      "max" : "yellow"
+    },
+    "i_units" : {
+      "distinctValuesCount" : 21,
+      "nullsCount" : 43,
+      "min" : "Box",
+      "max" : "Unknown"
+    },
+    "i_container" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 39,
+      "min" : "Unknown",
+      "max" : "Unknown"
+    },
+    "i_manager_id" : {
+      "distinctValuesCount" : 100,
+      "nullsCount" : 41,
+      "min" : 1,
+      "max" : 100
+    },
+    "i_product_name" : {
+      "distinctValuesCount" : 17964,
+      "nullsCount" : 36,
+      "min" : "able",
+      "max" : "pripripripriought"
+    }
+  }
+}

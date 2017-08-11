@@ -469,7 +469,7 @@ public class IndexJoinOptimizer
         }
 
         private static class Visitor
-                extends PlanVisitor<Set<Symbol>, Map<Symbol, Symbol>>
+                extends PlanVisitor<Map<Symbol, Symbol>, Set<Symbol>>
         {
             @Override
             protected Map<Symbol, Symbol> visitPlan(PlanNode node, Set<Symbol> lookupSymbols)

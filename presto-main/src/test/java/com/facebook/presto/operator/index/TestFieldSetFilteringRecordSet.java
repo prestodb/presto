@@ -17,9 +17,9 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -54,8 +54,7 @@ public class TestFieldSetFilteringRecordSet
                                         packDateTimeWithZone(100, getTimeZoneKeyForOffset(234)),
                                         // test structural type
                                         arrayBlockOf(BIGINT, 12, 34, 56),
-                                        arrayBlockOf(BIGINT, 12, 34, 56)
-                                ))),
+                                        arrayBlockOf(BIGINT, 12, 34, 56)))),
                 ImmutableList.of(ImmutableSet.of(0, 1), ImmutableSet.of(2, 3), ImmutableSet.of(4, 5)));
         RecordCursor recordCursor = fieldSetFilteringRecordSet.cursor();
         assertTrue(recordCursor.advanceNextPosition());

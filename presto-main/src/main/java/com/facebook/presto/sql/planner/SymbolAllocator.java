@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
@@ -25,6 +26,7 @@ import com.google.common.primitives.Ints;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +45,12 @@ public class SymbolAllocator
         symbols = new HashMap<>(initial);
     }
 
+    public Symbol newSymbol(Symbol symbolHint)
+    {
+        checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
+        return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
+    }
+
     public Symbol newSymbol(String nameHint, Type type)
     {
         return newSymbol(nameHint, type, null);
@@ -56,6 +64,7 @@ public class SymbolAllocator
     public Symbol newSymbol(String nameHint, Type type, String suffix)
     {
         requireNonNull(nameHint, "name is null");
+        requireNonNull(type, "type is null");
 
         // TODO: workaround for the fact that QualifiedName lowercases parts
         nameHint = nameHint.toLowerCase(ENGLISH);
@@ -96,13 +105,16 @@ public class SymbolAllocator
     {
         String nameHint = "expr";
         if (expression instanceof Identifier) {
-            nameHint = ((Identifier) expression).getName();
+            nameHint = ((Identifier) expression).getValue();
         }
         else if (expression instanceof FunctionCall) {
             nameHint = ((FunctionCall) expression).getName().getSuffix();
         }
         else if (expression instanceof SymbolReference) {
             nameHint = ((SymbolReference) expression).getName();
+        }
+        else if (expression instanceof GroupingOperation) {
+            nameHint = "grouping";
         }
 
         return newSymbol(nameHint, type, suffix);

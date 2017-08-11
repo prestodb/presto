@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
+import com.facebook.presto.type.SqlIntervalDayTime;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
@@ -49,12 +51,16 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.joda.time.DateTimeUtils.getInstantChronology;
 import static org.joda.time.Days.daysBetween;
 import static org.joda.time.DurationFieldType.millis;
@@ -909,6 +915,55 @@ public class TestDateTimeFunctions
         assertFunctionString("timestamp '0000-01-02 01:02:03 Asia/Shanghai'", TIMESTAMP_WITH_TIME_ZONE, "0000-01-02 01:02:03.000 Asia/Shanghai");
         assertFunctionString("timestamp '1234-05-06 23:23:23.233 America/Los_Angeles'", TIMESTAMP_WITH_TIME_ZONE, "1234-05-06 23:23:23.233 America/Los_Angeles");
         assertFunctionString("timestamp '2333-02-23 23:59:59.999 Asia/Tokyo'", TIMESTAMP_WITH_TIME_ZONE, "2333-02-23 23:59:59.999 Asia/Tokyo");
+    }
+
+    @Test
+    public void testParseDuration()
+    {
+        assertFunction("parse_duration('1234 ns')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 0));
+        assertFunction("parse_duration('1234 us')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 1));
+        assertFunction("parse_duration('1234 ms')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 1, 234));
+        assertFunction("parse_duration('1234 s')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 20, 34, 0));
+        assertFunction("parse_duration('1234 m')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 20, 34, 0, 0));
+        assertFunction("parse_duration('1234 h')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(51, 10, 0, 0, 0));
+        assertFunction("parse_duration('1234 d')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(1234, 0, 0, 0, 0));
+        assertFunction("parse_duration('1234.567 ns')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 0));
+        assertFunction("parse_duration('1234.567 ms')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 1, 235));
+        assertFunction("parse_duration('1234.567 s')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 1234, 567));
+        assertFunction("parse_duration('1234.567 m')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 20, 34, 34, 20));
+        assertFunction("parse_duration('1234.567 h')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(51, 10, 34, 1, 200));
+        assertFunction("parse_duration('1234.567 d')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(1234, 13, 36, 28, 800));
+
+        // without space
+        assertFunction("parse_duration('1234ns')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 0));
+        assertFunction("parse_duration('1234us')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 1));
+        assertFunction("parse_duration('1234ms')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 1, 234));
+        assertFunction("parse_duration('1234s')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 20, 34, 0));
+        assertFunction("parse_duration('1234m')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 20, 34, 0, 0));
+        assertFunction("parse_duration('1234h')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(51, 10, 0, 0, 0));
+        assertFunction("parse_duration('1234d')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(1234, 0, 0, 0, 0));
+        assertFunction("parse_duration('1234.567ns')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 0));
+        assertFunction("parse_duration('1234.567ms')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 1, 235));
+        assertFunction("parse_duration('1234.567s')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 1234, 567));
+        assertFunction("parse_duration('1234.567m')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 20, 34, 34, 20));
+        assertFunction("parse_duration('1234.567h')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(51, 10, 34, 1, 200));
+        assertFunction("parse_duration('1234.567d')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(1234, 13, 36, 28, 800));
+
+        // invalid function calls
+        assertInvalidFunction("parse_duration('')", "duration is empty");
+        assertInvalidFunction("parse_duration('1f')", "Unknown time unit: f");
+        assertInvalidFunction("parse_duration('abc')", "duration is not a valid data duration string: abc");
+    }
+
+    @Test
+    public void testIntervalDayToSecondToMilliseconds()
+            throws Exception
+    {
+        assertFunction("to_milliseconds(parse_duration('1ns'))", BigintType.BIGINT, 0L);
+        assertFunction("to_milliseconds(parse_duration('1ms'))", BigintType.BIGINT, 1L);
+        assertFunction("to_milliseconds(parse_duration('1s'))", BigintType.BIGINT, SECONDS.toMillis(1));
+        assertFunction("to_milliseconds(parse_duration('1h'))", BigintType.BIGINT, HOURS.toMillis(1));
+        assertFunction("to_milliseconds(parse_duration('1d'))", BigintType.BIGINT, DAYS.toMillis(1));
     }
 
     private void assertFunctionString(String projection, Type expectedType, String expected)

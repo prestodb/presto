@@ -27,7 +27,6 @@ import com.google.common.io.Closer;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.airlift.testing.FileUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -41,6 +40,9 @@ import java.util.concurrent.Executors;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.MoreFiles.listFiles;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static org.testng.Assert.assertEquals;
 
@@ -59,9 +61,9 @@ public class TestFileSingleStreamSpillerFactory
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
         closer.register(() -> executor.shutdownNow());
         spillPath1 = Files.createTempDir();
-        closer.register(() -> FileUtils.deleteRecursively(spillPath1));
+        closer.register(() -> deleteRecursively(spillPath1.toPath(), ALLOW_INSECURE));
         spillPath2 = Files.createTempDir();
-        closer.register(() -> FileUtils.deleteRecursively(spillPath2));
+        closer.register(() -> deleteRecursively(spillPath2.toPath(), ALLOW_INSECURE));
     }
 
     @AfterMethod
@@ -79,14 +81,14 @@ public class TestFileSingleStreamSpillerFactory
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types)));
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor,
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
                 1.0);
 
-        assertEquals(FileUtils.listFiles(spillPath1).size(), 0);
-        assertEquals(FileUtils.listFiles(spillPath2).size(), 0);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
 
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
@@ -95,12 +97,12 @@ public class TestFileSingleStreamSpillerFactory
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
-        assertEquals(FileUtils.listFiles(spillPath1).size(), 5);
-        assertEquals(FileUtils.listFiles(spillPath2).size(), 5);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 5);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 5);
 
         spillers.forEach(SingleStreamSpiller::close);
-        assertEquals(FileUtils.listFiles(spillPath1).size(), 0);
-        assertEquals(FileUtils.listFiles(spillPath2).size(), 0);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
     }
 
     private Page buildPage()
@@ -117,7 +119,7 @@ public class TestFileSingleStreamSpillerFactory
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types)));
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor,
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
@@ -143,18 +145,18 @@ public class TestFileSingleStreamSpillerFactory
         java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", SPILL_FILE_SUFFIX);
         java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", "blah");
 
-        assertEquals(FileUtils.listFiles(spillPath1).size(), 3);
-        assertEquals(FileUtils.listFiles(spillPath2).size(), 3);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 3);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 3);
 
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor,
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
                 1.0);
         spillerFactory.cleanupOldSpillFiles();
 
-        assertEquals(FileUtils.listFiles(spillPath1).size(), 1);
-        assertEquals(FileUtils.listFiles(spillPath2).size(), 2);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 1);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 2);
     }
 }

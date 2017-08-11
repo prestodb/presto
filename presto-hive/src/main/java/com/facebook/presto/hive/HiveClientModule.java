@@ -81,7 +81,7 @@ public class HiveClientModule
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
+        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class, connectorId));
 
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
@@ -93,8 +93,6 @@ public class HiveClientModule
 
         Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = newSetBinder(binder, HiveRecordCursorProvider.class);
         recordCursorProviderBinder.addBinding().to(ParquetRecordCursorProvider.class).in(Scopes.SINGLETON);
-        recordCursorProviderBinder.addBinding().to(ColumnarTextHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
-        recordCursorProviderBinder.addBinding().to(ColumnarBinaryHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
 
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
@@ -110,6 +108,9 @@ public class HiveClientModule
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 
+        binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FileFormatDataSourceStats.class).as(generatedNameOf(FileFormatDataSourceStats.class, connectorId));
+
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(DwrfPageSourceFactory.class).in(Scopes.SINGLETON);
@@ -117,6 +118,7 @@ public class HiveClientModule
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
 
         Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = newSetBinder(binder, HiveFileWriterFactory.class);
+        fileWriterFactoryBinder.addBinding().to(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
         fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());

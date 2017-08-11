@@ -13,7 +13,6 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -22,16 +21,15 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarOperator(LESS_THAN_OR_EQUAL)
 public final class ArrayLessThanOrEqualOperator
@@ -41,10 +39,10 @@ public final class ArrayLessThanOrEqualOperator
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThanOrEqual(
-                    @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
-                    @TypeParameter("E") Type type,
-                    @SqlType("array(E)") Block leftArray,
-                    @SqlType("array(E)") Block rightArray)
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block leftArray,
+            @SqlType("array(E)") Block rightArray)
     {
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;
@@ -62,10 +60,7 @@ public final class ArrayLessThanOrEqualOperator
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
             index++;
         }
@@ -98,10 +93,7 @@ public final class ArrayLessThanOrEqualOperator
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
             index++;
         }

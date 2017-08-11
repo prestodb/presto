@@ -17,9 +17,9 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class ByteArrayBlock
@@ -32,8 +32,8 @@ public class ByteArrayBlock
     private final boolean[] valueIsNull;
     private final byte[] values;
 
-    private final int sizeInBytes;
-    private final int retainedSizeInBytes;
+    private final long sizeInBytes;
+    private final long retainedSizeInBytes;
 
     public ByteArrayBlock(int positionCount, boolean[] valueIsNull, byte[] values)
     {
@@ -61,26 +61,34 @@ public class ByteArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = intSaturatedCast((Byte.BYTES + Byte.BYTES) * (long) positionCount);
-        retainedSizeInBytes = intSaturatedCast((INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values)));
+        sizeInBytes = (Byte.BYTES + Byte.BYTES) * (long) positionCount;
+        retainedSizeInBytes = (INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values));
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return sizeInBytes;
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
-        return intSaturatedCast((Byte.BYTES + Byte.BYTES) * (long) length);
+        return (Byte.BYTES + Byte.BYTES) * (long) length;
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(values, sizeOf(values));
+        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override

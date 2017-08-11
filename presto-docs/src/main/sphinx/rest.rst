@@ -13,7 +13,6 @@ responses.
 .. toctree::
     :maxdepth: 1
 
-    rest/execute
     rest/node
     rest/query
     rest/stage
@@ -29,12 +28,6 @@ the method by which all component communicate with each other.
 The Presto REST API contains several, high-level resources that
 correspond to the components of a Presto installation.
 
-
-Execute Resource
-
-    The execute resource is what the client sends queries to. It is
-    available at the path ``/v1/execute``, and accepts a query as a POST
-    and returns JSON.
 
 Query Resource
 

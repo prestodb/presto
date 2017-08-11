@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.OrcTester.Compression;
 import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.spi.block.Block;
@@ -45,11 +45,11 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.OrcRecordReader.wrapWithCacheIfTinyStripes;
-import static com.facebook.presto.orc.OrcTester.Compression.NONE;
-import static com.facebook.presto.orc.OrcTester.Compression.ZLIB;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.writeOrcFileColumnOld;
+import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -193,7 +193,7 @@ public class TestCachingOrcDataSource
     public void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize maxReadSize)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), maxMergeDistance, maxReadSize);
+        OrcReader orcReader = new OrcReader(orcDataSource, new OrcMetadataReader(), maxMergeDistance, maxReadSize, new DataSize(1, Unit.MEGABYTE));
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
@@ -228,7 +228,7 @@ public class TestCachingOrcDataSource
         }
     }
 
-    private static FileSinkOperator.RecordWriter createOrcRecordWriter(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector)
+    private static FileSinkOperator.RecordWriter createOrcRecordWriter(File outputFile, Format format, CompressionKind compression, ObjectInspector columnObjectInspector)
             throws IOException
     {
         JobConf jobConf = new JobConf();
@@ -253,6 +253,12 @@ public class TestCachingOrcDataSource
             implements OrcDataSource
     {
         public static final FakeOrcDataSource INSTANCE = new FakeOrcDataSource();
+
+        @Override
+        public OrcDataSourceId getId()
+        {
+            return new OrcDataSourceId("fake");
+        }
 
         @Override
         public long getReadBytes()

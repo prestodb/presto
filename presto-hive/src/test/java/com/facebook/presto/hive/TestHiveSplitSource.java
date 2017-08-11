@@ -144,7 +144,7 @@ public class TestHiveSplitSource
             hiveSplitSource.addToQueue(new TestSplit(33));
 
             // wait for thread to get the split
-            ConnectorSplit split = splits.get(200, TimeUnit.MILLISECONDS);
+            ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
             assertSame(split.getInfo(), 33);
         }
         finally {

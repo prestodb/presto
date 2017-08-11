@@ -55,7 +55,7 @@ import static com.facebook.presto.server.security.util.jndi.JndiUtils.getInitial
 import static com.google.common.base.CharMatcher.JAVA_ISO_CONTROL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -186,7 +186,9 @@ public class LdapFilter
         }
         catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            propagateIfInstanceOf(cause, AuthenticationException.class);
+            if (cause != null) {
+                throwIfInstanceOf(cause, AuthenticationException.class);
+            }
             throw Throwables.propagate(cause);
         }
     }

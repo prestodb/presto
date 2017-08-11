@@ -195,16 +195,15 @@ public class TestJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(10), Domain.create(SortedRangeSet.copyOf(REAL,
-                                ImmutableList.of(
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
-                        false)
-        ));
+                        ImmutableList.of(
+                                Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
+                                Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
+                                Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
+                        false)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+                ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -226,8 +225,7 @@ public class TestJdbcQueryBuilder
                                 Range.range(VARCHAR, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
                                 Range.equal(VARCHAR, utf8Slice("test_str_180")),
                                 Range.equal(VARCHAR, utf8Slice("test_str_196")))),
-                        false)
-        ));
+                        false)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
@@ -260,8 +258,7 @@ public class TestJdbcQueryBuilder
                                 Range.range(TIME, toTime(2016, 6, 7, 6, 12, 23).getTime(), false, toTime(2016, 6, 7, 8, 23, 37).getTime(), true),
                                 Range.equal(TIME, toTime(2016, 6, 1, 2, 3, 4).getTime()),
                                 Range.equal(TIME, toTime(2016, 10, 21, 20, 23, 37).getTime()))),
-                        false)
-        ));
+                        false)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
@@ -294,8 +291,7 @@ public class TestJdbcQueryBuilder
                                 Range.equal(TIMESTAMP, toTimestamp(2016, 6, 3, 0, 23, 37).getTime()),
                                 Range.equal(TIMESTAMP, toTimestamp(2016, 10, 19, 16, 23, 37).getTime()),
                                 Range.range(TIMESTAMP, toTimestamp(2016, 6, 7, 8, 23, 37).getTime(), false, toTimestamp(2016, 6, 9, 12, 23, 37).getTime(), true))),
-                        false)
-        ));
+                        false)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
@@ -322,8 +318,7 @@ public class TestJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(0), Domain.all(BIGINT),
-                columns.get(1), Domain.onlyNull(DOUBLE)
-        ));
+                columns.get(1), Domain.onlyNull(DOUBLE)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);

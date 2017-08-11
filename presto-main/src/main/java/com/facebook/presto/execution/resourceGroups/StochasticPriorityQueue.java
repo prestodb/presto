@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -136,6 +137,13 @@ final class StochasticPriorityQueue<E>
     public boolean isEmpty()
     {
         return index.isEmpty();
+    }
+
+    @Override
+    public Iterator<E> iterator()
+    {
+        // Since poll() is not deterministic ordering is not required
+        return index.keySet().iterator();
     }
 
     private static final class Node<E>

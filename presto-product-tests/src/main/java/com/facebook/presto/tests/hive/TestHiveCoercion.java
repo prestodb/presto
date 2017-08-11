@@ -91,7 +91,6 @@ public class TestHiveCoercion
                         "    smallint_to_bigint         SMALLINT," +
                         "    int_to_bigint              INT," +
                         "    bigint_to_varchar          BIGINT," +
-                        "    varchar_to_integer         STRING," +
                         "    float_to_double            FLOAT" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
@@ -111,7 +110,6 @@ public class TestHiveCoercion
                         "    smallint_to_bigint         SMALLINT," +
                         "    int_to_bigint              INT," +
                         "    bigint_to_varchar          BIGINT," +
-                        "    varchar_to_integer         STRING," +
                         "    float_to_double            DOUBLE" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
@@ -214,10 +212,10 @@ public class TestHiveCoercion
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
         executeHiveQuery(format("INSERT INTO TABLE %s " +
-                "PARTITION (id=1) " +
-                "VALUES" +
-                "(-1, 2, -3, 100, -101, 2323, 12345, '-1025', 0.5)," +
-                "(1, -2, null, -100, 101, -2323, -12345, '99999999999999999999999999999', -1.5)",
+                        "PARTITION (id=1) " +
+                        "VALUES" +
+                        "(-1, 2, -3, 100, -101, 2323, 12345, 0.5)," +
+                        "(1, -2, null, -100, 101, -2323, -12345, -1.5)",
                 tableName));
 
         alterTableColumnTypes(tableName);
@@ -234,7 +232,6 @@ public class TestHiveCoercion
                         -101L,
                         2323L,
                         "12345",
-                        -1025,
                         0.5,
                         1),
                 row(
@@ -245,7 +242,6 @@ public class TestHiveCoercion
                         101L,
                         -2323L,
                         "-12345",
-                        null,
                         -1.5,
                         1));
     }
@@ -260,10 +256,8 @@ public class TestHiveCoercion
                 row("smallint_to_bigint", "bigint"),
                 row("int_to_bigint", "bigint"),
                 row("bigint_to_varchar", "varchar"),
-                row("varchar_to_integer", "integer"),
                 row("float_to_double", "double"),
-                row("id", "bigint")
-        );
+                row("id", "bigint"));
     }
 
     private void assertColumnTypes(QueryResult queryResult)
@@ -278,10 +272,8 @@ public class TestHiveCoercion
                     BIGINT,
                     BIGINT,
                     LONGNVARCHAR,
-                    INTEGER,
                     DOUBLE,
-                    BIGINT
-            );
+                    BIGINT);
         }
         else if (usingTeradataJdbcDriver(connection)) {
             assertThat(queryResult).hasColumns(
@@ -292,10 +284,8 @@ public class TestHiveCoercion
                     BIGINT,
                     BIGINT,
                     VARBINARY,
-                    INTEGER,
                     DOUBLE,
-                    BIGINT
-            );
+                    BIGINT);
         }
         else {
             throw new IllegalStateException();
@@ -311,7 +301,6 @@ public class TestHiveCoercion
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_bigint smallint_to_bigint bigint", tableName));
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar string", tableName));
-        executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_integer varchar_to_integer int", tableName));
         executeHiveQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
     }
 

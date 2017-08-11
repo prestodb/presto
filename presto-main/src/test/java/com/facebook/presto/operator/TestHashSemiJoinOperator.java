@@ -66,7 +66,7 @@ public class TestHashSemiJoinOperator
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
-        return new Object[][] { { true }, { false } };
+        return new Object[][] {{true}, {false}};
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -175,8 +175,7 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    //Disabled till #6622 is fixed
-    @Test(dataProvider = "hashEnabledValues", enabled = false)
+    @Test(dataProvider = "hashEnabledValues")
     public void testProbeSideNulls(boolean hashEnabled)
             throws Exception
     {
@@ -226,8 +225,7 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    //Disabled till #6622 is fixed
-    @Test(dataProvider = "hashEnabledValues", enabled = false)
+    @Test(dataProvider = "hashEnabledValues")
     public void testProbeAndBuildNulls(boolean hashEnabled)
             throws Exception
     {

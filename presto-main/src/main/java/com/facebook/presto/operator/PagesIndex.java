@@ -32,6 +32,7 @@ import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.inject.Inject;
 
@@ -61,6 +62,7 @@ import static java.util.Objects.requireNonNull;
 public class PagesIndex
         implements Swapper
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesIndex.class).instanceSize();
     private static final Logger log = Logger.get(PagesIndex.class);
 
     private final OrderingCompiler orderingCompiler;
@@ -87,6 +89,8 @@ public class PagesIndex
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new Block[1024], 0);
         }
+
+        estimatedSize = calculateEstimatedSize();
     }
 
     public interface Factory
@@ -151,9 +155,12 @@ public class PagesIndex
     {
         for (ObjectArrayList<Block> channel : channels) {
             channel.clear();
+            channel.trim();
         }
         valueAddresses.clear();
+        valueAddresses.trim();
         positionCount = 0;
+        nextBlockToCompact = 0;
         pagesMemorySize = 0;
 
         estimatedSize = calculateEstimatedSize();
@@ -212,7 +219,7 @@ public class PagesIndex
         long elementsSize = (channels.length > 0) ? sizeOf(channels[0].elements()) : 0;
         long channelsArraySize = elementsSize * channels.length;
         long addressesArraySize = sizeOf(valueAddresses.elements());
-        return pagesMemorySize + channelsArraySize + addressesArraySize;
+        return INSTANCE_SIZE + pagesMemorySize + channelsArraySize + addressesArraySize;
     }
 
     public Type getType(int channel)

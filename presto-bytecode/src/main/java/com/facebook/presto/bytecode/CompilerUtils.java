@@ -55,9 +55,9 @@ public final class CompilerUtils
 
     public static ParameterizedType makeClassName(String baseName)
     {
-        String className = "com.facebook.presto.$gen." + baseName + "_" + CLASS_ID.incrementAndGet();
+        String className = baseName + "_" + CLASS_ID.incrementAndGet();
         String javaClassName = toJavaIdentifierString(className);
-        return ParameterizedType.typeFromJavaClassName(javaClassName);
+        return ParameterizedType.typeFromJavaClassName("com.facebook.presto.$gen." + javaClassName);
     }
 
     public static String toJavaIdentifierString(String className)
@@ -74,7 +74,7 @@ public final class CompilerUtils
         return clazz.asSubclass(superType);
     }
 
-    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType,  Map<Long, MethodHandle> callSiteBindings, ClassLoader parentClassLoader)
+    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, Map<Long, MethodHandle> callSiteBindings, ClassLoader parentClassLoader)
     {
         Class<?> clazz = defineClass(classDefinition, superType, new DynamicClassLoader(parentClassLoader, callSiteBindings));
         return clazz.asSubclass(superType);

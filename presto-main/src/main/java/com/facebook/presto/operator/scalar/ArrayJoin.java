@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class ArrayJoin
@@ -202,7 +203,7 @@ public final class ArrayJoin
     {
         int numElements = arrayBlock.getPositionCount();
 
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(arrayBlock.getSizeInBytes() + delimiter.length() * arrayBlock.getPositionCount());
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(toIntExact(arrayBlock.getSizeInBytes() + delimiter.length() * arrayBlock.getPositionCount()));
 
         for (int i = 0; i < numElements; i++) {
             if (arrayBlock.isNull(i)) {

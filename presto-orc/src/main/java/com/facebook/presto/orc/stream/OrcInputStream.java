@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.LocalMemoryContext;
@@ -38,7 +39,7 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 public final class OrcInputStream
         extends InputStream
 {
-    private final String source;
+    private final OrcDataSourceId orcDataSourceId;
     private final FixedLengthSliceInput compressedSliceInput;
     private final Optional<OrcDecompressor> decompressor;
 
@@ -55,9 +56,9 @@ public final class OrcInputStream
     // * Memory pointed to by `current` is always part of `buffer`. It shouldn't be counted again.
     private final LocalMemoryContext fixedMemoryUsage;
 
-    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AbstractAggregatedMemoryContext systemMemoryContext)
+    public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AbstractAggregatedMemoryContext systemMemoryContext)
     {
-        this.source = requireNonNull(source, "source is null");
+        this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSource is null");
 
         requireNonNull(sliceInput, "sliceInput is null");
 
@@ -140,6 +141,35 @@ public final class OrcInputStream
         return current.read(b, off, length);
     }
 
+    public void skipFully(long length)
+            throws IOException
+    {
+        while (length > 0) {
+            long result = skip(length);
+            if (result < 0) {
+                throw new OrcCorruptionException(orcDataSourceId, "Unexpected end of stream");
+            }
+            length -= result;
+        }
+    }
+
+    public void readFully(byte[] buffer, int offset, int length)
+            throws IOException
+    {
+        while (offset < length) {
+            int result = read(buffer, offset, length - offset);
+            if (result < 0) {
+                throw new OrcCorruptionException(orcDataSourceId, "Unexpected end of stream");
+            }
+            offset += result;
+        }
+    }
+
+    public OrcDataSourceId getOrcDataSourceId()
+    {
+        return orcDataSourceId;
+    }
+
     public long getCheckpoint()
     {
         // if the decompressed buffer is empty, return a checkpoint starting at the next block
@@ -158,7 +188,7 @@ public final class OrcInputStream
         boolean discardedBuffer;
         if (compressedBlockOffset != currentCompressedBlockOffset) {
             if (!decompressor.isPresent()) {
-                throw new OrcCorruptionException("Reset stream has a compressed block offset but stream is not compressed");
+                throw new OrcCorruptionException(orcDataSourceId, "Reset stream has a compressed block offset but stream is not compressed");
             }
             compressedSliceInput.setPosition(compressedBlockOffset);
             current = EMPTY_SLICE.getInput();
@@ -216,7 +246,7 @@ public final class OrcInputStream
         boolean isUncompressed = (b0 & 0x01) == 1;
         int chunkLength = (b2 << 15) | (b1 << 7) | (b0 >>> 1);
         if (chunkLength < 0 || chunkLength > compressedSliceInput.remaining()) {
-            throw new OrcCorruptionException(String.format("The chunkLength (%s) must not be negative or greater than remaining size (%s)", chunkLength, compressedSliceInput.remaining()));
+            throw new OrcCorruptionException(orcDataSourceId, "The chunkLength (%s) must not be negative or greater than remaining size (%s)", chunkLength, compressedSliceInput.remaining());
         }
 
         Slice chunk = compressedSliceInput.readSlice(chunkLength);
@@ -225,7 +255,8 @@ public final class OrcInputStream
             current = chunk.getInput();
         }
         else {
-            OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer() {
+            OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
+            {
                 @Override
                 public byte[] initialize(int size)
                 {
@@ -256,7 +287,7 @@ public final class OrcInputStream
     public String toString()
     {
         return toStringHelper(this)
-                .add("source", source)
+                .add("source", orcDataSourceId)
                 .add("compressedOffset", compressedSliceInput.position())
                 .add("uncompressedOffset", current == null ? null : current.position())
                 .add("decompressor", decompressor.map(Object::toString).orElse("none"))

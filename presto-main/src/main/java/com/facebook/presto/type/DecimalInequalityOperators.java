@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.SqlScalarFunctionBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
@@ -41,6 +40,7 @@ import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 
 public class DecimalInequalityOperators
 {
@@ -117,8 +117,7 @@ public class DecimalInequalityOperators
         return makeBinaryOperatorFunctionBuilder(operatorType)
                 .implementation(b -> b
                         .methods("opShortShort", "opLongLong")
-                        .withExtraParameters(constant(getResultMethodHandle))
-                )
+                        .withExtraParameters(constant(getResultMethodHandle)))
                 .build();
     }
 
@@ -140,8 +139,7 @@ public class DecimalInequalityOperators
                 .nullableArguments(true, true)
                 .nullFlags(true, true)
                 .implementation(b -> b
-                        .methods("distinctShortShort", "distinctLongLong")
-                )
+                        .methods("distinctShortShort", "distinctLongLong"))
                 .build();
     }
 
@@ -175,8 +173,8 @@ public class DecimalInequalityOperators
             return (boolean) getResultMethodHandle.invokeExact(comparisonResult);
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
+            throwIfInstanceOf(t, Error.class);
+            throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
@@ -192,8 +190,7 @@ public class DecimalInequalityOperators
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)
                 .implementation(b -> b
-                        .methods("betweenShortShortShort", "betweenLongLongLong")
-                )
+                        .methods("betweenShortShortShort", "betweenLongLongLong"))
                 .build();
     }
 

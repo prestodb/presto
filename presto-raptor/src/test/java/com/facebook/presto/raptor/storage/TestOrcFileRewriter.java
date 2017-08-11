@@ -13,15 +13,21 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -46,9 +52,10 @@ import static com.facebook.presto.tests.StructuralTestUtil.arrayBlocksEqual;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlocksEqual;
 import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
@@ -73,16 +80,22 @@ public class TestOrcFileRewriter
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @Test
     public void testRewrite()
             throws Exception
     {
+        TypeManager typeManager = new TypeRegistry();
+        // associate typeManager with a function registry
+        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        MapType mapType = new MapType(createVarcharType(5), BOOLEAN);
+        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(createVarcharType(5).getTypeSignature()),
+                TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
         List<Long> columnIds = ImmutableList.of(3L, 7L, 9L, 10L, 11L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), arrayType, mapType, arrayOfArrayType);
 
@@ -171,8 +184,7 @@ public class TestOrcFileRewriter
                     .put(9L, arrayType.getTypeSignature())
                     .put(10L, mapType.getTypeSignature())
                     .put(11L, arrayOfArrayType.getTypeSignature())
-                    .build()
-            ));
+                    .build()));
         }
 
         BitSet rowsToDelete = new BitSet(5);
@@ -243,8 +255,7 @@ public class TestOrcFileRewriter
                     .put(9L, arrayType.getTypeSignature())
                     .put(10L, mapType.getTypeSignature())
                     .put(11L, arrayOfArrayType.getTypeSignature())
-                    .build()
-            ));
+                    .build()));
         }
     }
 

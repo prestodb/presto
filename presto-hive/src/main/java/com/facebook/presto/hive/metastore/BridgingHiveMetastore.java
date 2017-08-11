@@ -20,6 +20,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
@@ -36,6 +37,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiDat
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiTable;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -71,6 +73,32 @@ public class BridgingHiveMetastore
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         return delegate.getTable(databaseName, tableName).map(MetastoreUtil::fromMetastoreApiTable);
+    }
+
+    @Override
+    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames).map(this::groupStatisticsByColumn);
+    }
+
+    @Override
+    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames).map(
+                statistics -> ImmutableMap.copyOf(
+                        statistics.entrySet().stream()
+                                .collect(Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry -> groupStatisticsByColumn(entry.getValue())))));
+    }
+
+    private Map<String, HiveColumnStatistics> groupStatisticsByColumn(Set<ColumnStatisticsObj> statistics)
+    {
+        return ImmutableMap.copyOf(
+                statistics.stream()
+                        .collect(Collectors.toMap(
+                                ColumnStatisticsObj::getColName,
+                                MetastoreUtil::fromMetastoreApiColumnStatistics)));
     }
 
     @Override
@@ -172,6 +200,20 @@ public class BridgingHiveMetastore
         for (FieldSchema fieldSchema : table.getSd().getCols()) {
             if (fieldSchema.getName().equals(oldColumnName)) {
                 fieldSchema.setName(newColumnName);
+            }
+        }
+        alterTable(databaseName, tableName, table);
+    }
+
+    @Override
+    public void dropColumn(String databaseName, String tableName, String columnName)
+    {
+        verifyCanDropColumn(this, databaseName, tableName, columnName);
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        for (FieldSchema fieldSchema : table.getSd().getCols()) {
+            if (fieldSchema.getName().equals(columnName)) {
+                table.getSd().getCols().remove(fieldSchema);
             }
         }
         alterTable(databaseName, tableName, table);

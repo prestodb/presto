@@ -31,5 +31,7 @@ public interface StorageService
 
     File getStagingFile(UUID shardUuid);
 
+    File getQuarantineFile(UUID shardUuid);
+
     Set<UUID> getStorageShards();
 }

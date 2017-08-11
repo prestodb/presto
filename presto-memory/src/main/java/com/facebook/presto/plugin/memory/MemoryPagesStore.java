@@ -42,18 +42,18 @@ public class MemoryPagesStore
     @GuardedBy("this")
     private long currentBytes = 0;
 
+    private final Map<Long, TableData> tables = new HashMap<>();
+
     @Inject
     public MemoryPagesStore(MemoryConfig config)
     {
         this.maxBytes = config.getMaxDataPerNode().toBytes();
     }
 
-    private final Map<Long, List<Page>> pages = new HashMap<>();
-
     public synchronized void initialize(long tableId)
     {
-        if (!pages.containsKey(tableId)) {
-            pages.put(tableId, new ArrayList<>());
+        if (!tables.containsKey(tableId)) {
+            tables.put(tableId, new TableData());
         }
     }
 
@@ -69,21 +69,30 @@ public class MemoryPagesStore
         }
         currentBytes = newSize;
 
-        List<Page> tablePages = pages.get(tableId);
-        tablePages.add(page);
+        TableData tableData = tables.get(tableId);
+        tableData.add(page);
     }
 
-    public synchronized List<Page> getPages(Long tableId, int partNumber, int totalParts, List<Integer> columnIndexes)
+    public synchronized List<Page> getPages(
+            Long tableId,
+            int partNumber,
+            int totalParts,
+            List<Integer> columnIndexes,
+            long expectedRows)
     {
         if (!contains(tableId)) {
             throw new PrestoException(MISSING_DATA, "Failed to find table on a worker.");
         }
+        TableData tableData = tables.get(tableId);
+        if (tableData.getRows() < expectedRows) {
+            throw new PrestoException(MISSING_DATA,
+                    format("Expected to find [%s] rows on a worker, but found [%s].", expectedRows, tableData.getRows()));
+        }
 
-        List<Page> tablePages = pages.get(tableId);
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
 
-        for (int i = partNumber; i < tablePages.size(); i += totalParts) {
-            partitionedPages.add(getColumns(tablePages.get(i), columnIndexes));
+        for (int i = partNumber; i < tableData.getPages().size(); i += totalParts) {
+            partitionedPages.add(getColumns(tableData.getPages().get(i), columnIndexes));
         }
 
         return partitionedPages.build();
@@ -91,7 +100,7 @@ public class MemoryPagesStore
 
     public synchronized boolean contains(Long tableId)
     {
-        return pages.containsKey(tableId);
+        return tables.containsKey(tableId);
     }
 
     public synchronized void cleanUp(Set<Long> activeTableIds)
@@ -108,16 +117,16 @@ public class MemoryPagesStore
             // if activeTableIds is empty, we can not determine latestTableId...
             return;
         }
-        long latestTableId  = Collections.max(activeTableIds);
+        long latestTableId = Collections.max(activeTableIds);
 
-        for (Iterator<Map.Entry<Long, List<Page>>> tablePages = pages.entrySet().iterator(); tablePages.hasNext(); ) {
-            Map.Entry<Long, List<Page>> tablePagesEntry = tablePages.next();
+        for (Iterator<Map.Entry<Long, TableData>> tableDataIterator = tables.entrySet().iterator(); tableDataIterator.hasNext(); ) {
+            Map.Entry<Long, TableData> tablePagesEntry = tableDataIterator.next();
             Long tableId = tablePagesEntry.getKey();
             if (tableId < latestTableId && !activeTableIds.contains(tableId)) {
-                for (Page removedPage : tablePagesEntry.getValue()) {
+                for (Page removedPage : tablePagesEntry.getValue().getPages()) {
                     currentBytes -= removedPage.getRetainedSizeInBytes();
                 }
-                tablePages.remove();
+                tableDataIterator.remove();
             }
         }
     }
@@ -132,5 +141,27 @@ public class MemoryPagesStore
         }
 
         return new Page(page.getPositionCount(), outputBlocks);
+    }
+
+    private static final class TableData
+    {
+        private List<Page> pages = new ArrayList<>();
+        private long rows;
+
+        public void add(Page page)
+        {
+            pages.add(page);
+            rows += page.getPositionCount();
+        }
+
+        private List<Page> getPages()
+        {
+            return pages;
+        }
+
+        private long getRows()
+        {
+            return rows;
+        }
     }
 }

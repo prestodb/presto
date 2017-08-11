@@ -29,6 +29,8 @@ import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
@@ -95,6 +97,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
+import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.split.PageSinkManager;
@@ -109,6 +112,7 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -182,7 +186,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
-import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -209,6 +212,7 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
+    private final CostCalculator costCalculator;
     private final TestingAccessControlManager accessControl;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -217,13 +221,17 @@ public class LocalQueryRunner
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
+    private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
 
+    private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final ConnectorManager connectorManager;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
+    private final boolean alwaysRevokeMemory;
+    private final NodeSpillConfig nodeSpillConfig;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -235,19 +243,37 @@ public class LocalQueryRunner
                 new FeaturesConfig()
                         .setOptimizeMixedDistinctAggregations(true)
                         .setIterativeOptimizerEnabled(true),
+                false,
                 false);
+    }
+
+    public LocalQueryRunner(Session defaultSession, boolean alwaysRevokeMemory)
+    {
+        this(defaultSession,
+                new FeaturesConfig()
+                        .setOptimizeMixedDistinctAggregations(true)
+                        .setIterativeOptimizerEnabled(true),
+                false,
+                alwaysRevokeMemory);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
     {
-        this(defaultSession, featuresConfig, false);
+        this(defaultSession, featuresConfig, false, false);
     }
 
-    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
+    {
+        this(defaultSession, featuresConfig, new NodeSpillConfig(), withInitialTransaction, alwaysRevokeMemory);
+    }
+
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
 
+        this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
+        this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
         this.transactionCheckExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
         this.finalizerService = new FinalizerService();
@@ -283,10 +309,12 @@ public class LocalQueryRunner
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
+        this.costCalculator = new CoefficientBasedCostCalculator(metadata);
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
-        this.expressionCompiler = new ExpressionCompiler(metadata);
+        this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
+        this.expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         this.connectorManager = new ConnectorManager(
@@ -358,13 +386,14 @@ public class LocalQueryRunner
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();
-        this.spillerFactory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
+        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
+        this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), true);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), true, false);
     }
 
     @Override
@@ -374,6 +403,7 @@ public class LocalQueryRunner
         transactionCheckExecutor.shutdownNow();
         connectorManager.stop();
         finalizerService.destroy();
+        singleStreamSpillerFactory.destroy();
     }
 
     @Override
@@ -397,6 +427,12 @@ public class LocalQueryRunner
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    @Override
+    public CostCalculator getCostCalculator()
+    {
+        return costCalculator;
     }
 
     @Override
@@ -512,7 +548,10 @@ public class LocalQueryRunner
                 return builder.get()::page;
             });
 
-            TaskContext taskContext = createTaskContext(executor, session);
+            TaskContext taskContext = TestingTaskContext.builder(executor, session)
+                    .setMaxSpillSize(nodeSpillConfig.getMaxSpillPerNode())
+                    .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
+                    .build();
 
             List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
             drivers.forEach(closer::register);
@@ -521,6 +560,12 @@ public class LocalQueryRunner
             while (!done) {
                 boolean processed = false;
                 for (Driver driver : drivers) {
+                    if (alwaysRevokeMemory) {
+                        driver.getDriverContext().getOperatorContexts().stream()
+                                .filter(operatorContext -> operatorContext.getOperatorStats().getRevocableMemoryReservation().getValue() > 0)
+                                .forEach(OperatorContext::requestMemoryRevoking);
+                    }
+
                     if (!driver.isFinished()) {
                         driver.process();
                         processed = true;
@@ -556,7 +601,7 @@ public class LocalQueryRunner
         Plan plan = createPlan(session, sql);
 
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session));
         }
 
         SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan);
@@ -567,6 +612,7 @@ public class LocalQueryRunner
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 sqlParser,
+                costCalculator,
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -574,6 +620,7 @@ public class LocalQueryRunner
                 pageSinkManager,
                 null,
                 expressionCompiler,
+                pageFunctionCompiler,
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
@@ -586,7 +633,7 @@ public class LocalQueryRunner
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
-                session,
+                taskContext,
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),
@@ -661,11 +708,15 @@ public class LocalQueryRunner
 
         assertFormattedSql(sqlParser, statement);
 
+        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage);
+    }
+
+    public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
+    {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer()));
-        return createPlan(session, sql, planOptimizers.get(), stage);
+        return new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode, new MBeanExporter(new TestingMBeanServer())).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
@@ -693,10 +744,11 @@ public class LocalQueryRunner
                 metadata,
                 accessControl,
                 sqlParser,
+                costCalculator,
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser, costCalculator);
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);

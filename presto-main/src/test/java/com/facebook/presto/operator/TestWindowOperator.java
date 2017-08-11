@@ -57,6 +57,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestWindowOperator
@@ -64,28 +65,22 @@ public class TestWindowOperator
     private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty());
 
     private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME));
 
     private static final List<WindowFunctionDefinition> FIRST_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), FirstValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), FirstValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1));
 
     private static final List<WindowFunctionDefinition> LAST_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), LastValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), LastValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1));
 
     private static final List<WindowFunctionDefinition> NTH_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("nth_value", VARCHAR, ImmutableList.of(VARCHAR, BIGINT), NthValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("nth_value", VARCHAR, ImmutableList.of(VARCHAR, BIGINT), NthValueFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3));
 
     private static final List<WindowFunctionDefinition> LAG = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LagFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LagFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4));
 
     private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LeadFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4)
-    );
+            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LeadFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4));
 
     private ExecutorService executor;
     private DriverContext driverContext;
@@ -593,6 +588,39 @@ public class TestWindowOperator
 
         // Since fully grouped and sorted already, should respect original input order
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testFindEndPosition()
+    {
+        assertFindEndPosition("0", 1);
+        assertFindEndPosition("11", 2);
+        assertFindEndPosition("1111111111", 10);
+
+        assertFindEndPosition("01", 1);
+        assertFindEndPosition("011", 1);
+        assertFindEndPosition("0111", 1);
+        assertFindEndPosition("0111111111", 1);
+
+        assertFindEndPosition("012", 1);
+        assertFindEndPosition("01234", 1);
+        assertFindEndPosition("0123456789", 1);
+
+        assertFindEndPosition("001", 2);
+        assertFindEndPosition("0001", 3);
+        assertFindEndPosition("0000000001", 9);
+
+        assertFindEndPosition("00100", 2);
+        assertFindEndPosition("000111", 3);
+        assertFindEndPosition("0001111", 3);
+        assertFindEndPosition("0000111", 4);
+        assertFindEndPosition("000000000000001111111111", 14);
+    }
+
+    private static void assertFindEndPosition(String values, int expected)
+    {
+        char[] array = values.toCharArray();
+        assertEquals(WindowOperator.findEndPosition(0, array.length, (first, second) -> array[first] == array[second]), expected);
     }
 
     private static WindowOperatorFactory createFactoryUnbounded(

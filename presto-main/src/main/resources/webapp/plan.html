@@ -72,12 +72,7 @@
                             <a href="/"><img src="assets/logo.png"/></a>
                         </td>
                         <td>
-                            <span class="navbar-brand">
-                                Query
-                                <span id="page-subtitle">
-                                    Live Plan
-                                </span>
-                            </span>
+                            <span class="navbar-brand">Cluster Overview</span>
                         </td>
                     </tr>
                 </table>
@@ -86,14 +81,20 @@
                 <ul class="nav navbar-nav navbar-right">
                     <li>
                         <span class="navbar-cluster-info">
-                            Version <br/>
-                            <span class="text" id="version-number">...</span>
+                            <span class="uppercase">Version</span><br/>
+                            <span class="text uppercase" id="version-number"></span>
                         </span>
                     </li>
                     <li>
                         <span class="navbar-cluster-info">
-                            Environment <br/>
-                            <span class="text" id="environment">...</span>
+                            <span class="uppercase">Environment</span><br/>
+                            <span class="text uppercase" id="environment"></span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="navbar-cluster-info">
+                            <span class="uppercase">Uptime</span><br/>
+                            <span class="status-light" id="status-indicator"></span> <span class="text" id="uptime"></span>
                         </span>
                     </li>
                 </ul>
@@ -111,10 +112,7 @@
 
 
 <script type="text/javascript">
-    $.get("/v1/info", function (info) {
-        $('#version-number').text(info.nodeVersion.version);
-        $('#environment').text(info.environment);
-    });
+    window.setInterval(updateClusterInfo, 1000)
 </script>
 
 <script src="vendor/react/browser.min.js"></script>

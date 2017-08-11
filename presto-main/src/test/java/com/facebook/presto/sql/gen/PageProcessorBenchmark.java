@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -29,8 +30,8 @@ import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingSession;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -90,13 +91,13 @@ public class PageProcessorBenchmark
     private RecordSet recordSet;
     private List<Type> types;
 
-    @Param({ "2", "4", "8", "16", "32" })
+    @Param({"2", "4", "8", "16", "32"})
     int columnCount;
 
-    @Param({ "varchar", "bigint" })
+    @Param({"varchar", "bigint"})
     String type;
 
-    @Param({ "false", "true" })
+    @Param({"false", "true"})
     boolean dictionaryBlocks;
 
     @Setup
@@ -113,11 +114,14 @@ public class PageProcessorBenchmark
         List<RowExpression> projections = getProjections(type);
         types = projections.stream().map(RowExpression::getType).collect(toList());
 
+        MetadataManager metadata = createTestMetadataManager();
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
+
         inputPage = createPage(types, dictionaryBlocks);
-        pageProcessor = new ExpressionCompiler(createTestMetadataManager()).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+        pageProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
 
         recordSet = new PageRecordSet(types, inputPage);
-        cursorProcessor = new ExpressionCompiler(createTestMetadataManager()).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+        cursorProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
     }
 
     @Benchmark
@@ -174,7 +178,7 @@ public class PageProcessorBenchmark
         }
         Map<Integer, Type> types = builder.build();
 
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, METADATA, SQL_PARSER, types, inputReferenceExpression, emptyList());
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, METADATA, SQL_PARSER, types, inputReferenceExpression, emptyList());
         return SqlToRowExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true);
     }
 

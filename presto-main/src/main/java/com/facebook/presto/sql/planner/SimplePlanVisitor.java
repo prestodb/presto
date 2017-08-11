@@ -17,7 +17,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 
 public class SimplePlanVisitor<C>
-        extends PlanVisitor<C, Void>
+        extends PlanVisitor<Void, C>
 {
     @Override
     protected Void visitPlan(PlanNode node, C context)

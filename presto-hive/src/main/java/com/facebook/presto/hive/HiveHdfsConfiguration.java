@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
@@ -45,7 +44,7 @@ public class HiveHdfsConfiguration
         @Override
         protected Configuration initialValue()
         {
-            PrestoHadoopConfiguration configuration = new PrestoHadoopConfiguration(ImmutableClassToInstanceMap.of());
+            Configuration configuration = new Configuration(false);
             copy(INITIAL_CONFIGURATION, configuration);
             updater.updateConfiguration(configuration);
             return configuration;

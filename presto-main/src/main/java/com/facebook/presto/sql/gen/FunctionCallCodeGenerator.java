@@ -34,8 +34,9 @@ public class FunctionCallCodeGenerator
         ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
 
         List<BytecodeNode> argumentsBytecode = new ArrayList<>();
-        for (RowExpression argument : arguments) {
-            argumentsBytecode.add(context.generate(argument));
+        for (int i = 0; i < arguments.size(); i++) {
+            RowExpression argument = arguments.get(i);
+            argumentsBytecode.add(context.generate(argument, function.getLambdaInterface().get(i)));
         }
 
         return context.generateCall(signature.getName(), function, argumentsBytecode);

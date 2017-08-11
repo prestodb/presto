@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class ShowGrants
-    extends Statement
+        extends Statement
 {
     private final boolean table;
     private final Optional<QualifiedName> tableName;

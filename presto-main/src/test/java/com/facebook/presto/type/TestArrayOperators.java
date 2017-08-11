@@ -20,8 +20,14 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -30,6 +36,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.text.DateFormat;
@@ -47,23 +55,29 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.JsonType.JSON;
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -73,6 +87,20 @@ public class TestArrayOperators
         extends AbstractTestFunctions
 {
     public TestArrayOperators() {}
+
+    @BeforeClass
+    public void setUp()
+    {
+        registerScalar(getClass());
+    }
+
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.JSON)
+    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    {
+        return slice;
+    }
 
     @Test
     public void testStackRepresentation()
@@ -185,19 +213,85 @@ public class TestArrayOperators
     public void testJsonToArray()
             throws Exception
     {
-        assertFunction("CAST(JSON '[1, 2, 3]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L));
-        assertFunction("CAST(JSON '[1, null, 3]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), asList(1L, null, 3L));
-        assertFunction("CAST(JSON '[1, 2.0, 3]' AS ARRAY<DOUBLE>)", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0, 3.0));
-        assertFunction("CAST(JSON '[1.0, 2.5, 3.0]' AS ARRAY<DOUBLE>)", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.5, 3.0));
-        assertFunction("CAST(JSON '[\"puppies\", \"kittens\"]' AS ARRAY<VARCHAR>)", new ArrayType(VARCHAR), ImmutableList.of("puppies", "kittens"));
-        assertFunction("CAST(JSON '[true, false]' AS ARRAY<BOOLEAN>)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
-        assertFunction("CAST(JSON '[[1], [null]]' AS ARRAY<ARRAY<BIGINT>>)", new ArrayType(new ArrayType(BIGINT)), asList(asList(1L), asList((Long) null)));
+        // special values
+        assertFunction("CAST(CAST (null AS JSON) AS ARRAY<BIGINT>)", new ArrayType(BIGINT), null);
         assertFunction("CAST(JSON 'null' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), null);
-        assertFunction("CAST(JSON '[5, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]' AS ARRAY<JSON>)", new ArrayType(JSON), ImmutableList.of("5", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
-        assertInvalidCast("CAST(JSON '[1, null, 3]' AS ARRAY<TIMESTAMP>)");
-        assertInvalidCast("CAST(JSON '[1, null, 3]' AS ARRAY<ARRAY<TIMESTAMP>>)");
-        assertInvalidCast("CAST(JSON '[1, 2, 3]' AS ARRAY<BOOLEAN>)");
-        assertInvalidCast("CAST(JSON '[\"puppies\", \"kittens\"]' AS ARRAY<BIGINT>)");
+        assertFunction("CAST(JSON '[]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("CAST(JSON '[null, null]' AS ARRAY<BIGINT>)", new ArrayType(BIGINT), Lists.newArrayList(null, null));
+
+        // boolean
+        assertFunction("CAST(JSON '[true, false, 12, 0, 12.3, 0.0, \"true\", \"false\", null]' AS ARRAY<BOOLEAN>)",
+                new ArrayType(BOOLEAN),
+                asList(true, false, true, false, true, false, true, false, null));
+
+        // tinyint, smallint, integer, bigint
+        assertFunction("CAST(JSON '[true, false, 12, 12.7, \"12\", null]' AS ARRAY<TINYINT>)",
+                new ArrayType(TINYINT),
+                asList((byte) 1, (byte) 0, (byte) 12, (byte) 13, (byte) 12, null));
+        assertFunction("CAST(JSON '[true, false, 12345, 12345.6, \"12345\", null]' AS ARRAY<SMALLINT>)",
+                new ArrayType(SMALLINT),
+                asList((short) 1, (short) 0, (short) 12345, (short) 12346, (short) 12345, null));
+        assertFunction("CAST(JSON '[true, false, 12345678, 12345678.9, \"12345678\", null]' AS ARRAY<INTEGER>)",
+                new ArrayType(INTEGER),
+                asList(1, 0, 12345678, 12345679, 12345678, null));
+        assertFunction("CAST(JSON '[true, false, 1234567891234567, 1234567891234567.8, \"1234567891234567\", null]' AS ARRAY<BIGINT>)",
+                new ArrayType(BIGINT),
+                asList(1L, 0L, 1234567891234567L, 1234567891234568L, 1234567891234567L, null));
+
+        // real, double, decimal
+        assertFunction("CAST(JSON '[true, false, 12345, 12345.67, \"3.14\", \"NaN\", \"Infinity\", \"-Infinity\", null]' AS ARRAY<REAL>)",
+                new ArrayType(REAL),
+                asList(1.0f, 0.0f, 12345.0f, 12345.67f, 3.14f, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, null));
+        assertFunction("CAST(JSON '[true, false, 1234567890, 1234567890.1, \"3.14\", \"NaN\", \"Infinity\", \"-Infinity\", null]' AS ARRAY<DOUBLE>)",
+                new ArrayType(DOUBLE),
+                asList(1.0, 0.0, 1234567890.0, 1234567890.1, 3.14, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, null));
+        assertFunction("CAST(JSON '[true, false, 128, 123.456, \"3.14\", null]' AS ARRAY<DECIMAL(10, 5)>)",
+                new ArrayType(createDecimalType(10, 5)),
+                asList(decimal("1.00000"), decimal("0.00000"), decimal("128.00000"), decimal("123.45600"), decimal("3.14000"), null));
+        assertFunction("CAST(JSON '[true, false, 128, 12345678.12345678, \"3.14\", null]' AS ARRAY<DECIMAL(38, 8)>)",
+                new ArrayType(createDecimalType(38, 8)),
+                asList(decimal("1.00000000"), decimal("0.00000000"), decimal("128.00000000"), decimal("12345678.12345678"), decimal("3.14000000"), null));
+
+        // varchar, json
+        assertFunction("CAST(JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]' AS ARRAY<VARCHAR>)",
+                new ArrayType(VARCHAR),
+                asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null));
+        assertFunction("CAST(JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]' AS ARRAY<JSON>)",
+                new ArrayType(JSON),
+                ImmutableList.of("5", "3.14", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
+
+        // nested array/map
+        assertFunction("CAST(JSON '[[1, 2], [3, null], [], [null, null], null]' AS ARRAY<ARRAY<BIGINT>>)",
+                new ArrayType(new ArrayType(BIGINT)),
+                asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null));
+
+        assertFunction("CAST(JSON '[" +
+                        "{\"a\": 1, \"b\": 2}, " +
+                        "{\"none\": null, \"three\": 3}, " +
+                        "{}, " +
+                        "{\"h1\": null,\"h2\": null}, " +
+                        "null]' " +
+                        "AS ARRAY<MAP<VARCHAR, BIGINT>>)",
+                new ArrayType(mapType(VARCHAR, BIGINT)),
+                asList(
+                        ImmutableMap.of("a", 1L, "b", 2L),
+                        asMap(ImmutableList.of("none", "three"), asList(null, 3L)),
+                        ImmutableMap.of(),
+                        asMap(ImmutableList.of("h1", "h2"), asList(null, null)),
+                        null));
+
+        // invalid cast
+        assertInvalidCast("CAST(JSON '{\"a\": 1}' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Expected a json array, but got {\n{\"a\":1}");
+        assertInvalidCast("CAST(JSON '[1, 2, 3]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast to array(array(bigint)). Expected a json array, but got 1\n[1,2,3]");
+        assertInvalidCast("CAST(JSON '[1, {}]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Unexpected token when cast to bigint: {\n[1,{}]");
+        assertInvalidCast("CAST(JSON '[[1], {}]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast to array(array(bigint)). Expected a json array, but got {\n[[1],{}]");
+
+        assertInvalidCast("CAST(unchecked_to_json('1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint).\n1, 2, 3");
+        assertInvalidCast("CAST(unchecked_to_json('[1] 2') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Unexpected trailing token: 2\n[1] 2");
+        assertInvalidCast("CAST(unchecked_to_json('[1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint).\n[1, 2, 3");
+
+        assertInvalidCast("CAST(JSON '[\"a\", \"b\"]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Can not cast 'a' to BIGINT\n[\"a\",\"b\"]");
+        assertInvalidCast("CAST(JSON '[1234567890123.456]' AS ARRAY<INTEGER>)", "Cannot cast to array(integer). Out of range for integer: 1.234567890123456E12\n[1.234567890123456E12]");
     }
 
     @Test
@@ -278,6 +372,8 @@ public class TestArrayOperators
         catch (RuntimeException e) {
             // Expected
         }
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY [1, NULL] || ARRAY [3]");
     }
 
     @Test
@@ -309,6 +405,9 @@ public class TestArrayOperators
         catch (RuntimeException e) {
             // Expected
         }
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY [1, NULL] || 3");
+        assertCachedInstanceHasBoundedRetainedSize("3 || ARRAY [1, NULL]");
     }
 
     @Test
@@ -537,6 +636,14 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testShuffle()
+    {
+        // More tests can be found in AbstractTestQueries.testArrayShuffle
+
+        assertCachedInstanceHasBoundedRetainedSize("SHUFFLE(ARRAY[2, 3, 4, 1])");
+    }
+
+    @Test
     public void testSort()
             throws Exception
     {
@@ -558,6 +665,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_SORT(ARRAY[1, null, null, -1, 0])", new ArrayType(INTEGER), expected);
 
         assertInvalidFunction("ARRAY_SORT(ARRAY[color('red'), color('blue')])", FUNCTION_NOT_FOUND);
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_SORT(ARRAY[2, 3, 4, 1])");
     }
 
     @Test
@@ -571,6 +680,8 @@ public class TestArrayOperators
         assertFunction("REVERSE(ARRAY['a', 'b', 'c', 'd'])", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "c", "b", "a"));
         assertFunction("REVERSE(ARRAY[TRUE, FALSE])", new ArrayType(BOOLEAN), ImmutableList.of(false, true));
         assertFunction("REVERSE(ARRAY[1.1, 2.2, 3.3, 4.4])", new ArrayType(DOUBLE), ImmutableList.of(4.4, 3.3, 2.2, 1.1));
+
+        assertCachedInstanceHasBoundedRetainedSize("REVERSE(ARRAY[1.1, 2.2, 3.3, 4.4])");
     }
 
     @Test
@@ -706,6 +817,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_INTERSECT(ARRAY [8.3, 1.6, 4.1, 5.2], ARRAY [4.0, 5.2, 8.3, 9.7, 3.5])", new ArrayType(DOUBLE), ImmutableList.of(5.2, 8.3));
         assertFunction("ARRAY_INTERSECT(ARRAY [5.1, 7, 3.0, 4.8, 10], ARRAY [6.5, 10.0, 1.9, 5.1, 3.9, 4.8])", new ArrayType(DOUBLE), ImmutableList.of(4.8, 5.1, 10.0));
         assertFunction("ARRAY_INTERSECT(ARRAY [ARRAY [4, 5], ARRAY [6, 7]], ARRAY [ARRAY [4, 5], ARRAY [6, 8]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(4, 5)));
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])");
     }
 
     @Test
@@ -933,6 +1046,40 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testRepeat()
+            throws Exception
+    {
+        // concrete values
+        assertFunction("REPEAT(1, 5)", new ArrayType(INTEGER), ImmutableList.of(1, 1, 1, 1, 1));
+        assertFunction("REPEAT('varchar', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("varchar", "varchar", "varchar"));
+        assertFunction("REPEAT(true, 1)", new ArrayType(BOOLEAN), ImmutableList.of(true));
+        assertFunction("REPEAT(0.5, 4)", new ArrayType(DOUBLE), ImmutableList.of(0.5, 0.5, 0.5, 0.5));
+        assertFunction("REPEAT(array[1], 4)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1)));
+
+        // null values
+        assertFunction("REPEAT(null, 4)", new ArrayType(UNKNOWN), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as bigint), 4)", new ArrayType(BIGINT), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as double), 4)", new ArrayType(DOUBLE), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as varchar), 4)", new ArrayType(VARCHAR), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as boolean), 4)", new ArrayType(BOOLEAN), asList(null, null, null, null));
+        assertFunction("REPEAT(cast(null as array(boolean)), 4)", new ArrayType(new ArrayType(BOOLEAN)), asList(null, null, null, null));
+
+        // 0 counts
+        assertFunction("REPEAT(cast(null as bigint), 0)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("REPEAT(1, 0)", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("REPEAT('varchar', 0)", new ArrayType(createVarcharType(7)), ImmutableList.of());
+        assertFunction("REPEAT(true, 0)", new ArrayType(BOOLEAN), ImmutableList.of());
+        assertFunction("REPEAT(0.5, 0)", new ArrayType(DOUBLE), ImmutableList.of());
+        assertFunction("REPEAT(array[1], 0)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of());
+
+        // illegal inputs
+        assertInvalidFunction("REPEAT(2, -1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT('loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar', 9999)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REPEAT(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], 9999)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
     public void testSequence()
             throws Exception
     {
@@ -958,6 +1105,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(2, -1, 1)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(-1, -10, 1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -977,6 +1125,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -1001,6 +1150,7 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction("SEQUENCE(date '2016-06-12', date '2016-04-12', interval '1' month)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("SEQUENCE(date '2000-04-12', date '3000-06-12', interval '1' month)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Override
@@ -1053,9 +1203,9 @@ public class TestArrayOperators
         assertFunction("flatten(ARRAY [NULL, ARRAY [ARRAY [5, 6], ARRAY [7, 8]]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(5, 6), ImmutableList.of(7, 8)));
 
         // MAP<BIGINT, BIGINT> Tests
-        assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(new MapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2), ImmutableMap.of(3, 3, 4, 4)));
-        assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], NULL])", new ArrayType(new MapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2)));
-        assertFunction("flatten(ARRAY [NULL, ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(new MapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
+        assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2), ImmutableMap.of(3, 3, 4, 4)));
+        assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], NULL])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2)));
+        assertFunction("flatten(ARRAY [NULL, ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
     }
 
     @Test
@@ -1065,7 +1215,7 @@ public class TestArrayOperators
         assertArrayHashOperator("ARRAY[true, false]", BOOLEAN, ImmutableList.of(true, false));
 
         // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
-        MapType mapType = new MapType(INTEGER, INTEGER);
+        MapType mapType = mapType(INTEGER, INTEGER);
         BlockBuilder mapBuilder = new InterleavedBlockBuilder(ImmutableList.of(INTEGER, INTEGER), new BlockBuilderStatus(), 2);
         INTEGER.writeLong(mapBuilder, 1);
         INTEGER.writeLong(mapBuilder, 2);
@@ -1101,7 +1251,8 @@ public class TestArrayOperators
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 
-    private static SqlTimestamp sqlTimestamp(String dateString) throws ParseException
+    private static SqlTimestamp sqlTimestamp(String dateString)
+            throws ParseException
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));

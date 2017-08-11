@@ -17,9 +17,9 @@ import com.facebook.presto.operator.aggregation.MultiKeyValuePairs;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;

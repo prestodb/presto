@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractOrcDataSource
         implements OrcDataSource
 {
-    private final String name;
+    private final OrcDataSourceId id;
     private final long size;
     private final DataSize maxMergeDistance;
     private final DataSize maxBufferSize;
@@ -45,9 +45,9 @@ public abstract class AbstractOrcDataSource
     private long readTimeNanos;
     private long readBytes;
 
-    public AbstractOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxBufferSize, DataSize streamBufferSize)
+    public AbstractOrcDataSource(OrcDataSourceId id, long size, DataSize maxMergeDistance, DataSize maxBufferSize, DataSize streamBufferSize)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.id = requireNonNull(id, "id is null");
 
         this.size = size;
         checkArgument(size >= 0, "size is negative");
@@ -59,6 +59,12 @@ public abstract class AbstractOrcDataSource
 
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
+
+    @Override
+    public OrcDataSourceId getId()
+    {
+        return id;
+    }
 
     @Override
     public final long getReadBytes()
@@ -177,7 +183,7 @@ public abstract class AbstractOrcDataSource
     @Override
     public final String toString()
     {
-        return name;
+        return id.toString();
     }
 
     private class HdfsSliceLoader

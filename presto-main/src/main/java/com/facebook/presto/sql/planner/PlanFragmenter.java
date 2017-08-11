@@ -17,19 +17,16 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.NodePartitioning;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -37,7 +34,6 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
@@ -46,16 +42,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -111,9 +108,9 @@ public class PlanFragmenter
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
         {
-            Set<Symbol> dependencies = SymbolExtractor.extract(root);
+            Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(root);
 
-            List<PlanNodeId> schedulingOrder = new SchedulingOrderVisitor().getSchedulingOrder(root);
+            List<PlanNodeId> schedulingOrder = findAllTableScanPlanNodeId(root);
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
@@ -126,6 +123,16 @@ public class PlanFragmenter
                     properties.getPartitioningScheme());
 
             return new SubPlan(fragment, properties.getChildren());
+        }
+
+        private List<PlanNodeId> findAllTableScanPlanNodeId(PlanNode root)
+        {
+            return searchFrom(root)
+                    .where(TableScanNode.class::isInstance)
+                    .<TableScanNode>findAll()
+                    .stream()
+                    .map(TableScanNode::getId)
+                    .collect(toImmutableList());
         }
 
         @Override
@@ -186,24 +193,17 @@ public class PlanFragmenter
 
             PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
 
-            ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
             if (exchange.getType() == ExchangeNode.Type.GATHER) {
                 context.get().setSingleNodeDistribution();
-
-                for (int i = 0; i < exchange.getSources().size(); i++) {
-                    FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(i)));
-                    builder.add(buildSubPlan(exchange.getSources().get(i), childProperties, context));
-                }
             }
             else if (exchange.getType() == ExchangeNode.Type.REPARTITION) {
                 context.get().setDistribution(partitioningScheme.getPartitioning().getHandle());
-
-                FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(Iterables.getOnlyElement(exchange.getInputs())));
-                builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
             }
-            else if (exchange.getType() == ExchangeNode.Type.REPLICATE) {
-                FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(Iterables.getOnlyElement(exchange.getInputs())));
-                builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
+
+            ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
+            for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
+                FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)));
+                builder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
             }
 
             List<SubPlan> children = builder.build();
@@ -263,16 +263,44 @@ public class PlanFragmenter
 
         public FragmentProperties setDistribution(PartitioningHandle distribution)
         {
-            if (partitioningHandle.isPresent() && !partitioningHandle.get().equals(distribution) && !partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
-                checkState(partitioningHandle.get().isSingleNode(),
-                        "Cannot set distribution to %s. Already set to %s",
-                        distribution,
-                        partitioningHandle);
+            if (partitioningHandle.isPresent()) {
+                chooseDistribution(distribution);
                 return this;
             }
-            partitioningHandle = Optional.of(distribution);
 
+            partitioningHandle = Optional.of(distribution);
             return this;
+        }
+
+        private void chooseDistribution(PartitioningHandle distribution)
+        {
+            checkState(partitioningHandle.isPresent(), "No partitioning to choose from");
+
+            if (partitioningHandle.get().equals(distribution) ||
+                    partitioningHandle.get().isSingleNode() ||
+                    isCompatibleSystemPartitioning(distribution)) {
+                return;
+            }
+            if (partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
+                partitioningHandle = Optional.of(distribution);
+                return;
+            }
+            throw new IllegalStateException(format(
+                    "Cannot set distribution to %s. Already set to %s",
+                    distribution,
+                    partitioningHandle));
+        }
+
+        private boolean isCompatibleSystemPartitioning(PartitioningHandle distribution)
+        {
+            ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
+            ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
+            if ((currentHandle instanceof SystemPartitioningHandle) &&
+                    (distributionHandle instanceof SystemPartitioningHandle)) {
+                return ((SystemPartitioningHandle) currentHandle).getPartitioning() ==
+                        ((SystemPartitioningHandle) distributionHandle).getPartitioning();
+            }
+            return false;
         }
 
         public FragmentProperties setCoordinatorOnlyDistribution()
@@ -337,57 +365,6 @@ public class PlanFragmenter
         public Set<PlanNodeId> getPartitionedSources()
         {
             return partitionedSources;
-        }
-    }
-
-    private static class SchedulingOrderVisitor
-            extends PlanVisitor<Consumer<PlanNodeId>, Void>
-    {
-        public List<PlanNodeId> getSchedulingOrder(PlanNode node)
-        {
-            ImmutableList.Builder<PlanNodeId> schedulingOrder = ImmutableList.builder();
-            node.accept(this, schedulingOrder::add);
-            return schedulingOrder.build();
-        }
-
-        @Override
-        protected Void visitPlan(PlanNode node, Consumer<PlanNodeId> schedulingOrder)
-        {
-            for (PlanNode source : node.getSources()) {
-                source.accept(this, schedulingOrder);
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitJoin(JoinNode node, Consumer<PlanNodeId> schedulingOrder)
-        {
-            node.getRight().accept(this, schedulingOrder);
-            node.getLeft().accept(this, schedulingOrder);
-            return null;
-        }
-
-        @Override
-        public Void visitSemiJoin(SemiJoinNode node, Consumer<PlanNodeId> schedulingOrder)
-        {
-            node.getFilteringSource().accept(this, schedulingOrder);
-            node.getSource().accept(this, schedulingOrder);
-            return null;
-        }
-
-        @Override
-        public Void visitIndexJoin(IndexJoinNode node, Consumer<PlanNodeId> schedulingOrder)
-        {
-            node.getIndexSource().accept(this, schedulingOrder);
-            node.getProbeSource().accept(this, schedulingOrder);
-            return null;
-        }
-
-        @Override
-        public Void visitTableScan(TableScanNode node, Consumer<PlanNodeId> schedulingOrder)
-        {
-            schedulingOrder.accept(node.getId());
-            return null;
         }
     }
 }

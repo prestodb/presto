@@ -23,7 +23,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PlanRewriter<C, P>
-        extends PlanVisitor<PlanRewriter.RewriteContext<C, P>, PlanRewriter.Result<P>>
+        extends PlanVisitor<PlanRewriter.Result<P>, PlanRewriter.RewriteContext<C, P>>
 {
     public static <C, P> Result<P> rewriteWith(PlanRewriter<C, P> rewriter, PlanNode node)
     {

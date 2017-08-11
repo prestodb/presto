@@ -31,7 +31,8 @@ INTEGER
 -------
 
     A 32-bit signed two's complement integer with a minimum value of
-    ``-2^31`` and a maximum value of ``2^31 - 1``.
+    ``-2^31`` and a maximum value of ``2^31 - 1``.  The name INT is
+    also available for this type.
 
 BIGINT
 ------
@@ -55,7 +56,7 @@ DECIMAL
 -------
 
     A fixed precision decimal number. Precision up to 38 digits is supported
-    but performance is best up to 17 digits.
+    but performance is best up to 18 digits.
 
     DECIMAL type takes two literal parameters:
 
@@ -181,3 +182,18 @@ ROW
     accessed with field reference operator ``.``
 
     Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
+
+.. _ipaddress_type:
+
+IPADDRESS
+---------
+
+    An IP address that can represent either an IPv4 or IPv6 address. Internally,
+    the type is a pure IPv6 address. Support for IPv4 is handled using the
+    *IPv4-mapped IPv6 address* range (:rfc:`4291#section-2.5.5.2`).
+    When creating an IPADDRESS, IPv4 addresses will be mapped into that range.
+    When formatting an IPADDRESS, any address within the mapped range will
+    be formatted as an IPv4 address. Other addresses will be formatted as IPv6
+    using the canonical format defined in :rfc:`5952`.
+
+    Examples: ``IPADDRESS '10.0.0.1'``, ``IPADDRESS '2001:db8::1'``

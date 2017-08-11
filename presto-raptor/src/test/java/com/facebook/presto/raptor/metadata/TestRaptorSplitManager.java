@@ -46,6 +46,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -60,9 +61,10 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -131,9 +133,10 @@ public class TestRaptorSplitManager
 
     @AfterMethod
     public void teardown()
+            throws IOException
     {
         dummyHandle.close();
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @Test

@@ -55,6 +55,7 @@ import static java.util.Objects.requireNonNull;
  *     - semiJoinOutput: semijoinresult
  * </pre>
  */
+@Deprecated
 public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         implements PlanOptimizer
 {
@@ -106,8 +107,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                     semiJoinSymbol,
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty()
-            );
+                    Optional.empty());
         }
     }
 }

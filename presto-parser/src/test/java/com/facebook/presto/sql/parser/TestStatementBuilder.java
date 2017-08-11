@@ -141,6 +141,20 @@ public class TestStatementBuilder
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
         printStatement("create table foo comment 'test' with (a = 'apple') as select * from abc");
         printStatement("create table foo as select * from abc WITH NO DATA");
+
+        printStatement("create table foo as (with t(x) as (values 1) select x from t)");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t)");
+        printStatement("create table foo as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table foo as (with t(x) as (values 1) select x from t) WITH NO DATA");
+        printStatement("create table if not exists foo as (with t(x) as (values 1) select x from t) WITH NO DATA");
+
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t)");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t)");
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t) WITH DATA");
+        printStatement("create table foo(a) as (with t(x) as (values 1) select x from t) WITH NO DATA");
+        printStatement("create table if not exists foo(a) as (with t(x) as (values 1) select x from t) WITH NO DATA");
         printStatement("drop table foo");
 
         printStatement("insert into foo select * from abc");
@@ -178,6 +192,8 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c rename column x to y");
 
         printStatement("alter table a.b.c add column x bigint");
+
+        printStatement("alter table a.b.c drop column x");
 
         printStatement("create schema test");
         printStatement("create schema if not exists test");
@@ -251,7 +267,7 @@ public class TestStatementBuilder
         assertSqlFormatter("U&'!+10FFFF!6d4B!8Bd5ABC!6d4B!8Bd5' UESCAPE '!'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
         assertSqlFormatter("U&'\\+10FFFF\\6D4B\\8BD5\\0041\\0042\\0043\\6D4B\\8BD5'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
         assertSqlFormatter("U&'\\\\abc\\6D4B'''", "U&'\\\\abc\\6D4B'''");
-   }
+    }
 
     @Test
     public void testStatementBuilderTpch()

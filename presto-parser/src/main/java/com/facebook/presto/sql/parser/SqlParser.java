@@ -27,10 +27,13 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.inject.Inject;
 
+import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -77,7 +80,7 @@ public class SqlParser
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             SqlBaseParser parser = new SqlBaseParser(tokenStream);
 
-            parser.addParseListener(new PostProcessor());
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames())));
 
             lexer.removeErrorListeners();
             lexer.addErrorListener(ERROR_LISTENER);
@@ -110,6 +113,13 @@ public class SqlParser
     private class PostProcessor
             extends SqlBaseBaseListener
     {
+        private final List<String> ruleNames;
+
+        public PostProcessor(List<String> ruleNames)
+        {
+            this.ruleNames = ruleNames;
+        }
+
         @Override
         public void exitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context)
         {
@@ -145,23 +155,15 @@ public class SqlParser
         }
 
         @Override
-        public void exitQuotedIdentifier(SqlBaseParser.QuotedIdentifierContext context)
-        {
-            // Remove quotes
-            context.getParent().removeLastChild();
-
-            Token token = (Token) context.getChild(0).getPayload();
-            context.getParent().addChild(new CommonToken(
-                    new Pair<>(token.getTokenSource(), token.getInputStream()),
-                    SqlBaseLexer.IDENTIFIER,
-                    token.getChannel(),
-                    token.getStartIndex() + 1,
-                    token.getStopIndex() - 1));
-        }
-
-        @Override
         public void exitNonReserved(SqlBaseParser.NonReservedContext context)
         {
+            // we can't modify the tree during rule enter/exit event handling unless we're dealing with a terminal.
+            // Otherwise, ANTLR gets confused an fires spurious notifications.
+            if (!(context.getChild(0) instanceof TerminalNode)) {
+                int rule = ((ParserRuleContext) context.getChild(0)).getRuleIndex();
+                throw new AssertionError("nonReserved can only contain tokens. Found nested rule: " + ruleNames.get(rule));
+            }
+
             // replace nonReserved words with IDENT tokens
             context.getParent().removeLastChild();
 

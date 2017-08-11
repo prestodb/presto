@@ -105,7 +105,7 @@ final class HttpRequestSessionFactory
 
         // parse session properties
         ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
-        Map<String, Map<String, String>> catalogSessionProperties  = new HashMap<>();
+        Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         for (Entry<String, String> entry : parseSessionHeaders(servletRequest).entrySet()) {
             String fullPropertyName = entry.getKey();
             String propertyValue = entry.getValue();

@@ -14,7 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.CassandraTokenSplitManager.TokenSplit;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -27,42 +27,46 @@ public class TestCassandraTokenSplitManager
 {
     private static final int SPLIT_SIZE = 100;
     private static final String KEYSPACE = "test_cassandra_token_split_manager_keyspace";
-    private static final String TABLE = "test_cassandra_token_split_manager_table";
     private static final int PARTITION_COUNT = 1000;
 
     private CassandraSession session;
     private CassandraTokenSplitManager splitManager;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {
         EmbeddedCassandra.start();
         session = EmbeddedCassandra.getSession();
+        createKeyspace(session, KEYSPACE);
         splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE);
     }
 
     @Test
-    public void testCassandraTokenSplitManager()
+    public void testEmptyTable()
             throws Exception
     {
-        createKeyspace(session, KEYSPACE);
-        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, TABLE));
-
-        EmbeddedCassandra.flush(KEYSPACE, TABLE);
-        EmbeddedCassandra.refreshSizeEstimates();
-
-        List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, TABLE);
+        String tableName = "empty_table";
+        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
+        EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, tableName);
+        List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName);
         // even for the empty table at least one split must be produced, in case the statistics are inaccurate
         assertEquals(splits.size(), 1);
+        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+    }
 
+    @Test
+    public void testNonEmptyTable()
+            throws Exception
+    {
+        String tableName = "non_empty_table";
+        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
         for (int i = 0; i < PARTITION_COUNT; i++) {
-            session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, TABLE, "value" + i));
+            session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, tableName, "value" + i));
         }
-        EmbeddedCassandra.flush(KEYSPACE, TABLE);
-        EmbeddedCassandra.refreshSizeEstimates();
-
-        splits = splitManager.getSplits(KEYSPACE, TABLE);
+        EmbeddedCassandra.refreshSizeEstimates(KEYSPACE, tableName);
+        List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName);
         assertEquals(splits.size(), PARTITION_COUNT / SPLIT_SIZE);
+        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }
 }

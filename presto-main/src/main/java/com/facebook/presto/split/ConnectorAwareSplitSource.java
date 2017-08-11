@@ -48,6 +48,12 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
+    public ConnectorTransactionHandle getTransactionHandle()
+    {
+        return transactionHandle;
+    }
+
+    @Override
     public ListenableFuture<List<Split>> getNextBatch(int maxSize)
     {
         ListenableFuture<List<ConnectorSplit>> nextBatch = toListenableFuture(source.getNextBatch(maxSize));

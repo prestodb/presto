@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
@@ -50,6 +51,13 @@ public final class TimestampOperators
 {
     private TimestampOperators()
     {
+    }
+
+    @ScalarOperator(SUBTRACT)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long subtract(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
+    {
+        return left - right;
     }
 
     @ScalarOperator(EQUAL)

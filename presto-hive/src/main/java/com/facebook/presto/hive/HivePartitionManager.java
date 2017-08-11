@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.common.FileUtils;
-import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -49,14 +48,14 @@ import static com.facebook.presto.hive.HiveBucketing.getHiveBucketNumbers;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 
 public class HivePartitionManager
 {
@@ -160,20 +159,20 @@ public class HivePartitionManager
 
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
     {
-        checkArgument(effectivePredicate.getDomains().isPresent());
-
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
-            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
+        effectivePredicate.getDomains().ifPresent(domains -> {
+            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
 
-            ValueSet values = entry.getValue().getValues();
-            ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
-                    ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
-                    discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
-                    allOrNone -> Optional.empty())
-                    .orElse(values);
-            builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
-        }
+                ValueSet values = entry.getValue().getValues();
+                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
+                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
+                        allOrNone -> Optional.empty())
+                        .orElse(values);
+                builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
+            }
+        });
         return TupleDomain.withColumnDomains(builder.build());
     }
 
@@ -209,17 +208,7 @@ public class HivePartitionManager
             throw new TableNotFoundException(tableName);
         }
         Table table = target.get();
-
-        String protectMode = table.getParameters().get(ProtectMode.PARAMETER_NAME);
-        if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-            throw new TableOfflineException(tableName, false, null);
-        }
-
-        String prestoOffline = table.getParameters().get(PRESTO_OFFLINE);
-        if (!isNullOrEmpty(prestoOffline)) {
-            throw new TableOfflineException(tableName, true, prestoOffline);
-        }
-
+        verifyOnline(tableName, Optional.empty(), getProtectMode(table), table.getParameters());
         return table;
     }
 

@@ -91,11 +91,10 @@ public class PrestoLdapCliTests
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(new LdapObjectRequirement(
-                Arrays.asList(
-                        AMERICA_ORG, ASIA_ORG,
-                        DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS
-                )),
+                        Arrays.asList(
+                                AMERICA_ORG, ASIA_ORG,
+                                DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
+                                DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS)),
                 immutableTable(NATION));
     }
 
@@ -202,7 +201,7 @@ public class PrestoLdapCliTests
                 "--truststore-password", ldapTruststorePassword,
                 "--user", ldapUserName,
                 "--execute", "select * from hive.default.nation;");
-        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("statusMessage=Unauthorized")));
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("Authentication failed: Unauthorized")));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)

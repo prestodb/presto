@@ -18,7 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 public class EventListenerModule
-    implements Module
+        implements Module
 {
     @Override
     public void configure(Binder binder)

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
@@ -34,6 +35,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
@@ -44,12 +46,14 @@ public class DwrfPageSourceFactory
 {
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final FileFormatDataSourceStats stats;
 
     @Inject
-    public DwrfPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment)
+    public DwrfPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -58,6 +62,7 @@ public class DwrfPageSourceFactory
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -75,6 +80,7 @@ public class DwrfPageSourceFactory
                 path,
                 start,
                 length,
+                fileSize,
                 columns,
                 false,
                 effectivePredicate,
@@ -83,6 +89,8 @@ public class DwrfPageSourceFactory
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
-                false));
+                getOrcMaxReadBlockSize(session),
+                false,
+                stats));
     }
 }

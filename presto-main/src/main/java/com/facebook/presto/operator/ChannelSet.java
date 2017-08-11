@@ -53,6 +53,11 @@ public class ChannelSet
         return hash.getGroupCount();
     }
 
+    public boolean isEmpty()
+    {
+        return size() == 0;
+    }
+
     public boolean containsNull()
     {
         return containsNull;
@@ -65,7 +70,7 @@ public class ChannelSet
 
     public static class ChannelSetBuilder
     {
-        private static final int[] HASH_CHANNELS = { 0 };
+        private static final int[] HASH_CHANNELS = {0};
 
         private final GroupByHash hash;
         private final OperatorContext operatorContext;

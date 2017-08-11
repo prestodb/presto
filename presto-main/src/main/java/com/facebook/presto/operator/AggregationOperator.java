@@ -209,23 +209,21 @@ public class AggregationOperator
 
         private Aggregator(AccumulatorFactory accumulatorFactory, Step step)
         {
-            checkArgument(step != Step.INTERMEDIATE, "intermediate aggregation not supported");
-
-            if (step == Step.FINAL) {
+            if (step.isInputRaw()) {
+                intermediateChannel = -1;
+                aggregation = accumulatorFactory.createAccumulator();
+            }
+            else {
                 checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
                 intermediateChannel = accumulatorFactory.getInputChannels().get(0);
                 aggregation = accumulatorFactory.createIntermediateAccumulator();
-            }
-            else {
-                intermediateChannel = -1;
-                aggregation = accumulatorFactory.createAccumulator();
             }
             this.step = step;
         }
 
         public Type getType()
         {
-            if (step == Step.PARTIAL) {
+            if (step.isOutputPartial()) {
                 return aggregation.getIntermediateType();
             }
             else {
@@ -235,17 +233,17 @@ public class AggregationOperator
 
         public void processPage(Page page)
         {
-            if (step == Step.FINAL) {
-                aggregation.addIntermediate(page.getBlock(intermediateChannel));
+            if (step.isInputRaw()) {
+                aggregation.addInput(page);
             }
             else {
-                aggregation.addInput(page);
+                aggregation.addIntermediate(page.getBlock(intermediateChannel));
             }
         }
 
         public void evaluate(BlockBuilder blockBuilder)
         {
-            if (step == Step.PARTIAL) {
+            if (step.isOutputPartial()) {
                 aggregation.evaluateIntermediate(blockBuilder);
             }
             else {

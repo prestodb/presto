@@ -16,6 +16,7 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -23,7 +24,6 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.type.LikePatternType;
-import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -155,9 +155,14 @@ public final class Signatures
         return new Signature(TRY, SCALAR, returnType.getTypeSignature());
     }
 
-    public static Signature bindSignature(Type returnType, Type valueType, Type functionType)
+    public static Signature bindSignature(Type returnType, List<Type> valueTypes, Type functionType)
     {
-        return new Signature(BIND, SCALAR, returnType.getTypeSignature(), valueType.getTypeSignature(), functionType.getTypeSignature());
+        ImmutableList.Builder<TypeSignature> typeSignatureBuilder = ImmutableList.builder();
+        for (Type valueType : valueTypes) {
+            typeSignatureBuilder.add(valueType.getTypeSignature());
+        }
+        typeSignatureBuilder.add(functionType.getTypeSignature());
+        return new Signature(BIND, SCALAR, returnType.getTypeSignature(), typeSignatureBuilder.build());
     }
 
     // **************** functions that require varargs and/or complex types (e.g., lists) ****************

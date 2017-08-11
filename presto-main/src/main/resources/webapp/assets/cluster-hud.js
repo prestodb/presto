@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-var SPARKLINE_PROPERTIES = {
+const SPARKLINE_PROPERTIES = {
     width:'100%',
     height: '75px',
     fillColor:'#3F4552',
@@ -20,9 +20,9 @@ var SPARKLINE_PROPERTIES = {
     spotColor: '#1EDCFF',
     tooltipClassname: 'sparkline-tooltip',
     disableHiddenCheck: true,
-}
+};
 
-var ClusterHUD = React.createClass({
+let ClusterHUD = React.createClass({
     getInitialState: function() {
         return {
             runningQueries: [],
@@ -33,9 +33,14 @@ var ClusterHUD = React.createClass({
             reservedMemory: [],
             rowInputRate: [],
             byteInputRate: [],
-            cpuTimeRate: [],
+            perWorkerCpuTimeRate: [],
 
             lastRender: null,
+            lastRefresh: null,
+
+            lastInputRows: null,
+            lastInputBytes: null,
+            lastCpuTime: null,
 
             initialized: false,
         };
@@ -43,13 +48,28 @@ var ClusterHUD = React.createClass({
     resetTimer: function() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
-        if (this.state.query == null || !this.state.ended) {
+        if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         $.get('/v1/cluster', function (clusterState) {
+
+            let newRowInputRate = [];
+            let newByteInputRate = [];
+            let newPerWorkerCpuTimeRate = [];
+            if (this.state.lastRefresh !== null) {
+                const rowsInputSinceRefresh = clusterState.totalInputRows - this.state.lastInputRows;
+                const bytesInputSinceRefresh = clusterState.totalInputBytes - this.state.lastInputBytes;
+                const cpuTimeSinceRefresh = clusterState.totalCpuTimeSecs - this.state.lastCpuTime;
+                const secsSinceRefresh = (Date.now() - this.state.lastRefresh) / 1000.0;
+
+                newRowInputRate = addExponentiallyWeightedToHistory(rowsInputSinceRefresh / secsSinceRefresh, this.state.rowInputRate);
+                newByteInputRate = addExponentiallyWeightedToHistory(bytesInputSinceRefresh / secsSinceRefresh, this.state.byteInputRate);
+                newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory((cpuTimeSinceRefresh / clusterState.activeWorkers) / secsSinceRefresh, this.state.perWorkerCpuTimeRate);
+            }
+
             this.setState({
                 // instantaneous stats
                 runningQueries: addToHistory(clusterState.runningQueries, this.state.runningQueries),
@@ -60,11 +80,19 @@ var ClusterHUD = React.createClass({
                 // moving averages
                 runningDrivers: addExponentiallyWeightedToHistory(clusterState.runningDrivers, this.state.runningDrivers),
                 reservedMemory: addExponentiallyWeightedToHistory(clusterState.reservedMemory, this.state.reservedMemory),
-                rowInputRate: addExponentiallyWeightedToHistory(clusterState.rowInputRate, this.state.rowInputRate),
-                byteInputRate: addExponentiallyWeightedToHistory(clusterState.byteInputRate, this.state.byteInputRate),
-                cpuTimeRate: addExponentiallyWeightedToHistory(clusterState.cpuTimeRate, this.state.cpuTimeRate),
+
+                // moving averages for diffs
+                rowInputRate: newRowInputRate,
+                byteInputRate: newByteInputRate,
+                perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
+
+                lastInputRows: clusterState.totalInputRows,
+                lastInputBytes: clusterState.totalInputBytes,
+                lastCpuTime: clusterState.totalCpuTimeSecs,
 
                 initialized: true,
+
+                lastRefresh: Date.now()
             });
             this.resetTimer();
         }.bind(this))
@@ -77,8 +105,8 @@ var ClusterHUD = React.createClass({
     },
     componentDidUpdate: function() {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender == null || (Date.now() - this.state.lastRender) >= 1000) {
-            var renderTimestamp = Date.now();
+        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
+            const renderTimestamp = Date.now();
             $('#running-queries-sparkline').sparkline(this.state.runningQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
             $('#blocked-queries-sparkline').sparkline(this.state.blockedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
             $('#queued-queries-sparkline').sparkline(this.state.queuedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
@@ -89,7 +117,7 @@ var ClusterHUD = React.createClass({
 
             $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
             $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
-            $('#cpu-time-rate-sparkline').sparkline(this.state.cpuTimeRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
+            $('#cpu-time-rate-sparkline').sparkline(this.state.perWorkerCpuTimeRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
 
             this.setState({
                 lastRender: renderTimestamp
@@ -216,8 +244,8 @@ var ClusterHUD = React.createClass({
                     </div>
                     <div className="col-xs-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Moving average of CPU time utilized per second">
-                                Parallelism
+                            <span className="text" data-toggle="tooltip" data-placement="right" title="Moving average of CPU time utilized per second per worker">
+                                Worker Parallelism
                             </span>
                         </div>
                     </div>
@@ -242,7 +270,7 @@ var ClusterHUD = React.createClass({
                     <div className="col-xs-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                { formatCount(this.state.cpuTimeRate[this.state.cpuTimeRate.length - 1]) }
+                                { formatCount(this.state.perWorkerCpuTimeRate[this.state.perWorkerCpuTimeRate.length - 1]) }
                             </span>
                             <span className="sparkline" id="cpu-time-rate-sparkline"><div className="loader">Loading ...</div></span>
                         </div>

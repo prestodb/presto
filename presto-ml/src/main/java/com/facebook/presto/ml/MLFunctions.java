@@ -15,17 +15,11 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -88,87 +82,5 @@ public final class MLFunctions
         }
 
         return model;
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1)
-    {
-        return featuresHelper(f1);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2)
-    {
-        return featuresHelper(f1, f2);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3)
-    {
-        return featuresHelper(f1, f2, f3);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4)
-    {
-        return featuresHelper(f1, f2, f3, f4);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5)
-    {
-        return featuresHelper(f1, f2, f3, f4, f5);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6)
-    {
-        return featuresHelper(f1, f2, f3, f4, f5, f6);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7)
-    {
-        return featuresHelper(f1, f2, f3, f4, f5, f6, f7);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8)
-    {
-        return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9)
-    {
-        return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8, f9);
-    }
-
-    @ScalarFunction
-    @SqlType(MAP_BIGINT_DOUBLE)
-    public static Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9, @SqlType(StandardTypes.DOUBLE) double f10)
-    {
-        return featuresHelper(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);
-    }
-
-    private static Block featuresHelper(double... features)
-    {
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(BigintType.BIGINT, DoubleType.DOUBLE), new BlockBuilderStatus(), features.length);
-
-        for (int i = 0; i < features.length; i++) {
-            BigintType.BIGINT.writeLong(blockBuilder, i);
-            DoubleType.DOUBLE.writeDouble(blockBuilder, features[i]);
-        }
-
-        return blockBuilder.build();
     }
 }

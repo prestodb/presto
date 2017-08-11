@@ -23,11 +23,12 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -100,7 +101,7 @@ public class BenchmarkArraySort
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
             metadata.addFunctions(extractFunctions(BenchmarkArraySort.class));
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata);
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
             for (int i = 0; i < TYPES.size(); i++) {

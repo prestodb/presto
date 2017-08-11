@@ -61,15 +61,18 @@ public final class SystemSessionProperties
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
-    public static final String FAST_INEQUALITY_JOIN = "fast_inequality_join";
+    public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
-    public static final String OPERATOR_MEMORY_LIMIT_BEFORE_SPILL = "operator_memory_limit_before_spill";
+    public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
+    public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
+    public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -237,8 +240,8 @@ public final class SystemSessionProperties
                         featuresConfig.isJoinReorderingEnabled(),
                         false),
                 booleanSessionProperty(
-                        FAST_INEQUALITY_JOIN,
-                        "Experimental: Use faster handling of inequality join if it is possible",
+                        FAST_INEQUALITY_JOINS,
+                        "Use faster handling of inequality join if it is possible",
                         featuresConfig.isFastInequalityJoins(),
                         false),
                 booleanSessionProperty(
@@ -264,11 +267,11 @@ public final class SystemSessionProperties
                         },
                         value -> value),
                 new PropertyMetadata<>(
-                        OPERATOR_MEMORY_LIMIT_BEFORE_SPILL,
-                        "Experimental: Operator memory limit before spill",
+                        AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
+                        "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
                         VARCHAR,
                         DataSize.class,
-                        featuresConfig.getOperatorMemoryLimitBeforeSpill(),
+                        featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
@@ -300,6 +303,21 @@ public final class SystemSessionProperties
                         EXCHANGE_COMPRESSION,
                         "Enable compression in exchanges",
                         featuresConfig.isExchangeCompressionEnabled(),
+                        false),
+                booleanSessionProperty(
+                        ENABLE_INTERMEDIATE_AGGREGATIONS,
+                        "Enable the use of intermediate aggregations",
+                        featuresConfig.isEnableIntermediateAggregations(),
+                        false),
+                booleanSessionProperty(
+                        PUSH_AGGREGATION_THROUGH_JOIN,
+                        "Allow pushing aggregations below joins",
+                        featuresConfig.isPushAggregationThroughJoin(),
+                        false),
+                booleanSessionProperty(
+                        PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
+                        "Push partial aggregations below joins",
+                        false,
                         false));
     }
 
@@ -395,7 +413,7 @@ public final class SystemSessionProperties
 
     public static boolean isFastInequalityJoin(Session session)
     {
-        return session.getSystemProperty(FAST_INEQUALITY_JOIN, Boolean.class);
+        return session.getSystemProperty(FAST_INEQUALITY_JOINS, Boolean.class);
     }
 
     public static boolean isJoinReorderingEnabled(Session session)
@@ -435,11 +453,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(SPILL_ENABLED, Boolean.class);
     }
 
-    public static DataSize getOperatorMemoryLimitBeforeSpill(Session session)
+    public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
     {
-        DataSize memoryLimitBeforeSpill = session.getSystemProperty(OPERATOR_MEMORY_LIMIT_BEFORE_SPILL, DataSize.class);
-        checkArgument(memoryLimitBeforeSpill.toBytes() >= 0, "%s must be positive", OPERATOR_MEMORY_LIMIT_BEFORE_SPILL);
-        return memoryLimitBeforeSpill;
+        DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
+        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        return memoryLimitForMerge;
     }
 
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
@@ -465,5 +483,20 @@ public final class SystemSessionProperties
     public static boolean isExchangeCompressionEnabled(Session session)
     {
         return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+    }
+
+    public static boolean isEnableIntermediateAggregations(Session session)
+    {
+        return session.getSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, Boolean.class);
+    }
+
+    public static boolean shouldPushAggregationThroughJoin(Session session)
+    {
+        return session.getSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, Boolean.class);
+    }
+
+    public static boolean isPushAggregationThroughJoin(Session session)
+    {
+        return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
     }
 }

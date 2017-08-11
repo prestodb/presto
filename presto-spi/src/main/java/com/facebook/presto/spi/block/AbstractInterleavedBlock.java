@@ -45,7 +45,12 @@ public abstract class AbstractInterleavedBlock
 
     Block[] computeSerializableSubBlocks()
     {
-        InterleavedBlock interleavedBlock = (InterleavedBlock) sliceRange(0, getPositionCount(), false);
+        return computeSerializableSubBlocks(0, getPositionCount());
+    }
+
+    Block[] computeSerializableSubBlocks(int position, int length)
+    {
+        AbstractInterleavedBlock interleavedBlock = (AbstractInterleavedBlock) sliceRange(position, length, false);
         Block[] result = new Block[interleavedBlock.getBlockCount()];
         for (int i = 0; i < result.length; i++) {
             result[i] = interleavedBlock.getBlock(i);
@@ -253,7 +258,7 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public int getRegionSizeInBytes(int position, int length)
+    public long getRegionSizeInBytes(int position, int length)
     {
         if (position == 0 && length == getPositionCount()) {
             // Calculation of getRegionSizeInBytes is expensive in this class.
@@ -261,7 +266,7 @@ public abstract class AbstractInterleavedBlock
             return getSizeInBytes();
         }
         validateRange(position, length);
-        int result = 0;
+        long result = 0;
         for (int blockIndex = 0; blockIndex < getBlockCount(); blockIndex++) {
             result += getBlock(blockIndex).getRegionSizeInBytes(position / columns, length / columns);
         }

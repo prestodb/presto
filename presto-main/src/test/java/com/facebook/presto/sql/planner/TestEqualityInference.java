@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.google.common.base.Predicates.not;
@@ -345,7 +346,7 @@ public class TestEqualityInference
                 new FunctionCall(QualifiedName.of("try"), ImmutableList.of(nameReference("b"))),
                 new NullIfExpression(nameReference("b"), number(1)),
                 new IfExpression(nameReference("b"), number(1), new NullLiteral()),
-                new DereferenceExpression(nameReference("b"), "x"),
+                new DereferenceExpression(nameReference("b"), identifier("x")),
                 new InPredicate(nameReference("b"), new InListExpression(ImmutableList.of(new NullLiteral()))),
                 new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new NullLiteral())), Optional.empty()),
                 new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new NullLiteral())), Optional.empty()),
@@ -365,13 +366,13 @@ public class TestEqualityInference
 
     private static Predicate<Expression> matchesSymbolScope(final Predicate<Symbol> symbolScope)
     {
-        return expression -> Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
+        return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
     }
 
     private static Predicate<Expression> matchesStraddlingScope(final Predicate<Symbol> symbolScope)
     {
         return expression -> {
-            Set<Symbol> symbols = DependencyExtractor.extractUnique(expression);
+            Set<Symbol> symbols = SymbolsExtractor.extractUnique(expression);
             return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
         };
     }

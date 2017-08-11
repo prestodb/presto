@@ -37,6 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class QueryContext
@@ -56,6 +57,9 @@ public class QueryContext
 
     @GuardedBy("this")
     private long reserved;
+
+    @GuardedBy("this")
+    private long revocableReserved;
 
     @GuardedBy("this")
     private MemoryPool memoryPool;
@@ -101,6 +105,14 @@ public class QueryContext
         return future;
     }
 
+    public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        ListenableFuture<?> future = memoryPool.reserveRevocable(queryId, bytes);
+        revocableReserved += bytes;
+        return future;
+    }
+
     public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -142,6 +154,14 @@ public class QueryContext
         memoryPool.free(queryId, bytes);
     }
 
+    public synchronized void freeRevocableMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(revocableReserved - bytes >= 0, "tried to free more revocable memory than is reserved");
+        revocableReserved -= bytes;
+        memoryPool.freeRevocable(queryId, bytes);
+    }
+
     public synchronized void freeSystemMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -165,10 +185,11 @@ public class QueryContext
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = reserved;
+        long originalReserved = reserved + revocableReserved;
         memoryPool = pool;
-        ListenableFuture<?> future = pool.reserve(queryId, reserved);
-        Futures.addCallback(future, new FutureCallback<Object>() {
+        ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
+        Futures.addCallback(future, new FutureCallback<Object>()
+        {
             @Override
             public void onSuccess(Object result)
             {
@@ -187,10 +208,27 @@ public class QueryContext
         });
     }
 
+    public synchronized MemoryPool getMemoryPool()
+    {
+        return memoryPool;
+    }
+
     public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
     {
         TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitQueryContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return taskContexts.stream()
+                .map(taskContext -> taskContext.accept(visitor, context))
+                .collect(toList());
     }
 }

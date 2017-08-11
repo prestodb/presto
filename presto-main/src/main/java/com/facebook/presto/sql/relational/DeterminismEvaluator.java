@@ -33,7 +33,7 @@ public class DeterminismEvaluator
     }
 
     private static class Visitor
-            implements RowExpressionVisitor<Void, Boolean>
+            implements RowExpressionVisitor<Boolean, Void>
     {
         private final FunctionRegistry registry;
 

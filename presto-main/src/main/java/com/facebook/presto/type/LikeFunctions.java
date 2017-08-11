@@ -49,9 +49,7 @@ public final class LikeFunctions
                     INEFFECTIVE_META_CHAR,          /* anytime '*' */
                     INEFFECTIVE_META_CHAR,          /* zero or one time '?' */
                     INEFFECTIVE_META_CHAR,          /* one or more time '+' */
-                    INEFFECTIVE_META_CHAR           /* anychar anytime */
-            )
-    );
+                    INEFFECTIVE_META_CHAR));        /* anychar anytime */
 
     private LikeFunctions() {}
 

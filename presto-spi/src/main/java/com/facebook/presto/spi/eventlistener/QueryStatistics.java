@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.eventlistener;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -29,11 +30,19 @@ public class QueryStatistics
     private final long peakMemoryBytes;
     private final long totalBytes;
     private final long totalRows;
+    private final long outputBytes;
+    private final long outputRows;
+    private final long writtenBytes;
+    private final long writtenRows;
+
+    private final double cumulativeMemory;
 
     private final int completedSplits;
     private final boolean complete;
 
-    private final String operatorSummaries;
+    private final List<StageCpuDistribution> cpuTimeDistribution;
+
+    private final List<String> operatorSummaries;
 
     public QueryStatistics(
             Duration cpuTime,
@@ -44,20 +53,32 @@ public class QueryStatistics
             long peakMemoryBytes,
             long totalBytes,
             long totalRows,
+            long outputBytes,
+            long outputRows,
+            long writtenBytes,
+            long writtenRows,
+            double cumulativeMemory,
             int completedSplits,
             boolean complete,
-            String operatorSummaries)
+            List<StageCpuDistribution> cpuTimeDistribution,
+            List<String> operatorSummaries)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
-        this.peakMemoryBytes = requireNonNull(peakMemoryBytes, "peakMemoryBytes is null");
-        this.totalBytes = requireNonNull(totalBytes, "totalBytes is null");
-        this.totalRows = requireNonNull(totalRows, "totalRows is null");
-        this.completedSplits = requireNonNull(completedSplits, "completedSplits is null");
+        this.peakMemoryBytes = peakMemoryBytes;
+        this.totalBytes = totalBytes;
+        this.totalRows = totalRows;
+        this.outputBytes = outputBytes;
+        this.outputRows = outputRows;
+        this.writtenBytes = writtenBytes;
+        this.writtenRows = writtenRows;
+        this.cumulativeMemory = cumulativeMemory;
+        this.completedSplits = completedSplits;
         this.complete = complete;
+        this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
     }
 
@@ -101,6 +122,31 @@ public class QueryStatistics
         return totalRows;
     }
 
+    public long getOutputBytes()
+    {
+        return outputBytes;
+    }
+
+    public long getOutputRows()
+    {
+        return outputRows;
+    }
+
+    public long getWrittenBytes()
+    {
+        return writtenBytes;
+    }
+
+    public long getWrittenRows()
+    {
+        return writtenRows;
+    }
+
+    public double getCumulativeMemory()
+    {
+        return cumulativeMemory;
+    }
+
     public int getCompletedSplits()
     {
         return completedSplits;
@@ -111,7 +157,12 @@ public class QueryStatistics
         return complete;
     }
 
-    public String getOperatorSummaries()
+    public List<StageCpuDistribution> getCpuTimeDistribution()
+    {
+        return cpuTimeDistribution;
+    }
+
+    public List<String> getOperatorSummaries()
     {
         return operatorSummaries;
     }

@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.parquet.reader;
 
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import parquet.format.ColumnChunk;
@@ -62,10 +61,9 @@ public final class ParquetMetadataReader
 
     private ParquetMetadataReader() {}
 
-    public static ParquetMetadata readFooter(FileSystem fileSystem, Path file)
+    public static ParquetMetadata readFooter(FileSystem fileSystem, Path file, long fileSize)
             throws IOException
     {
-        FileStatus fileStatus = fileSystem.getFileStatus(file);
         try (FSDataInputStream inputStream = fileSystem.open(file)) {
             // Parquet File Layout:
             //
@@ -75,9 +73,8 @@ public final class ParquetMetadataReader
             // 4 bytes: MetadataLength
             // MAGIC
 
-            long length = fileStatus.getLen();
-            validateParquet(length >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
-            long metadataLengthIndex = length - PARQUET_METADATA_LENGTH - MAGIC.length;
+            validateParquet(fileSize >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
+            long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length;
 
             inputStream.seek(metadataLengthIndex);
             int metadataLength = readIntLittleEndian(inputStream);

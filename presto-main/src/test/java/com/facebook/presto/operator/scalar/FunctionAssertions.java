@@ -31,6 +31,7 @@ import com.facebook.presto.operator.project.InterpretedPageFilter;
 import com.facebook.presto.operator.project.InterpretedPageProjection;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -39,6 +40,7 @@ import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
@@ -59,22 +61,27 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -103,19 +110,22 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
+import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public final class FunctionAssertions
         implements Closeable
@@ -134,8 +144,7 @@ public final class FunctionAssertions
             createStringsBlock((String) null),
             createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
             createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
-            createIntsBlock(1234)
-    );
+            createIntsBlock(1234));
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
@@ -247,9 +256,19 @@ public final class FunctionAssertions
         selectUniqueValue(expression, expectedType, session, compiler);
     }
 
+    public void tryEvaluateWithAll(String expression, Type expectedType)
+    {
+        tryEvaluateWithAll(expression, expectedType, session);
+    }
+
     public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
     {
         executeProjectionWithAll(expression, expectedType, session, compiler);
+    }
+
+    public void executeProjectionWithFullEngine(String projection)
+    {
+        MaterializedResult result = runner.execute("SELECT " + projection);
     }
 
     private Object selectSingleValue(String projection, Type expectedType, ExpressionCompiler compiler)
@@ -266,6 +285,117 @@ public final class FunctionAssertions
         assertTrue(resultSet.size() == 1, "Expected only one result unique result, but got " + resultSet);
 
         return Iterables.getOnlyElement(resultSet);
+    }
+
+    public void assertCachedInstanceHasBoundedRetainedSize(String projection)
+    {
+        requireNonNull(projection, "projection is null");
+
+        Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
+        RowExpression projectionRowExpression = toRowExpression(projectionExpression);
+        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
+
+        // This is a heuristic to detect whether the retained size of cachedInstance is bounded.
+        // * The test runs at least 1000 iterations.
+        // * The test passes if max retained size doesn't refresh after
+        //   4x the number of iterations when max was last updated.
+        // * The test fails if retained size reaches 1MB.
+        // Note that 1MB is arbitrarily chosen and may be increased if a function implementation
+        // legitimately needs more.
+
+        long maxRetainedSize = 0;
+        int maxIterationCount = 0;
+        for (int iterationCount = 0; iterationCount < Math.max(1000, maxIterationCount * 4); iterationCount++) {
+            PageProcessorOutput output = processor.process(session.toConnectorSession(), SOURCE_PAGE);
+            // consume the iterator
+            Iterators.getOnlyElement(output);
+
+            long retainedSize = processor.getProjections().stream()
+                    .mapToLong(this::getRetainedSizeOfCachedInstance)
+                    .sum();
+            if (retainedSize > maxRetainedSize) {
+                maxRetainedSize = retainedSize;
+                maxIterationCount = iterationCount;
+            }
+
+            if (maxRetainedSize >= 1048576) {
+                fail(format("The retained size of cached instance of function invocation is likely unbounded: %s", projection));
+            }
+        }
+    }
+
+    private long getRetainedSizeOfCachedInstance(PageProjection projection)
+    {
+        Field[] fields = projection.getClass().getDeclaredFields();
+        long retainedSize = 0;
+        for (Field field : fields) {
+            field.setAccessible(true);
+            String fieldName = field.getName();
+            if (!fieldName.startsWith("__cachedInstance")) {
+                continue;
+            }
+            try {
+                retainedSize += getRetainedSizeOf(field.get(projection));
+            }
+            catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return retainedSize;
+    }
+
+    private long getRetainedSizeOf(Object object)
+    {
+        if (object instanceof PageBuilder) {
+            return ((PageBuilder) object).getRetainedSizeInBytes();
+        }
+        if (object instanceof Block) {
+            return ((Block) object).getRetainedSizeInBytes();
+        }
+
+        Class type = object.getClass();
+        if (type.isArray()) {
+            if (type == int[].class) {
+                return sizeOf((int[]) object);
+            }
+            else if (type == boolean[].class) {
+                return sizeOf((boolean[]) object);
+            }
+            else if (type == byte[].class) {
+                return sizeOf((byte[]) object);
+            }
+            else if (type == long[].class) {
+                return sizeOf((long[]) object);
+            }
+            else if (type == short[].class) {
+                return sizeOf((short[]) object);
+            }
+            else if (type == Block[].class) {
+                Object[] objects = (Object[]) object;
+                return Arrays.stream(objects)
+                        .mapToLong(this::getRetainedSizeOf)
+                        .sum();
+            }
+            else {
+                throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
+            }
+        }
+
+        long retainedSize = ClassLayout.parseClass(type).instanceSize();
+        Field[] fields = type.getDeclaredFields();
+        for (Field field : fields) {
+            try {
+                if (field.getType().isPrimitive() || Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                field.setAccessible(true);
+                retainedSize += getRetainedSizeOf(field.get(object));
+            }
+            catch (IllegalAccessException t) {
+                throw new RuntimeException(t);
+            }
+        }
+        return retainedSize;
     }
 
     private List<Object> executeProjectionWithAll(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
@@ -327,7 +457,7 @@ public final class FunctionAssertions
     private RowExpression toRowExpression(Expression projectionExpression)
     {
         Expression translatedProjection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projectionExpression);
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                 TEST_SESSION,
                 metadata,
                 SQL_PARSER,
@@ -472,7 +602,7 @@ public final class FunctionAssertions
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (analysis.getColumnReferences().contains(node)) {
+                if (analysis.isColumnReference(node)) {
                     return rewriteExpression(node, context, treeRewriter);
                 }
 
@@ -640,7 +770,7 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, IdentityLinkedHashMap<Expression, Type> expressionTypes)
+    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes)
     {
         return translate(projection, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
     }

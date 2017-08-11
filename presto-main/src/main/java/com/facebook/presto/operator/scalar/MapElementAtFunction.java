@@ -19,13 +19,11 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
@@ -34,9 +32,9 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapElementAtFunction
@@ -127,9 +125,7 @@ public class MapElementAtFunction
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
         }
         return null;
@@ -145,9 +141,7 @@ public class MapElementAtFunction
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
         }
         return null;
@@ -163,9 +157,7 @@ public class MapElementAtFunction
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
         }
         return null;
@@ -181,9 +173,7 @@ public class MapElementAtFunction
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
         }
         return null;
@@ -199,9 +189,7 @@ public class MapElementAtFunction
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
         }
         return null;

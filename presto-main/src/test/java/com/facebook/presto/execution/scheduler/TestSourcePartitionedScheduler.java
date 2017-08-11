@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.server.NoOpFailureDetector;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.FixedSplitSource;
@@ -42,13 +43,13 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TestingColumnHandle;
-import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
@@ -127,6 +128,12 @@ public class TestSourcePartitionedScheduler
         SourcePartitionedScheduler scheduler = getSourcePartitionedScheduler(plan, stage, nodeManager, nodeTaskMap, 1);
 
         ScheduleResult scheduleResult = scheduler.schedule();
+
+        assertFalse(scheduleResult.isFinished());
+        assertTrue(scheduleResult.getBlocked().isDone());
+        assertEquals(scheduleResult.getNewTasks().size(), 1);
+
+        scheduleResult = scheduler.schedule();
 
         assertTrue(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
@@ -482,6 +489,7 @@ public class TestSourcePartitionedScheduler
                 true,
                 nodeTaskMap,
                 executor,
+                new NoOpFailureDetector(),
                 new SplitSchedulerStats());
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)

@@ -14,14 +14,20 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -46,10 +52,11 @@ import static com.facebook.presto.tests.StructuralTestUtil.arrayBlocksEqual;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlocksEqual;
 import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -70,17 +77,23 @@ public class TestShardWriter
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(directory);
+        deleteRecursively(directory.toPath(), ALLOW_INSECURE);
     }
 
     @Test
     public void testWriter()
             throws Exception
     {
+        TypeManager typeManager = new TypeRegistry();
+        // associate typeManager with a function registry
+        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L);
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        MapType mapType = new MapType(createVarcharType(10), BOOLEAN);
+        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(createVarcharType(10).getTypeSignature()),
+                TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType);
         File file = new File(directory, System.nanoTime() + ".orc");
 
@@ -88,12 +101,12 @@ public class TestShardWriter
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(columnTypes)
-                .row(123L, "hello", wrappedBuffer(bytes1), 123.456, true, arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true),  arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
+                .row(123L, "hello", wrappedBuffer(bytes1), 123.456, true, arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
                 .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)))
                 .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-             OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+                OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
             writer.appendPages(rowPagesBuilder.build());
         }
 
@@ -151,7 +164,9 @@ public class TestShardWriter
             assertEquals(column6.getPositionCount(), 3);
 
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 0), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true)));
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 1), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null)));
+            Block object = arrayType.getObject(column6, 1);
+            Block k2 = mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null);
+            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, object, k2));
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false)));
 
             Block column7 = reader.readBlock(arrayOfArrayType, 7);

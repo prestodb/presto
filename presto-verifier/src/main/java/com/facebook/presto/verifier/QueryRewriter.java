@@ -117,7 +117,7 @@ public class QueryRewriter
             throws SQLException, QueryRewriteException
     {
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getName());
-        Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData(), Optional.empty());
+        Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData(), statement.getColumnAliases(), Optional.empty());
         String createTableAsSql = formatSql(rewritten, Optional.empty());
         String checksumSql = checksumSql(getColumns(connection, statement), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
@@ -169,7 +169,8 @@ public class QueryRewriter
         return rewritePrefix.getSuffix() + UUID.randomUUID().toString().replace("-", "");
     }
 
-    private List<Column> getColumnsForTable(Connection connection, String catalog, String schema, String table) throws SQLException
+    private List<Column> getColumnsForTable(Connection connection, String catalog, String schema, String table)
+            throws SQLException
     {
         ResultSet columns = connection.getMetaData().getColumns(catalog, escapeLikeExpression(connection, schema), escapeLikeExpression(connection, table), null);
         ImmutableList.Builder<Column> columnBuilder = new ImmutableList.Builder<>();

@@ -24,20 +24,24 @@ public class SyncMemoryBackend
         extends MemoryBackend
 {
     @Override
-    public MemoryDatabase openOrCreateDatabase(String databaseName) throws MongoServerException
+    public MemoryDatabase openOrCreateDatabase(String databaseName)
+            throws MongoServerException
     {
         return new SyncMemoryDatabase(this, databaseName);
     }
 
-    private static class SyncMemoryDatabase extends MemoryDatabase
+    private static class SyncMemoryDatabase
+            extends MemoryDatabase
     {
-        public SyncMemoryDatabase(MongoBackend backend, String databaseName) throws MongoServerException
+        public SyncMemoryDatabase(MongoBackend backend, String databaseName)
+                throws MongoServerException
         {
             super(backend, databaseName);
         }
 
         @Override
-        public synchronized BSONObject handleCommand(Channel channel, String command, BSONObject query) throws MongoServerException
+        public synchronized BSONObject handleCommand(Channel channel, String command, BSONObject query)
+                throws MongoServerException
         {
             return super.handleCommand(channel, command, query);
         }

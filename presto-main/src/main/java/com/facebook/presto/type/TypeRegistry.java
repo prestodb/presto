@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -23,12 +27,15 @@ import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -63,10 +70,12 @@ import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
+import static com.facebook.presto.type.ListLiteralType.LIST_LITERAL;
 import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
@@ -82,13 +91,22 @@ public final class TypeRegistry
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
+    private FunctionRegistry functionRegistry;
+
+    @VisibleForTesting
     public TypeRegistry()
     {
-        this(ImmutableSet.of());
+        this(ImmutableSet.of(), new FeaturesConfig());
+    }
+
+    @VisibleForTesting
+    public TypeRegistry(Set<Type> types)
+    {
+        this(ImmutableSet.of(), new FeaturesConfig());
     }
 
     @Inject
-    public TypeRegistry(Set<Type> types)
+    public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig)
     {
         requireNonNull(types, "types is null");
 
@@ -120,6 +138,8 @@ public final class TypeRegistry
         addType(COLOR);
         addType(JSON);
         addType(CODE_POINTS);
+        addType(LIST_LITERAL);
+        addType(IPADDRESS);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -131,6 +151,12 @@ public final class TypeRegistry
         for (Type type : types) {
             addType(type);
         }
+    }
+
+    public void setFunctionRegistry(FunctionRegistry functionRegistry)
+    {
+        checkState(this.functionRegistry == null, "TypeRegistry can only be associated with a single FunctionRegistry");
+        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
     }
 
     @Override
@@ -167,7 +193,7 @@ public final class TypeRegistry
         }
 
         try {
-            Type instantiatedType = parametricType.createType(parameters);
+            Type instantiatedType = parametricType.createType(this, parameters);
 
             // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
             //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
@@ -523,6 +549,14 @@ public final class TypeRegistry
                         return Optional.empty();
                 }
             }
+            case StandardTypes.ARRAY: {
+                switch (resultTypeBase) {
+                    case ListLiteralType.NAME:
+                        return Optional.of(LIST_LITERAL);
+                    default:
+                        return Optional.empty();
+                }
+            }
             default:
                 return Optional.empty();
         }
@@ -537,5 +571,12 @@ public final class TypeRegistry
     public static boolean isCovariantTypeBase(String typeBase)
     {
         return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
+    }
+
+    @Override
+    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    {
+        requireNonNull(functionRegistry, "functionRegistry is null");
+        return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
     }
 }

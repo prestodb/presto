@@ -17,6 +17,7 @@ import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.metadata.statistics.BinaryStatistics;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
@@ -37,13 +38,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
+import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
+import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
+import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
+import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
@@ -58,13 +65,15 @@ public class DwrfMetadataReader
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
         DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(input);
 
+        HiveWriterVersion writerVersion = postScript.hasWriterVersion() && postScript.getWriterVersion() > 0 ? ORC_HIVE_8732 : ORIGINAL;
+
         return new PostScript(
                 ImmutableList.of(),
                 postScript.getFooterLength(),
                 0,
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
-                ORIGINAL); // DWRF doesn't have the equivalent of Hive writer version, and it is not clear if HIVE-8732 has been fixed
+                writerVersion);
     }
 
     @Override
@@ -80,12 +89,17 @@ public class DwrfMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
+
+        // todo enable file stats when DWRF team verifies that the stats are correct
+        // List<ColumnStatistics> fileStats = toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false);
+        List<ColumnStatistics> fileStats = ImmutableList.of();
+
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
+                fileStats,
                 toUserMetadata(footer.getMetadataList()));
     }
 
@@ -105,7 +119,7 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(HiveWriterVersion hiveWriterVersion, List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -191,14 +205,43 @@ public class DwrfMetadataReader
 
     private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup)
     {
+        long minAverageValueBytes;
+        if (statistics.hasBucketStatistics()) {
+            minAverageValueBytes = BOOLEAN_VALUE_BYTES;
+        }
+        else if (statistics.hasIntStatistics()) {
+            minAverageValueBytes = INTEGER_VALUE_BYTES;
+        }
+        else if (statistics.hasDoubleStatistics()) {
+            minAverageValueBytes = DOUBLE_VALUE_BYTES;
+        }
+        else if (statistics.hasStringStatistics()) {
+            minAverageValueBytes = STRING_VALUE_BYTES_OVERHEAD;
+            if (statistics.hasNumberOfValues() && statistics.getNumberOfValues() > 0) {
+                minAverageValueBytes += statistics.getStringStatistics().getSum() / statistics.getNumberOfValues();
+            }
+        }
+        else if (statistics.hasBinaryStatistics()) {
+            // offset and value length
+            minAverageValueBytes = BINARY_VALUE_BYTES_OVERHEAD;
+            if (statistics.hasNumberOfValues() && statistics.getNumberOfValues() > 0) {
+                minAverageValueBytes += statistics.getBinaryStatistics().getSum() / statistics.getNumberOfValues();
+            }
+        }
+        else {
+            minAverageValueBytes = 0;
+        }
+
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
+                minAverageValueBytes,
                 toBooleanStatistics(statistics.getBucketStatistics()),
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 null,
                 null,
+                toBinaryStatistics(statistics.getBinaryStatistics()),
                 null);
     }
 
@@ -250,15 +293,34 @@ public class DwrfMetadataReader
             return null;
         }
 
-        Slice minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
-        Slice maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
+        Slice maximum;
+        Slice minimum;
+        if (hiveWriterVersion != ORIGINAL) {
+            maximum = stringStatistics.hasMaximum() ? Slices.wrappedBuffer(stringStatistics.getMaximumBytes().toByteArray()) : null;
+            minimum = stringStatistics.hasMinimum() ? Slices.wrappedBuffer(stringStatistics.getMinimumBytes().toByteArray()) : null;
+        }
+        else {
+            // see com.facebook.presto.orc.metadata.OrcMetadataReader.toStringStatistics() for a description on why we do this
+            minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
+            maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
+        }
+        long sum = stringStatistics.hasSum() ? stringStatistics.getSum() : 0;
 
-        return new StringStatistics(minimum, maximum);
+        return new StringStatistics(minimum, maximum, sum);
+    }
+
+    private static BinaryStatistics toBinaryStatistics(DwrfProto.BinaryStatistics binaryStatistics)
+    {
+        if (!binaryStatistics.hasSum()) {
+            return null;
+        }
+
+        return new BinaryStatistics(binaryStatistics.getSum());
     }
 
     private static OrcType toType(DwrfProto.Type type)
     {
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty());
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private static List<OrcType> toType(List<DwrfProto.Type> types)
@@ -351,7 +413,7 @@ public class DwrfMetadataReader
     {
         switch (compression) {
             case NONE:
-                return UNCOMPRESSED;
+                return NONE;
             case ZLIB:
                 return ZLIB;
             case SNAPPY:

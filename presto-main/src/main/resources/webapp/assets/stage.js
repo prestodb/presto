@@ -360,7 +360,7 @@ let StageOperatorGraph = React.createClass({
         });
 
         let nodeOperators = operatorMap.get(planNode.id);
-        if (!nodeOperators || nodeOperators.length == 0) {
+        if (!nodeOperators || nodeOperators.length === 0) {
             return sourceResults;
         }
 
@@ -427,7 +427,7 @@ let StageOperatorGraph = React.createClass({
             this.computeD3StageOperatorGraph(graph, operator.child, operatorNodeId, pipelineNode);
         }
 
-        if (sink != null) {
+        if (sink !== null) {
             graph.setEdge(operatorNodeId, sink, {class: "edge-class", arrowheadStyle: "stroke-width: 0; fill: #fff;"});
         }
 
@@ -476,7 +476,7 @@ let StageOperatorGraph = React.createClass({
             );
         }
 
-        if (!stage.hasOwnProperty('stageStats') || !stage.stageStats.hasOwnProperty("operatorSummaries") || stage.stageStats.operatorSummaries.length == 0) {
+        if (!stage.hasOwnProperty('stageStats') || !stage.stageStats.hasOwnProperty("operatorSummaries") || stage.stageStats.operatorSummaries.length === 0) {
             return (
                 <div className="row error-message">
                     <div className="col-xs-12">
@@ -506,7 +506,7 @@ let StagePerformance = React.createClass({
     resetTimer: function() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
-        if (this.state.query == null || !this.state.ended) {
+        if (this.state.query === null || !this.state.ended) {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     },
@@ -547,7 +547,7 @@ let StagePerformance = React.createClass({
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryString = window.location.search.substring(1).split('.');
+        const queryString = getFirstParameter(window.location.search).split('.');
         const queryId = queryString[0];
 
         let selectedStageId = this.state.selectedStageId;
@@ -578,7 +578,7 @@ let StagePerformance = React.createClass({
         this.refreshLoop();
     },
     findStage: function (stageId, currentStage) {
-        if (stageId == null) {
+        if (stageId === null) {
             return null;
         }
 
@@ -588,7 +588,7 @@ let StagePerformance = React.createClass({
 
         for (let i = 0; i < currentStage.subStages.length; i++) {
             const stage = this.findStage(stageId, currentStage.subStages[i]);
-            if (stage != null) {
+            if (stage !== null) {
                 return stage;
             }
         }
@@ -627,7 +627,7 @@ let StagePerformance = React.createClass({
         this.getAllStageIds(allStages, query.outputStage);
 
         const stage = this.findStage(query.queryId  + "." + this.state.selectedStageId, query.outputStage);
-        if (stage == null) {
+        if (stage === null) {
             return (
                 <div className="row error-message">
                     <div className="col-xs-12"><h4>Stage not found</h4></div>
@@ -693,7 +693,7 @@ let StagePerformance = React.createClass({
                             <div className="col-xs-2">
                                 <h3>Stage { stage.plan.id }</h3>
                             </div>
-                            <div className="col-xs-8"></div>
+                            <div className="col-xs-8"/>
                             <div className="col-xs-2 stage-dropdown">
                                 <div className="input-group-btn">
                                     <button type="button" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">

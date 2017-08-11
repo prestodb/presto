@@ -15,6 +15,7 @@ package com.facebook.presto.server.remotetask;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoTransportException;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -36,6 +37,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.spi.HostAddress.fromUri;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
@@ -122,7 +124,8 @@ class RequestErrorTracker
         // fail the task, if we have more than X failures in a row and more than Y seconds have passed since the last request
         if (backoff.failure()) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
-            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED,
+            PrestoException exception = new PrestoTransportException(TOO_MANY_REQUESTS_FAILED,
+                    fromUri(taskUri),
                     format("%s (%s %s - %s failures, time since last success %s)",
                             WORKER_NODE_ERROR,
                             jobDescription,

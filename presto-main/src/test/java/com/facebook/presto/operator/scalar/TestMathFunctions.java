@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.Joiner;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -30,6 +31,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static java.util.Collections.nCopies;
 
 public class TestMathFunctions
         extends AbstractTestFunctions
@@ -1095,6 +1097,12 @@ public class TestMathFunctions
 
         // invalid
         assertInvalidFunction("greatest(1.5, 0.0 / 0.0)", "Invalid argument to greatest(): NaN");
+
+        // argument count limit
+        tryEvaluateWithAll("greatest(" + Joiner.on(", ").join(nCopies(127, "rand()")) + ")", DOUBLE);
+        assertNotSupported(
+                "greatest(" + Joiner.on(", ").join(nCopies(128, "rand()")) + ")",
+                "Too many arguments for function call greatest()");
     }
 
     @Test

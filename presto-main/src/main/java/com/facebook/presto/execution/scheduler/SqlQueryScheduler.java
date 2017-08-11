@@ -27,6 +27,7 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
@@ -91,6 +92,7 @@ public class SqlQueryScheduler
     private final ExecutionPolicy executionPolicy;
     private final Map<StageId, SqlStageExecution> stages;
     private final ExecutorService executor;
+    private final FailureDetector failureDetector;
     private final StageId rootStageId;
     private final Map<StageId, StageScheduler> stageSchedulers;
     private final Map<StageId, StageLinkage> stageLinkages;
@@ -108,6 +110,7 @@ public class SqlQueryScheduler
             boolean summarizeTaskInfo,
             int splitBatchSize,
             ExecutorService executor,
+            FailureDetector failureDetector,
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
@@ -136,6 +139,7 @@ public class SqlQueryScheduler
                 splitBatchSize,
                 partitioningHandle -> partitioningCache.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle)),
                 executor,
+                failureDetector,
                 nodeTaskMap,
                 stageSchedulers,
                 stageLinkages);
@@ -151,6 +155,7 @@ public class SqlQueryScheduler
         this.stageLinkages = stageLinkages.build();
 
         this.executor = executor;
+        this.failureDetector = failureDetector;
 
         rootStage.addStateChangeListener(state -> {
             if (state == FINISHED) {
@@ -195,6 +200,7 @@ public class SqlQueryScheduler
             int splitBatchSize,
             Function<PartitioningHandle, NodePartitionMap> partitioningCache,
             ExecutorService executor,
+            FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
             ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers,
             ImmutableMap.Builder<StageId, StageLinkage> stageLinkages)
@@ -211,6 +217,7 @@ public class SqlQueryScheduler
                 summarizeTaskInfo,
                 nodeTaskMap,
                 executor,
+                failureDetector,
                 schedulerStats);
 
         stages.add(stage);
@@ -266,6 +273,7 @@ public class SqlQueryScheduler
                     splitBatchSize,
                     partitioningCache,
                     executor,
+                    failureDetector,
                     nodeTaskMap,
                     stageSchedulers,
                     stageLinkages);

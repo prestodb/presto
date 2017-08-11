@@ -14,13 +14,15 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.RowPageBuilder;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AggregationCompiler;
+import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -34,6 +36,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +48,6 @@ import java.util.Random;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -58,6 +60,10 @@ public class TestLearnAggregations
         typeRegistry.addParametricType(new ClassifierParametricType());
         typeRegistry.addType(ModelType.MODEL);
         typeRegistry.addType(RegressorType.REGRESSOR);
+
+        // associate typeRegistry with a function registry
+        new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+
         typeManager = typeRegistry;
     }
 
@@ -75,7 +81,7 @@ public class TestLearnAggregations
             throws Exception
     {
         Type mapType = typeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
-        InternalAggregationFunction aggregation = AggregationCompiler.generateAggregationBindableFunction(
+        InternalAggregationFunction aggregation = AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(
                 LearnLibSvmClassifierAggregation.class,
                 ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(),
                 ImmutableList.of(BigintType.BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x"))
@@ -105,17 +111,14 @@ public class TestLearnAggregations
         Random rand = new Random(0);
         for (int i = 0; i < datapoints; i++) {
             long label = rand.nextDouble() < 0.5 ? 0 : 1;
-            builder.row(label, mapSliceOf(BigintType.BIGINT, DoubleType.DOUBLE, 0, label + rand.nextGaussian()), "C=1");
+
+            BlockBuilder mapSliceBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(BigintType.BIGINT, DoubleType.DOUBLE), new BlockBuilderStatus(), 2);
+            BigintType.BIGINT.writeLong(mapSliceBlockBuilder, 0L);
+            DoubleType.DOUBLE.writeDouble(mapSliceBlockBuilder, label + rand.nextGaussian());
+
+            builder.row(label, mapSliceBlockBuilder.build(), "C=1");
         }
 
         return builder.build();
-    }
-
-    private static Block mapSliceOf(Type keyType, Type valueType, Object key, Object value)
-    {
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 100);
-        appendToBlockBuilder(keyType, key, blockBuilder);
-        appendToBlockBuilder(valueType, value, blockBuilder);
-        return blockBuilder.build();
     }
 }

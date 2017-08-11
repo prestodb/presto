@@ -38,6 +38,7 @@ import java.util.Map;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class ProjectionPushDown
         implements PlanOptimizer
 {
@@ -163,7 +164,7 @@ public class ProjectionPushDown
                     exchange.getPartitioningScheme().getPartitioning(),
                     outputBuilder.build(),
                     exchange.getPartitioningScheme().getHashColumn(),
-                    exchange.getPartitioningScheme().isReplicateNulls(),
+                    exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                     exchange.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(

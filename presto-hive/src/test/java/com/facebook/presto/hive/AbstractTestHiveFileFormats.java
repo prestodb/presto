@@ -23,10 +23,12 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -36,9 +38,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.StructuralTestUtil;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -91,6 +90,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -299,7 +299,7 @@ public abstract class AbstractTestHiveFileFormats
                     ImmutableMap.of((short) 2, (short) 2),
                     mapBlockOf(SMALLINT, SMALLINT, (short) 2, (short) 2)))
             .add(new TestColumn("t_map_null_key", getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector), asMap(new Long[] {null, 2L}, new Long[] {0L,
-                                                                                                                                                                            3L}), mapBlockOf(BIGINT, BIGINT, 2, 3)))
+                    3L}), mapBlockOf(BIGINT, BIGINT, 2, 3)))
             .add(new TestColumn("t_map_int", getStandardMapObjectInspector(javaIntObjectInspector, javaIntObjectInspector), ImmutableMap.of(3, 3), mapBlockOf(INTEGER, INTEGER, 3, 3)))
             .add(new TestColumn("t_map_bigint", getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector), ImmutableMap.of(4L, 4L), mapBlockOf(BIGINT, BIGINT, 4L, 4L)))
             .add(new TestColumn("t_map_float", getStandardMapObjectInspector(javaFloatObjectInspector, javaFloatObjectInspector), ImmutableMap.of(5.0f, 5.0f), mapBlockOf(REAL, REAL, 5.0f, 5.0f)))
@@ -319,33 +319,27 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_decimal_precision_2",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_2, DECIMAL_INSPECTOR_PRECISION_2),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_2, WRITE_DECIMAL_PRECISION_2),
-                    StructuralTestUtil.decimalMapBlockOf(DECIMAL_TYPE_PRECISION_2, EXPECTED_DECIMAL_PRECISION_2)
-            ))
+                    StructuralTestUtil.decimalMapBlockOf(DECIMAL_TYPE_PRECISION_2, EXPECTED_DECIMAL_PRECISION_2)))
             .add(new TestColumn("t_map_decimal_precision_4",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_4, DECIMAL_INSPECTOR_PRECISION_4),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_4, WRITE_DECIMAL_PRECISION_4),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_4, EXPECTED_DECIMAL_PRECISION_4)
-            ))
+                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_4, EXPECTED_DECIMAL_PRECISION_4)))
             .add(new TestColumn("t_map_decimal_precision_8",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_8, DECIMAL_INSPECTOR_PRECISION_8),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_8, WRITE_DECIMAL_PRECISION_8),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_8, EXPECTED_DECIMAL_PRECISION_8)
-            ))
+                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_8, EXPECTED_DECIMAL_PRECISION_8)))
             .add(new TestColumn("t_map_decimal_precision_17",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_17, DECIMAL_INSPECTOR_PRECISION_17),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_17, WRITE_DECIMAL_PRECISION_17),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_17, EXPECTED_DECIMAL_PRECISION_17)
-            ))
+                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_17, EXPECTED_DECIMAL_PRECISION_17)))
             .add(new TestColumn("t_map_decimal_precision_18",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_18, DECIMAL_INSPECTOR_PRECISION_18),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_18, WRITE_DECIMAL_PRECISION_18),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_18, EXPECTED_DECIMAL_PRECISION_18)
-            ))
+                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_18, EXPECTED_DECIMAL_PRECISION_18)))
             .add(new TestColumn("t_map_decimal_precision_38",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_38, DECIMAL_INSPECTOR_PRECISION_38),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_38, WRITE_DECIMAL_PRECISION_38),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_38, EXPECTED_DECIMAL_PRECISION_38)
-            ))
+                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_38, EXPECTED_DECIMAL_PRECISION_38)))
             .add(new TestColumn("t_array_empty", getStandardListObjectInspector(javaStringObjectInspector), ImmutableList.of(), arrayBlockOf(createUnboundedVarcharType())))
             .add(new TestColumn("t_array_string", getStandardListObjectInspector(javaStringObjectInspector), ImmutableList.of("test"), arrayBlockOf(createUnboundedVarcharType(), "test")))
             .add(new TestColumn("t_array_tinyint", getStandardListObjectInspector(javaByteObjectInspector), ImmutableList.of((byte) 1), arrayBlockOf(TINYINT, (byte) 1)))
@@ -407,28 +401,22 @@ public abstract class AbstractTestHiveFileFormats
                             getStandardListObjectInspector(
                                     getStandardStructObjectInspector(
                                             ImmutableList.of("s_int"),
-                                            ImmutableList.of(javaIntObjectInspector)
-                                    )
-                            )
-                    ),
+                                            ImmutableList.of(javaIntObjectInspector)))),
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
                     mapBlockOf(createUnboundedVarcharType(), new ArrayType(new RowType(ImmutableList.of(INTEGER), Optional.empty())),
-                            "test", arrayBlockOf(new RowType(ImmutableList.of(INTEGER), Optional.empty()), rowBlockOf(ImmutableList.of(INTEGER), 1L)))
-            ))
+                            "test", arrayBlockOf(new RowType(ImmutableList.of(INTEGER), Optional.empty()), rowBlockOf(ImmutableList.of(INTEGER), 1L)))))
             .add(new TestColumn("t_map_null_key_complex_value",
                     getStandardMapObjectInspector(
                             javaStringObjectInspector,
-                            getStandardMapObjectInspector(javaLongObjectInspector, javaBooleanObjectInspector)
-                    ),
+                            getStandardMapObjectInspector(javaLongObjectInspector, javaBooleanObjectInspector)),
                     asMap(new String[] {null, "k"}, new ImmutableMap[] {ImmutableMap.of(15L, true), ImmutableMap.of(16L, false)}),
-                    mapBlockOf(createUnboundedVarcharType(), new MapType(BIGINT, BOOLEAN), "k", mapBlockOf(BIGINT, BOOLEAN, 16L, false))))
+                    mapBlockOf(createUnboundedVarcharType(), mapType(BIGINT, BOOLEAN), "k", mapBlockOf(BIGINT, BOOLEAN, 16L, false))))
             .add(new TestColumn("t_map_null_key_complex_key_value",
                     getStandardMapObjectInspector(
                             getStandardListObjectInspector(javaStringObjectInspector),
-                            getStandardMapObjectInspector(javaLongObjectInspector, javaBooleanObjectInspector)
-                    ),
+                            getStandardMapObjectInspector(javaLongObjectInspector, javaBooleanObjectInspector)),
                     asMap(new ImmutableList[] {null, ImmutableList.of("k", "ka")}, new ImmutableMap[] {ImmutableMap.of(15L, true), ImmutableMap.of(16L, false)}),
-                    mapBlockOf(new ArrayType(createUnboundedVarcharType()), new MapType(BIGINT, BOOLEAN), arrayBlockOf(createUnboundedVarcharType(), "k", "ka"), mapBlockOf(BIGINT, BOOLEAN, 16L, false))))
+                    mapBlockOf(new ArrayType(createUnboundedVarcharType()), mapType(BIGINT, BOOLEAN), arrayBlockOf(createUnboundedVarcharType(), "k", "ka"), mapBlockOf(BIGINT, BOOLEAN, 16L, false))))
             .add(new TestColumn("t_struct_nested", getStandardStructObjectInspector(ImmutableList.of("struct_field"),
                     ImmutableList.of(getStandardListObjectInspector(javaStringObjectInspector))), ImmutableList.of(ImmutableList.of("1", "2", "3")), rowBlockOf(ImmutableList.of(new ArrayType(createUnboundedVarcharType())), arrayBlockOf(createUnboundedVarcharType(), "1", "2", "3"))))
             .add(new TestColumn("t_struct_null", getStandardStructObjectInspector(ImmutableList.of("struct_field_null", "struct_field_null2"),
@@ -443,20 +431,14 @@ public abstract class AbstractTestHiveFileFormats
                                     javaStringObjectInspector,
                                     getStandardStructObjectInspector(
                                             ImmutableList.of("nested_struct_field1", "nested_struct_field2"),
-                                            ImmutableList.of(javaIntObjectInspector, javaStringObjectInspector)
-                                    )
-                            )
-                    ),
+                                            ImmutableList.of(javaIntObjectInspector, javaStringObjectInspector)))),
                     Arrays.asList(null, "some string", Arrays.asList(null, "nested_string2")),
                     rowBlockOf(
                             ImmutableList.of(
                                     INTEGER,
                                     createUnboundedVarcharType(),
-                                    new RowType(ImmutableList.of(INTEGER, createUnboundedVarcharType()), Optional.empty())
-                            ),
-                            null, "some string", rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "nested_string2")
-                    )
-            ))
+                                    new RowType(ImmutableList.of(INTEGER, createUnboundedVarcharType()), Optional.empty())),
+                            null, "some string", rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "nested_string2"))))
             .add(new TestColumn("t_map_null_value",
                     getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
                     asMap(new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"}),
@@ -579,8 +561,7 @@ public abstract class AbstractTestHiveFileFormats
                 compressionCodec != HiveCompressionCodec.NONE,
                 tableProperties,
                 () -> {
-                }
-        );
+                });
 
         try {
             serDe.initialize(new Configuration(), tableProperties);

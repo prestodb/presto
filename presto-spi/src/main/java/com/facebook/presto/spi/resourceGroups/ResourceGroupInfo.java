@@ -16,6 +16,7 @@ package com.facebook.presto.spi.resourceGroups;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,7 +31,9 @@ public class ResourceGroupInfo
 
     private final DataSize softMemoryLimit;
     private final int maxRunningQueries;
+    private final Duration runningTimeLimit;
     private final int maxQueuedQueries;
+    private final Duration queuedTimeLimit;
 
     private final ResourceGroupState state;
     private final int numEligibleSubGroups;
@@ -45,18 +48,38 @@ public class ResourceGroupInfo
             @JsonProperty("id") ResourceGroupId id,
             @JsonProperty("softMemoryLimit") DataSize softMemoryLimit,
             @JsonProperty("maxRunningQueries") int maxRunningQueries,
+            @JsonProperty("runningTimeLimit") Duration runningTimeLimit,
             @JsonProperty("maxQueuedQueries") int maxQueuedQueries,
+            @JsonProperty("queuedTimeLimit") Duration queuedTimeLimit,
             @JsonProperty("state") ResourceGroupState state,
             @JsonProperty("numEligibleSubGroups") int numEligibleSubGroups,
             @JsonProperty("memoryUsage") DataSize memoryUsage,
             @JsonProperty("numAggregatedRunningQueries") int numAggregatedRunningQueries,
-            @JsonProperty("numAggregatedQueuedQueries") int numAggregatedQueuedQueries,
+            @JsonProperty("numAggregatedQueuedQueries") int numAggregatedQueuedQueries)
+    {
+        this(id, softMemoryLimit, maxRunningQueries, runningTimeLimit, maxQueuedQueries, queuedTimeLimit, state, numEligibleSubGroups, memoryUsage, numAggregatedRunningQueries, numAggregatedQueuedQueries, emptyList());
+    }
+
+    public ResourceGroupInfo(
+            ResourceGroupId id,
+            DataSize softMemoryLimit,
+            int maxRunningQueries,
+            Duration runningTimeLimit,
+            int maxQueuedQueries,
+            Duration queuedTimeLimit,
+            ResourceGroupState state,
+            int numEligibleSubGroups,
+            DataSize memoryUsage,
+            int numAggregatedRunningQueries,
+            int numAggregatedQueuedQueries,
             List<ResourceGroupInfo> subGroups)
     {
         this.id = requireNonNull(id, "id is null");
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         this.maxRunningQueries = maxRunningQueries;
+        this.runningTimeLimit = runningTimeLimit;
         this.maxQueuedQueries = maxQueuedQueries;
+        this.queuedTimeLimit = queuedTimeLimit;
         this.state = requireNonNull(state, "state is null");
         this.numEligibleSubGroups = numEligibleSubGroups;
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
@@ -84,9 +107,21 @@ public class ResourceGroupInfo
     }
 
     @JsonProperty
+    public Duration getRunningTimeLimit()
+    {
+        return runningTimeLimit;
+    }
+
+    @JsonProperty
     public int getMaxQueuedQueries()
     {
         return maxQueuedQueries;
+    }
+
+    @JsonProperty
+    public Duration getQueuedTimeLimit()
+    {
+        return queuedTimeLimit;
     }
 
     public List<ResourceGroupInfo> getSubGroups()
@@ -137,12 +172,13 @@ public class ResourceGroupInfo
                 getId(),
                 getSoftMemoryLimit(),
                 getMaxRunningQueries(),
+                getRunningTimeLimit(),
                 getMaxQueuedQueries(),
+                getQueuedTimeLimit(),
                 getState(),
                 getNumEligibleSubGroups(),
                 getMemoryUsage(),
                 getNumAggregatedRunningQueries(),
-                getNumAggregatedQueuedQueries(),
-                emptyList());
+                getNumAggregatedQueuedQueries());
     }
 }

@@ -25,8 +25,6 @@ import java.util.Map;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.copyTables;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSession;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 
 @Test
 public class TestRaptorIntegrationSmokeTestMySql
@@ -40,10 +38,10 @@ public class TestRaptorIntegrationSmokeTestMySql
         this(new TestingMySqlServer("testuser", "testpass", "testdb"));
     }
 
-    public TestRaptorIntegrationSmokeTestMySql(TestingMySqlServer mysqlServer)
+    private TestRaptorIntegrationSmokeTestMySql(TestingMySqlServer mysqlServer)
             throws Exception
     {
-        super(() -> createRaptorMySqlQueryRunner(mysqlServer));
+        super(() -> createRaptorMySqlQueryRunner(mysqlServer.getJdbcUrl("testdb")));
         this.mysqlServer = mysqlServer;
     }
 
@@ -53,7 +51,7 @@ public class TestRaptorIntegrationSmokeTestMySql
         mysqlServer.close();
     }
 
-    private static DistributedQueryRunner createRaptorMySqlQueryRunner(TestingMySqlServer server)
+    private static DistributedQueryRunner createRaptorMySqlQueryRunner(String mysqlUrl)
             throws Exception
     {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
@@ -65,7 +63,7 @@ public class TestRaptorIntegrationSmokeTestMySql
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
         Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
                 .put("metadata.db.type", "mysql")
-                .put("metadata.db.url", jdbcUrl(server))
+                .put("metadata.db.url", mysqlUrl)
                 .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
                 .put("storage.max-shard-rows", "2000")
                 .put("backup.provider", "file")
@@ -77,14 +75,5 @@ public class TestRaptorIntegrationSmokeTestMySql
         copyTables(queryRunner, "tpch", createSession(), false);
 
         return queryRunner;
-    }
-
-    private static String jdbcUrl(TestingMySqlServer server)
-    {
-        return format("jdbc:mysql://localhost:%d/%s?user=%s&password=%s",
-                server.getPort(),
-                getOnlyElement(server.getDatabases()),
-                server.getUser(),
-                server.getPassword());
     }
 }

@@ -49,10 +49,12 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class ExpressionCompiler
 {
     private final Metadata metadata;
+    private final PageFunctionCompiler pageFunctionCompiler;
 
     private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
@@ -65,23 +67,21 @@ public class ExpressionCompiler
                 }
             });
 
-    @Inject
-    public ExpressionCompiler(Metadata metadata)
-    {
-        this.metadata = metadata;
-    }
+    private final CacheStatsMBean cacheStatsMBean;
 
-    @Managed
-    public long getCacheSize()
+    @Inject
+    public ExpressionCompiler(Metadata metadata, PageFunctionCompiler pageFunctionCompiler)
     {
-        return cursorProcessors.size();
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
+        this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
 
     @Managed
     @Nested
-    public CacheStatsMBean getCursorCacheStats()
+    public CacheStatsMBean getCursorProcessorCache()
     {
-        return new CacheStatsMBean(cursorProcessors);
+        return cacheStatsMBean;
     }
 
     public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
@@ -97,12 +97,11 @@ public class ExpressionCompiler
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
+    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
     {
-        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata);
-        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(pageFunctionCompiler::compileFilter);
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
-                .map(pageFunctionCompiler::compileProjection)
+                .map(projection -> pageFunctionCompiler.compileProjection(projection, classNameSuffix))
                 .collect(toImmutableList());
 
         return () -> {
@@ -114,7 +113,12 @@ public class ExpressionCompiler
         };
     }
 
-    private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
+    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
+    {
+        return compilePageProcessor(filter, projections, Optional.empty());
+    }
+
+    private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)
     {
         // create filter and project page iterator class
         try {
@@ -128,7 +132,7 @@ public class ExpressionCompiler
     private <T> Class<? extends T> compileProcessor(
             RowExpression filter,
             List<RowExpression> projections,
-            BodyCompiler<T> bodyCompiler,
+            BodyCompiler bodyCompiler,
             Class<? extends T> superType)
     {
         ClassDefinition classDefinition = new ClassDefinition(

@@ -618,27 +618,30 @@ public final class HttpRemoteTask
             @Override
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
-                updateTaskInfo(result.getValue());
+                try {
+                    updateTaskInfo(result.getValue());
+                }
+                finally {
+                    if (!getTaskInfo().getTaskStatus().getState().isDone()) {
+                        cleanUpLocally();
+                    }
+                }
             }
 
             @Override
             public void onFailure(Throwable t)
             {
                 if (t instanceof RejectedExecutionException) {
-                    // client has been shutdown
+                    // TODO: we should only give up retrying when the client has been shutdown
+                    logError(t, "Unable to %s task at %s. Got RejectedExecutionException.", action, request.getUri());
+                    cleanUpLocally();
                     return;
                 }
 
                 // record failure
                 if (cleanupBackoff.failure()) {
-                    logError(t, "Unable to %s task at %s", action, request.getUri());
-                    // Update the taskInfo with the new taskStatus.
-                    // This is required because the query state machine depends on TaskInfo (instead of task status)
-                    // to transition its own state.
-                    // Also, since this TaskInfo is updated in the client the "finalInfo" flag will not be set,
-                    // indicating that the stats are stale.
-                    // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
-                    updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
+                    logError(t, "Unable to %s task at %s. Back off depleted.", action, request.getUri());
+                    cleanUpLocally();
                     return;
                 }
 
@@ -650,6 +653,27 @@ public final class HttpRemoteTask
                 else {
                     errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
                 }
+            }
+
+            private void cleanUpLocally()
+            {
+                // Update the taskInfo with the new taskStatus.
+
+                // Generally, we send a cleanup request to the worker, and update the TaskInfo on
+                // the coordinator based on what we fetched from the worker. If we somehow cannot
+                // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
+                // likely will not say the task is done however many times we try. In this case,
+                // we have to set the local query info directly so that we stop trying to fetch
+                // updated TaskInfo from the worker. This way, the task on the worker eventually
+                // expires due to lack of activity.
+
+                // This is required because the query state machine depends on TaskInfo (instead of task status)
+                // to transition its own state.
+                // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
+
+                // Since this TaskInfo is updated in the client the "complete" flag will not be set,
+                // indicating that the stats may not reflect the final stats on the worker.
+                updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
             }
         }, executor);
     }
