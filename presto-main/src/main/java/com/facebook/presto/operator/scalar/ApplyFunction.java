@@ -25,9 +25,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.primitives.Primitives.wrap;
@@ -79,9 +81,9 @@ public final class ApplyFunction
         Type returnType = boundVariables.getTypeVariable("U");
         return new ScalarFunctionImplementation(
                 true,
-                ImmutableList.of(true, false),
-                ImmutableList.of(false, false),
-                ImmutableList.of(Optional.empty(), Optional.of(UnaryFunctionInterface.class)),
+                ImmutableList.of(
+                        valueTypeArgumentProperty(USE_BOXED_TYPE),
+                        functionTypeArgumentProperty(UnaryFunctionInterface.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))

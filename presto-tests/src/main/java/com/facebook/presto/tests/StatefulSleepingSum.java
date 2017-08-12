@@ -27,6 +27,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -74,9 +76,7 @@ public class StatefulSleepingSum
         int args = 4;
         return new ScalarFunctionImplementation(
                 false,
-                nCopies(args, false),
-                nCopies(args, false),
-                nCopies(args, Optional.empty()),
+                nCopies(args, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle(StatefulSleepingSum.class, "statefulSleepingSum", State.class, double.class, long.class, long.class, long.class),
                 Optional.of(constructorMethodHandle(State.class)),
                 true);
