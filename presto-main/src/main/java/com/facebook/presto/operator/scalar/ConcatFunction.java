@@ -37,7 +37,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -52,6 +51,8 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -60,6 +61,7 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.addExact;
+import static java.util.Collections.nCopies;
 
 public final class ConcatFunction
         extends SqlScalarFunction
@@ -110,10 +112,13 @@ public final class ConcatFunction
         }
 
         Class<?> clazz = generateConcat(getSignature().getReturnType(), arity);
-        MethodHandle methodHandle = methodHandle(clazz, "concat", Collections.nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
-        List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(arity, false));
+        MethodHandle methodHandle = methodHandle(clazz, "concat", nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
 
-        return new ScalarFunctionImplementation(false, nullableParameters, methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(
+                false,
+                nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle,
+                isDeterministic());
     }
 
     private static Class<?> generateConcat(TypeSignature type, int arity)

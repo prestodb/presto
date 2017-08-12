@@ -22,6 +22,7 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -41,6 +42,10 @@ import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -193,23 +198,31 @@ public final class BytecodeUtils
             }
             else {
                 block.append(arguments.get(realParameterIndex));
-                if (!function.getNullableArguments().get(realParameterIndex)) {
-                    checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
-                    block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
-                }
-                else {
-                    if (function.getNullFlags().get(realParameterIndex)) {
-                        if (type == Void.class) {
+                ArgumentProperty argumentProperty = function.getArgumentProperty(realParameterIndex);
+
+                if (argumentProperty.getArgumentType() == VALUE_TYPE) {
+                    // apply null convention for value type argument
+                    switch (argumentProperty.getNullConvention()) {
+                        case RETURN_NULL_ON_NULL:
+                            checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
+                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                            break;
+                        case USE_NULL_FLAG:
+                            if (type == Void.class) {
+                                block.append(boxPrimitiveIfNecessary(scope, type));
+                            }
+                            block.append(scope.getVariable("wasNull"));
+                            block.append(scope.getVariable("wasNull").set(constantFalse()));
+                            stackTypes.add(boolean.class);
+                            currentParameterIndex++;
+                            break;
+                        case USE_BOXED_TYPE:
                             block.append(boxPrimitiveIfNecessary(scope, type));
-                        }
-                        block.append(scope.getVariable("wasNull"));
-                        stackTypes.add(boolean.class);
-                        currentParameterIndex++;
+                            block.append(scope.getVariable("wasNull").set(constantFalse()));
+                            break;
+                        default:
+                            throw new UnsupportedOperationException(format("Unsupported null convention: %s", argumentProperty.getNullConvention()));
                     }
-                    else {
-                        block.append(boxPrimitiveIfNecessary(scope, type));
-                    }
-                    block.append(scope.getVariable("wasNull").set(constantFalse()));
                 }
                 realParameterIndex++;
             }

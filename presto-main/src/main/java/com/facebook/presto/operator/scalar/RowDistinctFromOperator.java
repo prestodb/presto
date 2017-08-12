@@ -27,6 +27,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
@@ -60,7 +62,9 @@ public class RowDistinctFromOperator
         }
         return new ScalarFunctionImplementation(
                 false,
-                ImmutableList.of(true, true),
+                ImmutableList.of(
+                        valueTypeArgumentProperty(USE_BOXED_TYPE),
+                        valueTypeArgumentProperty(USE_BOXED_TYPE)),
                 METHOD_HANDLE.bindTo(type).bindTo(argumentMethods.build()),
                 isDeterministic());
     }

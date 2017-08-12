@@ -259,6 +259,8 @@ import static com.facebook.presto.operator.scalar.RowLessThanOrEqualOperator.ROW
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
@@ -742,7 +744,7 @@ public class FunctionRegistry
             }
         }
 
-        // If the return type for all the selected function is the same, and the parameters are not declared as nullable
+        // If the return type for all the selected function is the same, and the parameters are declared as RETURN_NULL_ON_NULL
         // all the functions are semantically the same. We can return just any of those.
         if (returnTypeIsTheSame(mostSpecificFunctions) && allReturnNullOnGivenInputTypes(mostSpecificFunctions, parameterTypes)) {
             // make it deterministic
@@ -820,28 +822,24 @@ public class FunctionRegistry
 
     private boolean returnsNullOnGivenInputTypes(ApplicableFunction applicableFunction, List<Type> parameterTypes)
     {
+        Signature boundSignature = applicableFunction.getBoundSignature();
+        FunctionKind functionKind = boundSignature.getKind();
+        // Window and Aggregation functions have fixed semantic where NULL values are always skipped
+        if (functionKind != SCALAR) {
+            return true;
+        }
+
         for (int i = 0; i < parameterTypes.size(); i++) {
             Type parameterType = parameterTypes.get(i);
             if (parameterType.equals(UNKNOWN)) {
-                if (parameterIsNullable(applicableFunction.getBoundSignature(), i)) {
+                // TODO: Move information about nullable arguments to FunctionSignature. Remove this hack.
+                ScalarFunctionImplementation implementation = getScalarFunctionImplementation(boundSignature);
+                if (implementation.getArgumentProperty(i).getNullConvention() != RETURN_NULL_ON_NULL) {
                     return false;
                 }
             }
         }
         return true;
-    }
-
-    private boolean parameterIsNullable(Signature boundSignature, int parameterIndex)
-    {
-        FunctionKind functionKind = boundSignature.getKind();
-        // nullable parameters can be declared only for scalar functions
-        // Window and Aggregation functions have fixed semantic where NULL values are always skipped
-        if (functionKind != SCALAR) {
-            return false;
-        }
-        // TODO: Move information about nullable arguments to FunctionSignature. Remove this hack.
-        ScalarFunctionImplementation implementation = getScalarFunctionImplementation(boundSignature);
-        return implementation.getNullableArguments().get(parameterIndex);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
@@ -1237,7 +1235,11 @@ public class FunctionRegistry
                     parameterType.getJavaType(),
                     type.getJavaType());
 
-            return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
+            return new ScalarFunctionImplementation(
+                    false,
+                    ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                    methodHandle,
+                    isDeterministic());
         }
     }
 }

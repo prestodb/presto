@@ -84,9 +84,7 @@ public class ParametricScalar
             checkCondition(methodHandleAndConstructor.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, String.format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
             return new ScalarFunctionImplementation(
                     implementation.isNullable(),
-                    implementation.getNullableArguments(),
-                    implementation.getNullFlags(),
-                    implementation.getLambdaInterface(),
+                    implementation.getArgumentProperties(),
                     methodHandleAndConstructor.get().getMethodHandle(),
                     methodHandleAndConstructor.get().getConstructor(),
                     isDeterministic());
@@ -99,9 +97,7 @@ public class ParametricScalar
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
                 selectedImplementation = new ScalarFunctionImplementation(
                         implementation.isNullable(),
-                        implementation.getNullableArguments(),
-                        implementation.getNullFlags(),
-                        implementation.getLambdaInterface(),
+                        implementation.getArgumentProperties(),
                         methodHandle.get().getMethodHandle(),
                         methodHandle.get().getConstructor(),
                         isDeterministic());
@@ -117,9 +113,7 @@ public class ParametricScalar
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
                 selectedImplementation = new ScalarFunctionImplementation(
                         implementation.isNullable(),
-                        implementation.getNullableArguments(),
-                        implementation.getNullFlags(),
-                        implementation.getLambdaInterface(),
+                        implementation.getArgumentProperties(),
                         methodHandle.get().getMethodHandle(),
                         methodHandle.get().getConstructor(),
                         isDeterministic());
