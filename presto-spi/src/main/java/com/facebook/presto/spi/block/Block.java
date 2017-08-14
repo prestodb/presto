@@ -203,11 +203,27 @@ public interface Block
 
     /**
      * Returns a block containing the specified positions.
+     * Positions to copy are stored in a subarray within {@code positions} array
+     * that starts at {@code offset} and has length of {@code length}.
      * All specified positions must be valid for this block.
      * <p>
      * The returned block must be a compact representation of the original block.
      */
-    Block copyPositions(List<Integer> positions);
+    Block copyPositions(int[] positions, int offset, int length);
+
+    /**
+     * Returns a block containing the specified positions.
+     * All specified positions must be valid for this block.
+     * Use {@link Block#copyPositions(int[], int, int)} version of this method if possible
+     * since it allows to avoid integer boxing.
+     * <p>
+     * The returned block must be a compact representation of the original block.
+     */
+    @Deprecated
+    default Block copyPositions(List<Integer> positions)
+    {
+        return copyPositions(positions.stream().mapToInt(i -> i).toArray(), 0, positions.size());
+    }
 
     /**
      * Returns a block starting at the specified position and extends for the

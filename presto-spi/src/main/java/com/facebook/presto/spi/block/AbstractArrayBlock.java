@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 import static java.lang.String.format;
@@ -43,14 +44,17 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        int[] newOffsets = new int[positions.size() + 1];
-        boolean[] newValueIsNull = new boolean[positions.size()];
+        checkValidPositionsArray(positions, offset, length);
+
+        int[] newOffsets = new int[length + 1];
+        boolean[] newValueIsNull = new boolean[length];
 
         List<Integer> valuesPositions = new ArrayList<>();
         int newPosition = 0;
-        for (int position : positions) {
+        for (int i = offset; i < offset + length; ++i) {
+            int position = positions[i];
             if (isNull(position)) {
                 newValueIsNull[newPosition] = true;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
@@ -69,7 +73,7 @@ public abstract class AbstractArrayBlock
             newPosition++;
         }
         Block newValues = getValues().copyPositions(valuesPositions);
-        return new ArrayBlock(positions.size(), newValueIsNull, newOffsets, newValues);
+        return new ArrayBlock(length, newValueIsNull, newOffsets, newValues);
     }
 
     @Override
