@@ -21,7 +21,6 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -31,12 +30,6 @@ import static com.google.common.base.Preconditions.checkState;
 public class ExpressionSymbolInliner
 {
     private final Function<Symbol, Expression> mapping;
-
-    @Deprecated
-    public ExpressionSymbolInliner(Map<Symbol, ? extends Expression> mappings)
-    {
-        this.mapping = mappings::get;
-    }
 
     public ExpressionSymbolInliner(Function<Symbol, Expression> mapping)
     {
