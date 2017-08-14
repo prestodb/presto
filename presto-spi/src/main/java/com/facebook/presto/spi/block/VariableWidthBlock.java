@@ -18,7 +18,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
@@ -27,6 +26,7 @@ import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.spi.block.BlockUtil.compactSlice;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.util.Arrays.stream;
 
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
@@ -130,17 +130,19 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositions(positions, positionCount);
+        checkValidPositions(positions, offset, length, positionCount);
 
-        int finalLength = positions.stream().mapToInt(this::getSliceLength).sum();
+        int finalLength = stream(positions, offset, offset + length)
+                .map(this::getSliceLength)
+                .sum();
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
-        int[] newOffsets = new int[positions.size() + 1];
-        boolean[] newValueIsNull = new boolean[positions.size()];
+        int[] newOffsets = new int[length + 1];
+        boolean[] newValueIsNull = new boolean[length];
 
-        for (int i = 0; i < positions.size(); i++) {
-            int position = positions.get(i);
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
             if (isEntryNull(position)) {
                 newValueIsNull[i] = true;
             }
@@ -149,7 +151,7 @@ public class VariableWidthBlock
             }
             newOffsets[i + 1] = newSlice.size();
         }
-        return new VariableWidthBlock(positions.size(), newSlice.slice(), newOffsets, newValueIsNull);
+        return new VariableWidthBlock(length, newSlice.slice(), newOffsets, newValueIsNull);
     }
 
     @Override
