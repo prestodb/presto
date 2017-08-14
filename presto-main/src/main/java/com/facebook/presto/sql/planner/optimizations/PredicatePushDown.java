@@ -55,7 +55,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.airlift.log.Logger;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -90,8 +89,6 @@ import static java.util.Objects.requireNonNull;
 public class PredicatePushDown
         implements PlanOptimizer
 {
-    private static final Logger log = Logger.get(PredicatePushDown.class);
-
     private final Metadata metadata;
     private final SqlParser sqlParser;
 
