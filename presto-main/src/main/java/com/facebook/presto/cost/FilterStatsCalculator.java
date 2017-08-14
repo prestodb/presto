@@ -108,11 +108,6 @@ public class FilterStatsCalculator
             return Optional.empty();
         }
 
-        private PlanNodeStatsEstimate filterForUnknownExpression()
-        {
-            return filterStatsForUnknownExpression(input);
-        }
-
         private Optional<PlanNodeStatsEstimate> filterForFalseExpression()
         {
             PlanNodeStatsEstimate.Builder falseStatsBuilder = PlanNodeStatsEstimate.builder();
