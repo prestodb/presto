@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -74,14 +75,17 @@ public abstract class AbstractMapBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        int[] newOffsets = new int[positions.size() + 1];
-        boolean[] newMapIsNull = new boolean[positions.size()];
+        checkValidPositionsArray(positions, offset, length);
+
+        int[] newOffsets = new int[length + 1];
+        boolean[] newMapIsNull = new boolean[length];
 
         List<Integer> entriesPositions = new ArrayList<>();
         int newPosition = 0;
-        for (int position : positions) {
+        for (int i = 0; i < length; ++i) {
+            int position = positions[offset + i];
             if (isNull(position)) {
                 newMapIsNull[newPosition] = true;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
@@ -103,7 +107,8 @@ public abstract class AbstractMapBlock
         int[] hashTable = getHashTables();
         int[] newHashTable = new int[newOffsets[newOffsets.length - 1] * HASH_MULTIPLIER];
         int newHashIndex = 0;
-        for (int position : positions) {
+        for (int i = 0; i < length; ++i) {
+            int position = positions[offset + i];
             int entriesStartOffset = getOffset(position);
             int entriesEndOffset = getOffset(position + 1);
             for (int hashIndex = entriesStartOffset * HASH_MULTIPLIER; hashIndex < entriesEndOffset * HASH_MULTIPLIER; hashIndex++) {
@@ -114,7 +119,7 @@ public abstract class AbstractMapBlock
 
         Block newKeys = getKeys().copyPositions(entriesPositions);
         Block newValues = getValues().copyPositions(entriesPositions);
-        return new MapBlock(0, positions.size(), newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        return new MapBlock(0, length, newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
     }
 
     @Override

@@ -22,11 +22,11 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -134,15 +134,20 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        int finalLength = positions.stream().mapToInt(this::getSliceLength).sum();
-        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
-        int[] newOffsets = new int[positions.size() + 1];
-        boolean[] newValueIsNull = new boolean[positions.size()];
+        checkValidPositionsArray(positions, offset, length);
 
-        for (int i = 0; i < positions.size(); i++) {
-            int position = positions.get(i);
+        int finalLength = 0;
+        for (int i = 0; i < length; ++i) {
+            finalLength += getSliceLength(positions[offset + i]);
+        }
+        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        int[] newOffsets = new int[length + 1];
+        boolean[] newValueIsNull = new boolean[length];
+
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
             if (isEntryNull(position)) {
                 newValueIsNull[i] = true;
             }
@@ -151,7 +156,7 @@ public class VariableWidthBlockBuilder
             }
             newOffsets[i + 1] = newSlice.size();
         }
-        return new VariableWidthBlock(positions.size(), newSlice.slice(), newOffsets, newValueIsNull);
+        return new VariableWidthBlock(length, newSlice.slice(), newOffsets, newValueIsNull);
     }
 
     @Override
