@@ -188,6 +188,6 @@ public class ProjectionPushDown
 
     private static Expression translateExpression(Expression inputExpression, Map<Symbol, SymbolReference> symbolMapping)
     {
-        return new ExpressionSymbolInliner(symbolMapping).rewrite(inputExpression);
+        return new ExpressionSymbolInliner(symbolMapping::get).rewrite(inputExpression);
     }
 }

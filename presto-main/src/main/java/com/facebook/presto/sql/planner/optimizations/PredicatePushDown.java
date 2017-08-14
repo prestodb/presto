@@ -164,7 +164,7 @@ public class PredicatePushDown
                             node.getInputs().get(i).get(index).toSymbolReference());
                 }
 
-                Expression sourcePredicate = new ExpressionSymbolInliner(outputsToInputs).rewrite(context.get());
+                Expression sourcePredicate = new ExpressionSymbolInliner(outputsToInputs::get).rewrite(context.get());
                 PlanNode source = node.getSources().get(i);
                 PlanNode rewrittenSource = context.rewrite(source, sourcePredicate);
                 if (rewrittenSource != source) {
@@ -201,7 +201,7 @@ public class PredicatePushDown
 
             // Push down conjuncts from the inherited predicate that don't depend on non-deterministic assignments
             PlanNode rewrittenNode = context.defaultRewrite(node,
-                    new ExpressionSymbolInliner(node.getAssignments().getMap()).rewrite(combineConjuncts(conjuncts.get(true))));
+                    new ExpressionSymbolInliner(node.getAssignments().getMap()::get).rewrite(combineConjuncts(conjuncts.get(true))));
 
             // All non-deterministic conjuncts, if any, will be in the filter node.
             if (!conjuncts.get(false).isEmpty()) {
@@ -225,7 +225,7 @@ public class PredicatePushDown
 
             // Push down conjuncts from the inherited predicate that apply to common grouping symbols
             PlanNode rewrittenNode = context.defaultRewrite(node,
-                    new ExpressionSymbolInliner(commonGroupingSymbolMapping).rewrite(combineConjuncts(conjuncts.get(true))));
+                    new ExpressionSymbolInliner(commonGroupingSymbolMapping::get).rewrite(combineConjuncts(conjuncts.get(true))));
 
             // All other conjuncts, if any, will be in the filter node.
             if (!conjuncts.get(false).isEmpty()) {
@@ -254,7 +254,7 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Expression sourcePredicate = new ExpressionSymbolInliner(node.sourceSymbolMap(i)).rewrite(context.get());
+                Expression sourcePredicate = new ExpressionSymbolInliner(node.sourceSymbolMap(i)::get).rewrite(context.get());
                 PlanNode source = node.getSources().get(i);
                 PlanNode rewrittenSource = context.rewrite(source, sourcePredicate);
                 if (rewrittenSource != source) {
