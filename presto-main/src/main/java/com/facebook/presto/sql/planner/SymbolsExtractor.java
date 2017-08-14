@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -101,6 +103,11 @@ public final class SymbolsExtractor
                 .collect(toImmutableSet());
     }
 
+    public static Set<Symbol> extractDependencies(PlanNode planNode)
+    {
+        return planNode.accept(new DependencyExtractor(), null);
+    }
+
     private static class SymbolBuilderVisitor
             extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<Symbol>>
     {
@@ -139,6 +146,24 @@ public final class SymbolsExtractor
         {
             builder.add(QualifiedName.of(node.getValue()));
             return null;
+        }
+    }
+
+    private static final class DependencyExtractor
+            extends PlanVisitor<Set<Symbol>, Void>
+    {
+        @Override
+        protected Set<Symbol> visitPlan(PlanNode node, Void context)
+        {
+            throw new UnsupportedOperationException("Not supported plan node: " + node.getClass().getSimpleName());
+        }
+
+        @Override
+        public Set<Symbol> visitProject(ProjectNode node, Void context)
+        {
+            return node.getAssignments().getExpressions().stream()
+                    .flatMap(expresion -> extractUnique(expresion).stream())
+                    .collect(toImmutableSet());
         }
     }
 }
