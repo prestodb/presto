@@ -27,7 +27,7 @@ import java.util.Optional;
 public class SemiJoinStatsRule
         implements ComposableStatsCalculator.Rule
 {
-    private static final Pattern PATTERN = Pattern.matchByClass(SemiJoinNode.class);
+    private static final Pattern PATTERN = Pattern.typeOf(SemiJoinNode.class);
 
     @Override
     public Pattern getPattern()
