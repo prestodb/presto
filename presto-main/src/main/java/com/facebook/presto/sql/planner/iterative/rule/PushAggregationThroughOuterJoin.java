@@ -272,7 +272,7 @@ public class PushAggregationThroughOuterJoin
             Symbol aggregationSymbol = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
-                    (FunctionCall) new ExpressionSymbolInliner(sourcesSymbolMapping).rewrite(aggregation.getCall()),
+                    (FunctionCall) new ExpressionSymbolInliner(sourcesSymbolMapping::get).rewrite(aggregation.getCall()),
                     aggregation.getSignature(),
                     aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
             Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getCall(), symbolAllocator.getTypes().get(aggregationSymbol));
