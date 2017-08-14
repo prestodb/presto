@@ -32,12 +32,17 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TableLayoutRewriter
 {
@@ -56,10 +61,11 @@ public class TableLayoutRewriter
 
     public PlanNode planTableScan(TableScanNode node, Expression predicate)
     {
+        Expression deterministicPredicate = stripNonDeterministicConjuncts(predicate);
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
                 session,
-                predicate,
+                deterministicPredicate,
                 symbolAllocator.getTypes());
 
         TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
@@ -70,7 +76,9 @@ public class TableLayoutRewriter
                 session, node.getTable(),
                 new Constraint<>(simplifiedConstraint, bindings -> true),
                 Optional.of(ImmutableSet.copyOf(node.getAssignments().values())));
-
+        layouts = layouts.stream()
+                .filter(layoutHasAllNeededOutputs(node))
+                .collect(toImmutableList());
         if (layouts.isEmpty()) {
             return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
         }
@@ -89,6 +97,7 @@ public class TableLayoutRewriter
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = combineConjuncts(
                 decomposedPredicate.getRemainingExpression(),
+                stripDeterministicConjuncts(predicate),
                 DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
 
         if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
@@ -96,5 +105,14 @@ public class TableLayoutRewriter
         }
 
         return result;
+    }
+
+    private Predicate<TableLayoutResult> layoutHasAllNeededOutputs(TableScanNode node)
+    {
+        return layout -> {
+            List<ColumnHandle> columnHandles = Lists.transform(node.getOutputSymbols(), node.getAssignments()::get);
+            return !layout.getLayout().getColumns().isPresent()
+                    || layout.getLayout().getColumns().get().containsAll(columnHandles);
+        };
     }
 }
