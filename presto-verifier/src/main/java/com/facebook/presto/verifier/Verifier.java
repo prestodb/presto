@@ -25,7 +25,13 @@ import io.airlift.units.Duration;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
@@ -52,6 +58,8 @@ public class Verifier
             .add(TOO_MANY_REQUESTS_FAILED.toErrorCode())
             .add(PAGE_TRANSPORT_TIMEOUT.toErrorCode())
             .build();
+    private static final String DEFAULT_USER_NAME = "verifier-test";
+    private static final String HASH_PARTITION_COUNT = "hash_partition_count";
 
     private final VerifierConfig config;
     private final Set<EventClient> eventClients;
@@ -83,6 +91,7 @@ public class Verifier
 
         log.info("Whitelisted Queries: %s", Joiner.on(',').join(whitelist));
 
+        int defaultHashPartitionCount = getDefultHashPartitionCount();
         int queriesSubmitted = 0;
         for (int i = 0; i < config.getSuiteRepetitions(); i++) {
             for (QueryPair query : queries) {
@@ -109,7 +118,8 @@ public class Verifier
                             config.isVerboseResultsComparison(),
                             config.getControlTeardownRetries(),
                             config.getTestTeardownRetries(),
-                            query);
+                            query,
+                            defaultHashPartitionCount);
                     completionService.submit(validator::valid, validator);
                     queriesSubmitted++;
                 }
@@ -174,6 +184,55 @@ public class Verifier
         }
 
         return failed;
+    }
+
+    private int getDefultHashPartitionCount()
+    {
+        String url = config.getTestGateway();
+        String username = Optional.ofNullable(config.getTestUsernameOverride()).orElse(DEFAULT_USER_NAME);
+        String password = Optional.ofNullable(config.getTestPasswordOverride()).orElse(null);
+
+        int defaultHashPartitionCount = 0;
+        int numOfActiveNodes = 0;
+        try (ResultSet result = executeQuery(url, username, password, "select count(*) as NUM_OF_WORKERS from system.runtime.nodes where coordinator=false")) {
+            while (result.next()) {
+                numOfActiveNodes = result.getInt("NUM_OF_WORKERS");
+            }
+        }
+        catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        try (ResultSet result = executeQuery(url, username, password, "show session")) {
+            while (result.next()) {
+                if ((result.getString("Name")).equals(HASH_PARTITION_COUNT)) {
+                    defaultHashPartitionCount = Integer.parseInt(result.getString("Value"));
+                    break;
+                }
+            }
+        }
+        catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return Math.min(defaultHashPartitionCount, numOfActiveNodes);
+    }
+
+    private ResultSet executeQuery(String url, String username, String password, String sql) throws SQLException
+    {
+        try (Connection connection = DriverManager.getConnection(url, username, password);
+             Statement statement = connection.createStatement()) {
+            try {
+                ResultSet result = statement.executeQuery(sql);
+                return result;
+            }
+            catch (SQLException e) {
+                throw e;
+            }
+        }
+        catch (SQLException e) {
+            throw e;
+        }
     }
 
     private boolean isCheckCorrectness(QueryPair query)

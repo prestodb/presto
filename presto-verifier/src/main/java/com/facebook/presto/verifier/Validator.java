@@ -46,8 +46,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -65,6 +67,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Validator
 {
+    private static final String HASH_PARTITION_COUNT = "hash_partition_count";
     private final String testUsername;
     private final String controlUsername;
     private final String testPassword;
@@ -83,6 +86,7 @@ public class Validator
     private final int precision;
     private final int controlTeardownRetries;
     private final int testTeardownRetries;
+    private final int defaultHashPartitionCount;
 
     private Boolean valid;
 
@@ -109,7 +113,8 @@ public class Validator
             boolean verboseResultsComparison,
             int controlTeardownRetries,
             int testTeardownRetries,
-            QueryPair queryPair)
+            QueryPair queryPair,
+            int defaultHashPartitionCount)
     {
         this.testUsername = requireNonNull(queryPair.getTest().getUsername(), "test username is null");
         this.controlUsername = requireNonNull(queryPair.getControl().getUsername(), "control username is null");
@@ -131,6 +136,7 @@ public class Validator
         this.queryPair = requireNonNull(queryPair, "queryPair is null");
         // Test and Control always have the same session properties.
         this.sessionProperties = queryPair.getTest().getSessionProperties();
+        this.defaultHashPartitionCount = defaultHashPartitionCount;
     }
 
     public boolean isSkipped()
@@ -202,7 +208,7 @@ public class Validator
 
     private boolean validate()
     {
-        controlResult = executeQueryControl();
+        controlResult = executeQueryControl(null);
 
         // query has too many rows. Consider blacklisting.
         if (controlResult.getState() == State.TOO_MANY_ROWS) {
@@ -215,7 +221,7 @@ public class Validator
             return true;
         }
 
-        testResult = executeQueryTest();
+        testResult = executeQueryTest(null);
 
         if (controlResult.getState() != State.SUCCESS || testResult.getState() != State.SUCCESS) {
             return false;
@@ -265,9 +271,21 @@ public class Validator
 
     private boolean checkForDeterministicAndRerunTestQueriesIfNeeded()
     {
+        // Decrease hash_partition_count by one if necessary
+        int hashPartitionCount = defaultHashPartitionCount;
+        Map<String, String> sessionPropertiesOverride = null;
+        if (sessionProperties.get(HASH_PARTITION_COUNT) != null) {
+            hashPartitionCount = Integer.parseInt(sessionProperties.get(HASH_PARTITION_COUNT));
+        }
+
+        if (hashPartitionCount > 1) {
+            sessionPropertiesOverride = new HashMap<>(sessionProperties);
+            sessionPropertiesOverride.put(HASH_PARTITION_COUNT, String.valueOf(hashPartitionCount - 1));
+        }
+
         // check if the control query is deterministic
         for (int i = 0; i < 3; i++) {
-            QueryResult results = executeQueryControl();
+            QueryResult results = executeQueryControl(sessionPropertiesOverride);
             if (results.getState() != State.SUCCESS) {
                 return false;
             }
@@ -281,7 +299,7 @@ public class Validator
         // Re-run the test query to confirm that the results don't match, in case there was caching on the test tier,
         // but require that it matches 3 times in a row to rule out a non-deterministic correctness bug.
         for (int i = 0; i < 3; i++) {
-            testResult = executeQueryTest();
+            testResult = executeQueryTest(sessionPropertiesOverride);
             if (testResult.getState() != State.SUCCESS) {
                 return false;
             }
@@ -294,24 +312,25 @@ public class Validator
         return true;
     }
 
-    private QueryResult executeQueryTest()
+    private QueryResult executeQueryTest(Map<String, String> sessionPropertiesOverride)
     {
+        Map<String, String> sessionPropertiesLocal = Optional.ofNullable(sessionPropertiesOverride).orElse(sessionProperties);
         Query query = queryPair.getTest();
         QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
         try {
             // startup
-            queryResult = setup(query, testPreQueryResults, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionProperties));
+            queryResult = setup(query, testPreQueryResults, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionPropertiesLocal));
 
             // if startup is successful -> execute query
             if (queryResult.getState() == State.SUCCESS) {
-                queryResult = executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), query.getQuery(), testTimeout, sessionProperties);
+                queryResult = executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), query.getQuery(), testTimeout, sessionPropertiesLocal);
             }
         }
         finally {
             int retry = 0;
             QueryResult tearDownResult;
             do {
-                tearDownResult = tearDown(query, testPostQueryResults, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionProperties));
+                tearDownResult = tearDown(query, testPostQueryResults, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionPropertiesLocal));
                 if (tearDownResult.getState() == State.SUCCESS) {
                     break;
                 }
@@ -331,24 +350,25 @@ public class Validator
         return queryResult;
     }
 
-    private QueryResult executeQueryControl()
+    private QueryResult executeQueryControl(Map<String, String> sessionPropertiesOverride)
     {
+        Map<String, String> sessionPropertiesLocal = Optional.ofNullable(sessionPropertiesOverride).orElse(sessionProperties);
         Query query = queryPair.getControl();
         QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
         try {
             // startup
-            queryResult = setup(query, controlPreQueryResults, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionProperties));
+            queryResult = setup(query, controlPreQueryResults, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionPropertiesLocal));
 
             // if startup is successful -> execute query
             if (queryResult.getState() == State.SUCCESS) {
-                queryResult = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), query.getQuery(), controlTimeout, sessionProperties);
+                queryResult = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), query.getQuery(), controlTimeout, sessionPropertiesLocal);
             }
         }
         finally {
             int retry = 0;
             QueryResult tearDownResult;
             do {
-                tearDownResult = tearDown(query, controlPostQueryResults, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionProperties));
+                tearDownResult = tearDown(query, controlPostQueryResults, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionPropertiesLocal));
                 if (tearDownResult.getState() == State.SUCCESS) {
                     break;
                 }
