@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -488,16 +487,6 @@ public final class ExpressionFormatter
             builder.append(')');
 
             return builder.toString();
-        }
-
-        @Override
-        protected String visitAllColumns(AllColumns node, Void context)
-        {
-            if (node.getPrefix().isPresent()) {
-                return node.getPrefix().get() + ".*";
-            }
-
-            return "*";
         }
 
         @Override

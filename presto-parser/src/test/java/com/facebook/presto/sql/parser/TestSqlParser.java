@@ -2121,6 +2121,14 @@ public class TestSqlParser
                         new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))));
     }
 
+    @Test
+    public void testAllColumns()
+    {
+        assertStatement(
+                "select *, t.*, \"table\".*",
+                simpleQuery(selectList(new AllColumns(), new AllColumns(QualifiedName.of("t")), new AllColumns(QualifiedName.of("table")))));
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);

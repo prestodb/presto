@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class AllColumns
@@ -95,10 +96,8 @@ public class AllColumns
     @Override
     public String toString()
     {
-        if (prefix.isPresent()) {
-            return prefix.get() + ".*";
-        }
-
-        return "*";
+        return toStringHelper(this)
+                .add("prefix", prefix)
+                .toString();
     }
 }

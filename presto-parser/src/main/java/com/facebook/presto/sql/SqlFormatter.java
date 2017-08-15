@@ -346,7 +346,10 @@ public final class SqlFormatter
         @Override
         protected Void visitAllColumns(AllColumns node, Integer context)
         {
-            builder.append(node.toString());
+            if (node.getPrefix().isPresent()) {
+                builder.append("\"" + node.getPrefix().get().toString() + "\".");
+            }
+            builder.append("*");
 
             return null;
         }
