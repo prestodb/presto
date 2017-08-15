@@ -237,12 +237,14 @@ public class TestHiveIntegrationSmokeTest
                 ", _partition_smallint SMALLINT" +
                 ", _partition_integer INTEGER" +
                 ", _partition_bigint BIGINT" +
+                ", _partition_boolean BOOLEAN" +
                 ", _partition_decimal_short DECIMAL(3,2)" +
                 ", _partition_decimal_long DECIMAL(30,10)" +
+                ", _partition_date DATE" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
+                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_boolean', '_partition_decimal_short', '_partition_decimal_long', '_partition_date']" +
                 ") ";
 
         if (storageFormat == HiveStorageFormat.AVRO) {
@@ -255,7 +257,18 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_varchar", "_partition_char", "_partition_tinyint", "_partition_smallint", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
+        List<String> partitionedBy = ImmutableList.of(
+                "_partition_string",
+                "_partition_varchar",
+                "_partition_char",
+                "_partition_tinyint",
+                "_partition_smallint",
+                "_partition_integer",
+                "_partition_bigint",
+                "_partition_boolean",
+                "_partition_decimal_short",
+                "_partition_decimal_long",
+                "_partition_date");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
@@ -292,8 +305,10 @@ public class TestHiveIntegrationSmokeTest
                 ", CAST(1 AS SMALLINT) _partition_smallint" +
                 ", 1 _partition_integer" +
                 ", CAST (1 AS BIGINT) _partition_bigint" +
+                ", true _partition_boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
-                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long";
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long" +
+                ", CAST('2017-05-01' AS DATE) _partition_date";
 
         if (storageFormat == HiveStorageFormat.AVRO) {
             select = select.replace(" CAST (3 AS SMALLINT) _smallint,", " 3 _smallint,");
@@ -302,6 +317,20 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
         assertQuery(session, "SELECT * from test_partitioned_table", select);
+        assertQuery(session,
+                "SELECT * from test_partitioned_table WHERE" +
+                        " 'foo' = _partition_string" +
+                        " AND 'bar' = _partition_varchar" +
+                        " AND CAST('boo' AS CHAR(10)) = _partition_char" +
+                        " AND CAST(1 AS TINYINT) = _partition_tinyint" +
+                        " AND CAST(1 AS SMALLINT) = _partition_smallint" +
+                        " AND 1 = _partition_integer" +
+                        " AND CAST(1 AS BIGINT) = _partition_bigint" +
+                        " AND true = _partition_boolean" +
+                        " AND CAST('3.14' AS DECIMAL(3,2)) = _partition_decimal_short" +
+                        " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _partition_decimal_long" +
+                        " AND CAST('2017-05-01' AS DATE) = _partition_date",
+                select);
 
         assertUpdate(session, "DROP TABLE test_partitioned_table");
 

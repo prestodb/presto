@@ -25,8 +25,21 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +47,8 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Inject;
 
@@ -41,6 +56,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
@@ -51,6 +67,7 @@ import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static java.lang.String.format;
@@ -221,23 +238,52 @@ public class HivePartitionManager
             Domain domain = effectivePredicate.getDomains().get().get(partitionKey);
             if (domain != null && domain.isNullableSingleValue()) {
                 Object value = domain.getNullableSingleValue();
+                Type type = domain.getType();
                 if (value == null) {
                     filter.add(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION);
                 }
-                else if (value instanceof Slice) {
-                    filter.add(((Slice) value).toStringUtf8());
+                else if (type instanceof CharType) {
+                    Slice slice = (Slice) value;
+                    filter.add(padSpaces(slice, type).toStringUtf8());
                 }
-                else if ((value instanceof Boolean) || (value instanceof Double) || (value instanceof Long)) {
-                    if (assumeCanonicalPartitionKeys) {
-                        filter.add(value.toString());
-                    }
-                    else {
-                        // Hive treats '0', 'false', and 'False' the same. However, the metastore differentiates between these.
-                        filter.add(PARTITION_VALUE_WILDCARD);
-                    }
+                else if (type instanceof VarcharType) {
+                    Slice slice = (Slice) value;
+                    filter.add(slice.toStringUtf8());
+                }
+                // Types above this have only a single possible representation for each value.
+                // Types below this may have multiple representations for a single value.  For
+                // example, a boolean column may represent the false value as "0", "false" or "False".
+                // The metastore distinguishes between these representations, so we cannot prune partitions
+                // unless we know that all partition values use the canonical Java representation.
+                else if (!assumeCanonicalPartitionKeys) {
+                    filter.add(PARTITION_VALUE_WILDCARD);
+                }
+                else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
+                    Slice slice = (Slice) value;
+                    filter.add(Decimals.toString(slice, ((DecimalType) type).getScale()));
+                }
+                else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
+                    filter.add(Decimals.toString((long) value, ((DecimalType) type).getScale()));
+                }
+                else if (type instanceof DateType) {
+                    DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
+                    filter.add(dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value)));
+                }
+                else if (type instanceof TimestampType) {
+                    // we don't have time zone info, so just add a wildcard
+                    filter.add(PARTITION_VALUE_WILDCARD);
+                }
+                else if (type instanceof TinyintType
+                        || type instanceof SmallintType
+                        || type instanceof IntegerType
+                        || type instanceof BigintType
+                        || type instanceof DoubleType
+                        || type instanceof RealType
+                        || type instanceof BooleanType) {
+                    filter.add(value.toString());
                 }
                 else {
-                    throw new PrestoException(NOT_SUPPORTED, "Only Boolean, Double and Long partition keys are supported");
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
                 }
             }
             else {
