@@ -595,7 +595,7 @@ class QueryPlanner
         // Add back the implicit casts that we removed in 2.a
         // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
         if (needPostProjectionCoercion) {
-            return explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
+            subPlan = explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
         }
 
         // 4. Project and re-write all grouping functions

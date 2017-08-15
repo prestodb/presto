@@ -1931,6 +1931,11 @@ public abstract class AbstractTestQueries
                 groupingSet2);
 
         assertQuery(query, "VALUES (0), (822283861886), (995358664191)");
+
+        // GROUPING + implicit coercions (issue #8738)
+        assertQuery(
+                "SELECT GROUPING(k), SUM(v) + 1.0 FROM (VALUES (1, 1)) AS t(k,v) GROUP BY k",
+                "VALUES (0, 2.0)");
     }
 
     @Test
