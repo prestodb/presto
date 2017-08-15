@@ -162,6 +162,10 @@ import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
+import com.facebook.presto.type.setdigest.BuildSetDigestAggregation;
+import com.facebook.presto.type.setdigest.MergeSetDigestAggregation;
+import com.facebook.presto.type.setdigest.SetDigestFunctions;
+import com.facebook.presto.type.setdigest.SetDigestOperators;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
@@ -569,7 +573,11 @@ public class FunctionRegistry
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
-                .function(TRY_CAST);
+                .function(TRY_CAST)
+                .aggregate(MergeSetDigestAggregation.class)
+                .aggregate(BuildSetDigestAggregation.class)
+                .scalars(SetDigestFunctions.class)
+                .scalars(SetDigestOperators.class);
 
         builder.function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg()));
 
