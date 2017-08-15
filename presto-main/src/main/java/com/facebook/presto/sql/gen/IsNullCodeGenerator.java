@@ -22,6 +22,7 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
@@ -40,7 +41,7 @@ public class IsNullCodeGenerator
             return loadBoolean(true);
         }
 
-        BytecodeNode value = generatorContext.generate(argument);
+        BytecodeNode value = generatorContext.generate(argument, Optional.empty());
 
         // evaluate the expression, pop the produced value, and load the null flag
         Variable wasNull = generatorContext.wasNull();

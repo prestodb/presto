@@ -26,6 +26,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
@@ -59,7 +60,7 @@ public class RowConstructorCodeGenerator
             Variable field = scope.createTempVariable(fieldType.getJavaType());
             block.comment("Clean wasNull and Generate + " + i + "-th field of row");
             block.append(context.wasNull().set(constantFalse()));
-            block.append(context.generate(arguments.get(i)));
+            block.append(context.generate(arguments.get(i), Optional.empty()));
             block.putVariable(field);
             block.append(new IfStatement()
                     .condition(context.wasNull())
