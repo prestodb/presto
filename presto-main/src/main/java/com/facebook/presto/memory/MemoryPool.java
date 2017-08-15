@@ -232,13 +232,13 @@ public class MemoryPool
     }
 
     @Managed
-    public long getReservedBytes()
+    public synchronized long getReservedBytes()
     {
         return reservedBytes;
     }
 
     @Managed
-    public long getReservedRevocableBytes()
+    public synchronized long getReservedRevocableBytes()
     {
         return reservedRevocableBytes;
     }
