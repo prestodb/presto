@@ -40,6 +40,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
@@ -129,7 +130,7 @@ public class InCodeGenerator
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
         for (RowExpression testValue : values) {
-            BytecodeNode testBytecode = generatorContext.generate(testValue);
+            BytecodeNode testBytecode = generatorContext.generate(testValue, Optional.empty());
 
             if (isDeterminateConstant(testValue, isIndeterminateFunction.getMethodHandle())) {
                 ConstantExpression constant = (ConstantExpression) testValue;
@@ -252,7 +253,7 @@ public class InCodeGenerator
 
         BytecodeBlock block = new BytecodeBlock()
                 .comment("IN")
-                .append(generatorContext.generate(arguments.get(0)))
+                .append(generatorContext.generate(arguments.get(0), Optional.empty()))
                 .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
                 .putVariable(value)
                 .append(switchBlock)

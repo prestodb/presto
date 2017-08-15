@@ -41,10 +41,10 @@ public class FunctionCallCodeGenerator
             RowExpression argument = arguments.get(i);
             ScalarFunctionImplementation.ArgumentProperty argumentProperty = function.getArgumentProperty(i);
             if (argumentProperty.getArgumentType() == VALUE_TYPE) {
-                argumentsBytecode.add(context.generate(argument));
+                argumentsBytecode.add(context.generate(argument, Optional.empty()));
             }
             else {
-                argumentsBytecode.add(context.generate(argument, Optional.of(argumentProperty.getLambdaInterface())));
+                argumentsBytecode.add(context.generate(argument, Optional.empty(), Optional.of(argumentProperty.getLambdaInterface())));
             }
         }
 

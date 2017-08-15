@@ -24,6 +24,7 @@ import io.airlift.bytecode.control.IfStatement;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -36,7 +37,7 @@ public class CoalesceCodeGenerator
     {
         List<BytecodeNode> operands = new ArrayList<>();
         for (RowExpression expression : arguments) {
-            operands.add(generatorContext.generate(expression));
+            operands.add(generatorContext.generate(expression, Optional.empty()));
         }
 
         Variable wasNull = generatorContext.wasNull();
