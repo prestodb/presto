@@ -39,6 +39,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.bytecode.control.LookupSwitch.lookupSwitchBuilder;
@@ -109,13 +110,13 @@ public class InCodeGenerator
     @Override
     public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
-        BytecodeNode value = generatorContext.generate(arguments.get(0));
+        BytecodeNode value = generatorContext.generate(arguments.get(0), Optional.empty());
 
         List<RowExpression> values = arguments.subList(1, arguments.size());
 
         ImmutableList.Builder<BytecodeNode> valuesBytecode = ImmutableList.builder();
         for (int i = 1; i < arguments.size(); i++) {
-            BytecodeNode testNode = generatorContext.generate(arguments.get(i));
+            BytecodeNode testNode = generatorContext.generate(arguments.get(i), Optional.empty());
             valuesBytecode.add(testNode);
         }
 
@@ -132,7 +133,7 @@ public class InCodeGenerator
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
         for (RowExpression testValue : values) {
-            BytecodeNode testBytecode = generatorContext.generate(testValue);
+            BytecodeNode testBytecode = generatorContext.generate(testValue, Optional.empty());
 
             if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null) {
                 ConstantExpression constant = (ConstantExpression) testValue;

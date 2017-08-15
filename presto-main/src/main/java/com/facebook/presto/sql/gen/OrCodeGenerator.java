@@ -24,6 +24,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 
@@ -40,8 +41,8 @@ public class OrCodeGenerator
                 .comment("OR")
                 .setDescription("OR");
 
-        BytecodeNode left = generator.generate(arguments.get(0));
-        BytecodeNode right = generator.generate(arguments.get(1));
+        BytecodeNode left = generator.generate(arguments.get(0), Optional.empty());
+        BytecodeNode right = generator.generate(arguments.get(1), Optional.empty());
 
         block.append(left);
 

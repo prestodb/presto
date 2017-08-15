@@ -26,6 +26,7 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -47,7 +48,7 @@ public class DereferenceCodeGenerator
 
         // clear the wasNull flag before evaluating the row value
         block.putVariable(wasNull, false);
-        block.append(generator.generate(arguments.get(0))).putVariable(rowBlock);
+        block.append(generator.generate(arguments.get(0), Optional.empty())).putVariable(rowBlock);
 
         IfStatement ifRowBlockIsNull = new IfStatement("if row block is null...")
                 .condition(wasNull);

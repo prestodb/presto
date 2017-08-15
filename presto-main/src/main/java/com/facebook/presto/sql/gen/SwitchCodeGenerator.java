@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -74,7 +75,7 @@ public class SwitchCodeGenerator
 
         // process value, else, and all when clauses
         RowExpression value = arguments.get(0);
-        BytecodeNode valueBytecode = generatorContext.generate(value);
+        BytecodeNode valueBytecode = generatorContext.generate(value, Optional.empty());
         BytecodeNode elseValue;
 
         List<RowExpression> whenClauses;
@@ -87,7 +88,7 @@ public class SwitchCodeGenerator
         }
         else {
             whenClauses = arguments.subList(1, arguments.size() - 1);
-            elseValue = generatorContext.generate(last);
+            elseValue = generatorContext.generate(last, Optional.empty());
         }
 
         // determine the type of the value and result
@@ -123,7 +124,7 @@ public class SwitchCodeGenerator
             BytecodeNode equalsCall = generatorContext.generateCall(
                     equalsFunction.getName(),
                     generatorContext.getRegistry().getScalarFunctionImplementation(equalsFunction),
-                    ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
+                    ImmutableList.of(generatorContext.generate(operand, Optional.empty()), getTempVariableNode));
 
             BytecodeBlock condition = new BytecodeBlock()
                     .append(equalsCall)
@@ -131,7 +132,7 @@ public class SwitchCodeGenerator
 
             elseValue = new IfStatement("when")
                     .condition(condition)
-                    .ifTrue(generatorContext.generate(result))
+                    .ifTrue(generatorContext.generate(result, Optional.empty()))
                     .ifFalse(elseValue);
         }
 

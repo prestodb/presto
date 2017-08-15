@@ -70,14 +70,14 @@ public class BytecodeGeneratorContext
         return callSiteBinder;
     }
 
-    public BytecodeNode generate(RowExpression expression)
+    public BytecodeNode generate(RowExpression expression, Optional<Variable> outputBlock)
     {
-        return generate(expression, Optional.empty());
+        return generate(expression, outputBlock, Optional.empty());
     }
 
-    public BytecodeNode generate(RowExpression expression, Optional<Class> lambdaInterface)
+    public BytecodeNode generate(RowExpression expression, Optional<Variable> outputBlock, Optional<Class> lambdaInterface)
     {
-        return rowExpressionCompiler.compile(expression, scope, lambdaInterface);
+        return rowExpressionCompiler.compile(expression, scope, outputBlock, lambdaInterface);
     }
 
     public FunctionRegistry getRegistry()

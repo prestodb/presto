@@ -370,7 +370,7 @@ public class PageFunctionCompiler
                 preGeneratedExpressions);
 
         body.append(thisVariable.getField(blockBuilder))
-                .append(compiler.compile(projection, scope))
+                .append(compiler.compile(projection, scope, Optional.empty()))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
         return method;
@@ -546,7 +546,7 @@ public class PageFunctionCompiler
                 preGeneratedExpressions);
 
         Variable result = scope.declareVariable(boolean.class, "result");
-        body.append(compiler.compile(filter, scope))
+        body.append(compiler.compile(filter, scope, Optional.empty()))
                 // store result so we can check for null
                 .putVariable(result)
                 .append(and(not(wasNullVariable), result).ret());

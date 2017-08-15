@@ -49,6 +49,7 @@ import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -298,7 +299,7 @@ public class CursorProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
                 .comment("evaluate filter: " + filter)
-                .append(compiler.compile(filter, scope))
+                .append(compiler.compile(filter, scope, Optional.empty()))
                 .comment("if (wasNull) return false;")
                 .getVariable(wasNullVariable)
                 .ifFalseGoto(end)
@@ -338,7 +339,7 @@ public class CursorProcessorCompiler
                 .putVariable(wasNullVariable, false)
                 .getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(compiler.compile(projection, scope))
+                .append(compiler.compile(projection, scope, Optional.empty()))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
     }

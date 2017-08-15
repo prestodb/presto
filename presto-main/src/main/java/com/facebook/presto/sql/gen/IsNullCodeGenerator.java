@@ -22,6 +22,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
@@ -40,7 +41,7 @@ public class IsNullCodeGenerator
             return loadBoolean(true);
         }
 
-        BytecodeNode value = generatorContext.generate(argument);
+        BytecodeNode value = generatorContext.generate(argument, Optional.empty());
 
         // evaluate the expression, pop the produced value, and load the null flag
         Variable wasNull = generatorContext.wasNull();

@@ -20,6 +20,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 public class CastCodeGenerator
         implements BytecodeGenerator
@@ -33,6 +34,6 @@ public class CastCodeGenerator
                 .getRegistry()
                 .getCoercion(argument.getType(), returnType);
 
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument)));
+        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument, Optional.empty())));
     }
 }

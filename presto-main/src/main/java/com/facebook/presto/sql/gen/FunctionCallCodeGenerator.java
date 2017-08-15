@@ -22,6 +22,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class FunctionCallCodeGenerator
         implements BytecodeGenerator
@@ -36,7 +37,7 @@ public class FunctionCallCodeGenerator
         List<BytecodeNode> argumentsBytecode = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             RowExpression argument = arguments.get(i);
-            argumentsBytecode.add(context.generate(argument, function.getLambdaInterface().get(i)));
+            argumentsBytecode.add(context.generate(argument, Optional.empty(), function.getLambdaInterface().get(i)));
         }
 
         return context.generateCall(signature.getName(), function, argumentsBytecode);

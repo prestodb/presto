@@ -217,7 +217,7 @@ public class JoinFilterFunctionCompiler
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
-        BytecodeNode visitorBody = compiler.compile(filter, scope);
+        BytecodeNode visitorBody = compiler.compile(filter, scope, Optional.empty());
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(visitorBody)
