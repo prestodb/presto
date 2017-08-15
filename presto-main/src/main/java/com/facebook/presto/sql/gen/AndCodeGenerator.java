@@ -24,6 +24,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 
@@ -40,8 +41,8 @@ public class AndCodeGenerator
                 .comment("AND")
                 .setDescription("AND");
 
-        BytecodeNode left = generator.generate(arguments.get(0));
-        BytecodeNode right = generator.generate(arguments.get(1));
+        BytecodeNode left = generator.generate(arguments.get(0), Optional.empty());
+        BytecodeNode right = generator.generate(arguments.get(1), Optional.empty());
 
         block.append(left);
 
