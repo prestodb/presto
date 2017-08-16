@@ -51,6 +51,15 @@ class H2TestUtil
                 .build();
     }
 
+    public static Session adminSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("resource_group_managers")
+                .setSchema("system")
+                .setSource("admin")
+                .build();
+    }
+
     public static Session dashboardSession()
     {
         return testSessionBuilder()
@@ -149,11 +158,13 @@ class H2TestUtil
         dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, null, null, null, null, null, null, null, 1L);
         dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, null, null, null, null, null, null, null, 3L);
         dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, null, 3L);
+        dao.insertResourceGroup(6, "admin", "1MB", 3, 3, null, null, null, null, null, null, null, null);
         dao.insertSelector(2, "user.*", "test");
         dao.insertSelector(4, "user.*", "(?i).*adhoc.*");
         dao.insertSelector(5, "user.*", "(?i).*dashboard.*");
+        dao.insertSelector(6, "user.*", "(?i).*admin.*");
         // Selectors are loaded last
-        while (getSelectors(queryRunner).size() != 3) {
+        while (getSelectors(queryRunner).size() != 4) {
             MILLISECONDS.sleep(500);
         }
     }
