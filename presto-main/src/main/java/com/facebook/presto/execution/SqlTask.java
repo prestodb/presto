@@ -91,7 +91,7 @@ public class SqlTask
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
-        outputBuffer = new LazyOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
+        outputBuffer = new LazyOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext, taskId));
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -139,20 +139,26 @@ public class SqlTask
             implements SystemMemoryUsageListener
     {
         private final QueryContext queryContext;
+        private final TaskId taskId;
+        private TaskContext taskContext;
 
-        public UpdateSystemMemory(QueryContext queryContext)
+        public UpdateSystemMemory(QueryContext queryContext, TaskId taskId)
         {
             this.queryContext = requireNonNull(queryContext, "queryContext is null");
+            this.taskId = requireNonNull(taskId, "taskId is null");
         }
 
         @Override
         public void updateSystemMemoryUsage(long deltaMemoryInBytes)
         {
+            if (taskContext == null) {
+                taskContext = queryContext.getTaskContextByTaskId(taskId);
+            }
             if (deltaMemoryInBytes > 0) {
-                queryContext.reserveSystemMemory(deltaMemoryInBytes);
+                taskContext.reserveSystemMemory(deltaMemoryInBytes);
             }
             else {
-                queryContext.freeSystemMemory(-deltaMemoryInBytes);
+                taskContext.freeSystemMemory(-deltaMemoryInBytes);
             }
         }
     }
