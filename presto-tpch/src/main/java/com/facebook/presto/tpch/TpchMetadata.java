@@ -325,7 +325,7 @@ public class TpchMetadata
                 .setRowCount(new Estimate(tableStatisticsData.getRowCount()));
         tableStatisticsData.getColumns().forEach((columnName, stats) -> {
             TpchColumnHandle columnHandle = (TpchColumnHandle) getColumnHandle(tpchTableHandle, columnHandles, columnName);
-            builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType(), tableStatisticsData.getRowCount()));
+            builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType()));
         });
         return builder.build();
     }
@@ -336,7 +336,7 @@ public class TpchMetadata
         return columnHandles.get(columnNaming.getName(table.getColumn(columnName)));
     }
 
-    private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType, long rowCount)
+    private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)
     {
         return ColumnStatistics.builder()
                 .addRange(rangeBuilder -> rangeBuilder
