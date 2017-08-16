@@ -62,7 +62,7 @@ public class TestRowNumberOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();

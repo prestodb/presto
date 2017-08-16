@@ -119,7 +119,7 @@ public class TestExchangeOperator
                 systemMemoryUsageListener);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

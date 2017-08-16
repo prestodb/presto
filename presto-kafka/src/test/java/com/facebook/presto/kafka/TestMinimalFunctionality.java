@@ -62,7 +62,7 @@ public class TestMinimalFunctionality
         embeddedKafka.start();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void stopKafka()
             throws Exception
     {

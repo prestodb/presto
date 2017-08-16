@@ -53,7 +53,7 @@ public class TestJdbcResultSet
         server = new TestingPrestoServer();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void teardownServer()
     {
         closeQuietly(server);

@@ -56,7 +56,7 @@ public class TestShadowing
         handle = DBI.open(URL);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void close()
     {
         handle.close();

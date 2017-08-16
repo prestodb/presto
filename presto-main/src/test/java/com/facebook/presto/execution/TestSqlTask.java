@@ -94,7 +94,7 @@ public class TestSqlTask
                 new TaskManagerConfig());
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroy()
             throws Exception
     {
