@@ -132,6 +132,7 @@ class H2TestUtil
                     .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.createCatalog("resource_group_managers", "resource-group-managers");
             setup(queryRunner, dao);
             return queryRunner;
         }
