@@ -113,7 +113,7 @@ public class TestSourcePartitionedScheduler
         finalizerService.start();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroyExecutor()
     {
         executor.shutdownNow();

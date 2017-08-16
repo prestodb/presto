@@ -47,7 +47,7 @@ public class TestJdbcClient
         jdbcClient = database.getJdbcClient();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

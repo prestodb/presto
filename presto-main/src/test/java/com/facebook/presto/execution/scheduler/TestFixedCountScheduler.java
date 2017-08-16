@@ -48,7 +48,7 @@ public class TestFixedCountScheduler
         taskFactory = new MockRemoteTaskFactory(executor, scheduledExecutor);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroyExecutor()
     {
         executor.shutdownNow();
