@@ -22,8 +22,10 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.primitives.Primitives;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -66,6 +68,16 @@ public class TestTpcdsMetadataStatistics
                     for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
                         assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
                         assertNotNull(tableStatistics.getColumnStatistics().get(column));
+
+                        TpcdsColumnHandle tpcdsColumn = (TpcdsColumnHandle) column;
+                        Optional<Object> low = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
+                        if (low.isPresent()) {
+                            assertEquals(low.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
+                        }
+                        Optional<Object> high = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
+                        if (high.isPresent()) {
+                            assertEquals(high.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
+                        }
                     }
                 });
     }
@@ -94,8 +106,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1.0))
                                 .setDistinctValuesCount(new Estimate(6))
-                                .setLowValue(Optional.of(1))
-                                .setHighValue(Optional.of(6))
+                                .setLowValue(Optional.of(1L))
+                                .setHighValue(Optional.of(6L))
                                 .build())
                         .build());
 
@@ -107,8 +119,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1.0))
                                 .setDistinctValuesCount(new Estimate(3))
-                                .setLowValue(Optional.of("AAAAAAAABAAAAAAA"))
-                                .setHighValue(Optional.of("AAAAAAAAEAAAAAAA"))
+                                .setLowValue(Optional.of(Slices.utf8Slice("AAAAAAAABAAAAAAA")))
+                                .setHighValue(Optional.of(Slices.utf8Slice("AAAAAAAAEAAAAAAA")))
                                 .build())
                         .build());
 
@@ -120,8 +132,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1.0))
                                 .setDistinctValuesCount(new Estimate(1))
-                                .setLowValue(Optional.of("31904"))
-                                .setHighValue(Optional.of("31904"))
+                                .setLowValue(Optional.of(Slices.utf8Slice("31904")))
+                                .setHighValue(Optional.of(Slices.utf8Slice("31904")))
                                 .build())
                         .build());
 
@@ -133,8 +145,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1.0))
                                 .setDistinctValuesCount(new Estimate(1))
-                                .setLowValue(Optional.of(-500))
-                                .setHighValue(Optional.of(-500))
+                                .setLowValue(Optional.of(-500L))
+                                .setHighValue(Optional.of(-500L))
                                 .build())
                         .build());
 
@@ -146,8 +158,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1))
                                 .setDistinctValuesCount(new Estimate(4))
-                                .setLowValue(Optional.of(10227))
-                                .setHighValue(Optional.of(11688))
+                                .setLowValue(Optional.of(10227L))
+                                .setHighValue(Optional.of(11688L))
                                 .build())
                         .build());
 
