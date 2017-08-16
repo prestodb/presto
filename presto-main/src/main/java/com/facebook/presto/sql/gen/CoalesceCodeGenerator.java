@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
@@ -33,7 +34,7 @@ public class CoalesceCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         List<BytecodeNode> operands = new ArrayList<>();
         for (RowExpression expression : arguments) {
@@ -62,6 +63,9 @@ public class CoalesceCodeGenerator
             nullValue = ifStatement;
         }
 
-        return nullValue;
+        BytecodeBlock block = new BytecodeBlock()
+                .append(nullValue);
+        outputBlock.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
+        return block;
     }
 }

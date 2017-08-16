@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
@@ -286,10 +285,8 @@ public class CursorProcessorCompiler
         method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
-                .getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(compiler.compile(projection, scope, Optional.empty()))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+                .append(compiler.compile(projection, scope, Optional.of(output)))
                 .ret();
     }
 

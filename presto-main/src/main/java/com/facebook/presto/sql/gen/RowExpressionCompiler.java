@@ -32,6 +32,7 @@ import io.airlift.bytecode.Variable;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
 import static com.facebook.presto.sql.relational.Signatures.BIND;
@@ -94,9 +95,6 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
-            // TODO: support write to output block
-            checkArgument(!context.getOutputBlock().isPresent(), "call expression does not support writing to block");
-
             BytecodeGenerator generator;
             // special-cased in function registry
             if (call.getSignature().getName().equals(CAST)) {
@@ -154,59 +152,81 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     registry);
 
-            return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
+            return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlock());
         }
 
         @Override
         public BytecodeNode visitConstant(ConstantExpression constant, Context context)
         {
-            checkArgument(!context.getOutputBlock().isPresent(), "constant expression does not support writing to block");
-
             Object value = constant.getValue();
             Class<?> javaType = constant.getType().getJavaType();
 
             BytecodeBlock block = new BytecodeBlock();
             if (value == null) {
-                return block.comment("constant null")
+                block.comment("constant null")
                         .append(context.getScope().getVariable("wasNull").set(constantTrue()))
                         .pushJavaDefault(javaType);
             }
+            else {
+                // use LDC for primitives (boolean, short, int, long, float, double)
+                block.comment("constant " + constant.getType().getTypeSignature());
+                if (javaType == boolean.class) {
+                    block.append(loadBoolean((Boolean) value));
+                }
+                else if (javaType == byte.class || javaType == short.class || javaType == int.class) {
+                    block.append(loadInt(((Number) value).intValue()));
+                }
+                else if (javaType == long.class) {
+                    block.append(loadLong((Long) value));
+                }
+                else if (javaType == float.class) {
+                    block.append(loadFloat((Float) value));
+                }
+                else if (javaType == double.class) {
+                    block.append(loadDouble((Double) value));
+                }
+                else if (javaType == String.class) {
+                    block.append(loadString((String) value));
+                }
+                else {
+                    // bind constant object directly into the call-site using invoke dynamic
+                    Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
 
-            // use LDC for primitives (boolean, short, int, long, float, double)
-            block.comment("constant " + constant.getType().getTypeSignature());
-            if (javaType == boolean.class) {
-                return block.append(loadBoolean((Boolean) value));
-            }
-            if (javaType == byte.class || javaType == short.class || javaType == int.class) {
-                return block.append(loadInt(((Number) value).intValue()));
-            }
-            if (javaType == long.class) {
-                return block.append(loadLong((Long) value));
-            }
-            if (javaType == float.class) {
-                return block.append(loadFloat((Float) value));
-            }
-            if (javaType == double.class) {
-                return block.append(loadDouble((Double) value));
-            }
-            if (javaType == String.class) {
-                return block.append(loadString((String) value));
+                    block = new BytecodeBlock()
+                            .setDescription("constant " + constant.getType())
+                            .comment(constant.toString())
+                            .append(loadConstant(binding));
+                }
             }
 
-            // bind constant object directly into the call-site using invoke dynamic
-            Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
+            if (context.getOutputBlock().isPresent()) {
+                block.append(generateWrite(
+                        callSiteBinder,
+                        context.getScope(),
+                        context.getScope().getVariable("wasNull"),
+                        constant.getType(),
+                        context.getOutputBlock().get()));
+            }
 
-            return new BytecodeBlock()
-                    .setDescription("constant " + constant.getType())
-                    .comment(constant.toString())
-                    .append(loadConstant(binding));
+            return block;
         }
 
         @Override
         public BytecodeNode visitInputReference(InputReferenceExpression node, Context context)
         {
-            checkArgument(!context.getOutputBlock().isPresent(), "input reference expression does not support writing to block");
-            return fieldReferenceCompiler.visitInputReference(node, context.getScope());
+            BytecodeNode inputReferenceBytecode = fieldReferenceCompiler.visitInputReference(node, context.getScope());
+            if (!context.getOutputBlock().isPresent()) {
+                return inputReferenceBytecode;
+            }
+
+            return new BytecodeBlock()
+                    .append(inputReferenceBytecode)
+                    .append(generateWrite(
+                            callSiteBinder,
+                            context.getScope(),
+                            context.getScope().getVariable("wasNull"),
+                            node.getType(),
+                            context.getOutputBlock().get()));
         }
 
         @Override

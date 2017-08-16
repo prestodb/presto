@@ -32,6 +32,7 @@ import io.airlift.bytecode.instruction.VariableInstruction;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
@@ -39,7 +40,7 @@ public class SwitchCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         // TODO: compile as
         /*
@@ -136,6 +137,8 @@ public class SwitchCodeGenerator
                     .ifFalse(elseValue);
         }
 
-        return block.append(elseValue);
+        block.append(elseValue);
+        outputBlock.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
+        return block;
     }
 }

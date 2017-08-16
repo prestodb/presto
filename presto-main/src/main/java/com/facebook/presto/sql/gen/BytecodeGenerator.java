@@ -17,10 +17,22 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface BytecodeGenerator
 {
-    BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments);
+    BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock);
+
+    static BytecodeNode generateWrite(BytecodeGeneratorContext context, Type returnType, Variable outputBlock)
+    {
+        return BytecodeUtils.generateWrite(
+                context.getCallSiteBinder(),
+                context.getScope(),
+                context.getScope().getVariable("wasNull"),
+                returnType,
+                outputBlock);
+    }
 }

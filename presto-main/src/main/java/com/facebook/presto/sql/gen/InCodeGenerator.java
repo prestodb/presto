@@ -45,6 +45,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
@@ -108,7 +109,7 @@ public class InCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         List<RowExpression> values = arguments.subList(1, arguments.size());
         // empty IN statements are not allowed by the standard, and not possible here
@@ -277,6 +278,7 @@ public class InCodeGenerator
 
         block.visitLabel(end);
 
+        outputBlock.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }
 

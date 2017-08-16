@@ -19,6 +19,7 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +31,7 @@ public class FunctionCallCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         FunctionRegistry registry = context.getRegistry();
 
@@ -48,6 +49,6 @@ public class FunctionCallCodeGenerator
             }
         }
 
-        return context.generateCall(signature.getName(), function, argumentsBytecode);
+        return context.generateCall(signature.getName(), function, argumentsBytecode, outputBlock, Optional.of(returnType));
     }
 }

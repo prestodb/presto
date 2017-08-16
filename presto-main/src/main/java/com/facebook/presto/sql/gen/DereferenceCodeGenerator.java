@@ -28,6 +28,7 @@ import io.airlift.bytecode.instruction.LabelNode;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
@@ -36,7 +37,7 @@ public class DereferenceCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         checkArgument(arguments.size() == 2);
         CallSiteBinder callSiteBinder = generator.getCallSiteBinder();
@@ -85,6 +86,7 @@ public class DereferenceCodeGenerator
         block.append(ifFieldIsNull)
                 .visitLabel(end);
 
+        outputBlock.ifPresent(output -> block.append(generateWrite(generator, returnType, output)));
         return block;
     }
 }

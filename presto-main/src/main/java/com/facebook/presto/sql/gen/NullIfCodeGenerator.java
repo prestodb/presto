@@ -30,6 +30,7 @@ import io.airlift.bytecode.instruction.LabelNode;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
@@ -37,7 +38,7 @@ public class NullIfCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         Scope scope = generatorContext.getScope();
 
@@ -84,6 +85,7 @@ public class NullIfCodeGenerator
                 .ifTrue(trueBlock)
                 .ifFalse(notMatch));
 
+        outputBlock.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }
 

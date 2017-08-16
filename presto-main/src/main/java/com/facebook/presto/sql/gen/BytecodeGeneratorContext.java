@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.FieldDefinition;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateInvocation;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class BytecodeGeneratorContext
@@ -82,17 +84,29 @@ public class BytecodeGeneratorContext
         return registry;
     }
 
+    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    {
+        return generateCall(name, function, arguments, Optional.empty(), Optional.empty());
+    }
+
     /**
      * Generates a function call with null handling, automatic binding of session parameter, etc.
      */
-    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    public BytecodeNode generateCall(
+            String name,
+            ScalarFunctionImplementation function,
+            List<BytecodeNode> arguments,
+            Optional<Variable> outputBlock,
+            Optional<Type> outputType)
     {
+        checkArgument((!outputBlock.isPresent()) || outputType.isPresent(), "outputType must present if outputBlock is present");
+
         Optional<BytecodeNode> instance = Optional.empty();
         if (function.getInstanceFactory().isPresent()) {
             FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
-        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder);
+        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder, outputBlock, outputType);
     }
 
     public Variable wasNull()

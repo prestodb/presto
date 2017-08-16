@@ -24,6 +24,7 @@ import io.airlift.bytecode.Variable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
@@ -32,7 +33,7 @@ public class IsNullCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         Preconditions.checkArgument(arguments.size() == 1);
 
@@ -54,6 +55,7 @@ public class IsNullCodeGenerator
         // clear the null flag
         block.append(wasNull.set(constantFalse()));
 
+        outputBlock.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }
 }

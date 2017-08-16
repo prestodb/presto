@@ -26,13 +26,14 @@ import io.airlift.bytecode.instruction.LabelNode;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 
 public class OrCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         Preconditions.checkArgument(arguments.size() == 2);
 
@@ -97,6 +98,7 @@ public class OrCodeGenerator
         block.append(ifRightIsNull)
                 .visitLabel(end);
 
+        outputBlock.ifPresent(output -> block.append(generateWrite(generator, returnType, output)));
         return block;
     }
 }

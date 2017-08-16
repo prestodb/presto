@@ -17,16 +17,20 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 
 import java.util.List;
 import java.util.Optional;
+
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 
 public class CastCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         RowExpression argument = arguments.get(0);
 
@@ -34,6 +38,9 @@ public class CastCodeGenerator
                 .getRegistry()
                 .getCoercion(argument.getType(), returnType);
 
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument, Optional.empty())));
+        BytecodeBlock block = new BytecodeBlock()
+                .append(generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument, Optional.empty()))));
+        outputBlock.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
+        return block;
     }
 }
