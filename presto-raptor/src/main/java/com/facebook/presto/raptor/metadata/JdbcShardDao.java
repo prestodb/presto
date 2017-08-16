@@ -26,7 +26,7 @@ import java.util.UUID;
 
 @RegisterArgumentFactory(UuidArgumentFactory.class)
 @RegisterMapperFactory(UuidMapperFactory.class)
-public interface MySqlShardDao
+public interface JdbcShardDao
         extends ShardDao
 {
     @Override

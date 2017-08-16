@@ -880,10 +880,12 @@ public class DatabaseShardManager
                 case BOOLEAN:
                     return "boolean";
                 case BIGINT:
+                case TIMESTAMP:
                     return "bigint";
                 case DOUBLE:
                     return "double";
                 case INTEGER:
+                case DATE:
                     return "int";
                 case VARBINARY:
                     return format("varbinary(%s)", MAX_BINARY_INDEX_SIZE);

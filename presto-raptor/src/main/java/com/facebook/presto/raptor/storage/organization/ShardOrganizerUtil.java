@@ -265,8 +265,10 @@ public class ShardOrganizerUtil
             case BOOLEAN:
                 return resultSet.getBoolean(columnName);
             case INTEGER:
+            case DATE:
                 return resultSet.getInt(columnName);
             case BIGINT:
+            case TIMESTAMP:
                 return resultSet.getLong(columnName);
             case DOUBLE:
                 return resultSet.getDouble(columnName);

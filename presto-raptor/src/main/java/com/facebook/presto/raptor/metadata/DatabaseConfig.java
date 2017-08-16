@@ -29,7 +29,7 @@ public class DatabaseConfig
     }
 
     @Config("metadata.db.type")
-    @ConfigDescription("Metadata database type (supported types: h2, mysql)")
+    @ConfigDescription("Metadata database type (supported types: h2, mysql, postgresql)")
     public DatabaseConfig setDatabaseType(String databaseType)
     {
         this.databaseType = databaseType;
