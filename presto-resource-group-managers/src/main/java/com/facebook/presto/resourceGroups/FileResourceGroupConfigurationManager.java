@@ -76,7 +76,7 @@ public class FileResourceGroupConfigurationManager
     public void configure(ResourceGroup group, SelectionContext context)
     {
         Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, context);
-        configureGroup(group, entry.getValue());
+        configureGroup(group, entry.getValue(), entry.getKey());
     }
 
     @Override

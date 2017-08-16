@@ -120,7 +120,7 @@ public class DbResourceGroupConfigurationManager
             configuredGroups.computeIfAbsent(entry.getKey(), v -> new LinkedList<>()).add(group.getId());
         }
         synchronized (getRootGroup(group.getId())) {
-            configureGroup(group, entry.getValue());
+            configureGroup(group, entry.getValue(), entry.getKey());
         }
     }
 
@@ -251,7 +251,7 @@ public class DbResourceGroupConfigurationManager
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : changedSpecs) {
             for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, ImmutableList.of())) {
                 synchronized (getRootGroup(resourceGroupId)) {
-                    configureGroup(groups.get(resourceGroupId), resourceGroupSpecs.get(resourceGroupIdTemplate));
+                    reconfigureGroup(groups.get(resourceGroupId), resourceGroupSpecs.get(resourceGroupIdTemplate));
                 }
             }
         }
