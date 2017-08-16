@@ -51,6 +51,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class BytecodeUtils
 {
@@ -161,7 +162,32 @@ public final class BytecodeUtils
                 binding.getType().returnType());
     }
 
-    public static BytecodeNode generateInvocation(Scope scope, String name, ScalarFunctionImplementation function, Optional<BytecodeNode> instance, List<BytecodeNode> arguments, CallSiteBinder binder)
+    public static BytecodeNode generateInvocation(
+            Scope scope,
+            String name,
+            ScalarFunctionImplementation function,
+            Optional<BytecodeNode> instance,
+            List<BytecodeNode> arguments,
+            CallSiteBinder binder)
+    {
+        return generateInvocation(
+                scope,
+                name,
+                function,
+                instance,
+                arguments,
+                binder,
+                Optional.empty());
+    }
+
+    public static BytecodeNode generateInvocation(
+            Scope scope,
+            String name,
+            ScalarFunctionImplementation function,
+            Optional<BytecodeNode> instance,
+            List<BytecodeNode> arguments,
+            CallSiteBinder binder,
+            Optional<OutputBlockVariableAndType> outputBlockVariableAndType)
     {
         LabelNode end = new LabelNode("end");
         BytecodeBlock block = new BytecodeBlock()
@@ -271,6 +297,9 @@ public final class BytecodeUtils
         }
         block.visitLabel(end);
 
+        if (outputBlockVariableAndType.isPresent()) {
+            block.append(generateWrite(binder, scope, scope.getVariable("wasNull"), outputBlockVariableAndType.get().getType(), outputBlockVariableAndType.get().getOutputBlockVariable()));
+        }
         return block;
     }
 
@@ -350,7 +379,12 @@ public final class BytecodeUtils
         return invoke(binding, signature.getName());
     }
 
-    public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)
+    public static BytecodeNode generateWrite(
+            CallSiteBinder callSiteBinder,
+            Scope scope,
+            Variable wasNullVariable,
+            Type type,
+            Variable outputBlockVariable)
     {
         Class<?> valueJavaType = type.getJavaType();
         if (!valueJavaType.isPrimitive() && valueJavaType != Slice.class) {
@@ -358,15 +392,8 @@ public final class BytecodeUtils
         }
         String methodName = "write" + Primitives.wrap(valueJavaType).getSimpleName();
 
-        // the stack contains [output, value]
-
-        // We should be able to insert the code to get the output variable and compute the value
-        // at the right place instead of assuming they are in the stack. We should also not need to
-        // use temp variables to re-shuffle the stack to the right shape before Type.writeXXX is called
-        // Unfortunately, because of the assumptions made by try_cast, we can't get around it yet.
-        // TODO: clean up once try_cast is fixed
+        // the value to be written is at the top of stack
         Variable tempValue = scope.createTempVariable(valueJavaType);
-        Variable tempOutput = scope.createTempVariable(BlockBuilder.class);
         return new BytecodeBlock()
                 .comment("if (wasNull)")
                 .append(new IfStatement()
@@ -374,15 +401,37 @@ public final class BytecodeUtils
                         .ifTrue(new BytecodeBlock()
                                 .comment("output.appendNull();")
                                 .pop(valueJavaType)
+                                .getVariable(outputBlockVariable)
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
                         .ifFalse(new BytecodeBlock()
                                 .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, valueJavaType.getSimpleName())
                                 .putVariable(tempValue)
-                                .putVariable(tempOutput)
                                 .append(loadConstant(callSiteBinder.bind(type, Type.class)))
-                                .getVariable(tempOutput)
+                                .getVariable(outputBlockVariable)
                                 .getVariable(tempValue)
                                 .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
+    }
+
+    public static class OutputBlockVariableAndType
+    {
+        private final Variable outputBlockVariable;
+        private final Type type;
+
+        public OutputBlockVariableAndType(Variable outputBlockVariable, Type type)
+        {
+            this.outputBlockVariable = requireNonNull(outputBlockVariable);
+            this.type = requireNonNull(type);
+        }
+
+        public Variable getOutputBlockVariable()
+        {
+            return outputBlockVariable;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
     }
 }

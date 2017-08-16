@@ -17,8 +17,10 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +32,7 @@ public class FunctionCallCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         FunctionRegistry registry = context.getRegistry();
 
@@ -48,6 +50,10 @@ public class FunctionCallCodeGenerator
             }
         }
 
-        return context.generateCall(signature.getName(), function, argumentsBytecode);
+        return context.generateCall(
+                signature.getName(),
+                function,
+                argumentsBytecode,
+                outputBlockVariable.map(variable -> new OutputBlockVariableAndType(variable, returnType)));
     }
 }

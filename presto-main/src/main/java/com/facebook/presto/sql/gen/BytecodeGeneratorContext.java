@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.FieldDefinition;
@@ -82,17 +83,26 @@ public class BytecodeGeneratorContext
         return registry;
     }
 
+    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    {
+        return generateCall(name, function, arguments, Optional.empty());
+    }
+
     /**
      * Generates a function call with null handling, automatic binding of session parameter, etc.
      */
-    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    public BytecodeNode generateCall(
+            String name,
+            ScalarFunctionImplementation function,
+            List<BytecodeNode> arguments,
+            Optional<OutputBlockVariableAndType> outputBlockVariableAndType)
     {
         Optional<BytecodeNode> instance = Optional.empty();
         if (function.getInstanceFactory().isPresent()) {
             FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
-        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder);
+        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder, outputBlockVariableAndType);
     }
 
     public Variable wasNull()
