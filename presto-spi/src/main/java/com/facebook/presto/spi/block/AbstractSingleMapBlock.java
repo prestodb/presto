@@ -21,23 +21,18 @@ import java.util.List;
 public abstract class AbstractSingleMapBlock
         implements Block
 {
-    private final int offset;
-    private final Block keyBlock;
-    private final Block valueBlock;
+    abstract int getOffset();
 
-    public AbstractSingleMapBlock(int offset, Block keyBlock, Block valueBlock)
-    {
-        this.offset = offset;
-        this.keyBlock = keyBlock;
-        this.valueBlock = valueBlock;
-    }
+    abstract Block getKeyBlock();
+
+    abstract Block getValueBlock();
 
     private int getAbsolutePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
-        return position + offset;
+        return position + getOffset();
     }
 
     @Override
@@ -45,13 +40,13 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            if (keyBlock.isNull(position / 2)) {
+            if (getKeyBlock().isNull(position / 2)) {
                 throw new IllegalStateException("Map key is null");
             }
             return false;
         }
         else {
-            return valueBlock.isNull(position / 2);
+            return getValueBlock().isNull(position / 2);
         }
     }
 
@@ -60,10 +55,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.getByte(position / 2, offset);
+            return getKeyBlock().getByte(position / 2, offset);
         }
         else {
-            return valueBlock.getByte(position / 2, offset);
+            return getValueBlock().getByte(position / 2, offset);
         }
     }
 
@@ -72,10 +67,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.getShort(position / 2, offset);
+            return getKeyBlock().getShort(position / 2, offset);
         }
         else {
-            return valueBlock.getShort(position / 2, offset);
+            return getValueBlock().getShort(position / 2, offset);
         }
     }
 
@@ -84,10 +79,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.getInt(position / 2, offset);
+            return getKeyBlock().getInt(position / 2, offset);
         }
         else {
-            return valueBlock.getInt(position / 2, offset);
+            return getValueBlock().getInt(position / 2, offset);
         }
     }
 
@@ -96,10 +91,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.getLong(position / 2, offset);
+            return getKeyBlock().getLong(position / 2, offset);
         }
         else {
-            return valueBlock.getLong(position / 2, offset);
+            return getValueBlock().getLong(position / 2, offset);
         }
     }
 
@@ -108,10 +103,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.getSlice(position / 2, offset, length);
+            return getKeyBlock().getSlice(position / 2, offset, length);
         }
         else {
-            return valueBlock.getSlice(position / 2, offset, length);
+            return getValueBlock().getSlice(position / 2, offset, length);
         }
     }
 
@@ -120,10 +115,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.getSliceLength(position / 2);
+            return getKeyBlock().getSliceLength(position / 2);
         }
         else {
-            return valueBlock.getSliceLength(position / 2);
+            return getValueBlock().getSliceLength(position / 2);
         }
     }
 
@@ -132,10 +127,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
+            return getKeyBlock().compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
         }
         else {
-            return valueBlock.compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
+            return getValueBlock().compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
         }
     }
 
@@ -144,10 +139,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.bytesEqual(position / 2, offset, otherSlice, otherOffset, length);
+            return getKeyBlock().bytesEqual(position / 2, offset, otherSlice, otherOffset, length);
         }
         else {
-            return valueBlock.bytesEqual(position / 2, offset, otherSlice, otherOffset, length);
+            return getValueBlock().bytesEqual(position / 2, offset, otherSlice, otherOffset, length);
         }
     }
 
@@ -156,10 +151,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.bytesCompare(position / 2, offset, length, otherSlice, otherOffset, otherLength);
+            return getKeyBlock().bytesCompare(position / 2, offset, length, otherSlice, otherOffset, otherLength);
         }
         else {
-            return valueBlock.bytesCompare(position / 2, offset, length, otherSlice, otherOffset, otherLength);
+            return getValueBlock().bytesCompare(position / 2, offset, length, otherSlice, otherOffset, otherLength);
         }
     }
 
@@ -168,10 +163,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            keyBlock.writeBytesTo(position / 2, offset, length, blockBuilder);
+            getKeyBlock().writeBytesTo(position / 2, offset, length, blockBuilder);
         }
         else {
-            valueBlock.writeBytesTo(position / 2, offset, length, blockBuilder);
+            getValueBlock().writeBytesTo(position / 2, offset, length, blockBuilder);
         }
     }
 
@@ -180,10 +175,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.equals(position / 2, offset, otherBlock, otherPosition, otherOffset, length);
+            return getKeyBlock().equals(position / 2, offset, otherBlock, otherPosition, otherOffset, length);
         }
         else {
-            return valueBlock.equals(position / 2, offset, otherBlock, otherPosition, otherOffset, length);
+            return getValueBlock().equals(position / 2, offset, otherBlock, otherPosition, otherOffset, length);
         }
     }
 
@@ -192,10 +187,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.hash(position / 2, offset, length);
+            return getKeyBlock().hash(position / 2, offset, length);
         }
         else {
-            return valueBlock.hash(position / 2, offset, length);
+            return getValueBlock().hash(position / 2, offset, length);
         }
     }
 
@@ -204,10 +199,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.getObject(position / 2, clazz);
+            return getKeyBlock().getObject(position / 2, clazz);
         }
         else {
-            return valueBlock.getObject(position / 2, clazz);
+            return getValueBlock().getObject(position / 2, clazz);
         }
     }
 
@@ -216,10 +211,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            keyBlock.writePositionTo(position / 2, blockBuilder);
+            getKeyBlock().writePositionTo(position / 2, blockBuilder);
         }
         else {
-            valueBlock.writePositionTo(position / 2, blockBuilder);
+            getValueBlock().writePositionTo(position / 2, blockBuilder);
         }
     }
 
@@ -228,10 +223,10 @@ public abstract class AbstractSingleMapBlock
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return keyBlock.getSingleValueBlock(position / 2);
+            return getKeyBlock().getSingleValueBlock(position / 2);
         }
         else {
-            return valueBlock.getSingleValueBlock(position / 2);
+            return getValueBlock().getSingleValueBlock(position / 2);
         }
     }
 
