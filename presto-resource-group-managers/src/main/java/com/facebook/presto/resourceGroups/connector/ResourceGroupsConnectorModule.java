@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.resourceGroups.connector;
 
+import com.facebook.presto.resourceGroups.systemtables.ConfiguredResourceGroupsSystemTable;
 import com.facebook.presto.resourceGroups.systemtables.ResourceGroupSelectorSystemTable;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -37,6 +38,7 @@ public class ResourceGroupsConnectorModule
         binder.bind(ResourceGroupsRecordSetProvider.class).in(Scopes.SINGLETON);
         Multibinder<SystemTable> tableBinder = newSetBinder(binder, SystemTable.class);
         tableBinder.addBinding().to(ResourceGroupSelectorSystemTable.class).in(Scopes.SINGLETON);
+        tableBinder.addBinding().to(ConfiguredResourceGroupsSystemTable.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Procedure.class);
     }
 }
