@@ -54,6 +54,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.orc.AcidUtil.getReaderFieldOffset;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -120,7 +121,7 @@ public class StripeReader
         }
 
         // handle stripes with more than one row group or a dictionary
-        if ((stripe.getNumberOfRows() > rowsInRowGroup) || hasRowGroupDictionary) {
+        if (rowsInRowGroup > 0 && ((stripe.getNumberOfRows() > rowsInRowGroup) || hasRowGroupDictionary)) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
@@ -434,7 +435,7 @@ public class StripeReader
     {
         Set<Integer> includes = new LinkedHashSet<>();
 
-        OrcType root = types.get(0);
+        OrcType root = types.get(getReaderFieldOffset(types.get(0)));
         for (int includedColumn : includedColumns) {
             includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn));
         }

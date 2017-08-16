@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.orc.AcidUtil.getReaderFieldOffset;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
@@ -124,7 +125,7 @@ public class OrcRecordReader
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
         ImmutableMap.Builder<Integer, Type> presentColumnsAndTypes = ImmutableMap.builder();
-        OrcType root = types.get(0);
+        OrcType root = types.get(getReaderFieldOffset(types.get(0)));
         for (Map.Entry<Integer, Type> entry : includedColumns.entrySet()) {
             // an old file can have less columns since columns can be added
             // after the file was written
@@ -134,9 +135,6 @@ public class OrcRecordReader
             }
         }
         this.presentColumns = presentColumns.build();
-
-        // it is possible that old versions of orc use 0 to mean there are no row groups
-        checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
 
         // sort stripes by file position
         List<StripeInfo> stripeInfos = new ArrayList<>();
@@ -405,9 +403,10 @@ public class OrcRecordReader
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns)
     {
-        List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
+        int readerFieldOffset = getReaderFieldOffset(types.get(0));
+        List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", readerFieldOffset, types, orcDataSource).getNestedStreams();
 
-        OrcType rowType = types.get(0);
+        OrcType rowType = types.get(readerFieldOffset);
         StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
