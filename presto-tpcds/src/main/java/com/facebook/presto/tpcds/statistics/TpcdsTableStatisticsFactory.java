@@ -18,10 +18,24 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.tpcds.TpcdsColumnHandle;
 import com.teradata.tpcds.Table;
+import io.airlift.slice.Slices;
 
 import java.util.Map;
 import java.util.Optional;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 
 public class TpcdsTableStatisticsFactory
 {
@@ -43,25 +57,50 @@ public class TpcdsTableStatisticsFactory
         if (rowCount > 0) {
             Map<String, ColumnStatisticsData> columnsData = statisticsData.getColumns();
             for (Map.Entry<String, ColumnHandle> entry : columnHandles.entrySet()) {
-                tableStatistics.setColumnStatistics(entry.getValue(), toColumnStatistics(columnsData.get(entry.getKey()), rowCount));
+                TpcdsColumnHandle columnHandle = (TpcdsColumnHandle) entry.getValue();
+                tableStatistics.setColumnStatistics(entry.getValue(), toColumnStatistics(columnsData.get(entry.getKey()), columnHandle.getType(), rowCount));
             }
         }
 
         return tableStatistics.build();
     }
 
-    private ColumnStatistics toColumnStatistics(ColumnStatisticsData columnStatisticsData, long rowCount)
+    private ColumnStatistics toColumnStatistics(ColumnStatisticsData columnStatisticsData, Type type, long rowCount)
     {
         ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
         long nullCount = columnStatisticsData.getNullsCount();
         columnStatistics.setNullsFraction(new Estimate(nullCount / rowCount));
         columnStatistics.addRange(builder -> builder
-                .setLowValue(columnStatisticsData.getMin())
-                .setHighValue(columnStatisticsData.getMax())
+                .setLowValue(
+                        columnStatisticsData.getMin()
+                                .map(value -> toPrestoValue(value, type)))
+                .setHighValue(
+                        columnStatisticsData.getMax()
+                                .map(value -> toPrestoValue(value, type)))
                 .setDistinctValuesCount(new Estimate(columnStatisticsData.getDistinctValuesCount()))
                 .setFraction(new Estimate((rowCount - nullCount) / rowCount))
                 .build());
 
         return columnStatistics.build();
+    }
+
+    private Object toPrestoValue(Object tpcdsValue, Type type)
+    {
+        if (type instanceof VarcharType) {
+            return Slices.utf8Slice((String) tpcdsValue);
+        }
+        else if (type instanceof CharType) {
+            return trimSpacesAndTruncateToLength(Slices.utf8Slice((String) tpcdsValue), type);
+        }
+        else if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || (type instanceof DecimalType && isShortDecimal(type))) {
+            return ((Number) tpcdsValue).longValue();
+        }
+        else if (type.equals(DOUBLE)) {
+            return ((Number) tpcdsValue).doubleValue();
+        }
+        else if (type.equals(TimeType.TIME)) {
+            return ((Number) tpcdsValue).longValue();
+        }
+        throw new IllegalArgumentException("unsupported column type " + type);
     }
 }
