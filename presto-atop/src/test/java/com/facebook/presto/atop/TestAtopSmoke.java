@@ -38,7 +38,7 @@ public class TestAtopSmoke
         queryRunner = createQueryRunner();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();

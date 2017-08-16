@@ -71,7 +71,7 @@ public class TestJdbcRecordSetProvider
         valueColumn = columns.get("value");
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

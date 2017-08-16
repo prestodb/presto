@@ -48,7 +48,7 @@ public class TestJdbcRecordSet
         columnHandles = database.getColumnHandles("example", "numbers");
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

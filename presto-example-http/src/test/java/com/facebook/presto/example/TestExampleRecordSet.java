@@ -122,7 +122,7 @@ public class TestExampleRecordSet
         dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

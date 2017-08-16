@@ -43,7 +43,7 @@ public class TestStateMachine
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

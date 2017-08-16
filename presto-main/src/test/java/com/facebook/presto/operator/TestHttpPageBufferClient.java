@@ -71,7 +71,7 @@ public class TestHttpPageBufferClient
         executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         if (executor != null) {

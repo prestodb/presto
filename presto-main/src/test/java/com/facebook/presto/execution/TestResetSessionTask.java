@@ -86,7 +86,7 @@ public class TestResetSessionTask
         catalogManager.registerCatalog(bogusTestingCatalog);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

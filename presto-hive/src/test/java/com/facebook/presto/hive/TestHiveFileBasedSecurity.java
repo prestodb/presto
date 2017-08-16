@@ -39,7 +39,7 @@ public class TestHiveFileBasedSecurity
         queryRunner = createQueryRunner(getTables(), ImmutableMap.of(), "file", ImmutableMap.of("security.config-file", path));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();
