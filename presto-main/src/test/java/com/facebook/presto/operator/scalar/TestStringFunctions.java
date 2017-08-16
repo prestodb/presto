@@ -756,6 +756,16 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testTranslate()
+    {
+        assertFunction("translate('123def', '123',   'abc')", createVarcharType(6), "abcdef");
+        assertFunction("translate('123def', '123',   'ab')", createVarcharType(6), "abdef");
+        assertFunction("translate('123def', '12',    'abc')", createVarcharType(6), "ab3def");
+        assertFunction("translate('123def', '1231',  'abcd')", createVarcharType(6), "abcdef");
+        assertFunction("translate('hello',  'hello', 'hi')", createVarcharType(5), "hi");
+    }
+
+    @Test
     public void testLower()
     {
         assertFunction("LOWER('')", createVarcharType(0), "");

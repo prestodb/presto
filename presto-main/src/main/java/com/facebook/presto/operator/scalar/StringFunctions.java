@@ -35,8 +35,13 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 
+import java.nio.ByteBuffer;
 import java.text.Normalizer;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
@@ -55,6 +60,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 
 /**
  * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
@@ -407,6 +413,66 @@ public final class StringFunctions
         return null;
     }
 
+    @Description("creates a map using entryDelimiter and keyValueDelimiter")
+    @ScalarFunction
+    @SqlType("map<varchar,varchar>")
+    public static Block splitToMap(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
+    {
+        checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
+        checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");
+        checkCondition(!entryDelimiter.equals(keyValueDelimiter), INVALID_FUNCTION_ARGUMENT, "entryDelimiter and keyValueDelimiter must not be the same");
+
+        Map<Slice, Slice> map = new HashMap<>();
+        int entryStart = 0;
+        while (entryStart < string.length()) {
+            // Extract key-value pair based on current index
+            // then add the pair if it can be split by keyValueDelimiter
+            Slice keyValuePair;
+            int entryEnd = string.indexOf(entryDelimiter, entryStart);
+            if (entryEnd >= 0) {
+                keyValuePair = string.slice(entryStart, entryEnd - entryStart);
+            }
+            else {
+                // The rest of the string is the last possible pair.
+                keyValuePair = string.slice(entryStart, string.length() - entryStart);
+            }
+
+            int keyEnd = keyValuePair.indexOf(keyValueDelimiter);
+            if (keyEnd >= 0) {
+                int valueStart = keyEnd + keyValueDelimiter.length();
+                Slice key = keyValuePair.slice(0, keyEnd);
+                Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
+
+                if (value.indexOf(keyValueDelimiter) >= 0) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+                }
+                if (map.containsKey(key)) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
+                }
+
+                map.put(key, value);
+            }
+            else {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+            }
+
+            if (entryEnd < 0) {
+                // No more pairs to add
+                break;
+            }
+            // Next possible pair is placed next to the current entryDelimiter
+            entryStart = entryEnd + entryDelimiter.length();
+        }
+
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), map.size());
+        for (Map.Entry<Slice, Slice> entry : map.entrySet()) {
+            VARCHAR.writeSlice(builder, entry.getKey());
+            VARCHAR.writeSlice(builder, entry.getValue());
+        }
+
+        return builder.build();
+    }
+
     @Description("removes whitespace from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
@@ -554,6 +620,61 @@ public final class StringFunctions
             codePoints++;
         }
         return codePoints;
+    }
+
+    // see: https://cwiki.apache.org/confluence/display/Hive/LanguageManual+UDF
+    @Description("the input string by replacing the characters present in the from string with the corresponding characters in the to string")
+    @ScalarFunction("translate")
+    @LiteralParameters({"x", "y", "z"})
+    @SqlType("varchar(x)")
+    public static Slice translate(@SqlNullable @SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
+    {
+        if (string == null) {
+            return null;
+        }
+
+        Map<Integer, Integer> replacementMap = new HashMap<Integer, Integer>();
+        Set<Integer> deletionSet = new HashSet<Integer>();
+        replacementMap.clear();
+        deletionSet.clear();
+
+        String fromAscii = from.toStringAscii();
+        String toAscii = to.toStringAscii();
+        ByteBuffer fromBytes = ByteBuffer.wrap(fromAscii.getBytes());
+        ByteBuffer toBytes = ByteBuffer.wrap(toAscii.getBytes());
+
+        while (fromBytes.hasRemaining()) {
+            int fromCodePoint = fromBytes.get();
+            if (toBytes.hasRemaining()) {
+                int toCodePoint = toBytes.get();
+                if (replacementMap.containsKey(fromCodePoint) || deletionSet.contains(fromCodePoint)) {
+                    continue;
+                }
+                replacementMap.put(fromCodePoint, toCodePoint);
+            }
+            else {
+                if (replacementMap.containsKey(fromCodePoint) || deletionSet.contains(fromCodePoint)) {
+                    continue;
+                }
+                deletionSet.add(fromCodePoint);
+            }
+        }
+        String input = string.toStringAscii();
+        StringBuilder stringBuilder = new StringBuilder();
+        ByteBuffer inputBytes = ByteBuffer.wrap(input.getBytes(), 0, input.length());
+
+        while (inputBytes.hasRemaining()) {
+            int inputCodePoint = inputBytes.get();
+            if (deletionSet.contains(inputCodePoint)) {
+                continue;
+            }
+            Integer replacementCodePoint = replacementMap.get(inputCodePoint);
+            char[] charArray = Character.toChars((replacementCodePoint != null) ? replacementCodePoint : inputCodePoint);
+            stringBuilder.append(charArray);
+        }
+        String answer = stringBuilder.toString();
+
+        return Slices.utf8Slice(answer);
     }
 
     @Description("converts the string to lower case")
@@ -713,37 +834,6 @@ public final class StringFunctions
         }
 
         return distances[rightCodePoints.length - 1];
-    }
-
-    @Description("computes Hamming distance between two strings")
-    @ScalarFunction
-    @LiteralParameters({"x", "y"})
-    @SqlType(StandardTypes.BIGINT)
-    public static long hammingDistance(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
-    {
-        int distance = 0;
-        int leftPosition = 0;
-        int rightPosition = 0;
-        while (leftPosition < left.length() && rightPosition < right.length()) {
-            int codePointLeft = tryGetCodePointAt(left, leftPosition);
-            int codePointRight = tryGetCodePointAt(right, rightPosition);
-
-            // if both code points are invalid, we do not care if they are equal
-            // the following code treats them as equal if they happen to be of the same length
-            if (codePointLeft != codePointRight) {
-                distance++;
-            }
-
-            leftPosition += codePointLeft > 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
-            rightPosition += codePointRight > 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
-        }
-
-        checkCondition(
-                leftPosition == left.length() && rightPosition == right.length(),
-                INVALID_FUNCTION_ARGUMENT,
-                "The input strings to hamming_distance function must have the same length");
-
-        return distance;
     }
 
     @Description("transforms the string to normalized form")
