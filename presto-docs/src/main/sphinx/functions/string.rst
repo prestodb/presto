@@ -140,6 +140,10 @@ String Functions
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
 
+.. function:: translate(string, from, to) -> varchar
+
+    Replaces the characters present in the ``from`` string with the corresponding characters in the ``to`` string.
+
 .. function:: trim(string) -> varchar
 
     Removes leading and trailing whitespace from ``string``.
