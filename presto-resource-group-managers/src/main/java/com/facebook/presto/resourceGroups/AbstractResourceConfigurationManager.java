@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
@@ -49,6 +50,8 @@ public abstract class AbstractResourceConfigurationManager
     private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
     @GuardedBy("generalPoolMemoryFraction")
     private long generalPoolBytes;
+
+    private final ResourceGroupConfigurationInfo configurationInfo;
 
     protected abstract Optional<Duration> getCpuQuotaPeriod();
 
@@ -92,6 +95,13 @@ public abstract class AbstractResourceConfigurationManager
         return selectors.build();
     }
 
+    protected void setConfigurationInfo(ManagerSpec managerSpec)
+    {
+        configurationInfo.setRootGroupSpecs(managerSpec.getRootGroups());
+        configurationInfo.setSelectorSpecs(managerSpec.getSelectors());
+        configurationInfo.setCpuQuotaPeriod(managerSpec.getCpuQuotaPeriod());
+    }
+
     private void validateSelectors(List<ResourceGroupSpec> groups, SelectorSpec spec)
     {
         spec.getQueryType().ifPresent(this::validateQueryType);
@@ -123,7 +133,7 @@ public abstract class AbstractResourceConfigurationManager
         }
     }
 
-    protected AbstractResourceConfigurationManager(ClusterMemoryPoolManager memoryPoolManager)
+    protected AbstractResourceConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ResourceGroupConfigurationInfo configurationInfo)
     {
         memoryPoolManager.addChangeListener(new MemoryPoolId("general"), poolInfo -> {
             Map<ResourceGroup, DataSize> memoryLimits = new HashMap<>();
@@ -139,6 +149,7 @@ public abstract class AbstractResourceConfigurationManager
                 entry.getKey().setSoftMemoryLimit(entry.getValue());
             }
         });
+        this.configurationInfo = requireNonNull(configurationInfo, "configurationInfo is null");
     }
 
     protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext context)

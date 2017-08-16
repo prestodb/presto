@@ -23,12 +23,14 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 public class ResourceGroupManagerPlugin
         implements Plugin
 {
+    private final ResourceGroupConfigurationInfo configurationInfo = new ResourceGroupConfigurationInfo();
+
     @Override
     public Iterable<ResourceGroupConfigurationManagerFactory> getResourceGroupConfigurationManagerFactories()
     {
         return ImmutableList.of(
-                new FileResourceGroupConfigurationManagerFactory(getClassLoader()),
-                new DbResourceGroupConfigurationManagerFactory(getClassLoader()));
+                new FileResourceGroupConfigurationManagerFactory(getClassLoader(), configurationInfo),
+                new DbResourceGroupConfigurationManagerFactory(getClassLoader(), configurationInfo));
     }
 
     private static ClassLoader getClassLoader()

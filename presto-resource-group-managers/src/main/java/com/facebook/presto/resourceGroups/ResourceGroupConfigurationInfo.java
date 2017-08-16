@@ -11,11 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.resourceGroups.systemtables;
+package com.facebook.presto.resourceGroups;
 
-import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
-import com.facebook.presto.resourceGroups.ResourceGroupSpec;
-import com.facebook.presto.resourceGroups.SelectorSpec;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

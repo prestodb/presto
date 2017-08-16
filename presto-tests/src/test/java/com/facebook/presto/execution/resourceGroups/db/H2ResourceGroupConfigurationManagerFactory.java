@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
+import com.facebook.presto.resourceGroups.ResourceGroupConfigurationInfo;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -32,10 +33,12 @@ public class H2ResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
 {
     private final ClassLoader classLoader;
+    private final ResourceGroupConfigurationInfo configurationInfo;
 
-    public H2ResourceGroupConfigurationManagerFactory(ClassLoader classLoader)
+    public H2ResourceGroupConfigurationManagerFactory(ClassLoader classLoader, ResourceGroupConfigurationInfo configurationInfo)
     {
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        this.configurationInfo = requireNonNull(configurationInfo, "configurationInfo is null");
     }
 
     @Override
@@ -51,7 +54,8 @@ public class H2ResourceGroupConfigurationManagerFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new H2ResourceGroupsModule(),
-                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
+                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()),
+                    binder -> binder.bind(ResourceGroupConfigurationInfo.class).toInstance(configurationInfo));
 
             Injector injector = app
                     .strictConfig()

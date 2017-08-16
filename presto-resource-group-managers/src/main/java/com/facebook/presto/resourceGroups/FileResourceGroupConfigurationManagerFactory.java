@@ -31,10 +31,12 @@ public class FileResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
 {
     private final ClassLoader classLoader;
+    private final ResourceGroupConfigurationInfo configurationInfo;
 
-    public FileResourceGroupConfigurationManagerFactory(ClassLoader classLoader)
+    public FileResourceGroupConfigurationManagerFactory(ClassLoader classLoader, ResourceGroupConfigurationInfo configurationInfo)
     {
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        this.configurationInfo = requireNonNull(configurationInfo, "configurationInfo is null");
     }
 
     @Override
@@ -50,7 +52,8 @@ public class FileResourceGroupConfigurationManagerFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new FileResourceGroupsModule(),
-                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
+                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()),
+                    binder -> binder.bind(ResourceGroupConfigurationInfo.class).toInstance(configurationInfo));
 
             Injector injector = app
                     .strictConfig()

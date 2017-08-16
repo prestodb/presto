@@ -138,7 +138,8 @@ public class TestFileResourceGroupConfigurationManager
         return new FileResourceGroupConfigurationManager(
                 (poolId, listener) -> { },
                 config,
-                jsonCodec(ManagerSpec.class));
+                jsonCodec(ManagerSpec.class),
+                new ResourceGroupConfigurationInfo());
     }
 
     private String getResourceFilePath(String fileName)

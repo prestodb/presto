@@ -14,6 +14,7 @@
 package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
+import com.facebook.presto.resourceGroups.ResourceGroupConfigurationInfo;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import io.airlift.units.DataSize;
@@ -55,8 +56,10 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, "weighted", null, true, "1h", "1d", "1h", "1h", null);
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, null, 5, null, null, null, "1h", "1h", 1L);
         dao.insertSelector(2, null, null);
-        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> { },
-                daoProvider.get());
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
+                (poolId, listener) -> { },
+                daoProvider.get(),
+                new ResourceGroupConfigurationInfo());
         AtomicBoolean exported = new AtomicBoolean();
         InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
         manager.configure(global, new SelectionContext(true, "user", Optional.empty(), 1, Optional.empty()));
@@ -117,9 +120,10 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, null, 5, null, null, null, null, null, 1L);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         dao.insertSelector(2, null, null);
-        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {
-        },
-                daoProvider.get());
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
+                (poolId, listener) -> { },
+                daoProvider.get(),
+                new ResourceGroupConfigurationInfo());
         InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> { }, directExecutor());
         manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), 1, Optional.empty()));
     }
@@ -139,7 +143,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 (poolId, listener) -> { },
-                daoProvider.get());
+                daoProvider.get(),
+                new ResourceGroupConfigurationInfo());
         manager.start();
         AtomicBoolean exported = new AtomicBoolean();
         InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
