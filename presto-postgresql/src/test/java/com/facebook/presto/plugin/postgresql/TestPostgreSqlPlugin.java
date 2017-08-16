@@ -29,6 +29,6 @@ public class TestPostgreSqlPlugin
     {
         Plugin plugin = new PostgreSqlPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "test", "connection-load-table-mappings", "false"), new TestingConnectorContext());
     }
 }

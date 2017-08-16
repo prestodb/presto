@@ -16,11 +16,12 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.spi.type.Varchars;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;
 import com.mysql.jdbc.Statement;
@@ -32,9 +33,10 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 
-import static java.util.Locale.ENGLISH;
+import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 
 public class MySqlClient
         extends BaseJdbcClient
@@ -58,14 +60,14 @@ public class MySqlClient
     }
 
     @Override
-    public Set<String> getSchemaNames()
+    protected Set<String> getOriginalSchemas()
     {
         // for MySQL, we need to list catalogs instead of schemas
         try (Connection connection = driver.connect(connectionUrl, connectionProperties);
                 ResultSet resultSet = connection.getMetaData().getCatalogs()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH);
+                String schemaName = resultSet.getString("TABLE_CAT");
                 // skip internal schemas
                 if (!schemaName.equals("information_schema") && !schemaName.equals("mysql")) {
                     schemaNames.add(schemaName);
@@ -89,6 +91,24 @@ public class MySqlClient
         return statement;
     }
 
+    protected List<String[]> getOriginalTablesWithSchema(Connection connection, String schema)
+    {
+        try (ResultSet resultSet = getTables(connection, schema, null)) {
+            ImmutableList.Builder<String[]> list = ImmutableList.builder();
+            String[] arr;
+            while (resultSet.next()) {
+                String schemaName = resultSet.getString("TABLE_CAT");
+                String tableName = resultSet.getString("TABLE_NAME");
+                arr = new String[] {schemaName, tableName};
+                list.add(arr);
+            }
+            return list.build();
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
     @Override
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)
             throws SQLException
@@ -101,16 +121,6 @@ public class MySqlClient
                 null,
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE", "VIEW"});
-    }
-
-    @Override
-    protected SchemaTableName getSchemaTableName(ResultSet resultSet)
-            throws SQLException
-    {
-        // MySQL uses catalogs instead of schemas
-        return new SchemaTableName(
-                resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH),
-                resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
     }
 
     @Override

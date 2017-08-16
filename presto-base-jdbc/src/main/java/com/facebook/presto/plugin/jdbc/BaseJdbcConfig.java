@@ -23,7 +23,7 @@ public class BaseJdbcConfig
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
-    private boolean mapLowercaseTableNames = false;
+    private boolean preloadSchemaTableMapping = true;
 
     @NotNull
     public String getConnectionUrl()
@@ -63,15 +63,15 @@ public class BaseJdbcConfig
         return this;
     }
 
-    public boolean isMapLowercaseTableNames()
+    public boolean isPreloadSchemaTableMapping()
     {
-        return mapLowercaseTableNames;
+        return preloadSchemaTableMapping;
     }
 
-    @Config("connection-map-tables")
-    public BaseJdbcConfig setMapLowercaseTableNames(boolean mapLowercaseTableNames)
+    @Config("connection-load-table-mappings")
+    public BaseJdbcConfig setPreloadSchemaTableMapping(boolean preloadSchemaTableMapping)
     {
-        this.mapLowercaseTableNames = mapLowercaseTableNames;
+        this.preloadSchemaTableMapping = preloadSchemaTableMapping;
         return this;
     }
 }

@@ -24,6 +24,9 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,11 +46,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -104,10 +107,9 @@ public class BaseJdbcClient
     protected final String connectionUrl;
     protected final Properties connectionProperties;
     protected final String identifierQuote;
-    private final boolean mapTableNames;
 
-    private Map<String, Map<String, String>> schemaTableMapping = new HashMap<>();
-    private Map<String, ReentrantLock> schemaTableMappingLock = new ConcurrentHashMap<>();
+    private final LoadingCache<String, Optional<String>> schemaMappingCache;
+    private final Map<String, LoadingCache<String, Optional<String>>> schemaTableMapping = new ConcurrentHashMap<>();
 
     public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, Driver driver)
     {
@@ -125,19 +127,68 @@ public class BaseJdbcClient
         if (config.getConnectionPassword() != null) {
             connectionProperties.setProperty("password", config.getConnectionPassword());
         }
-        this.mapTableNames = config.isMapLowercaseTableNames();
+
+        // generate the map of lowercased schema names to JDBC schema names
+        schemaMappingCache = CacheBuilder.newBuilder().build(new CacheLoader<String, Optional<String>>()
+        {
+            @Override
+            public Optional<String> load(String key)
+                    throws Exception
+            {
+                for (String schemaName : getOriginalSchemas()) {
+                    if (schemaName.equals(key)) {
+                        return Optional.of(schemaName);
+                    }
+
+                    String schemaNameLower = schemaName.toLowerCase(ENGLISH);
+                    if (schemaNameLower.equals(key)) {
+                        return Optional.of(schemaName);
+                    }
+                }
+                return Optional.empty();
+            }
+        });
+
+        if (config.isPreloadSchemaTableMapping()) {
+            reloadCache();
+        }
     }
 
-    @Override
-    public Set<String> getSchemaNames()
+    /**
+     * Invalidates all of the caches and reloads
+     */
+    protected void reloadCache()
+    {
+        schemaMappingCache.invalidateAll();
+
+        // this preloads the list of schema names
+        Set<String> schemas = getSchemaNames();
+
+        // invalidate and remove from the schema table mapping all records, start from scratch
+        for (String key : schemaTableMapping.keySet()) {
+            schemaTableMapping.get(key).invalidateAll();
+            schemaTableMapping.remove(key);
+        }
+
+        for (final String schema : schemas) {
+            // this preloads the list of table names for each schema
+            getTableNames(schema);
+        }
+    }
+
+    /**
+     * Pull the list of Schema names from the RDBMS exactly as they are returned. Override if the RDBMS method to pull the schemas is different.
+     *
+     * @return schema names in original form
+     */
+    protected Set<String> getOriginalSchemas()
     {
         try (Connection connection = driver.connect(connectionUrl, connectionProperties);
                 ResultSet resultSet = connection.getMetaData().getSchemas()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH);
-                // skip internal schemas
-                if (!schemaName.equals("information_schema")) {
+                String schemaName = resultSet.getString("TABLE_SCHEM");
+                if (!schemaName.toLowerCase(ENGLISH).equals("information_schema")) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -149,20 +200,69 @@ public class BaseJdbcClient
     }
 
     @Override
+    public Set<String> getSchemaNames()
+    {
+        ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+        Set<String> originalNames = getOriginalSchemas();
+        Map<String, Optional<String>> mappedNames = new HashMap<>();
+        for (String schemaName : originalNames) {
+            String schemaNameLower = schemaName.toLowerCase(ENGLISH);
+            schemaNames.add(schemaNameLower);
+            mappedNames.put(schemaNameLower, Optional.of(schemaName));
+        }
+
+        // if someone is listing all of the schema names, throw them all into the cache as a refresh since we already spent the time pulling them from the DB
+        schemaMappingCache.putAll(mappedNames);
+        return schemaNames.build();
+    }
+
+    /**
+     * Pull the list of Table names from the RDBMS exactly as they are returned. Override if the RDBMS method to pull the tables is different. Each {@link String} array must have
+     * the table's original schema name as the first element, and the original table name as the second element.
+     *
+     * @param schema the schema to list the tables for, or NULL for all
+     * @return the schema + table names
+     */
+    protected List<String[]> getOriginalTablesWithSchema(Connection connection, String schema)
+    {
+        try (ResultSet resultSet = getTables(connection, schema, null)) {
+            ImmutableList.Builder<String[]> list = ImmutableList.builder();
+            String[] arr;
+            while (resultSet.next()) {
+                String schemaName = resultSet.getString("TABLE_SCHEM");
+                String tableName = resultSet.getString("TABLE_NAME");
+                arr = new String[] {schemaName, tableName};
+                list.add(arr);
+            }
+            return list.build();
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public List<SchemaTableName> getTableNames(@Nullable String schema)
     {
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers() && (schema != null)) {
-                schema = schema.toUpperCase(ENGLISH);
+
+            schema = finalizeSchemaName(metadata, schema);
+            Map<String, Map<String, String>> schemaMappedNames = new HashMap<>();
+            ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
+            for (String[] arr : getOriginalTablesWithSchema(connection, schema)) {
+                String schemaName = arr[0];
+                String tableName = arr[1];
+                String tableNameLower = tableName.toLowerCase(ENGLISH);
+                Map<String, String> mappedNames = schemaMappedNames.computeIfAbsent(schemaName, s -> new HashMap<>());
+                mappedNames.put(tableNameLower, tableName);
+                list.add(new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableNameLower));
             }
-            try (ResultSet resultSet = getTables(connection, schema, null)) {
-                ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
-                while (resultSet.next()) {
-                    list.add(getSchemaTableName(resultSet));
-                }
-                return list.build();
+            // if someone is listing all of the table names, throw them all into the cache as a refresh since we already spent the time pulling them from the DB
+            for (Map.Entry<String, Map<String, String>> entry : schemaMappedNames.entrySet()) {
+                updateTableMapping(entry.getKey(), entry.getValue());
             }
+            return list.build();
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -170,78 +270,116 @@ public class BaseJdbcClient
     }
 
     /**
-     * Looks up the table name given to map it to it's original, case-sensitive name in the database.
+     * Fill in the {@link LoadingCache} for the mapped table names for the schema provided
      *
-     * @param connection A valid connection in case the mapping needs to be loaded
-     * @param jdbcSchemaName The database schema name
-     * @param jdbcTableName The table name within the schema that is being used
-     * @return The mapped case-sensitive table name, if found, otherwise the original table name passed in
+     * @param jdbcSchema the original name of the schema as it exists in the JDBC server
+     * @param tableMappings mapping of lowercase to original table names
      */
-    private String getMappedTableName(Connection connection, String jdbcSchemaName, String jdbcTableName)
+    private void updateTableMapping(String jdbcSchema, Map<String, String> tableMappings)
     {
-        Map<String, String> tableMapping = schemaTableMapping.get(jdbcSchemaName);
-
-        // If the mapping doesn't exist or is empty, assume it hasn't been loaded so load it
-        if (tableMapping == null || tableMapping.isEmpty()) {
-            loadTableMap(connection, jdbcSchemaName);
-            tableMapping = schemaTableMapping.get(jdbcSchemaName);
+        LoadingCache<String, Optional<String>> tableNameMapping = getTableMapping(jdbcSchema);
+        Map<String, Optional<String>> tmp = new HashMap<>();
+        for (Map.Entry<String, String> entry : tableMappings.entrySet()) {
+            tmp.put(entry.getKey(), Optional.of(entry.getValue()));
         }
-        String tmpTableName = jdbcTableName.toLowerCase(ENGLISH);
-        // If this table isn't mapped assume it's a new table, need to reload the mapping
-        if (!tableMapping.containsKey(tmpTableName)) {
-            loadTableMap(connection, jdbcSchemaName);
-        }
-
-        tmpTableName = tableMapping.get(tmpTableName);
-        // If it is NULL at this point, we've hit a small race condition where another thread updated the Map and the table we are looking for was removed
-        // from the database and so no longer has a value or is in the Map. This is unlikely to have happened, but providing NULL protection here just in case.
-        if (tmpTableName != null) {
-            return tmpTableName;
-        }
-        return jdbcTableName;
+        tableNameMapping.putAll(tmp);
     }
 
     /**
-     * Loads the case-sensitive table mapping for the provided database schema name.
+     * Fetch the {@link LoadingCache} of table mapped names for the given schema name.
      *
-     * @param connection The connection to use
-     * @param jdbcSchemaName The schema on that connection to lookup all of the tables for to create the mapping
+     * @param jdbcSchema the original name of the schema as it exists in the JDBC server
+     * @return the {@link LoadingCache} which contains the table mapped names
      */
-    private void loadTableMap(Connection connection, String jdbcSchemaName)
+    private LoadingCache<String, Optional<String>> getTableMapping(String jdbcSchema)
     {
-        // Only have 1 thread at a time load the mapping in. This may result in having some queries not return anything or fail because they table
-        ReentrantLock lock = schemaTableMappingLock.get(jdbcSchemaName);
-        if (lock == null) {
-            schemaTableMappingLock.putIfAbsent(jdbcSchemaName, new ReentrantLock());
-            lock = schemaTableMappingLock.get(jdbcSchemaName);
-        }
+        return schemaTableMapping.computeIfAbsent(jdbcSchema, s ->
+                CacheBuilder.newBuilder().build(new CacheLoader<String, Optional<String>>()
+                {
+                    @Override
+                    public Optional<String> load(String key)
+                            throws Exception
+                    {
+                        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+                            DatabaseMetaData metadata = connection.getMetaData();
+                            String jdbcSchemaName = finalizeSchemaName(metadata, jdbcSchema);
 
-        if (lock.tryLock()) {
-            try {
-                Map<String, String> tmp = new HashMap<>();
-                try (ResultSet resultSet = getTables(connection, jdbcSchemaName, null)) {
-                    while (resultSet.next()) {
-                        String tableName = resultSet.getString("TABLE_NAME");
-                        tmp.put(tableName.toLowerCase(ENGLISH), tableName);
+                            for (String[] arr : getOriginalTablesWithSchema(connection, jdbcSchemaName)) {
+                                String tableName = arr[1];
+                                if (tableName.equals(key)) {
+                                    return Optional.of(tableName);
+                                }
+                                String tableNameLower = tableName.toLowerCase(ENGLISH);
+                                if (tableNameLower.equals(key)) {
+                                    return Optional.of(tableName);
+                                }
+                            }
+                        }
+                        catch (SQLException e) {
+                            throw new PrestoException(JDBC_ERROR, e);
+                        }
+                        return Optional.empty();
                     }
-                    schemaTableMapping.put(jdbcSchemaName, tmp);
-                }
-                catch (SQLException e) {
-                    throw new PrestoException(JDBC_ERROR, e);
-                }
-            }
-            finally {
-                lock.unlock();
-            }
+                }));
+    }
+
+    /**
+     * Looks up the table name given to map it to it's original, case-sensitive name in the database.
+     *
+     * @param jdbcSchema The database schema name
+     * @param tableName The table name within the schema that needs to be mapped to it's original, or NULL if it couldn't be found in the cache
+     * @return The mapped case-sensitive table name, if found, otherwise the original table name passed in
+     */
+    private String getMappedTableName(String jdbcSchema, String tableName)
+    {
+        LoadingCache<String, Optional<String>> tableNameMapping = getTableMapping(jdbcSchema);
+        Optional<String> value = tableNameMapping.getUnchecked(tableName);
+        if (value.isPresent()) {
+            return value.get();
+        }
+        // If we get back an Empty value, invalidate it now so that in the future we can try and load it up again into cache, and return NULL to signify we couldn't look it up
+        // At this point it is extremely likely we are trying to create the table, since it wasn't initially present and couldn't be found currently.
+        tableNameMapping.invalidate(jdbcSchema);
+        return null;
+    }
+
+    protected String finalizeSchemaName(DatabaseMetaData metadata, String schemaName)
+            throws SQLException
+    {
+        if (schemaName == null) {
+            return null;
+        }
+        if (metadata.storesUpperCaseIdentifiers()) {
+            return schemaName.toUpperCase(ENGLISH);
         }
         else {
-            // if we can't acquire the lock for this schema, wait until we can which means the thread that is loading the schema table mapping has completed
-            try {
-                lock.lock();
+            Optional<String> value = schemaMappingCache.getUnchecked(schemaName);
+            if (value.isPresent()) {
+                return value.get();
             }
-            finally {
-                lock.unlock();
+            // If we get back an Empty value, invalidate it now so that in the future we can try and load it up again into cache, and return the value we were given
+            // At this point it is extremely likely we are trying to create the schema, since it wasn't initially present and couldn't be found currently.
+            schemaMappingCache.invalidate(schemaName);
+            return schemaName;
+        }
+    }
+
+    protected String finalizeTableName(DatabaseMetaData metadata, String schemaName, String tableName)
+            throws SQLException
+    {
+        if (schemaName == null || tableName == null) {
+            return null;
+        }
+        if (metadata.storesUpperCaseIdentifiers()) {
+            return tableName.toUpperCase(ENGLISH);
+        }
+        else {
+            String value = getMappedTableName(schemaName, tableName);
+            if (value == null) {
+                return tableName;
             }
+            // if we couldn't look up the table in the mapping cache, return the value we were given
+            return value;
         }
     }
 
@@ -251,15 +389,14 @@ public class BaseJdbcClient
     {
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            String jdbcSchemaName = schemaTableName.getSchemaName();
-            String jdbcTableName = schemaTableName.getTableName();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                jdbcSchemaName = jdbcSchemaName.toUpperCase(ENGLISH);
-                jdbcTableName = jdbcTableName.toUpperCase(ENGLISH);
+
+            String jdbcSchemaName = finalizeSchemaName(metadata, schemaTableName.getSchemaName());
+            String jdbcTableName = finalizeTableName(metadata, jdbcSchemaName, schemaTableName.getTableName());
+
+            if (jdbcTableName == null) {
+                return null;
             }
-            else if (mapTableNames) {
-                jdbcTableName = getMappedTableName(connection, jdbcSchemaName, jdbcTableName);
-            }
+
             try (ResultSet resultSet = getTables(connection, jdbcSchemaName, jdbcTableName)) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
@@ -381,11 +518,12 @@ public class BaseJdbcClient
         }
 
         try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            if (uppercase) {
-                schema = schema.toUpperCase(ENGLISH);
-                table = table.toUpperCase(ENGLISH);
-            }
+            DatabaseMetaData metadata = connection.getMetaData();
+            boolean uppercase = metadata.storesUpperCaseIdentifiers();
+
+            schema = finalizeSchemaName(metadata, schemaTableName.getSchemaName());
+            table = finalizeTableName(metadata, table, schemaTableName.getTableName());
+
             String catalog = connection.getCatalog();
 
             String temporaryName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
@@ -531,14 +669,6 @@ public class BaseJdbcClient
                 escapeNamePattern(schemaName, escape),
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE", "VIEW"});
-    }
-
-    protected SchemaTableName getSchemaTableName(ResultSet resultSet)
-            throws SQLException
-    {
-        return new SchemaTableName(
-                resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH),
-                resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
     }
 
     protected void execute(Connection connection, String query)

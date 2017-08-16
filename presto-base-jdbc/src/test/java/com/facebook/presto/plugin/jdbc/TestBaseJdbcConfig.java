@@ -27,7 +27,8 @@ public class TestBaseJdbcConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
                 .setConnectionUser(null)
-                .setConnectionPassword(null).setMapLowercaseTableNames(false));
+                .setConnectionPassword(null)
+                .setPreloadSchemaTableMapping(true));
     }
 
     @Test
@@ -37,14 +38,14 @@ public class TestBaseJdbcConfig
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("connection-user", "user")
                 .put("connection-password", "password")
-                .put("connection-map-tables", "true")
+                .put("connection-load-table-mappings", "false")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setConnectionUser("user")
                 .setConnectionPassword("password")
-                .setMapLowercaseTableNames(true);
+                .setPreloadSchemaTableMapping(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
