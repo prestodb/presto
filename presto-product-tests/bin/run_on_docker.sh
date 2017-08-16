@@ -209,7 +209,7 @@ trap terminate INT TERM EXIT
 if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
   EXTERNAL_SERVICES="hadoop-master sqlserver"
 elif [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
-  EXTERNAL_SERVICES="hadoop-master ldapserver cassandra"
+  EXTERNAL_SERVICES="hadoop-master ldapserver"
 else
   EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
 fi
