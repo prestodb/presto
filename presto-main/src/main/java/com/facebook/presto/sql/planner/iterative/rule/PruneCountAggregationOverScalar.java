@@ -17,7 +17,10 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.GroupTraitSet;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityGroupTrait;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -28,7 +31,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.iterative.GroupTrait.Type.CARDINALITY;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -67,5 +70,12 @@ public class PruneCountAggregationOverScalar
             return Optional.of(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
         }
         return Optional.empty();
+    }
+
+    private boolean isScalar(PlanNode planNode, Lookup lookup)
+    {
+        GroupTraitSet groupTraitSet = lookup.resolveGroupTraitSet(planNode);
+        CardinalityGroupTrait cardinalityGroupTrait = (CardinalityGroupTrait) groupTraitSet.getTrait(CARDINALITY);
+        return cardinalityGroupTrait.isScalar();
     }
 }

@@ -14,13 +14,15 @@
 
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityGroupTraitCalculator;
+
 import static java.util.Objects.requireNonNull;
 
 public interface GroupTrait
 {
     enum Type
     {
-        ;
+        CARDINALITY(new CardinalityGroupTraitCalculator());
 
         private final GroupTraitCalculator traitCalculator;
 
