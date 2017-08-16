@@ -15,14 +15,16 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.iterative.GroupTraitSet;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityGroupTrait;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.iterative.GroupTrait.Type.CARDINALITY;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 import static java.util.Optional.empty;
 
@@ -54,8 +56,15 @@ public class RemoveUnreferencedScalarLateralNodes
         return empty();
     }
 
-    private boolean isUnreferencedScalar(PlanNode input, Lookup lookup)
+    private boolean isUnreferencedScalar(PlanNode planNode, Lookup lookup)
     {
-        return input.getOutputSymbols().isEmpty() && isScalar(input, lookup);
+        return planNode.getOutputSymbols().isEmpty() && isScalar(planNode, lookup);
+    }
+
+    private boolean isScalar(PlanNode planNode, Lookup lookup)
+    {
+        GroupTraitSet groupTraitSet = lookup.resolveGroupTraitSet(planNode);
+        CardinalityGroupTrait cardinalityGroupTrait = (CardinalityGroupTrait) groupTraitSet.getTrait(CARDINALITY);
+        return cardinalityGroupTrait.isScalar();
     }
 }

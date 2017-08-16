@@ -16,8 +16,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.sql.planner.iterative.GroupTraitSet;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityGroupTrait;
 import com.facebook.presto.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -28,8 +30,8 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.nonEmpty;
+import static com.facebook.presto.sql.planner.iterative.GroupTrait.Type.CARDINALITY;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
@@ -85,7 +87,7 @@ public class TransformCorrelatedScalarAggregationToJoin
     @Override
     public Optional<PlanNode> apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
-        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
+        PlanNode subquery = lateralJoinNode.getSubquery();
 
         if (!isScalar(subquery, context.getLookup())) {
             return Optional.empty();
@@ -113,5 +115,12 @@ public class TransformCorrelatedScalarAggregationToJoin
                 .where(AggregationNode.class::isInstance)
                 .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
                 .findFirst();
+    }
+
+    private boolean isScalar(PlanNode planNode, Lookup lookup)
+    {
+        GroupTraitSet groupTraitSet = lookup.resolveGroupTraitSet(planNode);
+        CardinalityGroupTrait cardinalityGroupTrait = (CardinalityGroupTrait) groupTraitSet.getTrait(CARDINALITY);
+        return cardinalityGroupTrait.isScalar();
     }
 }

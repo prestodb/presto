@@ -17,7 +17,6 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -35,7 +34,10 @@ public interface Lookup
     @Deprecated
     default PlanNode resolve(PlanNode node)
     {
-        return getOnlyElement(resolveGroup(node));
+        if (node instanceof GroupReference) {
+            return getOnlyElement(resolveGroup(node));
+        }
+        return node;
     }
 
     /**
@@ -47,26 +49,28 @@ public interface Lookup
      */
     List<PlanNode> resolveGroup(PlanNode node);
 
+    GroupTraitSet resolveGroupTraitSet(PlanNode node);
+
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
      * by rejecting {@link GroupReference}-s.
      */
     static Lookup noLookup()
     {
-        return node -> {
-            verify(!(node instanceof GroupReference), "Unexpected GroupReference");
-            return ImmutableList.of(node);
-        };
-    }
-
-    static Lookup from(Function<GroupReference, List<PlanNode>> resolver)
-    {
-        return node -> {
-            if (node instanceof GroupReference) {
-                return resolver.apply((GroupReference) node);
+        return new Lookup()
+        {
+            @Override
+            public List<PlanNode> resolveGroup(PlanNode node)
+            {
+                verify(!(node instanceof GroupReference), "Unexpected GroupReference");
+                return ImmutableList.of(node);
             }
 
-            return ImmutableList.of(node);
+            @Override
+            public GroupTraitSet resolveGroupTraitSet(PlanNode node)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 }

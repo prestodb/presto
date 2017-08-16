@@ -16,16 +16,20 @@ package com.facebook.presto.sql.planner.iterative;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Stores a plan in a form that's efficient to mutate locally (i.e. without
@@ -60,6 +64,7 @@ public class Memo
 
     private final Map<Integer, PlanNode> membership = new HashMap<>();
     private final Map<Integer, Integer> referenceCounts = new HashMap<>();
+    private final Map<Integer, GroupTraitSet> groupTraits = new HashMap<>();
 
     private int nextGroupId;
 
@@ -93,7 +98,27 @@ public class Memo
 
     private PlanNode extract(PlanNode node)
     {
-        return resolveGroupReferences(node, Lookup.from(planNode -> ImmutableList.of(this.resolve(planNode))));
+        return resolveGroupReferences(node, getLookup());
+    }
+
+    public Lookup getLookup()
+    {
+        return new Lookup()
+        {
+            @Override
+            public List<PlanNode> resolveGroup(PlanNode node)
+            {
+                checkArgument(node instanceof GroupReference, "node is not a group reference");
+                return ImmutableList.of(membership.get(((GroupReference) node).getGroupId()));
+            }
+
+            @Override
+            public GroupTraitSet resolveGroupTraitSet(PlanNode node)
+            {
+                checkArgument(node instanceof GroupReference, "node is not a group reference");
+                return groupTraits.get(((GroupReference) node).getGroupId());
+            }
+        };
     }
 
     public PlanNode replace(int group, PlanNode node, String reason)
@@ -156,6 +181,7 @@ public class Memo
     private void deleteGroup(int group)
     {
         membership.remove(group);
+        groupTraits.remove(group);
         referenceCounts.remove(group);
     }
 
@@ -167,7 +193,7 @@ public class Memo
                                 idAllocator.getNextId(),
                                 insertRecursive(child),
                                 child.getOutputSymbols()))
-                        .collect(Collectors.toList()));
+                        .collect(toList()));
     }
 
     private int insertRecursive(PlanNode node)
@@ -181,9 +207,35 @@ public class Memo
 
         membership.put(group, rewritten);
         referenceCounts.put(group, 0);
+        groupTraits.put(group, calculateGroupTraitSet(rewritten));
+
         incrementReferenceCounts(rewritten);
 
         return group;
+    }
+
+    private GroupTraitSet calculateGroupTraitSet(PlanNode node)
+    {
+        List<GroupTraitSet> sourceTraitSets = node.getSources().stream()
+                .map(GroupReference.class::cast)
+                .map(groupReference -> groupTraits.get(groupReference.getGroupId()))
+                .collect(toList());
+
+        ImmutableMap<GroupTrait.Type, GroupTrait> groupTraits = Stream.of(GroupTrait.Type.values())
+                .collect(ImmutableMap.toImmutableMap(type -> type, type -> calculateGroupTrait(node, type, sourceTraitSets)));
+
+        return new GroupTraitSet(groupTraits);
+    }
+
+    private GroupTrait calculateGroupTrait(PlanNode node, GroupTrait.Type type, List<GroupTraitSet> sourceTraitSets)
+    {
+        GroupTraitCalculator calculator = type.getCalculator();
+
+        List<GroupTrait> sourceGroupTraits = sourceTraitSets.stream()
+                .map(sourceTraitSet -> sourceTraitSet.getTrait(type))
+                .collect(toList());
+
+        return calculator.calculate(node, sourceGroupTraits);
     }
 
     private int nextGroupId()
