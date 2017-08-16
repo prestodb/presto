@@ -85,7 +85,7 @@ public class TransformCorrelatedScalarAggregationToJoin
     @Override
     public Optional<PlanNode> apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
-        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
+        PlanNode subquery = lateralJoinNode.getSubquery();
 
         if (!isScalar(subquery, context.getLookup())) {
             return Optional.empty();
