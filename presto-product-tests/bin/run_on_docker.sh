@@ -208,13 +208,10 @@ fi
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-# start external services
-# Tempto fails if cassandra is not running. It will
-# be removed from the list of EXTERNAL_SERVICES for
-# singlenode-sqlserver once we resolve
-# https://github.com/prestodb/tempto/issues/190
 if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
-  EXTERNAL_SERVICES="hadoop-master cassandra sqlserver"
+  EXTERNAL_SERVICES="hadoop-master sqlserver"
+elif [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
+  EXTERNAL_SERVICES="hadoop-master ldapserver"
 else
   EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
 fi
@@ -222,11 +219,6 @@ environment_compose up -d ${EXTERNAL_SERVICES}
 
 # start docker logs for the external services
 environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
-
-# start ldap container
-if [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
-  environment_compose up -d ldapserver
-fi
 
 HADOOP_LOGS_PID=$!
 
