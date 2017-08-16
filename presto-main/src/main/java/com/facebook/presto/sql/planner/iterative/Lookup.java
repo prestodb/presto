@@ -35,7 +35,10 @@ public interface Lookup
     @Deprecated
     default PlanNode resolve(PlanNode node)
     {
-        return getOnlyElement(resolveGroup(node));
+        if (node instanceof GroupReference) {
+            return getOnlyElement(resolveGroup(node));
+        }
+        return node;
     }
 
     /**
