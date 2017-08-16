@@ -227,11 +227,7 @@ public class JoinStatsRule
         SymbolStatsEstimate leftColumnStats = leftStats.getSymbolStatistics(drivingClause.getLeft());
         SymbolStatsEstimate rightColumnStats = rightStats.getSymbolStatistics(drivingClause.getRight());
 
-        StatisticRange rightRange = StatisticRange.from(rightColumnStats);
-        StatisticRange antiRange = StatisticRange.from(leftColumnStats)
-                .subtract(rightRange);
-
-        // TODO: use NDVs from left and right StatisticRange when they are fixed
+        // TODO: use range methods when they have defined (and consistent) semantics
         double leftNDV = leftColumnStats.getDistinctValuesCount();
         double rightNDV = rightColumnStats.getDistinctValuesCount();
 
@@ -241,8 +237,8 @@ public class JoinStatsRule
             double newLeftNullsFraction = leftColumnStats.getNullsFraction() / scaleFactor;
             result = result.mapSymbolColumnStatistics(drivingClause.getLeft(), columnStats ->
                     SymbolStatsEstimate.buildFrom(columnStats)
-                            .setLowValue(antiRange.getLow())
-                            .setHighValue(antiRange.getHigh())
+                            .setLowValue(leftColumnStats.getLowValue())
+                            .setHighValue(leftColumnStats.getHighValue())
                             .setNullsFraction(newLeftNullsFraction)
                             .setDistinctValuesCount(leftNDV - rightNDV)
                             .build());

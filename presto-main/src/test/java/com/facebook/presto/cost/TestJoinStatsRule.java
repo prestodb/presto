@@ -191,7 +191,7 @@ public class TestJoinStatsRule
     public void testStatsForLeftAntiJoin()
     {
         PlanNodeStatsEstimate antiJoinStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 5.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
+                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS);
 
         assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
@@ -226,7 +226,7 @@ public class TestJoinStatsRule
     public void testStatsForLeftAntiJoinWithMultipleClauses()
     {
         PlanNodeStatsEstimate antiJoinStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 5.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
+                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS).mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
 
         assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
