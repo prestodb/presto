@@ -32,8 +32,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -61,14 +61,14 @@ public class TestPageProcessorCompiler
     private MetadataManager metadataManager;
     private ExpressionCompiler compiler;
 
-    @BeforeMethod
+    @BeforeClass
     public void setup()
     {
         metadataManager = createTestMetadataManager();
         compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         metadataManager = null;
