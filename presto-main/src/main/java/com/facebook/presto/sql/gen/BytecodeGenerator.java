@@ -13,14 +13,39 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 
 import java.util.List;
+import java.util.Optional;
 
-public interface BytecodeGenerator
+import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
+
+public abstract class BytecodeGenerator
 {
-    BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments);
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
+    {
+        if (!outputBlock.isPresent()) {
+            return generateExpression(signature, context, returnType, arguments);
+        }
+        else {
+            return new BytecodeBlock()
+                    .append(generateExpression(signature, context, returnType, arguments))
+                    .append(generateWrite(
+                            context.getCallSiteBinder(),
+                            context.getScope(),
+                            context.getScope().getVariable("wasNull"),
+                            returnType,
+                            outputBlock.get()));
+        }
+    }
+
+    protected BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

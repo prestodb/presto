@@ -28,10 +28,9 @@ import java.util.Optional;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 
 public class IfCodeGenerator
-        implements BytecodeGenerator
+        extends BytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    protected BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkArgument(arguments.size() == 3);
 

@@ -29,10 +29,10 @@ import java.util.Optional;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 
 public class OrCodeGenerator
-        implements BytecodeGenerator
+        extends BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    protected BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkArgument(arguments.size() == 2);
 

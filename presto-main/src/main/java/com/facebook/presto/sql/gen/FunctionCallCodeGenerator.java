@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
@@ -25,10 +26,10 @@ import java.util.List;
 import java.util.Optional;
 
 public class FunctionCallCodeGenerator
-        implements BytecodeGenerator
+        extends BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlock)
     {
         FunctionRegistry registry = context.getRegistry();
 
@@ -40,6 +41,6 @@ public class FunctionCallCodeGenerator
             argumentsBytecode.add(context.generate(argument, Optional.empty(), function.getLambdaInterface().get(i)));
         }
 
-        return context.generateCall(signature.getName(), function, argumentsBytecode);
+        return context.generateCall(signature.getName(), function, argumentsBytecode, outputBlock, Optional.of(returnType));
     }
 }

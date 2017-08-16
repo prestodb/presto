@@ -57,7 +57,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.invoke.MethodType.methodType;
 
 public class TryCodeGenerator
-        implements BytecodeGenerator
+        extends BytecodeGenerator
 {
     private static final String EXCEPTION_HANDLER_NAME = "tryExpressionExceptionHandler";
     private static final MethodHandle EXCEPTION_HANDLER = methodHandle(TryCodeGenerator.class, EXCEPTION_HANDLER_NAME, PrestoException.class);
@@ -70,7 +70,7 @@ public class TryCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    protected BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
         checkArgument(arguments.size() == 1, "try methods only contain a single expression");
         checkArgument(getOnlyElement(arguments) instanceof CallExpression, "try methods must contain a call expression");

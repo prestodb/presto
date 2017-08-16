@@ -29,10 +29,10 @@ import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public class IsNullCodeGenerator
-        implements BytecodeGenerator
+        extends BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    protected BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkArgument(arguments.size() == 1);
 

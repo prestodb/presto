@@ -27,7 +27,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkState;
 
 public class BindCodeGenerator
-        implements BytecodeGenerator
+        extends BytecodeGenerator
 {
     private Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
     private Class lambdaInterface;
@@ -39,7 +39,7 @@ public class BindCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    protected BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
         // Bind expression is used to generate captured lambda.
         // It takes the captured values and the uncaptured lambda, and produces captured lambda as the output.

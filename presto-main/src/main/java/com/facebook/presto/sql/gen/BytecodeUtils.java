@@ -157,8 +157,38 @@ public final class BytecodeUtils
                 binding.getType().returnType());
     }
 
-    public static BytecodeNode generateInvocation(Scope scope, String name, ScalarFunctionImplementation function, Optional<BytecodeNode> instance, List<BytecodeNode> arguments, Binding binding)
+    public static BytecodeNode generateInvocation(
+            CallSiteBinder binder,
+            Scope scope,
+            String name,
+            ScalarFunctionImplementation function,
+            Optional<BytecodeNode> instance,
+            List<BytecodeNode> arguments)
     {
+        return generateInvocation(
+                binder,
+                scope,
+                name,
+                function,
+                instance,
+                arguments,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public static BytecodeNode generateInvocation(
+            CallSiteBinder binder,
+            Scope scope,
+            String name,
+            ScalarFunctionImplementation function,
+            Optional<BytecodeNode> instance,
+            List<BytecodeNode> arguments,
+            Optional<Variable> outputBlock,
+            Optional<Type> outputType)
+    {
+        checkArgument((!outputBlock.isPresent()) || outputType.isPresent(), "outputType must present if outputBlock is present");
+
+        Binding binding = binder.bind(function.getMethodHandle());
         MethodType methodType = binding.getType();
 
         Class<?> returnType = methodType.returnType();
@@ -222,6 +252,9 @@ public final class BytecodeUtils
         }
         block.visitLabel(end);
 
+        if (outputBlock.isPresent()) {
+            block.append(generateWrite(binder, scope, scope.getVariable("wasNull"), outputType.get(), outputBlock.get()));
+        }
         return block;
     }
 
@@ -310,10 +343,16 @@ public final class BytecodeUtils
         return invoke(binding, signature.getName());
     }
 
-    public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)
+    public static BytecodeNode generateWrite(
+            CallSiteBinder callSiteBinder,
+            Scope scope,
+            Variable wasNullVariable,
+            Type type,
+            Variable outputBlock)
     {
         if (type.getJavaType() == void.class) {
             return new BytecodeBlock().comment("output.appendNull();")
+                    .append(outputBlock)
                     .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .pop();
         }
@@ -324,15 +363,8 @@ public final class BytecodeUtils
         }
         String methodName = "write" + Primitives.wrap(valueJavaType).getSimpleName();
 
-        // the stack contains [output, value]
-
-        // We should be able to insert the code to get the output variable and compute the value
-        // at the right place instead of assuming they are in the stack. We should also not need to
-        // use temp variables to re-shuffle the stack to the right shape before Type.writeXXX is called
-        // Unfortunately, because of the assumptions made by try_cast, we can't get around it yet.
-        // TODO: clean up once try_cast is fixed
+        // the value to be written is at the top of stack
         Variable tempValue = scope.createTempVariable(valueJavaType);
-        Variable tempOutput = scope.createTempVariable(BlockBuilder.class);
         return new BytecodeBlock()
                 .comment("if (wasNull)")
                 .append(new IfStatement()
@@ -340,14 +372,14 @@ public final class BytecodeUtils
                         .ifTrue(new BytecodeBlock()
                                 .comment("output.appendNull();")
                                 .pop(valueJavaType)
+                                .getVariable(outputBlock)
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
                         .ifFalse(new BytecodeBlock()
                                 .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, valueJavaType.getSimpleName())
                                 .putVariable(tempValue)
-                                .putVariable(tempOutput)
                                 .append(loadConstant(callSiteBinder.bind(type, Type.class)))
-                                .getVariable(tempOutput)
+                                .getVariable(outputBlock)
                                 .getVariable(tempValue)
                                 .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
     }
