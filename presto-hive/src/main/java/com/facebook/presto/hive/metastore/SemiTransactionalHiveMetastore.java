@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -291,7 +292,8 @@ public class SemiTransactionalHiveMetastore
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty());
         if (oldTableAction == null) {
-            tableActions.put(schemaTableName, new Action<>(ActionType.ADD, tableAndMore, session.getUser(), session.getQueryId()));
+            HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+            tableActions.put(schemaTableName, new Action<>(ActionType.ADD, tableAndMore, context));
             return;
         }
         switch (oldTableAction.getType()) {
@@ -314,7 +316,8 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null || oldTableAction.getType() == ActionType.ALTER) {
-            tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, session.getUser(), session.getQueryId()));
+            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, context));
             return;
         }
         switch (oldTableAction.getType()) {
@@ -366,11 +369,12 @@ public class SemiTransactionalHiveMetastore
             if (!table.isPresent()) {
                 throw new TableNotFoundException(schemaTableName);
             }
+            HdfsContext context = new HdfsContext(session, databaseName, tableName);
             tableActions.put(
                     schemaTableName,
                     new Action<>(
                             ActionType.INSERT_EXISTING,
-                            new TableAndMore(table.get(), Optional.empty(), Optional.of(currentLocation), Optional.of(fileNames)), session.getUser(), session.getQueryId()));
+                            new TableAndMore(table.get(), Optional.empty(), Optional.of(currentLocation), Optional.of(fileNames)), context));
             return;
         }
 
@@ -402,9 +406,9 @@ public class SemiTransactionalHiveMetastore
         }
 
         Path path = new Path(table.get().getStorage().getLocation());
-        String user = session.getUser();
+        HdfsContext context = new HdfsContext(session, databaseName, tableName);
         setExclusive((delegate, hdfsEnvironment) -> {
-            RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, user, path, ImmutableList.of(""), false);
+            RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableList.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
                 throw new PrestoException(HIVE_FILESYSTEM_ERROR, format(
                         "Error deleting from unpartitioned table %s. These items can not be deleted: %s",
@@ -581,20 +585,21 @@ public class SemiTransactionalHiveMetastore
         checkArgument(getPrestoQueryId(partition).isPresent());
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partition.getValues());
+        HdfsContext context = new HdfsContext(session, databaseName, tableName);
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
-                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, Optional.empty()), session.getUser(), session.getQueryId()));
+                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, Optional.empty()), context));
             return;
         }
         switch (oldPartitionAction.getType()) {
             case DROP: {
-                if (!oldPartitionAction.getUser().equals(session.getUser())) {
+                if (!oldPartitionAction.getContext().getIdentity().getUser().equals(session.getUser())) {
                     throw new PrestoException(TRANSACTION_CONFLICT, "Operation on the same partition with different user in the same transaction is not supported");
                 }
                 partitionActionsOfTable.put(
                         partition.getValues(),
-                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, Optional.empty()), session.getUser(), session.getQueryId()));
+                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, Optional.empty()), context));
                 break;
             }
             case ADD:
@@ -612,7 +617,8 @@ public class SemiTransactionalHiveMetastore
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
         if (oldPartitionAction == null) {
-            partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, session.getUser(), session.getQueryId()));
+            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, context));
             return;
         }
         switch (oldPartitionAction.getType()) {
@@ -640,9 +646,10 @@ public class SemiTransactionalHiveMetastore
             if (!partition.isPresent()) {
                 throw new PartitionNotFoundException(schemaTableName, partitionValues);
             }
+            HdfsContext context = new HdfsContext(session, databaseName, tableName);
             partitionActionsOfTable.put(
                     partitionValues,
-                    new Action<>(ActionType.INSERT_EXISTING, new PartitionAndMore(partition.get(), currentLocation, Optional.of(fileNames)), session.getUser(), session.getQueryId()));
+                    new Action<>(ActionType.INSERT_EXISTING, new PartitionAndMore(partition.get(), currentLocation, Optional.of(fileNames)), context));
             return;
         }
 
@@ -718,7 +725,8 @@ public class SemiTransactionalHiveMetastore
                 throw new PrestoException(NOT_SUPPORTED, "Can not insert into a table with a partition that has been modified in the same transaction when Presto is configured to skip temporary directories.");
             }
         }
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, session.getUser(), stagingPathRoot, filePrefix, schemaTableName));
+        HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, filePrefix, schemaTableName));
     }
 
     public synchronized void commit()
@@ -784,10 +792,10 @@ public class SemiTransactionalHiveMetastore
                         committer.prepareAlterTable();
                         break;
                     case ADD:
-                        committer.prepareAddTable(action.getUser(), action.getData());
+                        committer.prepareAddTable(action.getContext(), action.getData());
                         break;
                     case INSERT_EXISTING:
-                        committer.prepareInsertExistingTable(action.getUser(), action.getData());
+                        committer.prepareInsertExistingTable(action.getContext(), action.getData());
                         break;
                     default:
                         throw new IllegalStateException("Unknown action type");
@@ -803,13 +811,13 @@ public class SemiTransactionalHiveMetastore
                             committer.prepareDropPartition(schemaTableName, partitionValues);
                             break;
                         case ALTER:
-                            committer.prepareAlterPartition(action.getQueryId(), action.getUser(), action.getData());
+                            committer.prepareAlterPartition(action.getContext(), action.getData());
                             break;
                         case ADD:
-                            committer.prepareAddPartition(action.getUser(), action.getData());
+                            committer.prepareAddPartition(action.getContext(), action.getData());
                             break;
                         case INSERT_EXISTING:
-                            committer.prepareInsertExistingPartition(action.getUser(), action.getData());
+                            committer.prepareInsertExistingPartition(action.getContext(), action.getData());
                             break;
                         default:
                             throw new IllegalStateException("Unknown action type");
@@ -909,7 +917,7 @@ public class SemiTransactionalHiveMetastore
             throw new UnsupportedOperationException("Dropping and then creating a table with the same name is not supported");
         }
 
-        private void prepareAddTable(String user, TableAndMore tableAndMore)
+        private void prepareAddTable(HdfsContext context, TableAndMore tableAndMore)
         {
             Table table = tableAndMore.getTable();
             if (table.getTableType().equals(MANAGED_TABLE.name())) {
@@ -924,17 +932,17 @@ public class SemiTransactionalHiveMetastore
                     }
                     else {
                         renameDirectory(
-                                user,
+                                context,
                                 hdfsEnvironment,
                                 currentPath.get(),
                                 targetPath,
-                                () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(user, targetPath, true)));
+                                () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
                     }
                 }
                 else {
                     // CREATE TABLE AS SELECT partitioned table, or
                     // CREATE TABLE partitioned/unpartitioned table (without data)
-                    if (pathExists(user, hdfsEnvironment, targetPath)) {
+                    if (pathExists(context, hdfsEnvironment, targetPath)) {
                         if (currentPath.isPresent() && currentPath.get().equals(targetPath)) {
                             // It is okay to skip directory creation when currentPath is equal to targetPath
                             // because the directory may have been created when creating partition directories.
@@ -948,8 +956,8 @@ public class SemiTransactionalHiveMetastore
                         }
                     }
                     else {
-                        cleanUpTasksForAbort.add(new DirectoryCleanUpTask(user, targetPath, true));
-                        createDirectory(user, hdfsEnvironment, targetPath);
+                        cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true));
+                        createDirectory(context, hdfsEnvironment, targetPath);
                     }
                 }
             }
@@ -957,14 +965,14 @@ public class SemiTransactionalHiveMetastore
             addTableOperations.add(new CreateTableOperation(table, tableAndMore.getPrincipalPrivileges()));
         }
 
-        private void prepareInsertExistingTable(String user, TableAndMore tableAndMore)
+        private void prepareInsertExistingTable(HdfsContext context, TableAndMore tableAndMore)
         {
             Table table = tableAndMore.getTable();
             Path targetPath = new Path(table.getStorage().getLocation());
             Path currentPath = tableAndMore.getCurrentLocation().get();
-            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(user, targetPath, false));
+            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, false));
             if (!targetPath.equals(currentPath)) {
-                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, user, currentPath, targetPath, tableAndMore.getFileNames().get());
+                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
             }
         }
 
@@ -975,7 +983,7 @@ public class SemiTransactionalHiveMetastore
                     () -> delegate.dropPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, true)));
         }
 
-        private void prepareAlterPartition(String queryId, String user, PartitionAndMore partitionAndMore)
+        private void prepareAlterPartition(HdfsContext context, PartitionAndMore partitionAndMore)
         {
             Partition partition = partitionAndMore.getPartition();
             String targetLocation = partition.getStorage().getLocation();
@@ -996,20 +1004,20 @@ public class SemiTransactionalHiveMetastore
             // Otherwise,
             // * Remember we will need to delete the location of the old partition at the end if transaction successfully commits
             if (targetLocation.equals(oldPartitionLocation)) {
-                Path oldPartitionStagingPath = new Path(oldPartitionPath.getParent(), "_temp_" + oldPartitionPath.getName() + "_" + queryId);
+                Path oldPartitionStagingPath = new Path(oldPartitionPath.getParent(), "_temp_" + oldPartitionPath.getName() + "_" + context.getQueryId());
                 renameDirectory(
-                        user,
+                        context,
                         hdfsEnvironment,
                         oldPartitionPath,
                         oldPartitionStagingPath,
-                        () -> renameTasksForAbort.add(new DirectoryRenameTask(user, oldPartitionStagingPath, oldPartitionPath)));
+                        () -> renameTasksForAbort.add(new DirectoryRenameTask(context, oldPartitionStagingPath, oldPartitionPath)));
                 if (!skipDeletionForAlter) {
-                    deletionTasksForFinish.add(new DirectoryDeletionTask(user, oldPartitionStagingPath));
+                    deletionTasksForFinish.add(new DirectoryDeletionTask(context, oldPartitionStagingPath));
                 }
             }
             else {
                 if (!skipDeletionForAlter) {
-                    deletionTasksForFinish.add(new DirectoryDeletionTask(user, oldPartitionPath));
+                    deletionTasksForFinish.add(new DirectoryDeletionTask(context, oldPartitionPath));
                 }
             }
 
@@ -1017,18 +1025,18 @@ public class SemiTransactionalHiveMetastore
             Path targetPath = new Path(targetLocation);
             if (!targetPath.equals(currentPath)) {
                 renameDirectory(
-                        user,
+                        context,
                         hdfsEnvironment,
                         currentPath,
                         targetPath,
-                        () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(user, targetPath, true)));
+                        () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
             }
             // Partition alter must happen regardless of whether original and current location is the same
             // because metadata might change: e.g. storage format, column types, etc
             alterPartitionOperations.add(new AlterPartitionOperation(partition, oldPartition.get()));
         }
 
-        private void prepareAddPartition(String user, PartitionAndMore partitionAndMore)
+        private void prepareAddPartition(HdfsContext context, PartitionAndMore partitionAndMore)
         {
             Partition partition = partitionAndMore.getPartition();
             String targetLocation = partition.getStorage().getLocation();
@@ -1042,37 +1050,37 @@ public class SemiTransactionalHiveMetastore
 
             if (!targetPath.equals(currentPath)) {
                 renameDirectory(
-                        user,
+                        context,
                         hdfsEnvironment,
                         currentPath,
                         targetPath,
-                        () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(user, targetPath, true)));
+                        () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
             }
             partitionAdder.addPartition(partition);
         }
 
-        private void prepareInsertExistingPartition(String user, PartitionAndMore partitionAndMore)
+        private void prepareInsertExistingPartition(HdfsContext context, PartitionAndMore partitionAndMore)
         {
             Partition partition = partitionAndMore.getPartition();
             Path targetPath = new Path(partition.getStorage().getLocation());
             Path currentPath = partitionAndMore.getCurrentLocation();
-            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(user, targetPath, false));
+            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, false));
             if (!targetPath.equals(currentPath)) {
-                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, user, currentPath, targetPath, partitionAndMore.getFileNames());
+                asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, partitionAndMore.getFileNames());
             }
         }
 
         private void executeCleanupTasksForAbort(List<String> filePrefixes)
         {
             for (DirectoryCleanUpTask cleanUpTask : cleanUpTasksForAbort) {
-                recursiveDeleteFilesAndLog(cleanUpTask.getUser(), cleanUpTask.getPath(), filePrefixes, cleanUpTask.isDeleteEmptyDirectory(), "temporary directory commit abort");
+                recursiveDeleteFilesAndLog(cleanUpTask.getContext(), cleanUpTask.getPath(), filePrefixes, cleanUpTask.isDeleteEmptyDirectory(), "temporary directory commit abort");
             }
         }
 
         private void executeDeletionTasksForFinish()
         {
             for (DirectoryDeletionTask deletionTask : deletionTasksForFinish) {
-                if (!deleteRecursivelyIfExists(deletionTask.getUser(), hdfsEnvironment, deletionTask.getPath())) {
+                if (!deleteRecursivelyIfExists(deletionTask.getContext(), hdfsEnvironment, deletionTask.getPath())) {
                     logCleanupFailure("Error deleting directory %s", deletionTask.getPath().toString());
                 }
             }
@@ -1084,8 +1092,8 @@ public class SemiTransactionalHiveMetastore
                 try {
                     // Ignore the task if the source directory doesn't exist.
                     // This is probably because the original rename that we are trying to undo here never succeeded.
-                    if (pathExists(directoryRenameTask.getUser(), hdfsEnvironment, directoryRenameTask.getRenameFrom())) {
-                        renameDirectory(directoryRenameTask.getUser(), hdfsEnvironment, directoryRenameTask.getRenameFrom(), directoryRenameTask.getRenameTo(), () -> { });
+                    if (pathExists(directoryRenameTask.getContext(), hdfsEnvironment, directoryRenameTask.getRenameFrom())) {
+                        renameDirectory(directoryRenameTask.getContext(), hdfsEnvironment, directoryRenameTask.getRenameFrom(), directoryRenameTask.getRenameTo(), () -> { });
                     }
                 }
                 catch (Throwable throwable) {
@@ -1101,7 +1109,7 @@ public class SemiTransactionalHiveMetastore
                     continue;
                 }
                 Path path = declaredIntentionToWrite.getRootPath();
-                recursiveDeleteFilesAndLog(declaredIntentionToWrite.getUser(), path, ImmutableList.of(), true, "staging directory cleanup");
+                recursiveDeleteFilesAndLog(declaredIntentionToWrite.getContext(), path, ImmutableList.of(), true, "staging directory cleanup");
             }
         }
 
@@ -1248,7 +1256,7 @@ public class SemiTransactionalHiveMetastore
                     // the unique prefix for queries in this transaction.
 
                     recursiveDeleteFilesAndLog(
-                            declaredIntentionToWrite.getUser(),
+                            declaredIntentionToWrite.getContext(),
                             rootPath,
                             ImmutableList.of(declaredIntentionToWrite.getFilePrefix()),
                             true,
@@ -1295,7 +1303,7 @@ public class SemiTransactionalHiveMetastore
                         // TODO: It is a known deficiency that some empty directory does not get cleaned up in S3.
                         // We can not delete any of the directories here since we do not know who created them.
                         recursiveDeleteFilesAndLog(
-                                declaredIntentionToWrite.getUser(),
+                                declaredIntentionToWrite.getContext(),
                                 path,
                                 ImmutableList.of(declaredIntentionToWrite.getFilePrefix()),
                                 false,
@@ -1406,14 +1414,14 @@ public class SemiTransactionalHiveMetastore
             Executor executor,
             AtomicBoolean cancelled,
             List<CompletableFuture<?>> fileRenameFutures,
-            String user,
+            HdfsContext context,
             Path currentPath,
             Path targetPath,
             List<String> fileNames)
     {
         FileSystem fileSystem;
         try {
-            fileSystem = hdfsEnvironment.getFileSystem(user, currentPath);
+            fileSystem = hdfsEnvironment.getFileSystem(context, currentPath);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files to final location. Error listing directory %s", currentPath), e);
@@ -1438,11 +1446,11 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    private void recursiveDeleteFilesAndLog(String user, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories, String reason)
+    private void recursiveDeleteFilesAndLog(HdfsContext context, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories, String reason)
     {
         RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(
                 hdfsEnvironment,
-                user,
+                context,
                 directory,
                 filePrefixes,
                 deleteEmptyDirectories);
@@ -1476,11 +1484,11 @@ public class SemiTransactionalHiveMetastore
      * @param filePrefixes prefix of files that should be deleted
      * @param deleteEmptyDirectories whether empty directories should be deleted
      */
-    private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, String user, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
+    private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, HdfsContext context, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
     {
         FileSystem fileSystem;
         try {
-            fileSystem = hdfsEnvironment.getFileSystem(user, directory);
+            fileSystem = hdfsEnvironment.getFileSystem(context, directory);
 
             if (!fileSystem.exists(directory)) {
                 return new RecursiveDeleteResult(true, ImmutableList.of());
@@ -1588,11 +1596,11 @@ public class SemiTransactionalHiveMetastore
      *
      * @return true if the location no longer exists
      */
-    private static boolean deleteRecursivelyIfExists(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    private static boolean deleteRecursivelyIfExists(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         FileSystem fileSystem;
         try {
-            fileSystem = hdfsEnvironment.getFileSystem(user, path);
+            fileSystem = hdfsEnvironment.getFileSystem(context, path);
         }
         catch (IOException ignored) {
             return false;
@@ -1601,15 +1609,15 @@ public class SemiTransactionalHiveMetastore
         return deleteIfExists(fileSystem, path, true);
     }
 
-    private static void renameDirectory(String user, HdfsEnvironment hdfsEnvironment, Path source, Path target, Runnable runWhenPathDoesntExist)
+    private static void renameDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path source, Path target, Runnable runWhenPathDoesntExist)
     {
-        if (pathExists(user, hdfsEnvironment, target)) {
+        if (pathExists(context, hdfsEnvironment, target)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS,
                     format("Unable to rename from %s to %s: target directory already exists", source, target));
         }
 
-        if (!pathExists(user, hdfsEnvironment, target.getParent())) {
-            createDirectory(user, hdfsEnvironment, target.getParent());
+        if (!pathExists(context, hdfsEnvironment, target.getParent())) {
+            createDirectory(context, hdfsEnvironment, target.getParent());
         }
 
         // The runnable will assume that if rename fails, it will be okay to delete the directory (if the directory is empty).
@@ -1617,7 +1625,7 @@ public class SemiTransactionalHiveMetastore
         runWhenPathDoesntExist.run();
 
         try {
-            if (!hdfsEnvironment.getFileSystem(user, source).rename(source, target)) {
+            if (!hdfsEnvironment.getFileSystem(context, source).rename(source, target)) {
                 throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s: rename returned false", source, target));
             }
         }
@@ -1691,10 +1699,9 @@ public class SemiTransactionalHiveMetastore
     {
         private final ActionType type;
         private final T data;
-        private final String user;
-        private final String queryId;
+        private final HdfsContext context;
 
-        public Action(ActionType type, T data, String user, String queryId)
+        public Action(ActionType type, T data, HdfsContext context)
         {
             this.type = requireNonNull(type, "type is null");
             if (type == ActionType.DROP) {
@@ -1704,8 +1711,7 @@ public class SemiTransactionalHiveMetastore
                 requireNonNull(data, "data is null");
             }
             this.data = data;
-            this.user = requireNonNull(user, "user is null");
-            this.queryId = requireNonNull(queryId, "queryId is null");
+            this.context = requireNonNull(context, "context is null");
         }
 
         public ActionType getType()
@@ -1719,14 +1725,9 @@ public class SemiTransactionalHiveMetastore
             return data;
         }
 
-        public String getUser()
+        public HdfsContext getContext()
         {
-            return user;
-        }
-
-        public String getQueryId()
-        {
-            return queryId;
+            return context;
         }
 
         @Override
@@ -1845,15 +1846,15 @@ public class SemiTransactionalHiveMetastore
     private static class DeclaredIntentionToWrite
     {
         private final WriteMode mode;
-        private final String user;
+        private final HdfsContext context;
         private final String filePrefix;
         private final Path rootPath;
         private final SchemaTableName schemaTableName;
 
-        public DeclaredIntentionToWrite(WriteMode mode, String user, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName)
+        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext context, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName)
         {
             this.mode = requireNonNull(mode, "mode is null");
-            this.user = requireNonNull(user, "user is null");
+            this.context = requireNonNull(context, "context is null");
             this.rootPath = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
             this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
@@ -1864,9 +1865,9 @@ public class SemiTransactionalHiveMetastore
             return mode;
         }
 
-        public String getUser()
+        public HdfsContext getContext()
         {
-            return user;
+            return context;
         }
 
         public String getFilePrefix()
@@ -1889,7 +1890,7 @@ public class SemiTransactionalHiveMetastore
         {
             return toStringHelper(this)
                     .add("mode", mode)
-                    .add("user", user)
+                    .add("context", context)
                     .add("filePrefix", filePrefix)
                     .add("rootPath", rootPath)
                     .add("schemaTableName", schemaTableName)
@@ -1899,20 +1900,20 @@ public class SemiTransactionalHiveMetastore
 
     private static class DirectoryCleanUpTask
     {
-        private final String user;
+        private final HdfsContext context;
         private final Path path;
         private final boolean deleteEmptyDirectory;
 
-        public DirectoryCleanUpTask(String user, Path path, boolean deleteEmptyDirectory)
+        public DirectoryCleanUpTask(HdfsContext context, Path path, boolean deleteEmptyDirectory)
         {
-            this.user = user;
+            this.context = context;
             this.path = path;
             this.deleteEmptyDirectory = deleteEmptyDirectory;
         }
 
-        public String getUser()
+        public HdfsContext getContext()
         {
-            return user;
+            return context;
         }
 
         public Path getPath()
@@ -1929,7 +1930,7 @@ public class SemiTransactionalHiveMetastore
         public String toString()
         {
             return toStringHelper(this)
-                    .add("user", user)
+                    .add("context", context)
                     .add("path", path)
                     .add("deleteEmptyDirectory", deleteEmptyDirectory)
                     .toString();
@@ -1938,18 +1939,18 @@ public class SemiTransactionalHiveMetastore
 
     private static class DirectoryDeletionTask
     {
-        private final String user;
+        private final HdfsContext context;
         private final Path path;
 
-        public DirectoryDeletionTask(String user, Path path)
+        public DirectoryDeletionTask(HdfsContext context, Path path)
         {
-            this.user = user;
+            this.context = context;
             this.path = path;
         }
 
-        public String getUser()
+        public HdfsContext getContext()
         {
-            return user;
+            return context;
         }
 
         public Path getPath()
@@ -1961,7 +1962,7 @@ public class SemiTransactionalHiveMetastore
         public String toString()
         {
             return toStringHelper(this)
-                    .add("user", user)
+                    .add("context", context)
                     .add("path", path)
                     .toString();
         }
@@ -1969,20 +1970,20 @@ public class SemiTransactionalHiveMetastore
 
     private static class DirectoryRenameTask
     {
-        private final String user;
+        private final HdfsContext context;
         private final Path renameFrom;
         private final Path renameTo;
 
-        public DirectoryRenameTask(String user, Path renameFrom, Path renameTo)
+        public DirectoryRenameTask(HdfsContext context, Path renameFrom, Path renameTo)
         {
-            this.user = requireNonNull(user, "user is null");
+            this.context = requireNonNull(context, "context is null");
             this.renameFrom = requireNonNull(renameFrom, "renameFrom is null");
             this.renameTo = requireNonNull(renameTo, "renameTo is null");
         }
 
-        public String getUser()
+        public HdfsContext getContext()
         {
-            return user;
+            return context;
         }
 
         public Path getRenameFrom()
@@ -1999,7 +2000,7 @@ public class SemiTransactionalHiveMetastore
         public String toString()
         {
             return toStringHelper(this)
-                    .add("user", user)
+                    .add("context", context)
                     .add("renameFrom", renameFrom)
                     .add("renameTo", renameTo)
                     .toString();
