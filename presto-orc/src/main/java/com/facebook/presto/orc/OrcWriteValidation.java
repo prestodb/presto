@@ -14,9 +14,11 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -35,6 +37,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
+import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
+import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -212,7 +216,14 @@ public class OrcWriteValidation
         if (!Objects.equals(actualColumnStatistics.getDoubleStatistics(), expectedColumnStatistics.getDoubleStatistics())) {
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected double range in %s statistics", name);
         }
-        if (!Objects.equals(actualColumnStatistics.getStringStatistics(), expectedColumnStatistics.getStringStatistics())) {
+        StringStatistics expectedStringStatistics = expectedColumnStatistics.getStringStatistics();
+        if (expectedStringStatistics != null) {
+            expectedStringStatistics = new StringStatistics(
+                    minStringTruncateToValidRange(expectedStringStatistics.getMin(), HiveWriterVersion.ORC_HIVE_8732),
+                    maxStringTruncateToValidRange(expectedStringStatistics.getMax(), HiveWriterVersion.ORC_HIVE_8732),
+                    expectedStringStatistics.getSum());
+        }
+        if (!Objects.equals(actualColumnStatistics.getStringStatistics(), expectedStringStatistics)) {
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected string range in %s statistics", name);
         }
         if (!Objects.equals(actualColumnStatistics.getDateStatistics(), expectedColumnStatistics.getDateStatistics())) {
