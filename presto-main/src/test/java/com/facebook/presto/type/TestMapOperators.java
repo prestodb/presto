@@ -455,7 +455,7 @@ public class TestMapOperators
         assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1} 2') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Unexpected trailing token: 2\n{\"a\": 1} 2");
         assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint).\n{\"a\": 1");
 
-        assertInvalidCast("CAST(JSON '{\"a\": \"b\"}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Can not cast 'b' to BIGINT\n{\"a\":\"b\"}");
+        assertInvalidCast("CAST(JSON '{\"a\": \"b\"}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Cannot cast 'b' to BIGINT\n{\"a\":\"b\"}");
         assertInvalidCast("CAST(JSON '{\"a\": 1234567890123.456}' AS MAP<VARCHAR, INTEGER>)", "Cannot cast to map(varchar,integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1.234567890123456E12}");
 
         assertInvalidCast("CAST(JSON '{\"1\":1, \"01\": 2}' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint,bigint). Duplicate keys are not allowed\n{\"01\":2,\"1\":1}");
