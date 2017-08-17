@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.Partition;
@@ -201,7 +202,7 @@ public class HiveWriterFactory
                 .collect(toImmutableMap(PropertyMetadata::getName,
                         entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
-        Configuration conf = hdfsEnvironment.getConfiguration(writePath);
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session, schemaName, tableName), writePath);
         this.conf = toJobConf(conf);
 
         // make sure the FileSystem is created with the correct Configuration object
@@ -271,7 +272,7 @@ public class HiveWriterFactory
                 if (partitionName.isPresent() && !target.equals(write)) {
                     // When target path is different from write path,
                     // verify that the target directory for the partition does not already exist
-                    if (HiveWriteUtils.pathExists(session.getUser(), hdfsEnvironment, target)) {
+                    if (HiveWriteUtils.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, target)) {
                         throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
                                 "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                 partitionName,
