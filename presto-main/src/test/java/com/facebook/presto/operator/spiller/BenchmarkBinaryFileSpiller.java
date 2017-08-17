@@ -142,6 +142,7 @@ public class BenchmarkBinaryFileSpiller
                     DOUBLE.writeDouble(pageBuilder.getBlockBuilder(4), lineItem.getExtendedPrice());
                 }
                 pages.add(pageBuilder.build());
+                pageBuilder.reset();
             }
 
             return pages.build();
