@@ -14,7 +14,6 @@
 package com.facebook.presto.server.security;
 
 import com.google.common.base.Throwables;
-import com.google.common.net.HttpHeaders;
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
 import org.ietf.jgss.GSSContext;
@@ -56,6 +55,8 @@ import java.util.Optional;
 
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static java.lang.String.format;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
@@ -144,7 +145,7 @@ public class SpnegoFilter
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String header = request.getHeader(AUTHORIZATION);
 
         boolean includeRealm = "true".equalsIgnoreCase(request.getHeader(INCLUDE_REALM_HEADER));
         String requestSpnegoToken = null;
@@ -156,9 +157,8 @@ public class SpnegoFilter
                     requestSpnegoToken = parts[1];
                     Optional<Result> authentication = authenticate(parts[1]);
                     if (authentication.isPresent()) {
-                        authentication.get()
-                                .getToken()
-                                .ifPresent(token -> response.setHeader(HttpHeaders.WWW_AUTHENTICATE, formatAuthenticationHeader(includeRealm, Optional.ofNullable(token))));
+                        authentication.get().getToken()
+                                .ifPresent(token -> response.setHeader(WWW_AUTHENTICATE, formatAuthenticationHeader(includeRealm, Optional.of(token))));
 
                         nextFilter.doFilter(new HttpServletRequestWrapper(request)
                         {
@@ -231,7 +231,7 @@ public class SpnegoFilter
         else {
             response.setStatus(SC_UNAUTHORIZED);
         }
-        response.setHeader(HttpHeaders.WWW_AUTHENTICATE, formatAuthenticationHeader(includeRealm, Optional.empty()));
+        response.setHeader(WWW_AUTHENTICATE, formatAuthenticationHeader(includeRealm, Optional.empty()));
     }
 
     private static void skipRequestBody(HttpServletRequest request)
@@ -250,10 +250,8 @@ public class SpnegoFilter
             header.append(" realm=\"presto\"");
         }
 
-        if (token.isPresent()) {
-            header.append(" ")
-                    .append(Base64.getEncoder().encodeToString(token.get()));
-        }
+        token.ifPresent(bytes -> header.append(" ")
+                .append(Base64.getEncoder().encodeToString(bytes)));
 
         return header.toString();
     }
