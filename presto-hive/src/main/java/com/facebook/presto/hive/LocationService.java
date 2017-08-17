@@ -16,15 +16,16 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;
 
 public interface LocationService
 {
-    LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, String user, String queryId, String schemaName, String tableName);
+    LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName);
 
-    LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, String user, String queryId, Table table);
+    LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
 
     /**
      * Target path for the specified existing partition.
