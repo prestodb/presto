@@ -12,12 +12,27 @@
  * limitations under the License.
  */
 
+const SMALL_SPARKLINE_PROPERTIES = {
+    width:'100%',
+    height: '57px',
+    fillColor:'#3F4552',
+    lineColor: '#747F96',
+    spotColor: '#1EDCFF',
+    tooltipClassname: 'sparkline-tooltip',
+    disableHiddenCheck: true,
+};
+
 let WorkerStatus = React.createClass({
     getInitialState: function() {
         return {
             serverInfo: null,
             initialized: false,
             ended: false,
+
+            processCpuLoad: [],
+            systemCpuLoad: [],
+            heapPercentUsed: [],
+            nonHeapUsed: [],
         };
     },
     resetTimer: function() {
@@ -34,7 +49,13 @@ let WorkerStatus = React.createClass({
             this.setState({
                 serverInfo: serverInfo,
                 initialized: true,
+
+                processCpuLoad: addToHistory(serverInfo.processCpuLoad * 100.0, this.state.processCpuLoad),
+                systemCpuLoad: addToHistory(serverInfo.systemCpuLoad * 100.0, this.state.systemCpuLoad),
+                heapPercentUsed: addToHistory(serverInfo.heapUsed * 100.0/ serverInfo.heapAvailable, this.state.heapPercentUsed),
+                nonHeapUsed: addToHistory(serverInfo.nonHeapUsed * 100.0, this.state.nonHeapUsed),
             });
+
             this.resetTimer();
         }.bind(this))
             .error(function() {
@@ -48,6 +69,11 @@ let WorkerStatus = React.createClass({
         this.refreshLoop();
     },
     componentDidUpdate: function () {
+        $('#process-cpu-load-sparkline').sparkline(this.state.processCpuLoad, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
+        $('#system-cpu-load-sparkline').sparkline(this.state.systemCpuLoad, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
+        $('#heap-percent-used-sparkline').sparkline(this.state.heapPercentUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
+        $('#nonheap-used-sparkline').sparkline(this.state.nonHeapUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: formatDataSize}));
+
         $('[data-toggle="tooltip"]').tooltip();
         new Clipboard('.copy-button');
     },
@@ -199,7 +225,7 @@ let WorkerStatus = React.createClass({
                         <h3>Overview</h3>
                         <hr className="h3-hr"/>
                         <div className="row">
-                            <div className="col-xs-12">
+                            <div className="col-xs-6">
                                 <table className="table">
                                     <tbody>
                                     <tr>
@@ -215,6 +241,28 @@ let WorkerStatus = React.createClass({
                                             </a>
                                         </td>
                                     </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Heap Memory
+                                        </td>
+                                        <td className="info-text wrap-text">
+                                            <span id="internal-address">{formatDataSize(serverInfo.heapAvailable)}</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Processors
+                                        </td>
+                                        <td className="info-text wrap-text">
+                                            <span id="internal-address">{serverInfo.processors}</span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="col-xs-6">
+                                <table className="table">
+                                    <tbody>
                                     <tr>
                                         <td className="info-title">
                                             Uptime
@@ -253,11 +301,92 @@ let WorkerStatus = React.createClass({
                                 </table>
                             </div>
                         </div>
+                        <div className="row">
+                            <div className="col-xs-12">
+                                <h3>Resource Utilization</h3>
+                                <hr className="h3-hr"/>
+                                <div className="row">
+
+                                    <div className="col-xs-6">
+                                        <table className="table">
+                                            <tbody>
+                                            <tr>
+                                                <td className="info-title">
+                                                    Process CPU Utilization
+                                                </td>
+                                                <td rowSpan="2">
+                                                    <div className="query-stats-sparkline-container">
+                                                        <span className="sparkline" id="process-cpu-load-sparkline"><div className="loader">Loading ...</div></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr className="tr-noborder">
+                                                <td className="info-sparkline-text">
+                                                    { formatCount(this.state.processCpuLoad[this.state.processCpuLoad.length - 1]) }%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="info-title">
+                                                    System CPU Utilization
+                                                </td>
+                                                <td rowSpan="2">
+                                                    <div className="query-stats-sparkline-container">
+                                                        <span className="sparkline" id="system-cpu-load-sparkline"><div className="loader">Loading ...</div></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr className="tr-noborder">
+                                                <td className="info-sparkline-text">
+                                                    { formatCount(this.state.systemCpuLoad[this.state.systemCpuLoad.length - 1]) }%
+                                                </td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="col-xs-6">
+                                        <table className="table">
+                                            <tbody>
+                                            <tr>
+                                                <td className="info-title">
+                                                    Heap Utilization
+                                                </td>
+                                                <td rowSpan="2">
+                                                    <div className="query-stats-sparkline-container">
+                                                        <span className="sparkline" id="heap-percent-used-sparkline"><div className="loader">Loading ...</div></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr className="tr-noborder">
+                                                <td className="info-sparkline-text">
+                                                    { formatCount(this.state.heapPercentUsed[this.state.heapPercentUsed.length - 1]) }%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="info-title">
+                                                    Non-Heap Memory Used
+                                                </td>
+                                                <td rowSpan="2">
+                                                    <div className="query-stats-sparkline-container">
+                                                        <span className="sparkline" id="nonheap-used-sparkline"><div className="loader">Loading ...</div></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr className="tr-noborder">
+                                                <td className="info-sparkline-text">
+                                                    { formatDataSize(this.state.nonHeapUsed[this.state.nonHeapUsed.length - 1]) }
+                                                </td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        <h3>Memory Usage</h3>
+                        <h3>Memory Pools</h3>
                         <hr className="h3-hr"/>
                         <div className="row">
                             <div className="col-xs-4">
