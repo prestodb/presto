@@ -41,7 +41,7 @@ public class MapBlock
     private final Block valueBlock;
     private final int[] hashTables; // hash to location in map;
 
-    private long sizeInBytes;
+    private volatile long sizeInBytes;
     private final long retainedSizeInBytes;
 
     /**
@@ -125,7 +125,6 @@ public class MapBlock
     @Override
     public long getSizeInBytes()
     {
-        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (sizeInBytes < 0) {
             calculateSize();
         }
