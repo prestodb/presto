@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static org.testng.Assert.assertEquals;
@@ -47,40 +48,42 @@ public class TestTpcdsMetadataStatistics
     @Test
     public void testNoTableStatsForNotSupportedSchema()
     {
-        Table.getBaseTables().forEach(
-                table -> {
-                    SchemaTableName schemaTableName = new SchemaTableName("sf10", table.getName());
-                    ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-                    TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
-                    assertTrue(tableStatistics.getRowCount().isValueUnknown());
-                    assertTrue(tableStatistics.getColumnStatistics().isEmpty());
-                });
+        Stream.of("sf0.001", "sf0.1", "sf10")
+                .forEach(schemaName -> Table.getBaseTables()
+                        .forEach(table -> {
+                            SchemaTableName schemaTableName = new SchemaTableName(schemaName, table.getName());
+                            ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+                            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+                            assertTrue(tableStatistics.getRowCount().isValueUnknown());
+                            assertTrue(tableStatistics.getColumnStatistics().isEmpty());
+                        }));
     }
 
     @Test
     public void testTableStatsExistenceSupportedSchema()
     {
-        Table.getBaseTables().forEach(
-                table -> {
-                    SchemaTableName schemaTableName = new SchemaTableName("sf1", table.getName());
-                    ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-                    TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
-                    assertFalse(tableStatistics.getRowCount().isValueUnknown());
-                    for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
-                        assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
-                        assertNotNull(tableStatistics.getColumnStatistics().get(column));
+        Stream.of("sf0.01", "tiny", "sf1", "sf1.000")
+                .forEach(schemaName -> Table.getBaseTables()
+                        .forEach(table -> {
+                            SchemaTableName schemaTableName = new SchemaTableName(schemaName, table.getName());
+                            ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+                            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+                            assertFalse(tableStatistics.getRowCount().isValueUnknown());
+                            for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
+                                assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
+                                assertNotNull(tableStatistics.getColumnStatistics().get(column));
 
-                        TpcdsColumnHandle tpcdsColumn = (TpcdsColumnHandle) column;
-                        Optional<Object> low = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
-                        if (low.isPresent()) {
-                            assertEquals(low.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
-                        }
-                        Optional<Object> high = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
-                        if (high.isPresent()) {
-                            assertEquals(high.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
-                        }
-                    }
-                });
+                                TpcdsColumnHandle tpcdsColumn = (TpcdsColumnHandle) column;
+                                Optional<Object> low = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
+                                if (low.isPresent()) {
+                                    assertEquals(low.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
+                                }
+                                Optional<Object> high = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
+                                if (high.isPresent()) {
+                                    assertEquals(high.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
+                                }
+                            }
+                        }));
     }
 
     @Test
