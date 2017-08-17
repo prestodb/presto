@@ -236,7 +236,7 @@ public class TpcdsMetadata
         }
 
         try {
-            return Integer.parseInt(schemaName.substring(2));
+            return Double.parseDouble(schemaName.substring(2));
         }
         catch (Exception ignored) {
             return -1;
