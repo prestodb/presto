@@ -31,6 +31,12 @@ public class NodeStatus
     private final String externalAddress;
     private final String internalAddress;
     private final MemoryInfo memoryInfo;
+    private final int processors;
+    private final double processCpuLoad;
+    private final double systemCpuLoad;
+    private final long heapUsed;
+    private final long heapAvailable;
+    private final long nonHeapUsed;
 
     @JsonCreator
     public NodeStatus(
@@ -41,7 +47,13 @@ public class NodeStatus
             @JsonProperty("uptime") Duration uptime,
             @JsonProperty("externalAddress") String externalAddress,
             @JsonProperty("internalAddress") String internalAddress,
-            @JsonProperty("memoryInfo") MemoryInfo memoryInfo)
+            @JsonProperty("memoryInfo") MemoryInfo memoryInfo,
+            @JsonProperty("processors") int processors,
+            @JsonProperty("processCpuLoad") double processCpuLoad,
+            @JsonProperty("systemCpuLoad") double systemCpuLoad,
+            @JsonProperty("heapUsed") long heapUsed,
+            @JsonProperty("heapAvailable") long heapAvailable,
+            @JsonProperty("nonHeapUsed") long nonHeapUsed)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -51,6 +63,12 @@ public class NodeStatus
         this.externalAddress = requireNonNull(externalAddress, "externalAddress is null");
         this.internalAddress = requireNonNull(internalAddress, "internalAddress is null");
         this.memoryInfo = requireNonNull(memoryInfo, "memoryInfo is null");
+        this.processors = processors;
+        this.processCpuLoad = processCpuLoad;
+        this.systemCpuLoad = systemCpuLoad;
+        this.heapUsed = heapUsed;
+        this.heapAvailable = heapAvailable;
+        this.nonHeapUsed = nonHeapUsed;
     }
 
     @JsonProperty
@@ -99,5 +117,41 @@ public class NodeStatus
     public MemoryInfo getMemoryInfo()
     {
         return memoryInfo;
+    }
+
+    @JsonProperty
+    public int getProcessors()
+    {
+        return processors;
+    }
+
+    @JsonProperty
+    public double getProcessCpuLoad()
+    {
+        return processCpuLoad;
+    }
+
+    @JsonProperty
+    public double getSystemCpuLoad()
+    {
+        return systemCpuLoad;
+    }
+
+    @JsonProperty
+    public long getHeapUsed()
+    {
+        return heapUsed;
+    }
+
+    @JsonProperty
+    public long getHeapAvailable()
+    {
+        return heapAvailable;
+    }
+
+    @JsonProperty
+    public long getNonHeapUsed()
+    {
+        return nonHeapUsed;
     }
 }

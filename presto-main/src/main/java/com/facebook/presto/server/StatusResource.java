@@ -15,12 +15,16 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.sun.management.OperatingSystemMXBean;
 import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
 
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -34,7 +38,11 @@ public class StatusResource
     private final String environment;
     private final boolean coordinator;
     private final long startTime = System.nanoTime();
+    private final int logicalCores;
     private final LocalMemoryManager memoryManager;
+    private final MemoryMXBean memoryMXBean;
+
+    private OperatingSystemMXBean operatingSystemMXBean;
 
     @Inject
     public StatusResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, LocalMemoryManager memoryManager)
@@ -44,6 +52,13 @@ public class StatusResource
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
+        this.memoryMXBean = ManagementFactory.getMemoryMXBean();
+        this.logicalCores = Runtime.getRuntime().availableProcessors();
+
+        if (ManagementFactory.getOperatingSystemMXBean() instanceof OperatingSystemMXBean) {
+            // we want the com.sun.management sub-interface of java.lang.management.OperatingSystemMXBean
+            this.operatingSystemMXBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+        }
     }
 
     @GET
@@ -58,6 +73,12 @@ public class StatusResource
                 nanosSince(startTime),
                 nodeInfo.getInternalAddress(),
                 nodeInfo.getExternalAddress(),
-                memoryManager.getInfo());
+                memoryManager.getInfo(),
+                logicalCores,
+                operatingSystemMXBean == null ? 0 : operatingSystemMXBean.getProcessCpuLoad(),
+                operatingSystemMXBean == null ? 0 : operatingSystemMXBean.getSystemCpuLoad(),
+                memoryMXBean.getHeapMemoryUsage().getUsed(),
+                memoryMXBean.getHeapMemoryUsage().getMax(),
+                memoryMXBean.getNonHeapMemoryUsage().getUsed());
     }
 }
