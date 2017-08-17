@@ -52,7 +52,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
-import io.airlift.slice.Slices;
 
 import java.util.List;
 
@@ -171,22 +170,14 @@ public final class LiteralInterpreter
         }
 
         if (type instanceof VarcharType) {
-            if (object instanceof String) {
-                object = Slices.utf8Slice((String) object);
+            Slice value = (Slice) object;
+            int length = SliceUtf8.countCodePoints(value);
+
+            if (length == ((VarcharType) type).getLength()) {
+                return new StringLiteral(value.toStringUtf8());
             }
 
-            if (object instanceof Slice) {
-                Slice value = (Slice) object;
-                int length = SliceUtf8.countCodePoints(value);
-
-                if (length == ((VarcharType) type).getLength()) {
-                    return new StringLiteral(value.toStringUtf8());
-                }
-
-                return new Cast(new StringLiteral(value.toStringUtf8()), type.getDisplayName(), false, true);
-            }
-
-            throw new IllegalArgumentException("object must be instance of Slice or String when type is VARCHAR");
+            return new Cast(new StringLiteral(value.toStringUtf8()), type.getDisplayName(), false, true);
         }
 
         if (type.equals(BOOLEAN)) {
