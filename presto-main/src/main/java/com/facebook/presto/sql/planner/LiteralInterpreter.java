@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -178,6 +179,11 @@ public final class LiteralInterpreter
             }
 
             return new Cast(new StringLiteral(value.toStringUtf8()), type.getDisplayName(), false, true);
+        }
+
+        if (type instanceof CharType) {
+            StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
+            return new Cast(stringLiteral, type.getDisplayName(), false, true);
         }
 
         if (type.equals(BOOLEAN)) {
