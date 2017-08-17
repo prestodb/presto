@@ -166,7 +166,7 @@ public class TaskExecutor
 
     public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, 2, false, true, ticker);
+        this(runnerThreads, minDrivers, 2, false, false, ticker);
     }
 
     @VisibleForTesting
