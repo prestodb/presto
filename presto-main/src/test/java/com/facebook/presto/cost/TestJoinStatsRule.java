@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.cost.JoinStatsRule.AntiJoinStats;
+import com.facebook.presto.cost.JoinStatsRule.JoinComplementStats;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
@@ -189,67 +189,67 @@ public class TestJoinStatsRule
     }
 
     @Test
-    public void testStatsForLeftAntiJoin()
+    public void testJoinComplementStats()
     {
-        PlanNodeStatsEstimate antiJoinStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
+        PlanNodeStatsEstimate joinComplementStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS);
 
-        assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
+        assertThat(JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN))),
-                LEFT_STATS, RIGHT_STATS).getStats()).equalTo(antiJoinStats);
+                LEFT_STATS, RIGHT_STATS).getStats()).equalTo(joinComplementStats);
     }
 
     @Test
-    public void testStatsForRightAntiJoin()
+    public void testRightJoinComplementStats()
     {
-        PlanNodeStatsEstimate antiJoinStats = planNodeStats(RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS,
+        PlanNodeStatsEstimate joinComplementStats = planNodeStats(RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS,
                 symbolStatistics(RIGHT_JOIN_COLUMN, NaN, NaN, 1.0, 0),
                 RIGHT_OTHER_COLUMN_STATS);
 
-        assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
+        assertThat(JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(RIGHT_JOIN_COLUMN), new Symbol(LEFT_JOIN_COLUMN))),
-                RIGHT_STATS, LEFT_STATS).getStats()).equalTo(antiJoinStats);
+                RIGHT_STATS, LEFT_STATS).getStats()).equalTo(joinComplementStats);
     }
 
     @Test
-    public void testStatsForLeftAntiJoinWithNoClauses()
+    public void testLeftJoinComplementStatsWithNoClauses()
     {
-        assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
+        assertThat(JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(),
                 LEFT_STATS, RIGHT_STATS).getStats()).equalTo(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0));
     }
 
     @Test
-    public void testStatsForLeftAntiJoinWithMultipleClauses()
+    public void testLeftJoinComplementStatsWithMultipleClauses()
     {
-        PlanNodeStatsEstimate antiJoinStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
+        PlanNodeStatsEstimate joinComplementStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS).mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
 
-        assertThat(JOIN_STATS_RULE.calculateAntiJoinStats(
+        assertThat(JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN)), new JoinNode.EquiJoinClause(new Symbol(LEFT_OTHER_COLUMN), new Symbol(RIGHT_OTHER_COLUMN))),
-                LEFT_STATS, RIGHT_STATS).getStats()).equalTo(antiJoinStats);
+                LEFT_STATS, RIGHT_STATS).getStats()).equalTo(joinComplementStats);
     }
 
     @Test
     public void testStatsForLeftAndRightJoin()
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
-        double antiJoinRowCount = LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
-        double antiJoinColumnNulls = LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
-        double totalRowCount = innerJoinRowCount + antiJoinRowCount;
+        double joinComplementRowCount = LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
+        double joinComplementColumnNulls = LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
+        double totalRowCount = innerJoinRowCount + joinComplementRowCount;
 
         PlanNodeStatsEstimate leftJoinStats = planNodeStats(
                 totalRowCount,
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, antiJoinColumnNulls * antiJoinRowCount / totalRowCount, LEFT_JOIN_COLUMN_NDV),
+                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, joinComplementColumnNulls * joinComplementRowCount / totalRowCount, LEFT_JOIN_COLUMN_NDV),
                 LEFT_OTHER_COLUMN_STATS,
-                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, antiJoinRowCount / totalRowCount, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(RIGHT_OTHER_COLUMN, 24, 24, (0.24 * innerJoinRowCount + antiJoinRowCount) / totalRowCount, 1));
+                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, joinComplementRowCount / totalRowCount, RIGHT_JOIN_COLUMN_NDV),
+                symbolStatistics(RIGHT_OTHER_COLUMN, 24, 24, (0.24 * innerJoinRowCount + joinComplementRowCount) / totalRowCount, 1));
 
         assertJoinStats(LEFT, LEFT_STATS, RIGHT_STATS, leftJoinStats);
         assertJoinStats(RIGHT, RIGHT_JOIN_COLUMN, RIGHT_OTHER_COLUMN, LEFT_JOIN_COLUMN, LEFT_OTHER_COLUMN, RIGHT_STATS, LEFT_STATS, leftJoinStats);
@@ -259,24 +259,24 @@ public class TestJoinStatsRule
     public void testStatsForFullJoin()
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
-        double leftAntiJoinRowCount = LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
-        double leftAntiJoinColumnNulls = LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
-        double rightAntiJoinRowCount = RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS;
-        double rightAntiJoinColumnNulls = 1.0;
-        double totalRowCount = innerJoinRowCount + leftAntiJoinRowCount + rightAntiJoinRowCount;
+        double leftJoinComplementRowCount = LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
+        double leftJoinComplementColumnNulls = LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
+        double rightJoinComplementRowCount = RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS;
+        double rightJoinComplementColumnNulls = 1.0;
+        double totalRowCount = innerJoinRowCount + leftJoinComplementRowCount + rightJoinComplementRowCount;
 
         PlanNodeStatsEstimate leftJoinStats = planNodeStats(
                 totalRowCount,
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, (leftAntiJoinColumnNulls * leftAntiJoinRowCount + rightAntiJoinRowCount) / totalRowCount, LEFT_JOIN_COLUMN_NDV),
-                symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * (innerJoinRowCount + leftAntiJoinRowCount) + rightAntiJoinRowCount) / totalRowCount, 1),
-                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, (rightAntiJoinColumnNulls * rightAntiJoinRowCount + leftAntiJoinRowCount) / totalRowCount, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(RIGHT_OTHER_COLUMN, 24, 24, (0.24 * (innerJoinRowCount + rightAntiJoinRowCount) + leftAntiJoinRowCount) / totalRowCount, 1));
+                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, (leftJoinComplementColumnNulls * leftJoinComplementRowCount + rightJoinComplementRowCount) / totalRowCount, LEFT_JOIN_COLUMN_NDV),
+                symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * (innerJoinRowCount + leftJoinComplementRowCount) + rightJoinComplementRowCount) / totalRowCount, 1),
+                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, (rightJoinComplementColumnNulls * rightJoinComplementRowCount + leftJoinComplementRowCount) / totalRowCount, RIGHT_JOIN_COLUMN_NDV),
+                symbolStatistics(RIGHT_OTHER_COLUMN, 24, 24, (0.24 * (innerJoinRowCount + rightJoinComplementRowCount) + leftJoinComplementRowCount) / totalRowCount, 1));
 
         assertJoinStats(FULL, LEFT_STATS, RIGHT_STATS, leftJoinStats);
     }
 
     @Test
-    public void testAddAntiJoinStats()
+    public void testAddJoinComplementStats()
     {
         PlanNodeStatsEstimate statsToAdd = planNodeStats(RIGHT_ROWS_COUNT,
                 symbolStatistics(LEFT_JOIN_COLUMN, -5.0, 5.0, 0.2, 5));
@@ -285,7 +285,7 @@ public class TestJoinStatsRule
                 symbolStatistics(LEFT_JOIN_COLUMN, -5.0, 20.0, (LEFT_ROWS_COUNT * LEFT_JOIN_COLUMN_NULLS + RIGHT_ROWS_COUNT * 0.2) / TOTAL_ROWS_COUNT, LEFT_JOIN_COLUMN_NDV + 5),
                 symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * LEFT_ROWS_COUNT + RIGHT_ROWS_COUNT) / TOTAL_ROWS_COUNT, 1));
 
-        assertThat(JOIN_STATS_RULE.addAntiJoinStats(LEFT_STATS, new AntiJoinStats(statsToAdd, Optional.of(new Symbol(LEFT_JOIN_COLUMN)), LEFT_JOIN_COLUMN_NDV + 5))).equalTo(addedStats);
+        assertThat(JOIN_STATS_RULE.addJoinComplementStats(LEFT_STATS, new JoinComplementStats(statsToAdd, Optional.of(new Symbol(LEFT_JOIN_COLUMN)), LEFT_JOIN_COLUMN_NDV + 5))).equalTo(addedStats);
     }
 
     private void assertJoinStats(JoinNode.Type joinType, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats, PlanNodeStatsEstimate resultStats)
