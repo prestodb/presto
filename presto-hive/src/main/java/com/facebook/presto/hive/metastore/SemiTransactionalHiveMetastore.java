@@ -1694,8 +1694,7 @@ public class SemiTransactionalHiveMetastore
         private final String user;
         private final String queryId;
 
-        @JsonCreator
-        public Action(@JsonProperty("type") ActionType type, @JsonProperty("data") T data, @JsonProperty("user") String user, @JsonProperty("queryId") String queryId)
+        public Action(ActionType type, T data, String user, String queryId)
         {
             this.type = requireNonNull(type, "type is null");
             if (type == ActionType.DROP) {
@@ -1709,7 +1708,6 @@ public class SemiTransactionalHiveMetastore
             this.queryId = requireNonNull(queryId, "queryId is null");
         }
 
-        @JsonProperty
         public ActionType getType()
         {
             return type;
@@ -1721,19 +1719,11 @@ public class SemiTransactionalHiveMetastore
             return data;
         }
 
-        @JsonProperty("data")
-        public T getJsonSerializableData()
-        {
-            return data;
-        }
-
-        @JsonProperty
         public String getUser()
         {
             return user;
         }
 
-        @JsonProperty
         public String getQueryId()
         {
             return queryId;
