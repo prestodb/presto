@@ -73,10 +73,12 @@ public class TaskExecutorSimulator
     private final ScheduledExecutorService wakeupExecutor = newScheduledThreadPool(32);
 
     private final TaskExecutor taskExecutor;
+    private final MultilevelSplitQueue splitQueue;
 
     private TaskExecutorSimulator()
     {
-        taskExecutor = new TaskExecutor(36, 72, Ticker.systemTicker());
+        splitQueue = new MultilevelSplitQueue(false, 2);
+        taskExecutor = new TaskExecutor(36, 72, splitQueue, false, Ticker.systemTicker());
         taskExecutor.start();
     }
 
@@ -292,11 +294,11 @@ public class TaskExecutorSimulator
                         taskExecutor.getRunningTasksLevel2(),
                         taskExecutor.getRunningTasksLevel3(),
                         taskExecutor.getRunningTasksLevel4(),
-                        (int) taskExecutor.getSelectedCountLevel0().getOneMinute().getRate(),
-                        (int) taskExecutor.getSelectedCountLevel1().getOneMinute().getRate(),
-                        (int) taskExecutor.getSelectedCountLevel2().getOneMinute().getRate(),
-                        (int) taskExecutor.getSelectedCountLevel3().getOneMinute().getRate(),
-                        (int) taskExecutor.getSelectedCountLevel4().getOneMinute().getRate());
+                        (int) splitQueue.getSelectedCountLevel0().getOneMinute().getRate(),
+                        (int) splitQueue.getSelectedCountLevel1().getOneMinute().getRate(),
+                        (int) splitQueue.getSelectedCountLevel2().getOneMinute().getRate(),
+                        (int) splitQueue.getSelectedCountLevel3().getOneMinute().getRate(),
+                        (int) splitQueue.getSelectedCountLevel4().getOneMinute().getRate());
             }
             catch (Exception ignored) {
             }

@@ -215,7 +215,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 2, true, true, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 2, new MultilevelSplitQueue(true, 2), true, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -271,7 +271,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 2, false, false, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 3, new MultilevelSplitQueue(false, 2), false, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 

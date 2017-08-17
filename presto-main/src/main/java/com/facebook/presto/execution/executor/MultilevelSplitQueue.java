@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,6 +56,12 @@ public class MultilevelSplitQueue
 
     private final boolean levelAbsolutePriority;
     private final double levelTimeMultiplier;
+
+    @Inject
+    public MultilevelSplitQueue(TaskManagerConfig taskManagerConfig)
+    {
+        this(taskManagerConfig.isLevelAbsolutePriority(), taskManagerConfig.getLevelTimeMultiplier().doubleValue());
+    }
 
     public MultilevelSplitQueue(boolean levelAbsolutePriority, double levelTimeMultiplier)
     {
@@ -301,11 +311,6 @@ public class MultilevelSplitQueue
         }
     }
 
-    public List<CounterStat> getSelectedLevelCounters()
-    {
-        return selectedLevelCounters;
-    }
-
     public static int computeLevel(long threadUsageNanos)
     {
         long seconds = NANOSECONDS.toSeconds(threadUsageNanos);
@@ -322,5 +327,70 @@ public class MultilevelSplitQueue
     long getLevelScheduledTime(int level)
     {
         return levelScheduledTime[level].longValue();
+    }
+
+    @Managed
+    public long getLevel0Time()
+    {
+        return getLevelScheduledTime(0);
+    }
+
+    @Managed
+    public long getLevel1Time()
+    {
+        return getLevelScheduledTime(1);
+    }
+
+    @Managed
+    public long getLevel2Time()
+    {
+        return getLevelScheduledTime(2);
+    }
+
+    @Managed
+    public long getLevel3Time()
+    {
+        return getLevelScheduledTime(3);
+    }
+
+    @Managed
+    public long getLevel4Time()
+    {
+        return getLevelScheduledTime(4);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel0()
+    {
+        return selectedLevelCounters.get(0);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel1()
+    {
+        return selectedLevelCounters.get(1);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel2()
+    {
+        return selectedLevelCounters.get(2);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel3()
+    {
+        return selectedLevelCounters.get(3);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel4()
+    {
+        return selectedLevelCounters.get(4);
     }
 }
