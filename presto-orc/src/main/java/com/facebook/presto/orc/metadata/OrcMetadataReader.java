@@ -370,7 +370,7 @@ public class OrcMetadataReader
     }
 
     @VisibleForTesting
-    static Slice maxStringTruncateToValidRange(Slice value, HiveWriterVersion version)
+    public static Slice maxStringTruncateToValidRange(Slice value, HiveWriterVersion version)
     {
         if (value == null) {
             return null;
@@ -387,7 +387,7 @@ public class OrcMetadataReader
     }
 
     @VisibleForTesting
-    static Slice minStringTruncateToValidRange(Slice value, HiveWriterVersion version)
+    public static Slice minStringTruncateToValidRange(Slice value, HiveWriterVersion version)
     {
         if (value == null) {
             return null;
