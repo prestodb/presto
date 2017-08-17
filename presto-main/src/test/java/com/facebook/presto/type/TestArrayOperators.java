@@ -308,7 +308,7 @@ public class TestArrayOperators
         assertInvalidCast("CAST(unchecked_to_json('[1] 2') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Unexpected trailing token: 2\n[1] 2");
         assertInvalidCast("CAST(unchecked_to_json('[1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint).\n[1, 2, 3");
 
-        assertInvalidCast("CAST(JSON '[\"a\", \"b\"]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Can not cast 'a' to BIGINT\n[\"a\",\"b\"]");
+        assertInvalidCast("CAST(JSON '[\"a\", \"b\"]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Cannot cast 'a' to BIGINT\n[\"a\",\"b\"]");
         assertInvalidCast("CAST(JSON '[1234567890123.456]' AS ARRAY<INTEGER>)", "Cannot cast to array(integer). Out of range for integer: 1.234567890123456E12\n[1.234567890123456E12]");
     }
 
