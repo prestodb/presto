@@ -97,8 +97,8 @@ public class TestTpchLocalStats
         statisticsAssertion.check("SELECT n1.n_nationkey FROM nation n1, nation n2 WHERE n1.n_nationkey + 1 = n2.n_nationkey - 1 AND n1.n_nationkey > 5 AND n2.n_nationkey < 20",
                 checks -> checks
                         .estimate(OUTPUT_ROW_COUNT, absoluteError(3))
-                        // Join is over expressions so that predicate push down doesn't unify ranges of n_nationkey coming from n1 and n2. This, however, makes symbols
-                        // stats inaccurate (rules can't update them), so we don't verify them.
+                // Join is over expressions so that predicate push down doesn't unify ranges of n_nationkey coming from n1 and n2. This, however, makes symbols
+                // stats inaccurate (rules can't update them), so we don't verify them.
         );
 
         // two joins on different keys
@@ -123,21 +123,21 @@ public class TestTpchLocalStats
         // simple equi join
         statisticsAssertion.check("SELECT * FROM supplier left join nation on s_nationkey = n_nationkey",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
-                        .verifyExactColumnStatistics("s_nationkey")
-                        .verifyExactColumnStatistics("n_nationkey")
-                        .verifyExactColumnStatistics("s_suppkey"));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
         statisticsAssertion.check("SELECT * FROM supplier left join nation on s_nationkey = n_nationkey AND n_nationkey <= 12",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
-                        .verifyExactColumnStatistics("s_nationkey")
-                        .verifyColumnStatistics("n_nationkey", relativeError(0.10))
-                        .verifyExactColumnStatistics("s_suppkey"));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
         statisticsAssertion.check("SELECT * FROM (SELECT * FROM supplier WHERE s_nationkey <= 12) left join nation on s_nationkey = n_nationkey",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.15))
-                        .verifyColumnStatistics("s_nationkey", relativeError(0.15))
-                        .verifyColumnStatistics("n_nationkey", relativeError(0.10)));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(2.0))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(2.0)));
     }
 
     @Test
@@ -146,21 +146,21 @@ public class TestTpchLocalStats
         // simple equi join
         statisticsAssertion.check("SELECT * FROM nation right join supplier on s_nationkey = n_nationkey",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
-                        .verifyExactColumnStatistics("s_nationkey")
-                        .verifyExactColumnStatistics("n_nationkey")
-                        .verifyExactColumnStatistics("s_suppkey"));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
         statisticsAssertion.check("SELECT * FROM nation right join supplier on s_nationkey = n_nationkey AND n_nationkey <= 12",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
-                        .verifyExactColumnStatistics("s_nationkey")
-                        .verifyColumnStatistics("n_nationkey", relativeError(0.10))
-                        .verifyExactColumnStatistics("s_suppkey"));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
         statisticsAssertion.check("SELECT * FROM nation right JOIN (SELECT * FROM supplier WHERE s_nationkey <= 12) on s_nationkey = n_nationkey",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.15))
-                        .verifyColumnStatistics("s_nationkey", relativeError(0.15))
-                        .verifyColumnStatistics("n_nationkey", relativeError(0.10)));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(2.0))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(2.0)));
     }
 
     @Test
@@ -169,21 +169,21 @@ public class TestTpchLocalStats
         // simple equi join
         statisticsAssertion.check("SELECT * FROM nation full join supplier on s_nationkey = n_nationkey",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
-                        .verifyExactColumnStatistics("s_nationkey")
-                        .verifyExactColumnStatistics("n_nationkey")
-                        .verifyExactColumnStatistics("s_suppkey"));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
         statisticsAssertion.check("SELECT * FROM (SELECT * FROM nation WHERE n_nationkey <= 12) full join supplier on s_nationkey = n_nationkey",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
-                        .verifyExactColumnStatistics("s_nationkey")
-                        .verifyColumnStatistics("n_nationkey", relativeError(0.10))
-                        .verifyExactColumnStatistics("s_suppkey"));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
         statisticsAssertion.check("SELECT * FROM nation full join (SELECT * FROM supplier WHERE s_nationkey <= 12) on s_nationkey = n_nationkey",
                 checks -> checks
-                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.15))
-                        .verifyColumnStatistics("s_nationkey", relativeError(0.15))
-                        .verifyColumnStatistics("n_nationkey", relativeError(0.10)));
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", relativeError(0.40))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.40)));
     }
 
     @Test

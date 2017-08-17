@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.cost.JoinStatsRule.AntiJoinStats;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
@@ -80,7 +81,7 @@ public class TestJoinStatsRule
             RIGHT_JOIN_COLUMN_STATS,
             RIGHT_OTHER_COLUMN_STATS);
 
-    private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(new FilterStatsCalculator(createTestMetadataManager()));
+    private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(new FilterStatsCalculator(createTestMetadataManager()), 1.0);
 
     private StatsCalculatorTester tester;
 
@@ -281,10 +282,10 @@ public class TestJoinStatsRule
                 symbolStatistics(LEFT_JOIN_COLUMN, -5.0, 5.0, 0.2, 5));
 
         PlanNodeStatsEstimate addedStats = planNodeStats(TOTAL_ROWS_COUNT,
-                symbolStatistics(LEFT_JOIN_COLUMN, -5.0, 20.0, (LEFT_ROWS_COUNT * LEFT_JOIN_COLUMN_NULLS + RIGHT_ROWS_COUNT * 0.2) / TOTAL_ROWS_COUNT, 25),
+                symbolStatistics(LEFT_JOIN_COLUMN, -5.0, 20.0, (LEFT_ROWS_COUNT * LEFT_JOIN_COLUMN_NULLS + RIGHT_ROWS_COUNT * 0.2) / TOTAL_ROWS_COUNT, LEFT_JOIN_COLUMN_NDV + 5),
                 symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * LEFT_ROWS_COUNT + RIGHT_ROWS_COUNT) / TOTAL_ROWS_COUNT, 1));
 
-        assertThat(JOIN_STATS_RULE.addAntiJoinStats(LEFT_STATS, statsToAdd, Optional.of((new Symbol(LEFT_JOIN_COLUMN))))).equalTo(addedStats);
+        assertThat(JOIN_STATS_RULE.addAntiJoinStats(LEFT_STATS, new AntiJoinStats(statsToAdd, Optional.of(new Symbol(LEFT_JOIN_COLUMN)), LEFT_JOIN_COLUMN_NDV + 5))).equalTo(addedStats);
     }
 
     private void assertJoinStats(JoinNode.Type joinType, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats, PlanNodeStatsEstimate resultStats)
@@ -305,7 +306,7 @@ public class TestJoinStatsRule
                             new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol));
         }).withSourceStats(0, leftStats)
                 .withSourceStats(1, rightStats)
-                .check(stats -> stats.equalTo(resultStats));
+                .check(JOIN_STATS_RULE, stats -> stats.equalTo(resultStats));
     }
 
     private static PlanNodeStatsEstimate planNodeStats(double rowCount, SymbolStatistics... symbolStatistics)
