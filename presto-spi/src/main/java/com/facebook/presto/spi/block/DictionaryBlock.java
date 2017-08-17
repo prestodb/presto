@@ -194,7 +194,6 @@ public class DictionaryBlock
     @Override
     public long getSizeInBytes()
     {
-        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (sizeInBytes < 0) {
             calculateCompactSize();
         }
@@ -344,7 +343,6 @@ public class DictionaryBlock
 
     public boolean isCompact()
     {
-        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (uniqueIds < 0) {
             calculateCompactSize();
         }
