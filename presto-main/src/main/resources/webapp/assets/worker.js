@@ -498,7 +498,7 @@ let WorkerThreads = React.createClass({
     },
     renderGroupListItem: function(group) {
         return (
-            <li>
+            <li key={group}>
                 <a href="#" className={ this.state.selectedGroup === group ? "selected" : ""} onClick={ this.handleGroupClick.bind(this, group) }>
                 { group } ({ this.filterThreads(group, this.state.selectedThreadState).length })
                 </a>
@@ -507,7 +507,7 @@ let WorkerThreads = React.createClass({
     },
     renderThreadStateListItem: function(threadState) {
         return (
-            <li>
+            <li key={threadState}>
                 <a href="#" className={ this.state.selectedThreadState === threadState ? "selected" : ""} onClick={ this.handleThreadStateClick.bind(this, threadState) }>
                     { threadState } ({ this.filterThreads(this.state.selectedGroup, threadState).length })
                 </a>
@@ -519,7 +519,7 @@ let WorkerThreads = React.createClass({
     },
     renderThread(threadInfo) {
         return (
-            <div className="row">
+            <div key={threadInfo.id} className="row">
                 <div className="col-xs-12">
                     <pre className="stack-traces">
                         <strong>{threadInfo.name} {threadInfo.state} #{threadInfo.id} {threadInfo.lockOwnerId}</strong>
