@@ -409,7 +409,176 @@ let WorkerStatus = React.createClass({
     }
 });
 
+const ALL_THREADS = "All Threads";
+const QUERY_THREADS = "Running Queries";
+
+
+let WorkerThreads = React.createClass({
+    getInitialState: function() {
+        return {
+            serverInfo: null,
+            initialized: false,
+            ended: false,
+
+            threads: null,
+
+            selectedGroup: ALL_THREADS,
+        };
+    },
+    componentDidMount: function() {
+        const nodeId = getFirstParameter(window.location.search);
+        $.get('/v1/worker/' + nodeId + '/thread', function (threads) {
+            this.setState({
+                threads: this.processThreads(threads),
+                initialized: true,
+            });
+        }.bind(this))
+            .error(function() {
+                this.setState({
+                    initialized: true,
+                });
+            }.bind(this));
+    },
+    spliceThreadsByRegex: function(threads, regex) {
+        return [threads.filter(t => t.name.match(regex) !== null), threads.filter(t => t.name.match(regex) === null)];
+    },
+    processThreads: function(threads) {
+        const result = {};
+
+        result[ALL_THREADS] = threads;
+
+        // first, pull out threads that are running queries
+        let [matched, remaining] = this.spliceThreadsByRegex(threads, /([0-9])*_([0-9])*_([0-9])*_.*?\.([0-9])*\.([0-9])*-([0-9])*-([0-9])*/);
+        result[QUERY_THREADS] = matched;
+
+        if (matched.length !== 0) {
+            this.setState({
+                selectedGroup: QUERY_THREADS
+            })
+        }
+
+        while (remaining.length > 0) {
+            const match = /(.*?)-[0-9]+/.exec(remaining[0].name);
+
+            if (match === null) {
+                [result[remaining[0].name], remaining] = this.spliceThreadsByRegex(remaining, remaining[0].name);
+            }
+            else {
+                const [, namePrefix, ...ignored] = match;
+                [result[namePrefix], remaining] = this.spliceThreadsByRegex(remaining, namePrefix + "-[0-9]+");
+            }
+        }
+
+        return result
+    },
+    handleGroupClick: function(selectedGroup, event) {
+        this.setState({
+            selectedGroup: selectedGroup
+        });
+        event.preventDefault();
+    },
+    handleNewCaptureClick: function(event) {
+        this.setState({
+            initialized: false
+        });
+        this.componentDidMount();
+        event.preventDefault();
+    },
+    renderGroupListItem: function(group) {
+        return (
+            <li>
+                <a href="#" className={ this.state.selectedGroup === group ? "selected" : ""} onClick={ this.handleGroupClick.bind(this, group) }>
+                { group } ({ this.state.threads[group].length })
+                </a>
+            </li>
+        );
+    },
+    renderStackLine(stackLine) {
+        return "at " + stackLine.className + "." + stackLine.method + " (" + stackLine.file + ":"  + stackLine.line + ")" + "\n";
+    },
+    renderThread(threadInfo) {
+        return (
+            <div className="row">
+                <div className="col-xs-12">
+                    <pre className="stack-traces">
+                        <strong>{threadInfo.name} {threadInfo.state} #{threadInfo.id} {threadInfo.lockOwnerId}</strong>
+                        <br />
+                        {threadInfo.stackTrace.map(this.renderStackLine)}
+                    </pre>
+                </div>
+            </div>
+        );
+    },
+    render: function() {
+        const threads = this.state.threads;
+
+        if (threads === null) {
+            if (this.state.initialized === false) {
+                return (
+                    <div className="loader">Loading...</div>
+                );
+            }
+            else {
+                return (
+                    <div className="row error-message">
+                        <div className="col-xs-12"><h4>Thread snapshot could not be loaded</h4></div>
+                    </div>
+                );
+            }
+        }
+
+        let renderedThreads = (
+            <div className="row error-message">
+                <div className="col-xs-12"><h4>No threads in the selected group</h4></div>
+            </div> );
+
+        if (threads[this.state.selectedGroup].length !== 0) {
+            renderedThreads = threads[this.state.selectedGroup].map(t => this.renderThread(t))
+        }
+
+        return (
+            <div>
+                <div className="row">
+                    <div className="col-xs-9">
+                        <h3>Thread Snapshot</h3>
+                    </div>
+                    <div className="col-xs-3">
+                        <table className="header-inline-links">
+                            <tbody>
+                            <tr>
+                                <td>
+                                    <div className="input-group-btn text-right">
+                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            Thread Groups <span className="caret"/>
+                                        </button>
+                                        <ul className="dropdown-menu">
+                                            { Object.keys(threads).map(group => this.renderGroupListItem(group)) }
+                                        </ul>
+                                    </div>
+                                </td>
+                                <td>&nbsp;&nbsp;<button className="btn btn-info live-button" onClick={ this.handleNewCaptureClick }>New Capture</button></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div className="row">
+                    <div className="col-xs-12">
+                        <hr className="h3-hr"/>
+                        {renderedThreads}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+});
+
 ReactDOM.render(
     <WorkerStatus />,
     document.getElementById('worker-status')
+);
+
+ReactDOM.render(
+    <WorkerThreads />,
+    document.getElementById('worker-threads')
 );

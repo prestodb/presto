@@ -793,3 +793,7 @@ g .operator-stats:hover {
 .memory-progress-bar-info {
     background-color: #4d4d4d;
 }
+
+.stack-traces {
+    font-size: 11px;
+}

@@ -56,6 +56,18 @@ public class WorkerResource
     @Path("{nodeId}/status")
     public Response getStatus(@PathParam("nodeId") String nodeId)
     {
+        return proxyJsonResponse(nodeId, "v1/status");
+    }
+
+    @GET
+    @Path("{nodeId}/thread")
+    public Response getThreads(@PathParam("nodeId") String nodeId)
+    {
+        return proxyJsonResponse(nodeId, "v1/thread");
+    }
+
+    private Response proxyJsonResponse(String nodeId, String workerPath)
+    {
         Set<Node> nodes = nodeManager.getNodes(NodeState.ACTIVE);
         Node node = nodes.stream()
                 .filter(n -> n.getNodeIdentifier().equals(nodeId))
@@ -64,7 +76,7 @@ public class WorkerResource
 
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(node.getHttpUri())
-                        .appendPath("v1/status")
+                        .appendPath(workerPath)
                         .build())
                 .build();
 
