@@ -69,6 +69,8 @@ public class AggregationNode
         requireNonNull(groupingSets, "groupingSets is null");
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
         this.groupingSets = listOfListsCopy(groupingSets);
+
+        checkArgument(aggregations.values().stream().noneMatch(Aggregation::hasOrderBy) || step == SINGLE, "ORDER BY does not support distributed aggregation");
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
@@ -185,9 +187,11 @@ public class AggregationNode
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)
     {
-        return getAggregations().entrySet().stream()
+        return (getAggregations().entrySet().stream()
                 .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
-                .allMatch(InternalAggregationFunction::isDecomposable);
+                .allMatch(InternalAggregationFunction::isDecomposable)) &&
+                getAggregations().entrySet().stream()
+                        .allMatch(entry -> !entry.getValue().hasOrderBy());
     }
 
     public enum Step
@@ -291,6 +295,11 @@ public class AggregationNode
         public List<SortOrder> getOrdering()
         {
             return ordering;
+        }
+
+        boolean hasOrderBy()
+        {
+            return !orderBy.isEmpty();
         }
     }
 }

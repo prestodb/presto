@@ -75,7 +75,9 @@ public class AddIntermediateAggregations
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             // Only consider FINAL un-grouped aggregations
             .with(step().equalTo(AggregationNode.Step.FINAL))
-            .with(empty(groupingKeys()));
+            .with(empty(groupingKeys()))
+            // Only consider aggregations without ORDER BY clause
+            .matching(node -> node.getOrderBySymbols().isEmpty());
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -182,8 +184,8 @@ public class AddIntermediateAggregations
                             new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
                             aggregation.getSignature(),
                             Optional.empty(),  // No mask for INTERMEDIATE
-                            entry.getValue().getOrderBy(),
-                            entry.getValue().getOrdering()));
+                            ImmutableList.of(),
+                            ImmutableList.of()));
         }
         return builder.build();
     }
