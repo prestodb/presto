@@ -33,14 +33,14 @@ public class ByteArrayInputStream
             throws IOException
     {
         byte[] data = new byte[length];
-        inputStream.readFully(data, 0, length);
+        next(data, 0, length);
         return data;
     }
 
-    public void next(int length, byte[] data)
+    public void next(byte[] data, int offset, int length)
             throws IOException
     {
-        inputStream.readFully(data, 0, length);
+        inputStream.readFully(data, offset, length);
     }
 
     @Override

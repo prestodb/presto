@@ -293,7 +293,8 @@ public class TestOrcPageSourceMemoryTracking
             // verify the stats are correctly recorded
             Distribution distribution = stats.getMaxCombinedBytesPerRow().getAllTime();
             assertEquals((int) distribution.getCount(), 1);
-            assertEquals((int) distribution.getMax(), Arrays.stream(dataColumns).mapToInt(GrowingTestColumn::getMaxSize).sum());
+            // the block is VariableWidthBlock that contains valueIsNull and offsets arrays as overhead
+            assertEquals((int) distribution.getMax(), Arrays.stream(dataColumns).mapToInt(GrowingTestColumn::getMaxSize).sum() + (Integer.BYTES + Byte.BYTES) * numColumns);
             pageSource.close();
         }
         finally {
