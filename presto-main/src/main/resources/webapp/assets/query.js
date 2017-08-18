@@ -823,7 +823,7 @@ let QueryDetail = React.createClass({
                         <h3>Stages</h3>
                     </div>
                     <div className="col-xs-3">
-                        <table className="query-links">
+                        <table className="header-inline-links">
                             <tr>
                                 <td>
                                     { this.renderStageRefreshButton() }
@@ -977,7 +977,7 @@ let QueryDetail = React.createClass({
                         </h3>
                     </div>
                     <div className="col-xs-6">
-                        <table className="query-links">
+                        <table className="header-inline-links">
                             <tbody>
                                 <tr>
                                     <td>
