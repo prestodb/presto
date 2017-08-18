@@ -144,7 +144,7 @@ public final class MapConcatFunction
         // TODO: we should move TypedSet into user state as well
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        TypedSet typedSet = new TypedSet(keyType, entries / 2);
+        TypedSet typedSet = new TypedSet(keyType, entries / 2, FUNCTION_NAME);
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 

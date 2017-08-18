@@ -172,7 +172,7 @@ public class BenchmarkArrayDistinct
             return array;
         }
 
-        TypedSet typedSet = new TypedSet(VARCHAR, array.getPositionCount());
+        TypedSet typedSet = new TypedSet(VARCHAR, array.getPositionCount(), "old_array_distinct");
         BlockBuilder distinctElementBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!typedSet.contains(array, i)) {
