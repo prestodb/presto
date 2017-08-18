@@ -50,7 +50,7 @@ public final class ArrayDistinctFunction
             }
         }
 
-        TypedSet typedSet = new TypedSet(type, array.getPositionCount());
+        TypedSet typedSet = new TypedSet(type, array.getPositionCount(), "array_distinct");
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!typedSet.contains(array, i)) {
