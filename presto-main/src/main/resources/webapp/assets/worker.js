@@ -412,6 +412,8 @@ let WorkerStatus = React.createClass({
 const ALL_THREADS = "All Threads";
 const QUERY_THREADS = "Running Queries";
 
+const ALL_THREAD_STATE = "ALL";
+const THREAD_STATES = [ALL_THREAD_STATE, "RUNNABLE", "BLOCKED", "WAITING", "TIMED_WAITING", "NEW", "TERMINATED"];
 
 let WorkerThreads = React.createClass({
     getInitialState: function() {
@@ -423,6 +425,7 @@ let WorkerThreads = React.createClass({
             threads: null,
 
             selectedGroup: ALL_THREADS,
+            selectedThreadState: ALL_THREAD_STATE,
         };
     },
     componentDidMount: function() {
@@ -477,6 +480,12 @@ let WorkerThreads = React.createClass({
         });
         event.preventDefault();
     },
+    handleThreadStateClick: function(selectedThreadState, event) {
+        this.setState({
+            selectedThreadState: selectedThreadState
+        });
+        event.preventDefault();
+    },
     handleNewCaptureClick: function(event) {
         this.setState({
             initialized: false
@@ -484,11 +493,23 @@ let WorkerThreads = React.createClass({
         this.componentDidMount();
         event.preventDefault();
     },
+    filterThreads(group, state) {
+        return this.state.threads[group].filter(t => t.state === state || state === ALL_THREAD_STATE);
+    },
     renderGroupListItem: function(group) {
         return (
             <li>
                 <a href="#" className={ this.state.selectedGroup === group ? "selected" : ""} onClick={ this.handleGroupClick.bind(this, group) }>
-                { group } ({ this.state.threads[group].length })
+                { group } ({ this.filterThreads(group, this.state.selectedThreadState).length })
+                </a>
+            </li>
+        );
+    },
+    renderThreadStateListItem: function(threadState) {
+        return (
+            <li>
+                <a href="#" className={ this.state.selectedThreadState === threadState ? "selected" : ""} onClick={ this.handleThreadStateClick.bind(this, threadState) }>
+                    { threadState } ({ this.filterThreads(this.state.selectedGroup, threadState).length })
                 </a>
             </li>
         );
@@ -527,32 +548,57 @@ let WorkerThreads = React.createClass({
             }
         }
 
-        let renderedThreads = (
-            <div className="row error-message">
-                <div className="col-xs-12"><h4>No threads in the selected group</h4></div>
-            </div> );
-
-        if (threads[this.state.selectedGroup].length !== 0) {
-            renderedThreads = threads[this.state.selectedGroup].map(t => this.renderThread(t))
+        const filteredThreads = this.filterThreads(this.state.selectedGroup, this.state.selectedThreadState);
+        let renderedThreads;
+        if (filteredThreads.length === 0 && this.state.selectedThreadState === ALL_THREAD_STATE) {
+            renderedThreads = (
+                <div className="row error-message">
+                    <div className="col-xs-12"><h4>No threads in group '{ this.state.selectedGroup }'</h4></div>
+                </div> );
+        }
+        else if (filteredThreads.length === 0 && this.state.selectedGroup === ALL_THREADS) {
+            renderedThreads = (
+                <div className="row error-message">
+                    <div className="col-xs-12"><h4>No threads with state { this.state.selectedThreadState }</h4></div>
+                </div> );
+        }
+        else if (filteredThreads.length === 0) {
+            renderedThreads = (
+                <div className="row error-message">
+                    <div className="col-xs-12"><h4>No threads in group '{ this.state.selectedGroup }' with state {this.state.selectedThreadState}</h4></div>
+                </div> );
+        }
+        else {
+            renderedThreads = filteredThreads.map(t => this.renderThread(t))
         }
 
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-9">
+                    <div className="col-xs-7">
                         <h3>Thread Snapshot</h3>
                     </div>
-                    <div className="col-xs-3">
+                    <div className="col-xs-5">
                         <table className="header-inline-links">
                             <tbody>
                             <tr>
                                 <td>
                                     <div className="input-group-btn text-right">
                                         <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                            Thread Groups <span className="caret"/>
+                                            <strong>Group:</strong> { this.state.selectedGroup } <span className="caret"/>
                                         </button>
                                         <ul className="dropdown-menu">
                                             { Object.keys(threads).map(group => this.renderGroupListItem(group)) }
+                                        </ul>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="input-group-btn text-right">
+                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            <strong>State:</strong> { this.state.selectedThreadState } <span className="caret"/>
+                                        </button>
+                                        <ul className="dropdown-menu">
+                                            { THREAD_STATES.map(state => this.renderThreadStateListItem(state)) }
                                         </ul>
                                     </div>
                                 </td>
