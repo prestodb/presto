@@ -108,6 +108,17 @@ pre {
     padding-bottom: 7px;
 }
 
+.dropdown-menu > li > .selected {
+    font-weight: 500;
+    color: #fff;
+    background-color: #6d6d6d;
+}
+
+.dropdown-menu > li > .selected:hover {
+    color: #fff;
+    background-color: #7b7b7b;
+}
+
 /** Convenience classes */
 /** =================== */
 
