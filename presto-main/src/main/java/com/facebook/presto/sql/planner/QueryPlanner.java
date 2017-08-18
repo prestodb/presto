@@ -26,6 +26,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.SemanticExceptions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -439,6 +440,15 @@ class QueryPlanner
                 .flatMap(List::stream)
                 .forEach(arguments::add);
 
+        analysis.getAggregates(node).stream()
+                .map(FunctionCall::getOrderBy)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(OrderBy::getSortItems)
+                .flatMap(List::stream)
+                .map(SortItem::getSortKey)
+                .forEach(arguments::add);
+
         // filter expressions need to be projected first
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getFilter)
@@ -523,7 +533,7 @@ class QueryPlanner
         aggregationTranslations.copyMappingsFrom(groupingTranslations);
 
         // 2.d. Rewrite aggregates
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Aggregation> aggregationsBuilder = ImmutableMap.builder();
         // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
         Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         boolean needPostProjectionCoercion = false;
@@ -556,8 +566,20 @@ class QueryPlanner
                     argumentMarkers.put(args, marker.get());
                 }
             }
-            aggregations.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker, ImmutableList.of(), ImmutableList.of()));
+
+            aggregationsBuilder.put(newSymbol, new Aggregation(
+                    (FunctionCall) rewritten,
+                    analysis.getFunctionSignature(aggregate),
+                    marker,
+                    aggregate.getOrderBy().map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream()
+                            .map(SortItem::getSortKey)
+                            .map(argumentTranslations::get)
+                            .collect(toImmutableList()),
+                    aggregate.getOrderBy().map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream()
+                            .map(QueryPlanner::toSortOrder)
+                            .collect(toImmutableList())));
         }
+        Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
         // 2.e. Mark distinct rows for each aggregate that has DISTINCT
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
@@ -583,11 +605,19 @@ class QueryPlanner
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                aggregations.build(),
+                aggregations,
                 groupingSymbols,
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 groupIdSymbol);
+
+        if (aggregationNode.hasEmptyGroupingSet() && aggregationNode.hasNonEmptyGroupingSet() && !aggregationNode.getOrderBySymbols().isEmpty()) {
+            // Having both empty grouping set and non-empty grouping set will require partial aggregation.
+            // Since aggregation with ORDER BY does not support partial aggregation, we can not allow queries to have both.
+            throw SemanticExceptions.notSupportedException(
+                    node,
+                    "ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set");
+        }
 
         subPlan = new PlanBuilder(aggregationTranslations, aggregationNode, analysis.getParameters());
 
