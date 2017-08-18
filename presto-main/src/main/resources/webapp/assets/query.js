@@ -54,12 +54,9 @@ let TaskList = React.createClass({
 
         if (tasks === undefined || tasks.length === 0) {
             return (
-                <div className="row">
-                    <div className="col-xs-12">
-                        No tasks.
-                    </div>
-                </div>
-            );
+                <div className="row error-message">
+                    <div className="col-xs-12"><h4>No threads in the selected group</h4></div>
+                </div> );
         }
 
         const showPortNumbers = this.showPortNumbers(tasks);
@@ -785,7 +782,7 @@ let QueryDetail = React.createClass({
                         <h3>Tasks</h3>
                     </div>
                     <div className="col-xs-3">
-                        <table className="query-links">
+                        <table className="header-inline-links">
                             <tr>
                                 <td>
                                     <div className="input-group-btn text-right">
@@ -797,7 +794,7 @@ let QueryDetail = React.createClass({
                                             { this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned") }
                                             { this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running") }
                                             { this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished") }
-                                            { this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Aborted/Canceled/Failed") }
+                                            { this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed") }
                                         </ul>
                                     </div>
                                 </td>
