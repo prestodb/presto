@@ -80,7 +80,7 @@ public final class Unnest
     @Override
     public int hashCode()
     {
-        return Objects.hash(expressions);
+        return Objects.hash(expressions, withOrdinality);
     }
 
     @Override
@@ -93,6 +93,6 @@ public final class Unnest
             return false;
         }
         Unnest other = (Unnest) obj;
-        return Objects.equals(this.expressions, other.expressions);
+        return Objects.equals(expressions, other.expressions) && withOrdinality == other.withOrdinality;
     }
 }
