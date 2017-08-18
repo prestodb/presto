@@ -130,6 +130,10 @@ pre {
     color: #fff;
 }
 
+.font-light {
+    color: #d6f3fb;
+}
+
 .italic-uppercase {
     text-transform: uppercase;
     font-style: italic;
@@ -155,10 +159,6 @@ pre {
 
 .wrap-text {
     word-break: break-all;
-}
-
-.link-light {
-    color: #d6f3fb;
 }
 
 /** Navbar **/

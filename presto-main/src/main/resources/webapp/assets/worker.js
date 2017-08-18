@@ -442,6 +442,9 @@ let WorkerThreads = React.createClass({
                 });
             }.bind(this));
     },
+    componentDidUpdate: function () {
+        new Clipboard('.copy-button');
+    },
     spliceThreadsByRegex: function(threads, regex) {
         return [threads.filter(t => t.name.match(regex) !== null), threads.filter(t => t.name.match(regex) === null)];
     },
@@ -514,18 +517,29 @@ let WorkerThreads = React.createClass({
             </li>
         );
     },
-    renderStackLine(stackLine) {
-        return "at " + stackLine.className + "." + stackLine.method + " (" + stackLine.file + ":"  + stackLine.line + ")" + "\n";
+    renderStackLine(threadId) {
+        return (stackLine, index) => {
+            return (
+                <div key={threadId + index}>
+                    &nbsp;&nbsp;at {stackLine.className}.{stackLine.method}
+                    (<span className="font-light">{ stackLine.file }:{stackLine.line}</span>)
+                </div> );
+        };
     },
     renderThread(threadInfo) {
         return (
-            <div key={threadInfo.id} className="row">
-                <div className="col-xs-12">
-                    <pre className="stack-traces">
-                        <strong>{threadInfo.name} {threadInfo.state} #{threadInfo.id} {threadInfo.lockOwnerId}</strong>
-                        <br />
-                        {threadInfo.stackTrace.map(this.renderStackLine)}
-                    </pre>
+            <div key={threadInfo.id}>
+                <span className="font-white">{threadInfo.name} {threadInfo.state} #{threadInfo.id} {threadInfo.lockOwnerId}</span>
+                <a className="copy-button" data-clipboard-target={"#stack-trace-" + threadInfo.id} data-toggle="tooltip" data-placement="right"
+                       title="Copy to clipboard">
+                    <span className="glyphicon glyphicon-copy" alt="Copy to clipboard"/>
+                </a>
+                <br />
+                <span className="stack-traces" id={"stack-trace-" + threadInfo.id}>
+                    {threadInfo.stackTrace.map(this.renderStackLine(threadInfo.id))}
+                </span>
+                <div>
+                    &nbsp;
                 </div>
             </div>
         );
@@ -569,16 +583,24 @@ let WorkerThreads = React.createClass({
                 </div> );
         }
         else {
-            renderedThreads = filteredThreads.map(t => this.renderThread(t))
+            renderedThreads = (
+                <pre>
+                    { filteredThreads.map(t => this.renderThread(t)) }
+                </pre> );
         }
 
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-7">
-                        <h3>Thread Snapshot</h3>
+                    <div className="col-xs-4">
+                        <h3>
+                            Thread Snapshot
+                            <a className="btn copy-button" data-clipboard-target="#stack-traces" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                <span className="glyphicon glyphicon-copy" alt="Copy to clipboard"/>
+                            </a>
+                        </h3>
                     </div>
-                    <div className="col-xs-5">
+                    <div className="col-xs-8">
                         <table className="header-inline-links">
                             <tbody>
                             <tr>
@@ -611,7 +633,9 @@ let WorkerThreads = React.createClass({
                 <div className="row">
                     <div className="col-xs-12">
                         <hr className="h3-hr"/>
-                        {renderedThreads}
+                        <div id="stack-traces">
+                            {renderedThreads}
+                        </div>
                     </div>
                 </div>
             </div>
