@@ -68,7 +68,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 35); // page overhead
+        assertEquals(pageSize, 36); // page overhead
 
         // page with one value
         BIGINT.writeLong(builder, 123);
@@ -91,7 +91,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 43); // page overhead
+        assertEquals(pageSize, 44); // page overhead
 
         // page with one value
         VARCHAR.writeString(builder, "alice");

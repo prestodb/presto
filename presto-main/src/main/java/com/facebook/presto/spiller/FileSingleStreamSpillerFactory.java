@@ -85,7 +85,7 @@ public class FileSingleStreamSpillerFactory
             List<Path> spillPaths,
             double maxUsedSpaceThreshold)
     {
-        this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
+        this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false, false);
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
         requireNonNull(spillPaths, "spillPaths is null");

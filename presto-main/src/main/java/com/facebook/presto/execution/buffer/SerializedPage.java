@@ -29,13 +29,15 @@ public class SerializedPage
 
     private final Slice slice;
     private final PageCompression compression;
+    private final PageEncryption encryption;
     private final int positionCount;
     private final int uncompressedSizeInBytes;
 
-    public SerializedPage(Slice slice, PageCompression compression, int positionCount, int uncompressedSizeInBytes)
+    public SerializedPage(Slice slice, PageCompression compression, PageEncryption encryption, int positionCount, int uncompressedSizeInBytes)
     {
         this.slice = requireNonNull(slice, "slice is null");
         this.compression = requireNonNull(compression, "compression is null");
+        this.encryption = requireNonNull(encryption, "encryption is null");
         this.positionCount = positionCount;
         checkArgument(uncompressedSizeInBytes >= 0, "uncompressedSizeInBytes is negative");
         checkArgument(compression == UNCOMPRESSED || uncompressedSizeInBytes > slice.length(), "compressed size must be smaller than uncompressed size when compressed");
@@ -73,14 +75,20 @@ public class SerializedPage
         return compression;
     }
 
+    public PageEncryption getEncryption()
+    {
+        return encryption;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("positionCount", positionCount)
-                .add("compression", compression)
-                .add("sizeInBytes", slice.length())
-                .add("uncompressedSizeInBytes", uncompressedSizeInBytes)
-                .toString();
+                       .add("positionCount", positionCount)
+                       .add("compression", compression)
+                       .add("encryption", encryption)
+                       .add("sizeInBytes", slice.length())
+                       .add("uncompressedSizeInBytes", uncompressedSizeInBytes)
+                       .toString();
     }
 }

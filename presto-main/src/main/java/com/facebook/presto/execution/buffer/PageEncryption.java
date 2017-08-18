@@ -17,14 +17,14 @@ import com.facebook.presto.spi.PrestoException;
 
 import static com.facebook.presto.spi.StandardErrorCode.CORRUPT_PAGE;
 
-public enum PageCompression
+public enum PageEncryption
 {
-    UNCOMPRESSED((byte) 0),
-    COMPRESSED((byte) 1);
+    UNENCRYPTED((byte) 0),
+    ENCRYPTED((byte) 1);
 
     private final byte marker;
 
-    PageCompression(byte marker)
+    PageEncryption(byte marker)
     {
         this.marker = marker;
     }
@@ -34,11 +34,11 @@ public enum PageCompression
         return marker;
     }
 
-    public static PageCompression lookupCompressionCodecFromMarker(byte marker)
+    public static PageEncryption lookupEncryptionCodecFromMarker(byte marker)
     {
-        if (marker != UNCOMPRESSED.getMarker() && marker != COMPRESSED.getMarker()) {
+        if (marker != UNENCRYPTED.getMarker() && marker != ENCRYPTED.getMarker()) {
             throw new PrestoException(CORRUPT_PAGE, "Page marker did not contain expected value");
         }
-        return UNCOMPRESSED.getMarker() == marker ? UNCOMPRESSED : COMPRESSED;
+        return UNENCRYPTED.getMarker() == marker ? UNENCRYPTED : ENCRYPTED;
     }
 }
