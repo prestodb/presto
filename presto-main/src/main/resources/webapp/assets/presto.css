@@ -216,11 +216,6 @@ pre {
     border-color: #137698;
 }
 
-.query-links {
-    float: right;
-    margin-top: 20px;
-}
-
 .progress-large {
     margin: 0;
     background-color: #808286;
@@ -263,6 +258,11 @@ pre {
 
 .status-light:before {
     content: '\25CF';
+}
+
+.header-inline-links {
+    float: right;
+    margin-top: 20px;
 }
 
 /** ===================== **/
