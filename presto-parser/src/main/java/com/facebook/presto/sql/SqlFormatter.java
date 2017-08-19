@@ -156,7 +156,14 @@ public final class SqlFormatter
         @Override
         protected Void visitUnnest(Unnest node, Integer indent)
         {
-            builder.append(node.toString());
+            builder.append("UNNEST(")
+                    .append(node.getExpressions().stream()
+                            .map(expression -> formatExpression(expression, parameters))
+                            .collect(joining(", ")))
+                    .append(")");
+            if (node.isWithOrdinality()) {
+                builder.append(" WITH ORDINALITY");
+            }
             return null;
         }
 
