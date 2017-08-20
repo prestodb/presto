@@ -18,8 +18,9 @@ import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 public interface SpillerFactory
 {
-    Spiller create(List<Type> types, SpillContext localSpillContext, AggregatedMemoryContext memoryContext);
+    Spiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<AggregatedMemoryContext> memoryContext);
 }

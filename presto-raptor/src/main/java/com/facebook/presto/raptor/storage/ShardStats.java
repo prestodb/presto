@@ -66,7 +66,7 @@ public final class ShardStats
             throws IOException
     {
         int columnIndex = columnIndex(orcReader.getColumnNames(), columnId);
-        OrcRecordReader reader = orcReader.createRecordReader(ImmutableMap.of(columnIndex, type), OrcPredicate.TRUE, UTC, new AggregatedMemoryContext());
+        OrcRecordReader reader = orcReader.createRecordReader(ImmutableMap.of(columnIndex, type), OrcPredicate.TRUE, UTC, AggregatedMemoryContext::new);
 
         if (type.equals(BooleanType.BOOLEAN)) {
             return indexBoolean(type, reader, columnIndex, columnId);

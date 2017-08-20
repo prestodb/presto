@@ -23,6 +23,7 @@ import com.google.common.collect.Iterators;
 import java.io.Closeable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -39,9 +40,9 @@ public class MergeHashSort
 {
     private final AggregatedMemoryContext memoryContext;
 
-    public MergeHashSort(AggregatedMemoryContext memoryContext)
+    public MergeHashSort(Supplier<AggregatedMemoryContext> memoryContext)
     {
-        this.memoryContext = memoryContext;
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null").get();
     }
 
     /**
@@ -50,7 +51,7 @@ public class MergeHashSort
     public Iterator<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<Iterator<Page>> channels)
     {
         List<Iterator<PagePosition>> channelIterators = channels.stream()
-                .map(channel -> new SingleChannelPagePositions(channel, memoryContext.newLocalMemoryContext()))
+                .map(channel -> new SingleChannelPagePositions(channel, memoryContext.localContextSupplier()))
                 .collect(toList());
 
         int[] hashChannels = new int[keyTypes.size()];
@@ -65,7 +66,7 @@ public class MergeHashSort
                 Iterators.mergeSorted(
                         channelIterators,
                         (PagePosition left, PagePosition right) -> comparePages(hashGenerator, left, right)),
-                memoryContext.newLocalMemoryContext());
+                memoryContext.localContextSupplier());
     }
 
     private static int comparePages(HashGenerator hashGenerator, PagePosition left, PagePosition right)
@@ -131,10 +132,10 @@ public class MergeHashSort
         private final LocalMemoryContext memoryContext;
         private PagePosition current;
 
-        public SingleChannelPagePositions(Iterator<Page> channel, LocalMemoryContext memoryContext)
+        public SingleChannelPagePositions(Iterator<Page> channel, Supplier<LocalMemoryContext> memoryContext)
         {
             this.channel = requireNonNull(channel, "channel is null");
-            this.memoryContext = memoryContext;
+            this.memoryContext = requireNonNull(memoryContext, "memoryContext is null").get();
         }
 
         @Override
@@ -170,13 +171,13 @@ public class MergeHashSort
         private final LocalMemoryContext memoryContext;
         private PagePosition currentPage = null;
 
-        public PageRewriteIterator(HashGenerator hashGenerator, List<Type> allTypes, Iterator<PagePosition> pagePositions, LocalMemoryContext memoryContext)
+        public PageRewriteIterator(HashGenerator hashGenerator, List<Type> allTypes, Iterator<PagePosition> pagePositions, Supplier<LocalMemoryContext> memoryContext)
         {
             this.hashGenerator = hashGenerator;
             this.allTypes = allTypes;
             this.pagePositions = pagePositions;
             this.builder = new PageBuilder(allTypes);
-            this.memoryContext = memoryContext;
+            this.memoryContext = requireNonNull(memoryContext, "memoryContext is null").get();
         }
 
         @Override

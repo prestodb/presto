@@ -18,8 +18,9 @@ import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 public interface SingleStreamSpillerFactory
 {
-    SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext);
+    SingleStreamSpiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<LocalMemoryContext> memoryContext);
 }

@@ -13,22 +13,25 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spiller.LocalSpillContext;
-
-import java.io.Closeable;
 import java.util.function.Supplier;
 
-@FunctionalInterface
-public interface SpillContext
-        extends Closeable
+public class TestingSpillContext
+        implements SpillContext
 {
-    void updateBytes(long bytes);
+    public static TestingSpillContext testingSpillContext()
+    {
+        return new TestingSpillContext();
+    }
+
+    public static Supplier<SpillContext> testingSpillContextSupplier()
+    {
+        return () -> testingSpillContext();
+    }
+
+    private TestingSpillContext() {}
 
     @Override
-    default void close() {}
-
-    default Supplier<SpillContext> childContextSupplier()
+    public void updateBytes(long bytes)
     {
-        return () -> new LocalSpillContext(this);
     }
 }

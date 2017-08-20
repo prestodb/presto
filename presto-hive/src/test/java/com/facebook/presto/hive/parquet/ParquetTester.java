@@ -193,7 +193,7 @@ public class ParquetTester
         FSDataInputStream inputStream = fileSystem.open(path);
         ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
 
-        ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, new AggregatedMemoryContext());
+        ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, AggregatedMemoryContext::new);
         assertEquals(parquetReader.getPosition(), 0);
 
         int rowsProcessed = 0;

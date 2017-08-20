@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.parquet.memory;
 
+import java.util.function.Supplier;
+
 public abstract class AbstractAggregatedMemoryContext
 {
     // This class should remain exactly the same as AbstractAggregatedMemoryContext in com.facebook.presto.memory
@@ -24,13 +26,13 @@ public abstract class AbstractAggregatedMemoryContext
 
     protected abstract void updateBytes(long bytes);
 
-    public AggregatedMemoryContext newAggregatedMemoryContext()
+    public Supplier<AggregatedMemoryContext> childContextSupplier()
     {
-        return new AggregatedMemoryContext(this);
+        return () -> new AggregatedMemoryContext(this);
     }
 
-    public LocalMemoryContext newLocalMemoryContext()
+    public Supplier<LocalMemoryContext> localContextSupplier()
     {
-        return new LocalMemoryContext(this);
+        return () -> new LocalMemoryContext(this);
     }
 }

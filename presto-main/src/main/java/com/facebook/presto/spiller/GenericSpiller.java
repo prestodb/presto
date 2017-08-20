@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +38,7 @@ public class GenericSpiller
         implements Spiller
 {
     private final List<Type> types;
-    private final SpillContext spillContext;
+    private final Supplier<SpillContext> spillContext;
     private final AggregatedMemoryContext memoryContext;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final Closer closer = Closer.create();
@@ -46,13 +47,14 @@ public class GenericSpiller
 
     public GenericSpiller(
             List<Type> types,
-            SpillContext spillContext,
-            AggregatedMemoryContext memoryContext,
+            Supplier<SpillContext> spillContext,
+            Supplier<AggregatedMemoryContext> memoryContext,
             SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
         this.types = requireNonNull(types, "types can not be null");
         this.spillContext = requireNonNull(spillContext, "spillContext can not be null");
-        this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext can not be null").get();
+        closer.register(this.memoryContext::close);
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory can not be null");
     }
 
@@ -60,7 +62,7 @@ public class GenericSpiller
     public ListenableFuture<?> spill(Iterator<Page> pageIterator)
     {
         checkNoSpillInProgress();
-        SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext());
+        SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, memoryContext.localContextSupplier());
         closer.register(singleStreamSpiller);
         singleStreamSpillers.add(singleStreamSpiller);
         previousSpill = singleStreamSpiller.spill(pageIterator);

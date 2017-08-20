@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spiller.LocalSpillContext;
+import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.LocalMemoryContext;
 
-import java.io.Closeable;
 import java.util.function.Supplier;
 
-@FunctionalInterface
-public interface SpillContext
-        extends Closeable
+public class TestingAggregatedMemoryContext
 {
-    void updateBytes(long bytes);
-
-    @Override
-    default void close() {}
-
-    default Supplier<SpillContext> childContextSupplier()
+    public static Supplier<AggregatedMemoryContext> testingMemoryContextSupplier()
     {
-        return () -> new LocalSpillContext(this);
+        return new AggregatedMemoryContext().childContextSupplier();
     }
+
+    public static Supplier<LocalMemoryContext> testingLocalMemoryContextSupplier()
+    {
+        return new AggregatedMemoryContext().localContextSupplier();
+    }
+
+    private TestingAggregatedMemoryContext() {}
 }

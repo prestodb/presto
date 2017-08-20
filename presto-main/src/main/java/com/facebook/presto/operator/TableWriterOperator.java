@@ -134,7 +134,7 @@ public class TableWriterOperator
             List<Integer> inputChannels)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pageSinkMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.pageSinkMemoryContext = operatorContext.getSystemMemoryLocalContextSupplier().get();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
     }

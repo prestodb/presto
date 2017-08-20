@@ -16,7 +16,6 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
-import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.LocalMemoryContext;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
@@ -26,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
@@ -56,7 +56,7 @@ public final class OrcInputStream
     // * Memory pointed to by `current` is always part of `buffer`. It shouldn't be counted again.
     private final LocalMemoryContext fixedMemoryUsage;
 
-    public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AbstractAggregatedMemoryContext systemMemoryContext)
+    public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, Supplier<LocalMemoryContext> memoryContextSupplier)
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSource is null");
 
@@ -64,9 +64,9 @@ public final class OrcInputStream
 
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
 
-        requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext();
-        this.fixedMemoryUsage = systemMemoryContext.newLocalMemoryContext();
+        requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
+        this.bufferMemoryUsage = memoryContextSupplier.get();
+        this.fixedMemoryUsage = memoryContextSupplier.get();
         this.fixedMemoryUsage.setBytes(sliceInput.length());
 
         if (!decompressor.isPresent()) {

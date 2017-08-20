@@ -275,7 +275,7 @@ public class TopNOperator
             this.sortOrders = sortOrders;
 
             this.operatorContext = operatorContext;
-            this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+            this.systemMemoryContext = operatorContext.getSystemMemoryLocalContextSupplier().get();
             this.maxPartialMemory = maxPartialMemory.toBytes();
 
             Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();

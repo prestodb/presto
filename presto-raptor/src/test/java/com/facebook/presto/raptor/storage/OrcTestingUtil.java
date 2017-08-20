@@ -79,7 +79,7 @@ final class OrcTestingUtil
     public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
             throws IOException
     {
-        return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, new AggregatedMemoryContext());
+        return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, AggregatedMemoryContext::new);
     }
 
     public static byte[] octets(int... values)

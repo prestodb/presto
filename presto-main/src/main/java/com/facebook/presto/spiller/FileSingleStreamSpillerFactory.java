@@ -34,6 +34,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -138,7 +139,7 @@ public class FileSingleStreamSpillerFactory
     }
 
     @Override
-    public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
+    public SingleStreamSpiller create(List<Type> types, Supplier<SpillContext> spillContext, Supplier<LocalMemoryContext> memoryContext)
     {
         return new FileSingleStreamSpiller(serdeFactory.createPagesSerde(), executor, getNextSpillPath(), spillerStats, spillContext, memoryContext);
     }

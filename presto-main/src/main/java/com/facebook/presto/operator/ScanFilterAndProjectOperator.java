@@ -90,8 +90,8 @@ public class ScanFilterAndProjectOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.pageSourceMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-        this.pageBuilderMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.pageSourceMemoryContext = operatorContext.getSystemMemoryLocalContextSupplier().get();
+        this.pageBuilderMemoryContext = operatorContext.getSystemMemoryLocalContextSupplier().get();
 
         this.pageBuilder = new PageBuilder(getTypes());
     }

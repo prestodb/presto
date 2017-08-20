@@ -28,6 +28,9 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
+
+import static java.util.Objects.requireNonNull;
 
 public class MergingHashAggregationBuilder
         implements Closeable
@@ -54,7 +57,7 @@ public class MergingHashAggregationBuilder
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Iterator<Page> sortedPages,
-            LocalMemoryContext systemMemoryContext,
+            Supplier<LocalMemoryContext> systemMemoryContext,
             long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler)
@@ -72,7 +75,7 @@ public class MergingHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
-        this.systemMemoryContext = systemMemoryContext;
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").get();
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
         this.joinCompiler = joinCompiler;

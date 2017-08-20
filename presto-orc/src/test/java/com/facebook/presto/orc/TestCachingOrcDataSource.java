@@ -206,7 +206,7 @@ public class TestCachingOrcDataSource
                 ImmutableMap.of(0, VARCHAR),
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
-                new AggregatedMemoryContext());
+                AggregatedMemoryContext::new);
         int positionCount = 0;
         while (true) {
             int batchSize = orcRecordReader.nextBatch();
