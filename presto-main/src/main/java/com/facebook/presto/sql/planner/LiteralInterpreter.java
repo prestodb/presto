@@ -224,7 +224,7 @@ public final class LiteralInterpreter
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
-            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
+            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry(), metadata.getTypeManager());
         }
 
         @Override

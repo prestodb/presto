@@ -288,7 +288,7 @@ public final class DomainTranslator
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
-            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
+            this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry(), metadata.getTypeManager());
         }
 
         private Type checkedTypeLookup(Symbol symbol)

@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Defaults;
 import com.google.common.base.Throwables;
 
@@ -32,10 +33,12 @@ import static java.util.Objects.requireNonNull;
 public class FunctionInvoker
 {
     private final FunctionRegistry registry;
+    private final TypeManager typeManager;
 
-    public FunctionInvoker(FunctionRegistry registry)
+    public FunctionInvoker(FunctionRegistry registry, TypeManager typeManager)
     {
         this.registry = requireNonNull(registry, "registry is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public Object invoke(Signature function, ConnectorSession session, Object... arguments)

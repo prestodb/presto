@@ -90,7 +90,7 @@ public class MapSubscriptOperator
             methodHandle = METHOD_HANDLE_OBJECT;
         }
         methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey);
-        FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
+        FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry, typeManager);
         methodHandle = methodHandle.bindTo(functionInvoker).bindTo(keyType).bindTo(valueType);
 
         // this casting is necessary because otherwise presto byte code generator will generate illegal byte code

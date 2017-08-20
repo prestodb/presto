@@ -250,7 +250,7 @@ public class ExpressionInterpreter
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
-        this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
+        this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry(), metadata.getTypeManager());
 
         this.visitor = new Visitor();
     }

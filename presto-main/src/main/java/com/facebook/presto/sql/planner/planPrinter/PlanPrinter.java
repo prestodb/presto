@@ -33,6 +33,7 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -270,7 +271,12 @@ public class PlanPrinter
                 .map(argument -> {
                     if (argument.isConstant()) {
                         NullableValue constant = argument.getConstant();
-                        String printableValue = castToVarchar(constant.getType(), constant.getValue(), metadata.getFunctionRegistry(), session);
+                        String printableValue = castToVarchar(
+                                constant.getType(),
+                                constant.getValue(),
+                                metadata.getFunctionRegistry(),
+                                metadata.getTypeManager(),
+                                session);
                         return constant.getType().getDisplayName() + "(" + printableValue + ")";
                     }
                     return argument.getColumn().toString();
@@ -1241,7 +1247,12 @@ public class PlanPrinter
                         for (Range range : ranges.getOrderedRanges()) {
                             StringBuilder builder = new StringBuilder();
                             if (range.isSingleValue()) {
-                                String value = castToVarchar(type, range.getSingleValue(), PlanPrinter.this.metadata.getFunctionRegistry(), session);
+                                String value = castToVarchar(
+                                        type,
+                                        range.getSingleValue(),
+                                        PlanPrinter.this.metadata.getFunctionRegistry(),
+                                        PlanPrinter.this.metadata.getTypeManager(),
+                                        session);
                                 builder.append('[').append(value).append(']');
                             }
                             else {
@@ -1251,7 +1262,12 @@ public class PlanPrinter
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getLow().getValue(), PlanPrinter.this.metadata.getFunctionRegistry(), session));
+                                    builder.append(castToVarchar(
+                                            type,
+                                            range.getLow().getValue(),
+                                            PlanPrinter.this.metadata.getFunctionRegistry(),
+                                            PlanPrinter.this.metadata.getTypeManager(),
+                                            session));
                                 }
 
                                 builder.append(", ");
@@ -1260,7 +1276,12 @@ public class PlanPrinter
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getHigh().getValue(), PlanPrinter.this.metadata.getFunctionRegistry(), session));
+                                    builder.append(castToVarchar(
+                                            type,
+                                            range.getHigh().getValue(),
+                                            PlanPrinter.this.metadata.getFunctionRegistry(),
+                                            PlanPrinter.this.metadata.getTypeManager(),
+                                            session));
                                 }
 
                                 builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
@@ -1269,7 +1290,12 @@ public class PlanPrinter
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
-                            .map(value -> castToVarchar(type, value, PlanPrinter.this.metadata.getFunctionRegistry(), session))
+                            .map(value -> castToVarchar(
+                                    type,
+                                    value,
+                                    PlanPrinter.this.metadata.getFunctionRegistry(),
+                                    PlanPrinter.this.metadata.getTypeManager(),
+                                    session))
                             .sorted() // Sort so the values will be printed in predictable order
                             .forEach(parts::add),
                     allOrNone -> {
@@ -1340,7 +1366,12 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    private static String castToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
+    private static String castToVarchar(
+            Type type,
+            Object value,
+            FunctionRegistry functionRegistry,
+            TypeManager typeManager,
+            Session session)
     {
         if (value == null) {
             return "NULL";
@@ -1349,7 +1380,7 @@ public class PlanPrinter
         Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
 
         try {
-            Slice coerced = (Slice) new FunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
+            Slice coerced = (Slice) new FunctionInvoker(functionRegistry, typeManager).invoke(coercion, session.toConnectorSession(), value);
             return coerced.toStringUtf8();
         }
         catch (OperatorNotFoundException e) {
