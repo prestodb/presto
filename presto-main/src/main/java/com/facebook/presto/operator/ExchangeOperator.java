@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
@@ -25,8 +24,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 import java.net.URI;
@@ -86,7 +83,7 @@ public class ExchangeOperator
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
             if (exchangeClient == null) {
-                exchangeClient = exchangeClientSupplier.get(new UpdateSystemMemory(driverContext.getPipelineContext()));
+                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext());
             }
 
             return new ExchangeOperator(
@@ -101,29 +98,6 @@ public class ExchangeOperator
         public void close()
         {
             closed = true;
-        }
-    }
-
-    @NotThreadSafe
-    private static final class UpdateSystemMemory
-            implements SystemMemoryUsageListener
-    {
-        private final PipelineContext pipelineContext;
-
-        public UpdateSystemMemory(PipelineContext pipelineContext)
-        {
-            this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
-        }
-
-        @Override
-        public void updateSystemMemoryUsage(long deltaMemoryInBytes)
-        {
-            if (deltaMemoryInBytes > 0) {
-                pipelineContext.reserveSystemMemory(deltaMemoryInBytes);
-            }
-            else {
-                pipelineContext.freeSystemMemory(-deltaMemoryInBytes);
-            }
         }
     }
 

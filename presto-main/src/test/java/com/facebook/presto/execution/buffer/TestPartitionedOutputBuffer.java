@@ -19,6 +19,8 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -816,7 +818,7 @@ public class TestPartitionedOutputBuffer
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 buffers,
                 dataSize,
-                ignored -> {},
+                () -> new LocalMemoryContext(new AggregatedMemoryContext()),
                 stateNotificationExecutor);
     }
 
