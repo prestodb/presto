@@ -14,10 +14,8 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -29,24 +27,24 @@ public class CreateSchema
 {
     private final QualifiedName schemaName;
     private final boolean notExists;
-    private final Map<String, Expression> properties;
+    private final List<Property> properties;
 
-    public CreateSchema(QualifiedName schemaName, boolean notExists, Map<String, Expression> properties)
+    public CreateSchema(QualifiedName schemaName, boolean notExists, List<Property> properties)
     {
         this(Optional.empty(), schemaName, notExists, properties);
     }
 
-    public CreateSchema(NodeLocation location, QualifiedName schemaName, boolean notExists, Map<String, Expression> properties)
+    public CreateSchema(NodeLocation location, QualifiedName schemaName, boolean notExists, List<Property> properties)
     {
         this(Optional.of(location), schemaName, notExists, properties);
     }
 
-    private CreateSchema(Optional<NodeLocation> location, QualifiedName schemaName, boolean notExists, Map<String, Expression> properties)
+    private CreateSchema(Optional<NodeLocation> location, QualifiedName schemaName, boolean notExists, List<Property> properties)
     {
         super(location);
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.notExists = notExists;
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
     }
 
     public QualifiedName getSchemaName()
@@ -59,7 +57,7 @@ public class CreateSchema
         return notExists;
     }
 
-    public Map<String, Expression> getProperties()
+    public List<Property> getProperties()
     {
         return properties;
     }
@@ -71,11 +69,9 @@ public class CreateSchema
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<Property> getChildren()
     {
-        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        nodes.addAll(properties.values());
-        return nodes.build();
+        return properties;
     }
 
     @Override
