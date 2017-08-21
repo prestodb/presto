@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.AggregatedMemoryContext;
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Iterators;
 
-import java.io.Closeable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -35,13 +34,12 @@ import static java.util.stream.Collectors.toList;
  * stream of Pages can have interleaved positions with same hash value.
  */
 public class MergeHashSort
-        implements Closeable
 {
-    private final AggregatedMemoryContext memoryContext;
+    private final Supplier<LocalMemoryContext> memoryContextSupplier;
 
-    public MergeHashSort(AggregatedMemoryContext memoryContext)
+    public MergeHashSort(Supplier<LocalMemoryContext> memoryContextSupplier)
     {
-        this.memoryContext = memoryContext;
+        this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
     }
 
     /**
@@ -50,7 +48,7 @@ public class MergeHashSort
     public Iterator<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<Iterator<Page>> channels)
     {
         List<Iterator<PagePosition>> channelIterators = channels.stream()
-                .map(channel -> new SingleChannelPagePositions(channel, memoryContext.newLocalMemoryContext()))
+                .map(channel -> new SingleChannelPagePositions(channel, memoryContextSupplier.get()))
                 .collect(toList());
 
         int[] hashChannels = new int[keyTypes.size()];
@@ -65,7 +63,7 @@ public class MergeHashSort
                 Iterators.mergeSorted(
                         channelIterators,
                         (PagePosition left, PagePosition right) -> comparePages(hashGenerator, left, right)),
-                memoryContext.newLocalMemoryContext());
+                memoryContextSupplier.get());
     }
 
     private static int comparePages(HashGenerator hashGenerator, PagePosition left, PagePosition right)
@@ -84,12 +82,6 @@ public class MergeHashSort
         long rightHash = hashGenerator.hashPosition(right.getPosition(), right.getPage());
 
         return Long.compare(leftHash, rightHash);
-    }
-
-    @Override
-    public void close()
-    {
-        memoryContext.close();
     }
 
     static class PagePosition

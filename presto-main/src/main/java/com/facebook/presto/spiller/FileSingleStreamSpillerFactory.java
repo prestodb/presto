@@ -14,10 +14,10 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
