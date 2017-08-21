@@ -185,7 +185,7 @@ public class OrderByOperator
 
         pageIndex.addPage(page);
 
-        if (!operatorContext.trySetMemoryReservation(pageIndex.getEstimatedSize().toBytes())) {
+        if (!operatorContext.tryReserveMemory(pageIndex.getEstimatedSize().toBytes())) {
             pageIndex.compact();
         }
 

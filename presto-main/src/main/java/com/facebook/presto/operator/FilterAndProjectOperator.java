@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.Page;
@@ -33,7 +32,6 @@ public class FilterAndProjectOperator
 {
     private final OperatorContext operatorContext;
     private final List<Type> types;
-    private final LocalMemoryContext outputMemoryContext;
 
     private final PageProcessor processor;
     private PageProcessorOutput currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
@@ -43,7 +41,6 @@ public class FilterAndProjectOperator
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.outputMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
@@ -71,7 +68,7 @@ public class FilterAndProjectOperator
         boolean finished = finishing && !currentOutput.hasNext();
         if (finished) {
             currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
-            outputMemoryContext.setBytes(0);
+            operatorContext.setSystemMemory(0);
         }
         return finished;
     }
@@ -90,7 +87,7 @@ public class FilterAndProjectOperator
         checkState(!currentOutput.hasNext(), "Page buffer is full");
 
         currentOutput = processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), page);
-        outputMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
+        operatorContext.setSystemMemory(currentOutput.getRetainedSizeInBytes());
     }
 
     @Override

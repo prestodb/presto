@@ -359,7 +359,7 @@ public class HashBuilderOperator
             operatorContext.setRevocableMemoryReservation(index.getEstimatedSize().toBytes());
         }
         else {
-            if (!operatorContext.trySetMemoryReservation(index.getEstimatedSize().toBytes())) {
+            if (!operatorContext.tryReserveMemory(index.getEstimatedSize().toBytes())) {
                 index.compact();
                 operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
             }
