@@ -87,12 +87,13 @@ public class Identifier
         }
 
         Identifier that = (Identifier) o;
-        return Objects.equals(value, that.value);
+        return Objects.equals(value, that.value) &&
+                delimited == that.delimited;
     }
 
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        return Objects.hash(value, delimited);
     }
 }
