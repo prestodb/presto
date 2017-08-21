@@ -69,7 +69,7 @@ public class TpcdsTableStatisticsFactory
     {
         ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
         long nullCount = columnStatisticsData.getNullsCount();
-        columnStatistics.setNullsFraction(new Estimate(nullCount / rowCount));
+        columnStatistics.setNullsFraction(new Estimate((double) nullCount / rowCount));
         columnStatistics.addRange(builder -> builder
                 .setLowValue(
                         columnStatisticsData.getMin()
@@ -78,7 +78,7 @@ public class TpcdsTableStatisticsFactory
                         columnStatisticsData.getMax()
                                 .map(value -> toPrestoValue(value, type)))
                 .setDistinctValuesCount(new Estimate(columnStatisticsData.getDistinctValuesCount()))
-                .setFraction(new Estimate((rowCount - nullCount) / rowCount))
+                .setFraction(new Estimate(((double) rowCount - nullCount) / rowCount))
                 .build());
 
         return columnStatistics.build();
