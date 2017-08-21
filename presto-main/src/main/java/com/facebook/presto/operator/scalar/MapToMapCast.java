@@ -75,7 +75,7 @@ public final class MapToMapCast
             }
         }
 
-        TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2);
+        TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
         BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(new BlockBuilderStatus(), fromMap.getPositionCount() / 2);
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             Object fromKey = readNativeValue(fromKeyType, fromMap, i);

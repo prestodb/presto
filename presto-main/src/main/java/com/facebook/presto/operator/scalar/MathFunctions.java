@@ -1194,7 +1194,7 @@ public final class MathFunctions
 
     private static double mapDotProduct(Block leftMap, Block rightMap)
     {
-        TypedSet rightMapKeys = new TypedSet(VARCHAR, rightMap.getPositionCount());
+        TypedSet rightMapKeys = new TypedSet(VARCHAR, rightMap.getPositionCount(), "cosine_similarity");
 
         for (int i = 0; i < rightMap.getPositionCount(); i += 2) {
             rightMapKeys.add(rightMap, i);

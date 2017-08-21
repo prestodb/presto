@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,15 +27,19 @@ import java.util.Set;
 import static com.facebook.presto.block.BlockAssertions.createEmptyLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
 
 public class TestTypedSet
 {
+    private static final String FUNCTION_NAME = "typed_set_test";
+
     @Test
     public void testConstructor()
             throws Exception
@@ -43,7 +47,7 @@ public class TestTypedSet
         for (int i = -2; i <= -1; i++) {
             try {
                 //noinspection ResultOfObjectAllocationIgnored
-                new TypedSet(BIGINT, i);
+                new TypedSet(BIGINT, i, FUNCTION_NAME);
                 fail("Should throw exception if expectedSize < 0");
             }
             catch (IllegalArgumentException e) {
@@ -53,7 +57,7 @@ public class TestTypedSet
 
         try {
             //noinspection ResultOfObjectAllocationIgnored
-            new TypedSet(null, 1);
+            new TypedSet(null, 1, FUNCTION_NAME);
             fail("Should throw exception if type is null");
         }
         catch (NullPointerException | IllegalArgumentException e) {
@@ -66,7 +70,7 @@ public class TestTypedSet
             throws Exception
     {
         int elementCount = 100;
-        TypedSet typedSet = new TypedSet(BIGINT, elementCount);
+        TypedSet typedSet = new TypedSet(BIGINT, elementCount, FUNCTION_NAME);
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             BIGINT.writeLong(blockBuilder, i);
@@ -86,7 +90,7 @@ public class TestTypedSet
         VARCHAR.writeSlice(keys, utf8Slice("bye"));
         VARCHAR.writeSlice(keys, utf8Slice("abc"));
 
-        TypedSet set = new TypedSet(VARCHAR, keys.getPositionCount());
+        TypedSet set = new TypedSet(VARCHAR, keys.getPositionCount(), FUNCTION_NAME);
         for (int i = 0; i < keys.getPositionCount(); i++) {
             set.add(keys, i);
         }
@@ -118,10 +122,10 @@ public class TestTypedSet
                         createLongsBlock(null, null, null),
                         createLongSequenceBlock(0, 100),
                         createLongSequenceBlock(-100, 100),
-                        createLongsBlock(Collections.nCopies(1, null)),
-                        createLongsBlock(Collections.nCopies(100, null)),
-                        createLongsBlock(Collections.nCopies(expectedSetSizes.get(expectedSetSizes.size() - 1) * 2, null)),
-                        createLongsBlock(Collections.nCopies(expectedSetSizes.get(expectedSetSizes.size() - 1) * 2, 0L)));
+                        createLongsBlock(nCopies(1, null)),
+                        createLongsBlock(nCopies(100, null)),
+                        createLongsBlock(nCopies(expectedSetSizes.get(expectedSetSizes.size() - 1) * 2, null)),
+                        createLongsBlock(nCopies(expectedSetSizes.get(expectedSetSizes.size() - 1) * 2, 0L)));
 
         for (int expectedSetSize : expectedSetSizes) {
             for (Block block : longBlocks) {
@@ -130,9 +134,29 @@ public class TestTypedSet
         }
     }
 
+    @Test
+    public void testMemoryExceeded()
+            throws Exception
+    {
+        try {
+            TypedSet typedSet = new TypedSet(BIGINT, 10, FUNCTION_NAME);
+
+            for (int i = 0; i <= TypedSet.FOUR_MEGABYTES + 1; i++) {
+                Block block = createLongsBlock(nCopies((int) 1, (long) i));
+
+                typedSet.add(block, 0);
+            }
+
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), EXCEEDED_FUNCTION_MEMORY_LIMIT.toErrorCode());
+        }
+    }
+
     private static void testBigint(Block longBlock, int expectedSetSize)
     {
-        TypedSet typedSet = new TypedSet(BIGINT, expectedSetSize);
+        TypedSet typedSet = new TypedSet(BIGINT, expectedSetSize, FUNCTION_NAME);
         Set<Long> set = new HashSet<>();
         for (int blockPosition = 0; blockPosition < longBlock.getPositionCount(); blockPosition++) {
             long number = BIGINT.getLong(longBlock, blockPosition);

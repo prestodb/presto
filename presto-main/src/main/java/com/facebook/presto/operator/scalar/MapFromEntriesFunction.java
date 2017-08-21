@@ -66,7 +66,7 @@ public final class MapFromEntriesFunction
 
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder resultBuilder = mapBlockBuilder.beginBlockEntry();
-        TypedSet uniqueKeys = new TypedSet(keyType, entryCount);
+        TypedSet uniqueKeys = new TypedSet(keyType, entryCount, "map_from_entries");
 
         for (int i = 0; i < entryCount; i++) {
             Block rowBlock = rowType.getObject(block, i);

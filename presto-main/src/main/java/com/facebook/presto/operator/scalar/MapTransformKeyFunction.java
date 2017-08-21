@@ -189,7 +189,8 @@ public final class MapTransformKeyFunction
         body.append(typedSet.set(newInstance(
                 TypedSet.class,
                 constantType(binder, transformedKeyType),
-                divide(positionCount, constantInt(2)))));
+                divide(positionCount, constantInt(2)),
+                constantString(MAP_TRANSFORM_KEY_FUNCTION.getSignature().getName()))));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()
