@@ -158,13 +158,9 @@ public class RuleAssert
     {
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
         Match<T> match = matcher.match(rule.getPattern(), planNode);
-
-        Optional<PlanNode> result;
-        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
-            result = Optional.empty();
-        }
-        else {
-            result = rule.apply(match.value(), match.captures(), context);
+        Result result = new Result();
+        if (rule.isEnabled(context.getSession()) && !match.isEmpty()) {
+            rule.apply(match.value(), match.captures(), context, result);
         }
 
         return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);
@@ -220,9 +216,9 @@ public class RuleAssert
     {
         private final Lookup lookup;
         private final Map<Symbol, Type> types;
-        private final Optional<PlanNode> result;
+        private final Result result;
 
-        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
@@ -231,12 +227,32 @@ public class RuleAssert
 
         private boolean wasRuleApplied()
         {
-            return result.isPresent();
+            return result.getTransformed()
+                    .isPresent();
         }
 
         public PlanNode getResult()
         {
-            return result.orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+            return result.getTransformed()
+                    .orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+        }
+    }
+
+    private static class Result
+            implements Rule.Result
+    {
+        private Optional<PlanNode> transformed;
+
+        @Override
+        public Rule.Result transformTo(PlanNode planNode)
+        {
+            transformed = Optional.of(planNode);
+            return this;
+        }
+
+        private Optional<PlanNode> getTransformed()
+        {
+            return transformed;
         }
     }
 }

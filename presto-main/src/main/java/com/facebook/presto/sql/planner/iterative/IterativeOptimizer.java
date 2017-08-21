@@ -154,7 +154,9 @@ public class IterativeOptimizer
         long duration;
         try {
             long start = System.nanoTime();
-            transformed = rule.apply(match.value(), match.captures(), context);
+            Result result = new Result();
+            rule.apply(match.value(), match.captures(), context, result);
+            transformed = result.getTransformed();
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {
@@ -255,6 +257,23 @@ public class IterativeOptimizer
         public Session getSession()
         {
             return session;
+        }
+    }
+
+    private static class Result
+            implements Rule.Result
+    {
+        private Optional<PlanNode> transformed = Optional.empty();
+
+        @Override
+        public Rule.Result transformTo(PlanNode planNode)
+        {
+            return this;
+        }
+
+        private Optional<PlanNode> getTransformed()
+        {
+            return transformed;
         }
     }
 }
