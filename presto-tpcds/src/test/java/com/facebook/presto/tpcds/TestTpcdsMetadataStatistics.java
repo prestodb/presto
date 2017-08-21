@@ -25,6 +25,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.primitives.Primitives;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
+import com.teradata.tpcds.column.WebSiteColumn;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -173,6 +174,29 @@ public class TestTpcdsMetadataStatistics
                                 .setDistinctValuesCount(new Estimate(0))
                                 .setLowValue(Optional.empty())
                                 .setHighValue(Optional.empty())
+                                .build())
+                        .build());
+    }
+
+    @Test
+    public void testNullFraction()
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("sf1", Table.WEB_SITE.getName());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+
+        // some null values
+        assertColumnStatistics(
+                tableStatistics.getColumnStatistics().get(columnHandles.get(WebSiteColumn.WEB_REC_END_DATE.getName())),
+                ColumnStatistics.builder()
+                        .setNullsFraction(new Estimate(0.5))
+                        .addRange(range -> range
+                                .setFraction(new Estimate(0.5))
+                                .setDistinctValuesCount(new Estimate(3))
+                                .setLowValue(Optional.of(10819L))
+                                .setHighValue(Optional.of(11549L))
                                 .build())
                         .build());
     }
