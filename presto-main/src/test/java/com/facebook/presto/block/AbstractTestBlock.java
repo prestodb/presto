@@ -43,6 +43,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -86,6 +87,11 @@ public abstract class AbstractTestBlock
             }
             if (value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
                 sizeInBytes += value.getRetainedSize();
+            }
+            else if (value != EMPTY_SLICE) {
+                // EMPTY_SLICE is a singleton, so we don't account for the memory held onto by that instance.
+                // Otherwise, we will be counting it multiple times.
+                sizeInBytes += ClassLayout.parseClass(Slice.class).instanceSize();
             }
         }
         return sizeInBytes;
