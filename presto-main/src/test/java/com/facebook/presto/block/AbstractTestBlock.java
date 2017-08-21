@@ -141,7 +141,10 @@ public abstract class AbstractTestBlock
                 else if (type == short[].class) {
                     retainedSize += sizeOf((short[]) field.get(block));
                 }
-                else if (type == DictionaryId.class || BlockEncoding.class.isAssignableFrom(type) || type == AtomicLong.class || type == MethodHandle.class) {
+                else if (type == DictionaryId.class) {
+                    retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
+                }
+                else if (BlockEncoding.class.isAssignableFrom(type) || type == AtomicLong.class || type == MethodHandle.class) {
                     // TODO: Some of these should be accounted in retainedSize
                     // do nothing
                 }
