@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>64</version>
+        <version>69</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -36,7 +36,7 @@
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
-        <air.check.skip-findbugs>true</air.check.skip-findbugs>
+        <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
 
@@ -47,7 +47,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.6</dep.antlr.version>
-        <dep.airlift.version>0.148</dep.airlift.version>
+        <dep.airlift.version>0.150</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.31</dep.slice.version>
         <dep.aws-sdk.version>1.11.165</dep.aws-sdk.version>
@@ -535,6 +535,12 @@
                 <groupId>com.teradata.tpcds</groupId>
                 <artifactId>tpcds</artifactId>
                 <version>1.2</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -564,7 +570,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>airline</artifactId>
-                <version>0.7</version>
+                <version>0.8</version>
             </dependency>
 
             <dependency>
@@ -606,7 +612,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.0.0</version>
+                <version>42.1.4</version>
             </dependency>
 
             <dependency>
@@ -675,12 +681,24 @@
                 <groupId>com.facebook.swift</groupId>
                 <artifactId>swift-codec</artifactId>
                 <version>${dep.swift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.swift</groupId>
                 <artifactId>swift-service</artifactId>
                 <version>${dep.swift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -693,12 +711,24 @@
                 <groupId>com.facebook.nifty</groupId>
                 <artifactId>nifty-core</artifactId>
                 <version>${dep.nifty.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.nifty</groupId>
                 <artifactId>nifty-client</artifactId>
                 <version>${dep.nifty.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -749,6 +779,12 @@
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
                 <version>1.28</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -778,13 +814,13 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-mysql-server</artifactId>
-                <version>5.5.9-1</version>
+                <version>5.7.19-3</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-postgresql-server</artifactId>
-                <version>9.6.3-2</version>
+                <version>9.6.3-3</version>
             </dependency>
 
             <dependency>
@@ -872,6 +908,10 @@
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -910,7 +950,7 @@
                     </exclusion>
                     <exclusion>
                         <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>jsr305</artifactId>
+                        <artifactId>annotations</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>commons-logging</groupId>
@@ -1175,7 +1215,7 @@
             <plugin>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.2</version>
+                <version>0.3</version>
                 <extensions>true</extensions>
             </plugin>
 
