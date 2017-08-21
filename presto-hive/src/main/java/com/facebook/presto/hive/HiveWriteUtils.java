@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -384,7 +385,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path getTableDefaultLocation(String user, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Path getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
         Optional<String> location = getDatabase(metastore, schemaName).getLocation();
         if (!location.isPresent() || location.get().isEmpty()) {
@@ -392,11 +393,11 @@ public final class HiveWriteUtils
         }
 
         Path databasePath = new Path(location.get());
-        if (!isS3FileSystem(user, hdfsEnvironment, databasePath)) {
-            if (!pathExists(user, hdfsEnvironment, databasePath)) {
+        if (!isS3FileSystem(context, hdfsEnvironment, databasePath)) {
+            if (!pathExists(context, hdfsEnvironment, databasePath)) {
                 throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
             }
-            if (!isDirectory(user, hdfsEnvironment, databasePath)) {
+            if (!isDirectory(context, hdfsEnvironment, databasePath)) {
                 throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
             }
         }
@@ -409,31 +410,31 @@ public final class HiveWriteUtils
         return metastore.getDatabase(database).orElseThrow(() -> new SchemaNotFoundException(database));
     }
 
-    public static boolean pathExists(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    public static boolean pathExists(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            return hdfsEnvironment.getFileSystem(user, path).exists(path);
+            return hdfsEnvironment.getFileSystem(context, path).exists(path);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
-    public static boolean isS3FileSystem(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    public static boolean isS3FileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            return hdfsEnvironment.getFileSystem(user, path) instanceof PrestoS3FileSystem;
+            return hdfsEnvironment.getFileSystem(context, path) instanceof PrestoS3FileSystem;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
-    public static boolean isViewFileSystem(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    public static boolean isViewFileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
             // Hadoop 1.x does not have the ViewFileSystem class
-            return hdfsEnvironment.getFileSystem(user, path)
+            return hdfsEnvironment.getFileSystem(context, path)
                     .getClass().getName().equals("org.apache.hadoop.fs.viewfs.ViewFileSystem");
         }
         catch (IOException e) {
@@ -441,23 +442,23 @@ public final class HiveWriteUtils
         }
     }
 
-    private static boolean isDirectory(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    private static boolean isDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            return hdfsEnvironment.getFileSystem(user, path).isDirectory(path);
+            return hdfsEnvironment.getFileSystem(context, path).isDirectory(path);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
-    public static Path createTemporaryPath(String user, HdfsEnvironment hdfsEnvironment, Path targetPath)
+    public static Path createTemporaryPath(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
         // use a per-user temporary directory to avoid permission problems
-        String temporaryPrefix = "/tmp/presto-" + user;
+        String temporaryPrefix = "/tmp/presto-" + context.getUser();
 
         // use relative temporary directory on ViewFS
-        if (isViewFileSystem(user, hdfsEnvironment, targetPath)) {
+        if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
             temporaryPrefix = ".hive-staging";
         }
 
@@ -465,15 +466,15 @@ public final class HiveWriteUtils
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
         Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
 
-        createDirectory(user, hdfsEnvironment, temporaryPath);
+        createDirectory(context, hdfsEnvironment, temporaryPath);
 
         return temporaryPath;
     }
 
-    public static void createDirectory(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    public static void createDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            if (!hdfsEnvironment.getFileSystem(user, path).mkdirs(path, ALL_PERMISSIONS)) {
+            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, ALL_PERMISSIONS)) {
                 throw new IOException("mkdirs returned false");
             }
         }
@@ -483,7 +484,7 @@ public final class HiveWriteUtils
 
         // explicitly set permission since the default umask overrides it on creation
         try {
-            hdfsEnvironment.getFileSystem(user, path).setPermission(path, ALL_PERMISSIONS);
+            hdfsEnvironment.getFileSystem(context, path).setPermission(path, ALL_PERMISSIONS);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);

@@ -17,6 +17,9 @@ import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.authentication.GenericExceptionAction;
 import com.facebook.presto.hive.authentication.HdfsAuthentication;
+import com.facebook.presto.spi.ConnectorSession;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -24,7 +27,9 @@ import org.apache.hadoop.fs.Path;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
@@ -49,15 +54,15 @@ public class HdfsEnvironment
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
     }
 
-    public Configuration getConfiguration(Path path)
+    public Configuration getConfiguration(HdfsContext context, Path path)
     {
-        return hdfsConfiguration.getConfiguration(path.toUri());
+        return hdfsConfiguration.getConfiguration(context, path.toUri());
     }
 
-    public FileSystem getFileSystem(String user, Path path)
+    public FileSystem getFileSystem(HdfsContext context, Path path)
             throws IOException
     {
-        return getFileSystem(user, path, getConfiguration(path));
+        return getFileSystem(context.getUser(), path, getConfiguration(context, path));
     }
 
     public FileSystem getFileSystem(String user, Path path, Configuration configuration)
@@ -79,5 +84,103 @@ public class HdfsEnvironment
     public void doAs(String user, Runnable action)
     {
         hdfsAuthentication.doAs(user, action);
+    }
+
+    public static class HdfsContext
+    {
+        private final String user;
+        private final Optional<String> queryId;
+        private final Optional<String> schemaName;
+        private final Optional<String> tableName;
+
+        public HdfsContext(String user)
+        {
+            this.user = requireNonNull(user, "user is null");
+            this.queryId = Optional.empty();
+            this.schemaName = Optional.empty();
+            this.tableName = Optional.empty();
+        }
+
+        public HdfsContext(ConnectorSession session, String schemaName)
+        {
+            requireNonNull(session, "session is null");
+            requireNonNull(schemaName, "schemaName is null");
+            this.user = requireNonNull(session.getUser(), "session.getUser() is null");
+            this.queryId = Optional.of(session.getQueryId());
+            this.schemaName = Optional.of(schemaName);
+            this.tableName = Optional.empty();
+        }
+
+        public HdfsContext(ConnectorSession session, String schemaName, String tableName)
+        {
+            requireNonNull(session, "session is null");
+            requireNonNull(schemaName, "schemaName is null");
+            requireNonNull(tableName, "tableName is null");
+            this.user = requireNonNull(session.getUser(), "session.getUser() is null");
+            this.queryId = Optional.of(session.getQueryId());
+            this.schemaName = Optional.of(schemaName);
+            this.tableName = Optional.of(tableName);
+        }
+
+        public HdfsContext(String user, String queryId, String schemaName, String tableName)
+        {
+            requireNonNull(user, "user is null");
+            requireNonNull(queryId, "queryId is null");
+            requireNonNull(schemaName, "schemaName is null");
+            requireNonNull(tableName, "tableName is null");
+            this.user = requireNonNull(user, "user is null");
+            this.queryId = Optional.of(queryId);
+            this.schemaName = Optional.of(schemaName);
+            this.tableName = Optional.of(tableName);
+        }
+
+        @JsonCreator
+        public HdfsContext(
+                @JsonProperty("user") String user,
+                @JsonProperty("queryId") Optional<String> queryId,
+                @JsonProperty("schemaName") Optional<String> schemaName,
+                @JsonProperty("tableName") Optional<String> tableName)
+        {
+            this.user = user;
+            this.queryId = queryId;
+            this.schemaName = schemaName;
+            this.tableName = tableName;
+        }
+
+        @JsonProperty
+        public String getUser()
+        {
+            return user;
+        }
+
+        @JsonProperty
+        public Optional<String> getQueryId()
+        {
+            return queryId;
+        }
+
+        @JsonProperty
+        public Optional<String> getSchemaName()
+        {
+            return schemaName;
+        }
+
+        @JsonProperty
+        public Optional<String> getTableName()
+        {
+            return tableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .omitNullValues()
+                    .add("user", user)
+                    .add("queryId", queryId.orElse(null))
+                    .add("schemaName", schemaName.orElse(null))
+                    .add("tableName", tableName.orElse(null))
+                    .toString();
+        }
     }
 }

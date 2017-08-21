@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -426,7 +427,7 @@ public class HiveMetadata
     {
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
-                hdfsEnvironment.getFileSystem(session.getUser(), new Path(locationUri));
+                hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(locationUri));
             }
             catch (IOException e) {
                 throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
@@ -483,7 +484,7 @@ public class HiveMetadata
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
             external = true;
-            targetPath = getExternalPath(session.getUser(), externalLocation);
+            targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName), externalLocation);
         }
         else {
             external = false;
@@ -528,11 +529,11 @@ public class HiveMetadata
         return tableProperties.build();
     }
 
-    private Path getExternalPath(String user, String location)
+    private Path getExternalPath(HdfsContext context, String location)
     {
         try {
             Path path = new Path(location);
-            if (!hdfsEnvironment.getFileSystem(user, path).isDirectory(path)) {
+            if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
             }
             return path;
@@ -743,12 +744,12 @@ public class HiveMetadata
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
         if (handle.getBucketProperty().isPresent()) {
-            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(handle, table, partitionUpdates);
+            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table, partitionUpdates);
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table, partitionUpdate));
-                createEmptyFile(partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
+                createEmptyFile(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
             }
         }
 
@@ -768,7 +769,11 @@ public class HiveMetadata
                         .collect(Collectors.toList())));
     }
 
-    private ImmutableList<PartitionUpdate> computePartitionUpdatesForMissingBuckets(HiveWritableTableHandle handle, Table table, List<PartitionUpdate> partitionUpdates)
+    private ImmutableList<PartitionUpdate> computePartitionUpdatesForMissingBuckets(
+            ConnectorSession session,
+            HiveWritableTableHandle handle,
+            Table table,
+            List<PartitionUpdate> partitionUpdates)
     {
         ImmutableList.Builder<PartitionUpdate> partitionUpdatesForMissingBucketsBuilder = ImmutableList.builder();
         HiveStorageFormat storageFormat = table.getPartitionColumns().isEmpty() ? handle.getTableStorageFormat() : handle.getPartitionStorageFormat();
@@ -776,6 +781,8 @@ public class HiveMetadata
             int bucketCount = handle.getBucketProperty().get().getBucketCount();
 
             List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
+                    session,
+                    table,
                     storageFormat,
                     partitionUpdate.getTargetPath(),
                     handle.getFilePrefix(),
@@ -791,13 +798,21 @@ public class HiveMetadata
         return partitionUpdatesForMissingBucketsBuilder.build();
     }
 
-    private List<String> computeFileNamesForMissingBuckets(HiveStorageFormat storageFormat, Path targetPath, String filePrefix, int bucketCount, PartitionUpdate partitionUpdate)
+    private List<String> computeFileNamesForMissingBuckets(
+            ConnectorSession session,
+            Table table,
+            HiveStorageFormat storageFormat,
+            Path targetPath,
+            String filePrefix,
+            int bucketCount,
+            PartitionUpdate partitionUpdate)
     {
         if (partitionUpdate.getFileNames().size() == bucketCount) {
             // fast path for common case
             return ImmutableList.of();
         }
-        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(targetPath));
+        HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, targetPath));
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
         Set<String> fileNames = ImmutableSet.copyOf(partitionUpdate.getFileNames());
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
@@ -812,9 +827,9 @@ public class HiveMetadata
         return missingFileNames;
     }
 
-    private void createEmptyFile(Path path, Table table, Optional<Partition> partition, List<String> fileNames)
+    private void createEmptyFile(ConnectorSession session, Path path, Table table, Optional<Partition> partition, List<String> fileNames)
     {
-        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(path));
+        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session, table.getDatabaseName(), table.getTableName()), path));
 
         Properties schema;
         StorageFormat format;
@@ -921,12 +936,12 @@ public class HiveMetadata
         }
 
         if (handle.getBucketProperty().isPresent()) {
-            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(handle, table.get(), partitionUpdates);
+            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table.get(), partitionUpdates);
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session.getQueryId(), table.get(), partitionUpdate));
-                createEmptyFile(partitionUpdate.getWritePath(), table.get(), partition, partitionUpdate.getFileNames());
+                createEmptyFile(session, partitionUpdate.getWritePath(), table.get(), partition, partitionUpdate.getFileNames());
             }
         }
 

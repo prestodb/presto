@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
@@ -262,7 +263,7 @@ public abstract class AbstractTestHiveClientS3
         Path basePath = new Path("s3://presto-test-hive/");
         Path tablePath = new Path(basePath, "presto_test_s3");
         Path filePath = new Path(tablePath, "test1.csv");
-        FileSystem fs = hdfsEnvironment.getFileSystem("user", basePath);
+        FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext("user"), basePath);
 
         assertTrue(isDirectory(fs.getFileStatus(basePath)));
         assertTrue(isDirectory(fs.getFileStatus(tablePath)));
@@ -275,7 +276,7 @@ public abstract class AbstractTestHiveClientS3
             throws Exception
     {
         Path basePath = new Path(format("s3://%s/rename/%s/", writableBucket, UUID.randomUUID()));
-        FileSystem fs = hdfsEnvironment.getFileSystem("user", basePath);
+        FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext("user"), basePath);
         assertFalse(fs.exists(basePath));
 
         // create file foo.txt
@@ -500,7 +501,7 @@ public abstract class AbstractTestHiveClientS3
                 if (deleteData) {
                     for (String location : locations) {
                         Path path = new Path(location);
-                        hdfsEnvironment.getFileSystem("user", path).delete(path, true);
+                        hdfsEnvironment.getFileSystem(new HdfsContext("user"), path).delete(path, true);
                     }
                 }
             }
