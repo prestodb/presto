@@ -549,8 +549,8 @@ public class SqlQueryManager
                 continue;
             }
             Duration queryMaxRunTime = SystemSessionProperties.getQueryMaxRunTime(query.getSession());
-            DateTime executionStartTime = query.getQueryInfo().getQueryStats().getCreateTime();
-            if (executionStartTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
+            DateTime executionStartTime = query.getQueryInfo().getQueryStats().getExecutionStartTime();
+            if (executionStartTime != null && executionStartTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
         }
