@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.aggregation.builder;
 
 import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.HashCollisionsCounter;
@@ -55,8 +54,6 @@ public class InMemoryHashAggregationBuilder
     private final OperatorContext operatorContext;
     private final boolean partial;
     private final long maxPartialMemory;
-    private final LocalMemoryContext systemMemoryContext;
-
     private boolean full;
 
     public InMemoryHashAggregationBuilder(
@@ -98,7 +95,6 @@ public class InMemoryHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.toBytes();
-        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -118,7 +114,7 @@ public class InMemoryHashAggregationBuilder
     public void close()
     {
         if (partial) {
-            systemMemoryContext.setBytes(0);
+            operatorContext.setSystemMemory(0);
         }
         else {
             operatorContext.setMemoryReservation(0);
@@ -145,7 +141,7 @@ public class InMemoryHashAggregationBuilder
     {
         long memorySize = getSizeInMemory();
         if (partial) {
-            systemMemoryContext.setBytes(memorySize);
+            operatorContext.setSystemMemory(memorySize);
             full = (memorySize > maxPartialMemory);
         }
         else {

@@ -477,7 +477,7 @@ public class Driver
                             driverContext.getTaskId());
                 }
                 try {
-                    operator.getOperatorContext().closeSystemMemoryContext();
+                    operator.getOperatorContext().freeSystemMemory();
                 }
                 catch (Throwable t) {
                     inFlightException = addSuppressedException(
