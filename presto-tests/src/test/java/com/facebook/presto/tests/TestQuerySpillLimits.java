@@ -28,7 +28,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -64,13 +63,6 @@ public class TestQuerySpillLimits
     public void testMaxSpillPerNodeLimit()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.aggregation-operator-unspill-memory-limit", "1B")
-                .put("experimental.max-spill-per-node", "10B")
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .build();
         try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setMaxSpillPerNode(DataSize.succinctBytes(10)))) {
             queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
         }
@@ -80,13 +72,6 @@ public class TestQuerySpillLimits
     public void testQueryMaxSpillPerNodeLimit()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.aggregation-operator-unspill-memory-limit", "1B")
-                .put("experimental.query-max-spill-per-node", "10B")
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .build();
         try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setQueryMaxSpillPerNode(DataSize.succinctBytes(10)))) {
             queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
         }
