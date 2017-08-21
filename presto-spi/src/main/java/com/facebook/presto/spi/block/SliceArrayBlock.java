@@ -236,7 +236,8 @@ public class SliceArrayBlock
                 sizeInBytes += value.getRetainedSize();
             }
             else if (value != EMPTY_SLICE) {
-                // EMPTY_SLICE is a singleton in the system
+                // EMPTY_SLICE is a singleton, so we don't account for the memory held onto by that instance.
+                // Otherwise, we will be counting it multiple times.
                 sizeInBytes += SLICE_INSTANCE_SIZE;
             }
         }
