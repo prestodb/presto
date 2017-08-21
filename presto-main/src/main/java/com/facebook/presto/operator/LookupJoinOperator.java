@@ -244,7 +244,7 @@ public class LookupJoinOperator
                     probeTypes,
                     getPartitionGenerator(),
                     operatorContext.getSpillContext().newLocalSpillContext(),
-                    operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+                    () -> operatorContext.newLocalSystemMemoryContext()));
         }
 
         PartitioningSpillResult result = spiller.get().partitionAndSpill(page, spillMask);

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public class MergingHashAggregationBuilder
         implements Closeable
@@ -54,7 +55,7 @@ public class MergingHashAggregationBuilder
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Iterator<Page> sortedPages,
-            LocalMemoryContext systemMemoryContext,
+            Supplier<LocalMemoryContext> memoryContextSupplier,
             long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler)
@@ -72,7 +73,7 @@ public class MergingHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
-        this.systemMemoryContext = systemMemoryContext;
+        this.systemMemoryContext = memoryContextSupplier.get();
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
         this.joinCompiler = joinCompiler;
