@@ -14,10 +14,8 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -30,28 +28,28 @@ public class CreateTableAsSelect
     private final QualifiedName name;
     private final Query query;
     private final boolean notExists;
-    private final Map<String, Expression> properties;
+    private final List<Property> properties;
     private final boolean withData;
     private final Optional<List<Identifier>> columnAliases;
     private final Optional<String> comment;
 
-    public CreateTableAsSelect(QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
+    public CreateTableAsSelect(QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         this(Optional.empty(), name, query, notExists, properties, withData, columnAliases, comment);
     }
 
-    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
+    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         this(Optional.of(location), name, query, notExists, properties, withData, columnAliases, comment);
     }
 
-    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, Map<String, Expression> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
+    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.notExists = notExists;
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
         this.withData = withData;
         this.columnAliases = columnAliases;
         this.comment = requireNonNull(comment, "comment is null");
@@ -72,7 +70,7 @@ public class CreateTableAsSelect
         return notExists;
     }
 
-    public Map<String, Expression> getProperties()
+    public List<Property> getProperties()
     {
         return properties;
     }
@@ -101,10 +99,10 @@ public class CreateTableAsSelect
     @Override
     public List<Node> getChildren()
     {
-        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        nodes.add(query);
-        nodes.addAll(properties.values());
-        return nodes.build();
+        return ImmutableList.<Node>builder()
+                .add(query)
+                .addAll(properties)
+                .build();
     }
 
     @Override

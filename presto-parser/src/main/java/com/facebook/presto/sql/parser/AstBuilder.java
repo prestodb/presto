@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.parser.SqlBaseParser.PropertiesContext;
-import com.facebook.presto.sql.parser.SqlBaseParser.PropertyContext;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -99,6 +97,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
@@ -155,7 +154,6 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
@@ -164,7 +162,6 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -205,11 +202,16 @@ class AstBuilder
     @Override
     public Node visitCreateSchema(SqlBaseParser.CreateSchemaContext context)
     {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
         return new CreateSchema(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 context.EXISTS() != null,
-                processProperties(context.properties()));
+                properties);
     }
 
     @Override
@@ -244,12 +246,17 @@ class AstBuilder
             columnAliases = Optional.of(visit(context.columnAliases().identifier(), Identifier.class));
         }
 
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
         return new CreateTableAsSelect(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.EXISTS() != null,
-                processProperties(context.properties()),
+                properties,
                 context.NO() == null,
                 columnAliases,
                 comment);
@@ -262,24 +269,17 @@ class AstBuilder
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
         }
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
         return new CreateTable(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 visit(context.tableElement(), TableElement.class),
                 context.EXISTS() != null,
-                processProperties(context.properties()),
+                properties,
                 comment);
-    }
-
-    private Map<String, Expression> processProperties(PropertiesContext propertiesContext)
-    {
-        ImmutableMap.Builder<String, Expression> properties = ImmutableMap.builder();
-        if (propertiesContext != null) {
-            for (PropertyContext propertyContext : propertiesContext.property()) {
-                properties.put(propertyContext.identifier().getText(), (Expression) visit(propertyContext.expression()));
-            }
-        }
-        return properties.build();
     }
 
     @Override
@@ -464,6 +464,12 @@ class AstBuilder
         return new DescribeInput(
                 getLocation(context),
                 (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitProperty(SqlBaseParser.PropertyContext context)
+    {
+        return new Property(getLocation(context), (Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
     }
 
     // ********************** query expressions ********************

@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class NodeUtils
 {
@@ -27,5 +32,12 @@ public class NodeUtils
     public static List<SortItem> getSortItemsFromOrderBy(Optional<OrderBy> orderBy)
     {
         return orderBy.map(OrderBy::getSortItems).orElse(ImmutableList.of());
+    }
+
+    public static Map<String, Expression> mapFromProperties(List<Property> properties)
+    {
+        return properties.stream().collect(toImmutableMap(
+                property -> property.getName().getValue(),
+                Property::getValue));
     }
 }
