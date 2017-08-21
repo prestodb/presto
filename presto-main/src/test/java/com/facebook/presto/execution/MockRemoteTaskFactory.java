@@ -26,6 +26,8 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -184,7 +186,7 @@ public class MockRemoteTaskFactory
                     TASK_INSTANCE_ID,
                     executor,
                     requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"),
-                    new UpdateSystemMemory(queryContext));
+                    () -> new LocalMemoryContext(new AggregatedMemoryContext()));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -371,28 +373,6 @@ public class MockRemoteTaskFactory
                 return 0;
             }
             return getPartitionedSplitCount() - runningDrivers;
-        }
-
-        private static final class UpdateSystemMemory
-                implements SystemMemoryUsageListener
-        {
-            private final QueryContext queryContext;
-
-            public UpdateSystemMemory(QueryContext queryContext)
-            {
-                this.queryContext = requireNonNull(queryContext, "queryContext is null");
-            }
-
-            @Override
-            public void updateSystemMemoryUsage(long deltaMemoryInBytes)
-            {
-                if (deltaMemoryInBytes > 0) {
-                    queryContext.reserveSystemMemory(deltaMemoryInBytes);
-                }
-                else {
-                    queryContext.freeSystemMemory(-deltaMemoryInBytes);
-                }
-            }
         }
     }
 }
