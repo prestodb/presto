@@ -90,4 +90,6 @@ public enum SemanticErrorCode
     INVALID_PARAMETER_USAGE,
 
     STANDALONE_LAMBDA,
+
+    DUPLICATE_PROPERTY,
 }

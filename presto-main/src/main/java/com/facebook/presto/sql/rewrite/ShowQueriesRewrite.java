@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
@@ -487,11 +488,15 @@ final class ShowQueriesRewrite
                     sqlProperties.put(propertyName, sqlExpression);
                 }
 
+                List<Property> propertyNodes = sqlProperties.build().entrySet().stream()
+                        .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
+                        .collect(toImmutableList());
+
                 CreateTable createTable = new CreateTable(
                         QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
                         columns,
                         false,
-                        sqlProperties.build(),
+                        propertyNodes,
                         connectorTableMetadata.getComment());
                 return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
             }

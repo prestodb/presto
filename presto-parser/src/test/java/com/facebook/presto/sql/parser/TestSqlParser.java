@@ -82,6 +82,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
@@ -125,7 +126,6 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
@@ -1158,21 +1158,21 @@ public class TestSqlParser
     public void testCreateSchema()
     {
         assertStatement("CREATE SCHEMA test",
-                new CreateSchema(QualifiedName.of("test"), false, ImmutableMap.of()));
+                new CreateSchema(QualifiedName.of("test"), false, ImmutableList.of()));
 
         assertStatement("CREATE SCHEMA IF NOT EXISTS test",
-                new CreateSchema(QualifiedName.of("test"), true, ImmutableMap.of()));
+                new CreateSchema(QualifiedName.of("test"), true, ImmutableList.of()));
 
         assertStatement("CREATE SCHEMA test WITH (a = 'apple', b = 123)",
                 new CreateSchema(
                         QualifiedName.of("test"),
                         false,
-                        ImmutableMap.of(
-                                "a", new StringLiteral("apple"),
-                                "b", new LongLiteral("123"))));
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123")))));
 
         assertStatement("CREATE SCHEMA \"some name that contains space\"",
-                new CreateSchema(QualifiedName.of("some name that contains space"), false, ImmutableMap.of()));
+                new CreateSchema(QualifiedName.of("some name that contains space"), false, ImmutableList.of()));
     }
 
     @Test
@@ -1253,13 +1253,13 @@ public class TestSqlParser
                                 new ColumnDefinition(identifier("b"), "BIGINT", Optional.of("hello world")),
                                 new ColumnDefinition(identifier("c"), "IPADDRESS", Optional.empty())),
                         false,
-                        ImmutableMap.of(),
+                        ImmutableList.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", Optional.empty())),
                         true,
-                        ImmutableMap.of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         // with LIKE
@@ -1269,7 +1269,7 @@ public class TestSqlParser
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
-                        ImmutableMap.of(),
+                        ImmutableList.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
                 new CreateTable(QualifiedName.of("bar"),
@@ -1278,7 +1278,7 @@ public class TestSqlParser
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
-                        ImmutableMap.of(),
+                        ImmutableList.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
                 new CreateTable(QualifiedName.of("bar"),
@@ -1288,7 +1288,7 @@ public class TestSqlParser
                                         Optional.empty()),
                                 new ColumnDefinition(identifier("d"), "DATE", Optional.empty())),
                         true,
-                        ImmutableMap.of(),
+                        ImmutableList.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table INCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
@@ -1296,7 +1296,7 @@ public class TestSqlParser
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.INCLUDING))),
                         true,
-                        ImmutableMap.of(),
+                        ImmutableList.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
@@ -1305,7 +1305,7 @@ public class TestSqlParser
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
-                        ImmutableMap.of(),
+                        ImmutableList.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES) COMMENT 'test'",
                 new CreateTable(QualifiedName.of("bar"),
@@ -1314,7 +1314,7 @@ public class TestSqlParser
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
-                        ImmutableMap.of(),
+                        ImmutableList.of(),
                         Optional.of("test")));
     }
 
@@ -1340,34 +1340,33 @@ public class TestSqlParser
         QualifiedName table = QualifiedName.of("foo");
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t",
-                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), true, Optional.empty(), Optional.empty()));
+                new CreateTableAsSelect(table, query, false, ImmutableList.of(), true, Optional.empty(), Optional.empty()));
         assertStatement("CREATE TABLE foo(x) AS SELECT a FROM t",
-                new CreateTableAsSelect(table, querySelectColumn, false, ImmutableMap.of(), true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
+                new CreateTableAsSelect(table, querySelectColumn, false, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
         assertStatement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t",
-                new CreateTableAsSelect(table, querySelectColumns, false, ImmutableMap.of(), true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+                new CreateTableAsSelect(table, querySelectColumns, false, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
 
         assertStatement("CREATE TABLE IF NOT EXISTS foo AS SELECT * FROM t",
-                new CreateTableAsSelect(table, query, true, ImmutableMap.of(), true, Optional.empty(), Optional.empty()));
+                new CreateTableAsSelect(table, query, true, ImmutableList.of(), true, Optional.empty(), Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS foo(x) AS SELECT a FROM t",
-                new CreateTableAsSelect(table, querySelectColumn, true, ImmutableMap.of(), true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
+                new CreateTableAsSelect(table, querySelectColumn, true, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS foo(x,y) AS SELECT a,b FROM t",
-                new CreateTableAsSelect(table, querySelectColumns, true, ImmutableMap.of(), true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+                new CreateTableAsSelect(table, querySelectColumns, true, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA",
-                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), false, Optional.empty(), Optional.empty()));
+                new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
         assertStatement("CREATE TABLE foo(x) AS SELECT a FROM t WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumn, false, ImmutableMap.of(), false, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
+                new CreateTableAsSelect(table, querySelectColumn, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
         assertStatement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumns, false, ImmutableMap.of(), false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+                new CreateTableAsSelect(table, querySelectColumns, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
 
-        ImmutableMap<String, Expression> properties = ImmutableMap.<String, Expression>builder()
-                .put("string", new StringLiteral("bar"))
-                .put("long", new LongLiteral("42"))
-                .put("computed", new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
-                        new StringLiteral("ban"),
-                        new StringLiteral("ana"))))
-                .put("a", new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2"))))
-                .build();
+        List<Property> properties = ImmutableList.of(
+                new Property(new Identifier("string"), new StringLiteral("bar")),
+                new Property(new Identifier("long"), new LongLiteral("42")),
+                new Property(
+                        new Identifier("computed"),
+                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("ban"), new StringLiteral("ana")))),
+                new Property(new Identifier("a"), new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))));
 
         assertStatement("CREATE TABLE foo " +
                         "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
@@ -1422,6 +1421,12 @@ public class TestSqlParser
                         "SELECT a,b FROM t " +
                         "WITH NO DATA",
                 new CreateTableAsSelect(table, querySelectColumns, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.of("test")));
+        assertStatement("CREATE TABLE foo(x,y) COMMENT 'test'" +
+                        "WITH ( \"string\" = 'bar', \"long\" = 42, computed = 'ban' || 'ana', a = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT a,b FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, querySelectColumns, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.of("test")));
     }
 
     @Test
@@ -1450,7 +1455,6 @@ public class TestSqlParser
                 "WITH NO DATA";
 
         QualifiedName table = QualifiedName.of("foo");
-        ImmutableMap<String, Expression> properties = ImmutableMap.<String, Expression>builder().build();
 
         Query query = new Query(Optional.of(new With(false, ImmutableList.of(
                 new WithQuery(identifier("t"),
@@ -1459,10 +1463,10 @@ public class TestSqlParser
                 new Table(QualifiedName.of("t")),
                 Optional.empty(),
                 Optional.empty());
-        assertStatement(queryParenthesizedWith, new CreateTableAsSelect(table, query, false, properties, false, Optional.empty(), Optional.empty()));
-        assertStatement(queryUnparenthesizedWith, new CreateTableAsSelect(table, query, false, properties, false, Optional.empty(), Optional.empty()));
-        assertStatement(queryParenthesizedWithHasAlias, new CreateTableAsSelect(table, query, false, properties, false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
-        assertStatement(queryUnparenthesizedWithHasAlias, new CreateTableAsSelect(table, query, false, properties, false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
+        assertStatement(queryParenthesizedWith, new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
+        assertStatement(queryUnparenthesizedWith, new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
+        assertStatement(queryParenthesizedWithHasAlias, new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
+        assertStatement(queryUnparenthesizedWithHasAlias, new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
     }
 
     @Test
