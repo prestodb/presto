@@ -92,7 +92,7 @@ public class TestQuerySpillLimits
         queryRunner.createCatalog(
                 SESSION.getCatalog().get(),
                 new TpchConnectorFactory(1),
-                ImmutableMap.<String, String>of());
+                ImmutableMap.of());
 
         return queryRunner;
     }
