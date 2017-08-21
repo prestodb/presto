@@ -102,7 +102,9 @@ public class BytecodeGeneratorContext
             Optional<Variable> outputBlock,
             Optional<Type> outputType)
     {
-        checkArgument((!outputBlock.isPresent()) || outputType.isPresent(), "outputType must present if outputBlock is present");
+        if (outputBlock.isPresent() || function.isWriteToOutputBlock()) {
+            checkArgument(outputType.isPresent(), "outputType must present if outputBlock is present, or function is writing to output block");
+        }
 
         Optional<BytecodeNode> instance = Optional.empty();
         if (function.getInstanceFactory().isPresent()) {

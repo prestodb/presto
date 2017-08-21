@@ -17,6 +17,10 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Defaults;
 import com.google.common.base.Throwables;
@@ -27,6 +31,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
@@ -63,6 +69,13 @@ public class FunctionInvoker
             method = method.bindTo(session);
         }
         List<Object> actualArguments = new ArrayList<>();
+        if (implementation.isWriteToOutputBlock()) {
+            Type returnType = typeManager.getType(function.getReturnType());
+            checkState(returnType != null);
+            BlockBuilder outputBlockBuilder = returnType.createBlockBuilder(new BlockBuilderStatus(), 1);
+            actualArguments.add(outputBlockBuilder);
+        }
+
         for (int i = 0; i < arguments.size(); i++) {
             Object argument = arguments.get(i);
             Optional<Class> lambdaArgument = implementation.getLambdaInterface().get(i);
@@ -83,7 +96,15 @@ public class FunctionInvoker
         }
 
         try {
-            return method.invokeWithArguments(actualArguments);
+            if (implementation.isWriteToOutputBlock()) {
+                Type returnType = typeManager.getType(function.getReturnType());
+                checkState(returnType != null);
+                method.invokeWithArguments(actualArguments);
+                return readNativeValue(returnType, (Block) actualArguments.get(0), 0);
+            }
+            else {
+                return method.invokeWithArguments(actualArguments);
+            }
         }
         catch (Throwable throwable) {
             throw Throwables.propagate(throwable);

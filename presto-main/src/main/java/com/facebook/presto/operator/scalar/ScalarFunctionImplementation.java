@@ -33,6 +33,7 @@ public final class ScalarFunctionImplementation
     private final List<Optional<Class>> lambdaInterface;
     private final MethodHandle methodHandle;
     private final Optional<MethodHandle> instanceFactory;
+    private final boolean writeToOutputBlock;
     private final boolean deterministic;
 
     public ScalarFunctionImplementation(boolean nullable, List<Boolean> nullableArguments, MethodHandle methodHandle, boolean deterministic)
@@ -44,6 +45,7 @@ public final class ScalarFunctionImplementation
                 nCopies(nullableArguments.size(), Optional.empty()),
                 methodHandle,
                 Optional.empty(),
+                false,
                 deterministic);
     }
 
@@ -56,6 +58,7 @@ public final class ScalarFunctionImplementation
                 nCopies(nullableArguments.size(), Optional.empty()),
                 methodHandle,
                 Optional.empty(),
+                false,
                 deterministic);
     }
 
@@ -74,6 +77,7 @@ public final class ScalarFunctionImplementation
                 lambdaInterface,
                 methodHandle,
                 Optional.empty(),
+                false,
                 deterministic);
     }
 
@@ -86,12 +90,34 @@ public final class ScalarFunctionImplementation
             Optional<MethodHandle> instanceFactory,
             boolean deterministic)
     {
+        this(
+                nullable,
+                nullableArguments,
+                nullFlags,
+                lambdaInterface,
+                methodHandle,
+                instanceFactory,
+                false,
+                deterministic);
+    }
+
+    public ScalarFunctionImplementation(
+            boolean nullable,
+            List<Boolean> nullableArguments,
+            List<Boolean> nullFlags,
+            List<Optional<Class>> lambdaInterface,
+            MethodHandle methodHandle,
+            Optional<MethodHandle> instanceFactory,
+            boolean writeToOutputBlock,
+            boolean deterministic)
+    {
         this.nullable = nullable;
         this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
         this.nullFlags = ImmutableList.copyOf(requireNonNull(nullFlags, "nullFlags is null"));
         this.lambdaInterface = ImmutableList.copyOf(requireNonNull(lambdaInterface, "lambdaInterface is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
+        this.writeToOutputBlock = writeToOutputBlock;
         this.deterministic = deterministic;
 
         if (instanceFactory.isPresent()) {
@@ -144,6 +170,11 @@ public final class ScalarFunctionImplementation
     public Optional<MethodHandle> getInstanceFactory()
     {
         return instanceFactory;
+    }
+
+    public boolean isWriteToOutputBlock()
+    {
+        return writeToOutputBlock;
     }
 
     public boolean isDeterministic()
