@@ -57,6 +57,10 @@
         <dep.nifty.version>0.15.1</dep.nifty.version>
         <dep.swift.version>0.15.2</dep.swift.version>
 
+        <!-- Remove once Presto is on airbase >= 67 -->
+        <dep.junit-jupiter.version>5.0.0-RC2</dep.junit-jupiter.version>
+        <dep.junit-platform.version>1.0.0-RC2</dep.junit-platform.version>
+
         <!-- use a fractional hour timezone offset for tests -->
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
@@ -1013,6 +1017,29 @@
                             </exception>
                         </exceptions>
                     </configuration>
+                </plugin>
+
+                <!-- Remove once Presto is on airbase >= 67 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.maven.surefire</groupId>
+                            <artifactId>surefire-testng</artifactId>
+                            <version>2.19.1</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.junit.platform</groupId>
+                            <artifactId>junit-platform-surefire-provider</artifactId>
+                            <version>${dep.junit-platform.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.junit.jupiter</groupId>
+                            <artifactId>junit-jupiter-engine</artifactId>
+                            <version>${dep.junit-jupiter.version}</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
 
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
