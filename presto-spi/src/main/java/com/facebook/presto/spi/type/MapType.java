@@ -217,6 +217,9 @@ public class MapType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
+        if (!(value instanceof SingleMapBlock)) {
+            throw new IllegalArgumentException("Maps must be represented with SingleMapBlock");
+        }
         blockBuilder.writeObject(value).closeEntry();
     }
 

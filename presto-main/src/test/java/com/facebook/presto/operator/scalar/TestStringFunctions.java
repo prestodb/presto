@@ -410,6 +410,8 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT_TO_MAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
         assertInvalidFunction("SPLIT_TO_MAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
         assertInvalidFunction("SPLIT_TO_MAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
+
+        assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')");
     }
 
     @Test
