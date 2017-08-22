@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -74,6 +73,7 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -1234,10 +1234,7 @@ public class TestArrayOperators
 
         // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
         MapType mapType = mapType(INTEGER, INTEGER);
-        BlockBuilder mapBuilder = new InterleavedBlockBuilder(ImmutableList.of(INTEGER, INTEGER), new BlockBuilderStatus(), 2);
-        INTEGER.writeLong(mapBuilder, 1);
-        INTEGER.writeLong(mapBuilder, 2);
-        assertArrayHashOperator("ARRAY[MAP(ARRAY[1], ARRAY[2])]", mapType, ImmutableList.of(mapBuilder.build()));
+        assertArrayHashOperator("ARRAY[MAP(ARRAY[1], ARRAY[2])]", mapType, ImmutableList.of(mapBlockOf(INTEGER, INTEGER, ImmutableMap.of(1L, 2L))));
     }
 
     public void assertInvalidFunction(String projection, ErrorCode errorCode)
