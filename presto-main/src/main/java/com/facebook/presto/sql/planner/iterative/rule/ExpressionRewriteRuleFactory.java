@@ -1,0 +1,294 @@
+package com.facebook.presto.sql.planner.iterative.rule;
+
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
+import static com.facebook.presto.sql.planner.plan.Patterns.values;
+import static java.util.stream.Collectors.toList;
+
+class ExpressionRewriteRuleFactory
+{
+    static List<Rule<?>> createRules(ExpressionRewriteRule rewriteRule, List<Class<? extends PlanNode>> planNodes)
+    {
+        return planNodes.stream().map(NODES_RULES::get).map(f -> f.apply(rewriteRule)).collect(toList());
+    }
+
+    private static final class ProjectExpressionRewrite
+            implements Rule<ProjectNode>
+    {
+        private final ExpressionRewriteRule rewriter;
+
+        private ProjectExpressionRewrite(final ExpressionRewriteRule rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public Pattern<ProjectNode> getPattern()
+        {
+            return project();
+        }
+
+        @Override
+        public Optional<PlanNode> apply(ProjectNode projectNode, Captures captures, Context context)
+        {
+            Assignments assignments = projectNode.getAssignments().rewrite(x -> rewriter.rewrite(x, context));
+            if (projectNode.getAssignments().equals(assignments)) {
+                return Optional.empty();
+            }
+            return Optional.of(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments));
+        }
+    }
+
+    private static final class AggregationExpressionRewrite
+            implements Rule<AggregationNode>
+    {
+        private final ExpressionRewriteRule rewriter;
+
+        private AggregationExpressionRewrite(final ExpressionRewriteRule rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public Pattern<AggregationNode> getPattern()
+        {
+            return aggregation();
+        }
+
+        @Override
+        public Optional<PlanNode> apply(AggregationNode aggregationNode, Captures captures, Context context)
+        {
+            boolean anyRewritten = false;
+            ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
+            for (Map.Entry<Symbol, AggregationNode.Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
+                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getValue().getCall(), context);
+                aggregations.put(aggregation.getKey(), new AggregationNode.Aggregation(call, aggregation.getValue().getSignature(), aggregation.getValue().getMask()));
+                if (!aggregation.getValue().getCall().equals(call)) {
+                    anyRewritten = true;
+                }
+            }
+            if (anyRewritten) {
+                return Optional.of(new AggregationNode(
+                        aggregationNode.getId(),
+                        aggregationNode.getSource(),
+                        aggregations.build(),
+                        aggregationNode.getGroupingSets(),
+                        aggregationNode.getStep(),
+                        aggregationNode.getHashSymbol(),
+                        aggregationNode.getGroupIdSymbol()));
+            }
+            return Optional.empty();
+        }
+    }
+
+    private static final class JoinExpressionRewrite
+            implements Rule<JoinNode>
+    {
+        private final ExpressionRewriteRule rewriter;
+
+        private JoinExpressionRewrite(final ExpressionRewriteRule rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public Pattern<JoinNode> getPattern()
+        {
+            return join();
+        }
+
+        @Override
+        public Optional<PlanNode> apply(JoinNode joinNode, Captures captures, Context context)
+        {
+            Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(x, context));
+            if (!joinNode.getFilter().equals(filter)) {
+                return Optional.of(new JoinNode(
+                        joinNode.getId(),
+                        joinNode.getType(),
+                        joinNode.getLeft(),
+                        joinNode.getRight(),
+                        joinNode.getCriteria(),
+                        joinNode.getOutputSymbols(),
+                        filter,
+                        joinNode.getLeftHashSymbol(),
+                        joinNode.getRightHashSymbol(),
+                        joinNode.getDistributionType()));
+            }
+            return Optional.empty();
+        }
+    }
+
+    private static final class ValuesExpressionRewrite
+            implements Rule<ValuesNode>
+    {
+        private final ExpressionRewriteRule rewriter;
+
+        private ValuesExpressionRewrite(final ExpressionRewriteRule rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public Pattern<ValuesNode> getPattern()
+        {
+            return values();
+        }
+
+        @Override
+        public Optional<PlanNode> apply(ValuesNode valuesNode, Captures captures, Context context)
+        {
+            boolean anyRewritten = false;
+            ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
+            for (List<Expression> row : valuesNode.getRows()) {
+                ImmutableList.Builder<Expression> newRow = ImmutableList.builder();
+                for (Expression expression : row) {
+                    Expression rewritten = rewriter.rewrite(expression, context);
+                    if (!expression.equals(rewritten)) {
+                        anyRewritten = true;
+                    }
+                    newRow.add(rewritten);
+                }
+                rows.add(newRow.build());
+            }
+            if (anyRewritten) {
+                return Optional.of(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
+            }
+            return Optional.empty();
+        }
+    }
+
+    private static final class ApplyExpressionRewrite
+            implements Rule<ApplyNode>
+    {
+        private final ExpressionRewriteRule rewriter;
+
+        private ApplyExpressionRewrite(final ExpressionRewriteRule rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public Pattern<ApplyNode> getPattern()
+        {
+            return applyNode();
+        }
+
+        @Override
+        public Optional<PlanNode> apply(ApplyNode applyNode, Captures captures, Context context)
+        {
+            Assignments subqueryAssignments = applyNode.getSubqueryAssignments().rewrite(x -> rewriter.rewrite(x, context));
+            if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {
+                return Optional.empty();
+            }
+            return Optional.of(new ApplyNode(
+                    applyNode.getId(),
+                    applyNode.getInput(),
+                    applyNode.getSubquery(),
+                    subqueryAssignments,
+                    applyNode.getCorrelation(),
+                    applyNode.getOriginSubquery()));
+        }
+    }
+
+    private static final class FilterExpressionRewrite
+            implements Rule<FilterNode>
+    {
+        private final ExpressionRewriteRule rewriter;
+
+        private FilterExpressionRewrite(final ExpressionRewriteRule rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public Pattern<FilterNode> getPattern()
+        {
+            return filter();
+        }
+
+        @Override
+        public Optional<PlanNode> apply(FilterNode filterNode, Captures captures, Context context)
+        {
+            Expression rewritten = rewriter.rewrite(filterNode.getPredicate(), context);
+            if (filterNode.getPredicate().equals(rewritten)) {
+                return Optional.empty();
+            }
+            return Optional.of(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+        }
+    }
+
+    private static final class TableScanExpressionRewrite
+            implements Rule<TableScanNode>
+    {
+        private final ExpressionRewriteRule rewriter;
+
+        private TableScanExpressionRewrite(final ExpressionRewriteRule rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public Pattern<TableScanNode> getPattern()
+        {
+            return tableScan();
+        }
+
+        @Override
+        public Optional<PlanNode> apply(TableScanNode tableScanNode, Captures captures, Context context)
+        {
+            if (tableScanNode.getOriginalConstraint() == null) {
+                return Optional.empty();
+            }
+            Expression rewrittenOriginalContraint = rewriter.rewrite(tableScanNode.getOriginalConstraint(), context);
+            if (!tableScanNode.getOriginalConstraint().equals(rewrittenOriginalContraint)) {
+                return Optional.of(new TableScanNode(
+                        tableScanNode.getId(),
+                        tableScanNode.getTable(),
+                        tableScanNode.getOutputSymbols(),
+                        tableScanNode.getAssignments(),
+                        tableScanNode.getLayout(),
+                        tableScanNode.getCurrentConstraint(),
+                        rewrittenOriginalContraint));
+            }
+            return Optional.empty();
+        }
+    }
+
+    private static final Map<Class<? extends PlanNode>, Function<ExpressionRewriteRule, Rule<?>>> NODES_RULES  = ImmutableMap.<Class<? extends PlanNode>,
+            Function<ExpressionRewriteRule, Rule<?>>>builder()
+            .put(ProjectNode.class, ProjectExpressionRewrite::new)
+            .put(AggregationNode.class, AggregationExpressionRewrite::new)
+            .put(FilterNode.class, FilterExpressionRewrite::new)
+            .put(TableScanNode.class, TableScanExpressionRewrite::new)
+            .put(JoinNode.class, JoinExpressionRewrite::new)
+            .put(ValuesNode.class, ValuesExpressionRewrite::new)
+            .put(ApplyNode.class, ApplyExpressionRewrite::new)
+            .build();
+}
