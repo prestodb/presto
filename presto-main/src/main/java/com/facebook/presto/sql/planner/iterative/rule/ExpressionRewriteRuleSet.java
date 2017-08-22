@@ -57,15 +57,6 @@ public class ExpressionRewriteRuleSet
 
     private final ExpressionRewriter rewriter;
 
-    private final ImmutableSet<Rule<?>> rules = ImmutableSet.of(
-            new ProjectExpressionRewrite(),
-            new AggregationExpressionRewrite(),
-            new FilterExpressionRewrite(),
-            new TableScanExpressionRewrite(),
-            new JoinExpressionRewrite(),
-            new ValuesExpressionRewrite(),
-            new ApplyExpressionRewrite());
-
     public ExpressionRewriteRuleSet(ExpressionRewriter rewrite)
     {
         this.rewriter = rewrite;
@@ -73,12 +64,26 @@ public class ExpressionRewriteRuleSet
 
     public Set<Rule<?>> rules()
     {
-        return rules;
+        return ImmutableSet.of(
+                new ProjectExpressionRewrite(rewriter),
+                new AggregationExpressionRewrite(rewriter),
+                new FilterExpressionRewrite(rewriter),
+                new TableScanExpressionRewrite(rewriter),
+                new JoinExpressionRewrite(rewriter),
+                new ValuesExpressionRewrite(rewriter),
+                new ApplyExpressionRewrite(rewriter));
     }
 
-    private final class ProjectExpressionRewrite
+    public static final class ProjectExpressionRewrite
             implements Rule<ProjectNode>
     {
+        private final ExpressionRewriter rewriter;
+
+        public ProjectExpressionRewrite(ExpressionRewriter rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
         @Override
         public Pattern<ProjectNode> getPattern()
         {
@@ -96,9 +101,16 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private final class AggregationExpressionRewrite
+    public static final class AggregationExpressionRewrite
             implements Rule<AggregationNode>
     {
+        private final ExpressionRewriter rewriter;
+
+        public AggregationExpressionRewrite(ExpressionRewriter rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
         @Override
         public Pattern<AggregationNode> getPattern()
         {
@@ -131,9 +143,16 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private final class FilterExpressionRewrite
+    public static final class FilterExpressionRewrite
             implements Rule<FilterNode>
     {
+        private final ExpressionRewriter rewriter;
+
+        public FilterExpressionRewrite(ExpressionRewriter rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
         @Override
         public Pattern<FilterNode> getPattern()
         {
@@ -151,9 +170,16 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private final class TableScanExpressionRewrite
+    public static final class TableScanExpressionRewrite
             implements Rule<TableScanNode>
     {
+        private final ExpressionRewriter rewriter;
+
+        public TableScanExpressionRewrite(ExpressionRewriter rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
         @Override
         public Pattern<TableScanNode> getPattern()
         {
@@ -181,9 +207,16 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private final class JoinExpressionRewrite
+    public static final class JoinExpressionRewrite
             implements Rule<JoinNode>
     {
+        private final ExpressionRewriter rewriter;
+
+        public JoinExpressionRewrite(ExpressionRewriter rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
         @Override
         public Pattern<JoinNode> getPattern()
         {
@@ -211,9 +244,16 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private final class ValuesExpressionRewrite
+    public static final class ValuesExpressionRewrite
             implements Rule<ValuesNode>
     {
+        private final ExpressionRewriter rewriter;
+
+        public ValuesExpressionRewrite(ExpressionRewriter rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
         @Override
         public Pattern<ValuesNode> getPattern()
         {
@@ -243,9 +283,16 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private final class ApplyExpressionRewrite
+    public static final class ApplyExpressionRewrite
             implements Rule<ApplyNode>
     {
+        private final ExpressionRewriter rewriter;
+
+        public ApplyExpressionRewrite(ExpressionRewriter rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
         @Override
         public Pattern<ApplyNode> getPattern()
         {
