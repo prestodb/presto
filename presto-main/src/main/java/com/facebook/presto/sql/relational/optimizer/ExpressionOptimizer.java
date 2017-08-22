@@ -37,9 +37,11 @@ import java.util.List;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
+import static com.facebook.presto.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -226,7 +228,7 @@ public class ExpressionOptimizer
         private CallExpression rewriteCast(CallExpression call)
         {
             if (call.getArguments().get(0) instanceof CallExpression) {
-                // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP)
+                // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
                 CallExpression innerCall = (CallExpression) call.getArguments().get(0);
                 if (innerCall.getSignature().getName().equals("json_parse")) {
                     checkArgument(innerCall.getType().equals(JSON));
@@ -245,6 +247,15 @@ public class ExpressionOptimizer
                         return call(
                                 internalScalarFunction(
                                         JSON_STRING_TO_MAP_NAME,
+                                        returnType,
+                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                call.getType(),
+                                innerCall.getArguments());
+                    }
+                    else if (returnType.getBase().equals(ROW)) {
+                        return call(
+                                internalScalarFunction(
+                                        JSON_STRING_TO_ROW_NAME,
                                         returnType,
                                         ImmutableList.of(parseTypeSignature(VARCHAR))),
                                 call.getType(),
