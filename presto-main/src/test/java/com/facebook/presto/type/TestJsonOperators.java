@@ -363,10 +363,11 @@ public class TestJsonOperators
     {
         // the test is to make sure ExpressionOptimizer works with cast + json_parse
         assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY<ARRAY<INTEGER>>", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
-        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", INVALID_CAST_ARGUMENT, "Cannot cast to array(integer)");
+        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1, \"abc\"]");
+
         assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP<VARCHAR,INTEGER>", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
-        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", INVALID_CAST_ARGUMENT, "Cannot cast JSON to map(array(integer),array(integer))");
-        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", INVALID_CAST_ARGUMENT, "Cannot cast to map(boolean,boolean)");
+        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", "Cannot cast JSON to map(array(integer),array(integer))");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", "Cannot cast to map(boolean,boolean).\n{true: false, false:false}");
     }
 
     private static SqlTimestamp sqlTimestamp(long millisUtc)
@@ -376,22 +377,30 @@ public class TestJsonOperators
 
     private void assertCastWithJsonParse(String json, String castSqlType, Type expectedType, Object expected)
     {
+        String query = "" +
+                "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
+                "FROM (VALUES('" + json + "')) AS t(col)";
+
         // building queries with VALUES to avoid constant folding
-        MaterializedResult result = runner.execute((new StringBuilder()).append("SELECT CAST(JSON_PARSE(col) AS ").append(castSqlType).append(") FROM (VALUES('").append(json).append("')) AS t(col)").toString());
+        MaterializedResult result = runner.execute(query);
         assertEquals(result.getTypes().size(), 1);
         assertEquals(result.getTypes().get(0), expectedType);
         assertEquals(result.getOnlyValue(), expected);
     }
 
-    private void assertInvalidCastWithJsonParse(String json, String castSqlType, StandardErrorCode errorCode, String errorMessage)
+    private void assertInvalidCastWithJsonParse(String json, String castSqlType, String message)
     {
+        String query = "" +
+                "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
+                "FROM (VALUES('" + json + "')) AS t(col)";
+
         try {
-            MaterializedResult a = runner.execute((new StringBuilder()).append("SELECT CAST(JSON_PARSE(col) AS ").append(castSqlType).append(") FROM (VALUES('").append(json).append("')) AS t(col)").toString());
-            fail("expect to fail");
+            runner.execute(query);
+            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
         }
         catch (PrestoException e) {
-            assertTrue(e.getMessage().startsWith(errorMessage));
-            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+            assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
         }
     }
 }
