@@ -50,12 +50,12 @@ import static com.facebook.presto.sql.planner.plan.Patterns.values;
 public class ExpressionRewriteRuleSet
         implements RuleSet
 {
-    public interface ExpressionRewriteRule
+    public interface ExpressionRewriter
     {
         Expression rewrite(Expression expression, Rule.Context context);
     }
 
-    private final ExpressionRewriteRule rewriter;
+    private final ExpressionRewriter rewriter;
 
     private final ImmutableSet<Rule<?>> rules = ImmutableSet.of(
             new ProjectExpressionRewrite(),
@@ -66,7 +66,7 @@ public class ExpressionRewriteRuleSet
             new ValuesExpressionRewrite(),
             new ApplyExpressionRewrite());
 
-    public ExpressionRewriteRuleSet(ExpressionRewriteRule rewrite)
+    public ExpressionRewriteRuleSet(ExpressionRewriter rewrite)
     {
         this.rewriter = rewrite;
     }
@@ -88,7 +88,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public Optional<PlanNode> apply(ProjectNode projectNode, Captures captures, Context context)
         {
-            Assignments assignments = projectNode.getAssignments().rewrite(x -> ExpressionRewriteRuleSet.this.rewriter.rewrite(x, context));
+            Assignments assignments = projectNode.getAssignments().rewrite(x -> rewriter.rewrite(x, context));
             if (projectNode.getAssignments().equals(assignments)) {
                 return Optional.empty();
             }
@@ -193,7 +193,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public Optional<PlanNode> apply(JoinNode joinNode, Captures captures, Context context)
         {
-            Optional<Expression> filter = joinNode.getFilter().map(x -> ExpressionRewriteRuleSet.this.rewriter.rewrite(x, context));
+            Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(x, context));
             if (!joinNode.getFilter().equals(filter)) {
                 return Optional.of(new JoinNode(
                         joinNode.getId(),
