@@ -33,6 +33,7 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
@@ -215,6 +216,10 @@ public final class BytecodeUtils
         BytecodeBlock block = new BytecodeBlock()
                 .setDescription("invoke " + name);
 
+        List<Class<?>> stackTypes = new ArrayList<>();
+        block.append(loadConstant(binder.bind(function.getMethodHandle(), MethodHandle.class)));
+        stackTypes.add(MethodHandle.class);
+
         boolean sliceOutputBlockLastValueOnStack = false;
         if (function.isWriteToOutputBlock() && !outputBlock.isPresent()) {
             // bridge mode
@@ -232,14 +237,11 @@ public final class BytecodeUtils
             outputBlock = Optional.of(tempOutputBlock);
         }
 
-        Binding binding = binder.bind(function.getMethodHandle());
-        MethodType methodType = binding.getType();
-
+        MethodType methodType = function.getMethodHandle().type();
         Class<?> returnType = methodType.returnType();
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         LabelNode end = new LabelNode("end");
-        List<Class<?>> stackTypes = new ArrayList<>();
         if (function.getInstanceFactory().isPresent()) {
             checkArgument(instance.isPresent());
         }
@@ -298,7 +300,7 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, name));
+        block.invokeVirtual(stackTypes.get(0), "invokeExact", returnType, stackTypes.subList(1, stackTypes.size()));
 
         if (function.isNullable() && !function.isWriteToOutputBlock()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));

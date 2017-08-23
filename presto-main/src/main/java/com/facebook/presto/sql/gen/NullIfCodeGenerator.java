@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Signature;
@@ -42,13 +43,22 @@ public class NullIfCodeGenerator
         RowExpression first = arguments.get(0);
         RowExpression second = arguments.get(1);
 
+        if (first.getType().getJavaType() == void.class) {
+            return new BytecodeBlock()
+                    .comment("NULLIF(NULL, *) = NULL")
+                    .append(generatorContext.generate(first, Optional.empty()));
+        }
+
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack
+        Variable firstExpressionValue = scope.createTempVariable(first.getType().getJavaType());
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if first arg is null")
                 .append(generatorContext.generate(first, Optional.empty()))
-                .append(BytecodeUtils.ifWasNullPopAndGoto(scope, notMatch, void.class));
+                .append(BytecodeUtils.ifWasNullPopAndGoto(scope, notMatch, void.class))
+                .dup(first.getType().getJavaType())
+                .putVariable(firstExpressionValue);
 
         Type firstType = first.getType();
         Type secondType = second.getType();
@@ -60,7 +70,7 @@ public class NullIfCodeGenerator
                 equalsSignature.getName(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, new BytecodeBlock().dup(firstType.getJavaType()), firstType, equalsSignature.getArgumentTypes().get(0)),
+                        cast(generatorContext, firstExpressionValue, firstType, equalsSignature.getArgumentTypes().get(0)),
                         cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, equalsSignature.getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
