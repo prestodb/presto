@@ -163,13 +163,13 @@ public class TestHashJoinOperator
                     return true;
                 }));
 
-        // build with 4 entries
-        int entries = 4;
+        // build with 40 entries
+        int entries = 40;
         RowPagesBuilder buildPages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(BIGINT))
                 .addSequencePage(entries, 42);
         LookupSourceFactory lookupSourceFactory = buildHash(true, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction));
 
-        // probe matching the above 4 entries
+        // probe matching the above 40 entries
         RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT));
         List<Page> probeInput = probePages.addSequencePage(100, 0).build();
         OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
@@ -186,7 +186,7 @@ public class TestHashJoinOperator
         operator.addInput(probeInput.get(0));
         operator.finish();
 
-        // we will yield 4 times due to filterFunction
+        // we will yield 40 times due to filterFunction
         for (int i = 0; i < entries; i++) {
             driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
             filterFunctionCalls.set(0);
@@ -194,9 +194,13 @@ public class TestHashJoinOperator
             assertEquals(filterFunctionCalls.get(), 1, "Expected join to stop processing (yield) after calling filter function once");
             driverContext.getYieldSignal().reset();
         }
-        // delayed yield is not going to prevent operator from producing a page at the 5th time (yield won't be forced because filter function won't be called anymore)
+        // delayed yield is not going to prevent operator from producing a page now (yield won't be forced because filter function won't be called anymore)
         driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
-        Page output = operator.getOutput();
+        // expect output page to be produced within few calls to getOutput(), e.g. to facilitate spill
+        Page output = null;
+        for (int i = 0; output == null && i < 5; i++) {
+            output = operator.getOutput();
+        }
         assertNotNull(output);
         driverContext.getYieldSignal().reset();
 
