@@ -105,9 +105,11 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public int getJoinPositionCount()
+    public long getJoinPositionCount()
     {
-        throw new UnsupportedOperationException("Parallel hash can not be used in a RIGHT or FULL outer join");
+        return Arrays.stream(lookupSources)
+                .mapToLong(LookupSource::getJoinPositionCount)
+                .sum();
     }
 
     @Override
@@ -258,6 +260,7 @@ public class PartitionedLookupSource
 
                 visitedPositions = Arrays.stream(this.lookupSources)
                         .map(LookupSource::getJoinPositionCount)
+                        .map(Math::toIntExact)
                         .map(boolean[]::new)
                         .toArray(boolean[][]::new);
             }

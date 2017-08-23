@@ -55,7 +55,7 @@ public final class JoinHash
     }
 
     @Override
-    public int getJoinPositionCount()
+    public long getJoinPositionCount()
     {
         return pagesHash.getPositionCount();
     }
