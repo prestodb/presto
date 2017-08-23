@@ -36,6 +36,12 @@ public final class TestingSession
         }
 
         @Override
+        public Optional<String> getSource()
+        {
+            return Optional.of("TestSource");
+        }
+
+        @Override
         public Identity getIdentity()
         {
             return new Identity("user", Optional.empty());

@@ -295,7 +295,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(queryId.toString(), identity, timeZoneKey, locale, startTime);
+        return new FullConnectorSession(queryId.toString(), identity, source, timeZoneKey, locale, startTime);
     }
 
     public ConnectorSession toConnectorSession(ConnectorId connectorId)
@@ -304,6 +304,7 @@ public final class Session
         return new FullConnectorSession(
                 queryId.toString(),
                 identity,
+                source,
                 timeZoneKey,
                 locale,
                 startTime,
