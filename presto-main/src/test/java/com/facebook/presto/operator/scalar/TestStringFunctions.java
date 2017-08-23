@@ -187,6 +187,32 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testHammingDistance()
+    {
+        assertFunction("HAMMING_DISTANCE('', '')", BIGINT, 0L);
+        assertFunction("HAMMING_DISTANCE('hello', 'hello')", BIGINT, 0L);
+        assertFunction("HAMMING_DISTANCE('hello', 'jello')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('like', 'hate')", BIGINT, 3L);
+        assertFunction("HAMMING_DISTANCE('hello', 'world')", BIGINT, 4L);
+        assertFunction("HAMMING_DISTANCE(NULL, NULL)", BIGINT, null);
+        assertFunction("HAMMING_DISTANCE('hello', NULL)", BIGINT, null);
+        assertFunction("HAMMING_DISTANCE(NULL, 'world')", BIGINT, null);
+
+        // Test for unicode
+        assertFunction("HAMMING_DISTANCE('hello na\u00EFve world', 'hello naive world')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u4EF0,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('\u4F11\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+
+        // Test for invalid arguments
+        assertInvalidFunction("HAMMING_DISTANCE('hello', '')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('', 'hello')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('hello', 'o')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('h', 'hello')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('hello na\u00EFve world', 'hello na:ive world')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5\u5E0C\u671B')", "The input strings to hamming_distance function must have the same length");
+    }
+
+    @Test
     public void testReplace()
     {
         assertFunction("REPLACE('aaa', 'a', 'aa')", createVarcharType(11), "aaaaaa");
