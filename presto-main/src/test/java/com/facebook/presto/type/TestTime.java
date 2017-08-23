@@ -15,9 +15,8 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -35,6 +34,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimeOf;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimestampOf;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
@@ -67,13 +68,18 @@ public class TestTime
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
+    private static void assertFunctionString(FunctionAssertions functionAssertions, String projection, Type expectedType, String expected)
+    {
+        functionAssertions.assertFunctionString(projection, expectedType, expected);
+    }
+
     @Test
     public void testLiteral()
             throws Exception
     {
-        assertFunction("TIME '03:04:05.321'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIME '03:04:05'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIME '03:04'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
+        assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
+        assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
     }
 
     @Test
@@ -166,12 +172,42 @@ public class TestTime
     }
 
     @Test
+    public void testCastToTimeWithTimeZoneWithTZWithRulesChanged()
+    {
+        TimeZoneKey timeZoneThatChangedSince1970 = getTimeZoneKey("Asia/Kathmandu");
+        DateTimeZone dateTimeZoneThatChangedSince1970 = getDateTimeZone(timeZoneThatChangedSince1970);
+        Session session = testSessionBuilder()
+                .setTimeZoneKey(timeZoneThatChangedSince1970)
+                .build();
+        FunctionAssertions localAssertions = new FunctionAssertions(session);
+
+        localAssertions.assertFunction(
+                "cast(TIME '03:04:05.321' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, dateTimeZoneThatChangedSince1970).getMillis(), dateTimeZoneThatChangedSince1970.toTimeZone()));
+    }
+
+    @Test
+    public void testCastToTimestampWithTimeZoneDSTIsNotAppliedWhenTimeCrossesDST()
+    {
+        // Australia/Sydney will switch DST a second after session start
+        // For simplicity we have to use time zone that is going forward when entering DST zone with 1970-01-01
+        Session session = testSessionBuilder()
+                .setTimeZoneKey(getTimeZoneKey("Australia/Sydney"))
+                .setStartTime(new DateTime(2017, 10, 1, 1, 59, 59, 999, getDateTimeZone(getTimeZoneKey("Australia/Sydney"))).getMillis())
+                .build();
+        FunctionAssertions localAssertions = new FunctionAssertions(session);
+
+        assertFunctionString(localAssertions, "cast(TIME '12:00:00.000' as time with time zone)", TIME_WITH_TIME_ZONE, "12:00:00.000 Australia/Sydney");
+    }
+
+    @Test
     public void testCastToTimestamp()
             throws Exception
     {
         assertFunction("cast(TIME '03:04:05.321' as timestamp)",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                sqlTimestampOf(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
     }
 
     @Test
@@ -199,5 +235,10 @@ public class TestTime
         assertFunction("cast('03:04:05.321' as time) = TIME '03:04:05.321'", BOOLEAN, true);
         assertFunction("cast('03:04:05' as time) = TIME '03:04:05.000'", BOOLEAN, true);
         assertFunction("cast('03:04' as time) = TIME '03:04:00.000'", BOOLEAN, true);
+    }
+
+    private ConnectorSession connectorSession()
+    {
+        return functionAssertions.getSession().toConnectorSession();
     }
 }

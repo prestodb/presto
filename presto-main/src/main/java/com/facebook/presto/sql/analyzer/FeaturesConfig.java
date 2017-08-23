@@ -54,6 +54,7 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled = false;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
+    private boolean legacyTimestamp;
     private boolean legacyMapSubscript;
     private boolean optimizeMixedDistinctAggregations;
 
@@ -126,6 +127,18 @@ public class FeaturesConfig
     public boolean isLegacyOrderBy()
     {
         return legacyOrderBy;
+    }
+
+    @Config("deprecated.legacy-timestamp")
+    public FeaturesConfig setLegacyTimestamp(boolean value)
+    {
+        this.legacyTimestamp = value;
+        return this;
+    }
+
+    public boolean isLegacyTimestamp()
+    {
+        return legacyTimestamp;
     }
 
     @Config("deprecated.legacy-map-subscript")

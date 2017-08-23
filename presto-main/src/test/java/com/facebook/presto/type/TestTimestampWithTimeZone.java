@@ -16,9 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -40,6 +38,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimeOf;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimestampOf;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
@@ -280,7 +280,10 @@ public class TestTimestampWithTimeZone
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
                 TIME,
-                new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
+                sqlTimeOf(3, 4, 5, 321, WEIRD_ZONE, session.getTimeZoneKey(), session.toConnectorSession()));
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
+                TIME,
+                "03:04:05.321");
     }
 
     @Test
@@ -290,6 +293,23 @@ public class TestTimestampWithTimeZone
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
                 new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "03:04:05.321 +07:09");
+
+        // Those tests are only passing in non-legacy mode of date time types.
+        Session localSession = testSessionBuilder()
+                .setSystemProperty("legacy_timestamp", "false")
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .build();
+        FunctionAssertions localAssertions = new FunctionAssertions(localSession);
+
+        localAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000 Europe/Warsaw' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "10:00:00.000 Europe/Warsaw");
+        localAssertions.assertFunctionString("cast(TIMESTAMP '2017-06-06 10:00:00.000 Asia/Kathmandu' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "10:00:00.000 Asia/Kathmandu");
     }
 
     @Test
@@ -297,7 +317,12 @@ public class TestTimestampWithTimeZone
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, WEIRD_ZONE, session.getTimeZoneKey(), session.toConnectorSession()));
+
+        // This TZ had switch in 2014, so if we test for 2014 and used unpacked value we would use wrong shift
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 Pacific/Bougainville' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("Pacific/Bougainville")), session.getTimeZoneKey(), session.toConnectorSession()));
     }
 
     @Test

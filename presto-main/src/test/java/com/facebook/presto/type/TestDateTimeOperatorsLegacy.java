@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -30,62 +31,68 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.testing.TestingSqlTime.sqlTimestampOf;
+import static java.util.concurrent.TimeUnit.HOURS;
 
-public class TestDateTimeOperators
+public class TestDateTimeOperatorsLegacy
         extends TestDateTimeOperatorsBase
 {
-    public TestDateTimeOperators()
+    public TestDateTimeOperatorsLegacy()
     {
         super(
                 testSessionBuilder()
                         .setTimeZoneKey(TIME_ZONE_KEY)
-                        .setSystemProperty("legacy_timestamp", "false")
+                        .setSystemProperty("legacy_timestamp", "true")
                         .build());
     }
 
     @Test
-    public void testTimeZoneGapIsNotApplied()
+    public void testDaylightTimeSavingSwitchCrossingIsApplied()
     {
-        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '1' hour",
+        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '1' hour",
                 TIMESTAMP,
-                sqlTimestampOf(2013, 3, 31, 1, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '2' hour",
+                new SqlTimestamp(new DateTime(2013, 10, 27, 1, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '2' hour",
                 TIMESTAMP,
-                sqlTimestampOf(2013, 3, 31, 2, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '3' hour",
+                new SqlTimestamp(new DateTime(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        // we need to manipulate millis directly here because 2 am has two representations in out time zone, and we need the second one
+        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '3' hour",
                 TIMESTAMP,
-                sqlTimestampOf(2013, 3, 31, 3, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
+                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis() + HOURS.toMillis(3), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '4' hour",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(2013, 10, 27, 3, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 
-        assertFunction("TIMESTAMP '2013-03-31 04:05' - INTERVAL '3' hour",
+        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '4' hour",
                 TIMESTAMP,
-                sqlTimestampOf(2013, 3, 31, 1, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-03-31 03:05' - INTERVAL '2' hour",
+                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-10-27 02:05' - INTERVAL '2' hour",
                 TIMESTAMP,
-                sqlTimestampOf(2013, 3, 31, 1, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-03-31 01:05' - INTERVAL '1' hour",
+                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-10-27 01:05' - INTERVAL '1' hour",
                 TIMESTAMP,
-                sqlTimestampOf(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
+                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+
+        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '1' hour",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE).getMillis() + HOURS.toMillis(3), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '2' hour",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
-    public void testDaylightTimeSavingSwitchCrossingIsNotApplied()
+    public void testTimeZoneGapIsApplied()
     {
-        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '1' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 27, 1, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '2' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
+        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '1' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 1, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '2' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 3, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-03-31 00:05' + INTERVAL '3' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 4, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 
-        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '3' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 27, 3, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '4' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 27, 4, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-
-        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '4' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 26, 23, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-10-27 02:05' - INTERVAL '2' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-10-27 01:05' - INTERVAL '1' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 27, 0, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-
-        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '1' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
-        assertFunction("TIMESTAMP '2013-10-27 03:05' - INTERVAL '2' hour", TIMESTAMP, sqlTimestampOf(2013, 10, 27, 1, 5, 0, 0, TIME_ZONE, TIME_ZONE_KEY, getSession()));
+        assertFunction("TIMESTAMP '2013-03-31 04:05' - INTERVAL '3' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-03-31 03:05' - INTERVAL '2' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-03-31 01:05' - INTERVAL '1' hour", TIMESTAMP, new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
-    private static String valueFromLiteral(String literal)
+    private String valueFromLiteral(String literal)
     {
         Pattern p = Pattern.compile("'(.*)'");
         Matcher m = p.matcher(literal);
@@ -98,7 +105,7 @@ public class TestDateTimeOperators
         Session localSession = testSessionBuilder()
                 .setTimeZoneKey(getTimeZoneKey("America/Los_Angeles"))
                 .setStartTime(date.getMillis())
-                .setSystemProperty("legacy_timestamp", "false")
+                .setSystemProperty("legacy_timestamp", "true")
                 .build();
 
         FunctionAssertions localAssertions = new FunctionAssertions(localSession);
@@ -154,19 +161,19 @@ public class TestDateTimeOperators
     public void testTimeRepresentation()
     {
         // PST -> PDT date
-        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(9000000));
-        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(12600000));
+        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(41400000, getTimeZoneKey("America/Los_Angeles")));
 
         // PDT -> PST date
-        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(9000000));
-        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(12600000));
+        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(41400000, getTimeZoneKey("America/Los_Angeles")));
 
         // PDT date
-        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(9000000));
-        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(12600000));
+        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(41400000, getTimeZoneKey("America/Los_Angeles")));
 
         // PST date
-        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(9000000));
-        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(12600000));
+        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(37800000, getTimeZoneKey("America/Los_Angeles")));
+        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(41400000, getTimeZoneKey("America/Los_Angeles")));
     }
 }

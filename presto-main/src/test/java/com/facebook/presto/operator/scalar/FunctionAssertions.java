@@ -41,8 +41,10 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -243,6 +245,18 @@ public final class FunctionAssertions
         assertEquals(actual, expected);
     }
 
+    public void assertFunctionThrowsPrestoException(String projection, StandardErrorCode errorCode, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw a PrestoException with message " + message);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
+    }
+
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
         Object actual = selectSingleValue(projection, expectedType, compiler);
@@ -267,6 +281,11 @@ public final class FunctionAssertions
     public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
     {
         executeProjectionWithAll(expression, expectedType, session, compiler);
+    }
+
+    private void evaluateInvalid(String projection)
+    {
+        tryEvaluate(projection, null);
     }
 
     public void executeProjectionWithFullEngine(String projection)
@@ -818,6 +837,11 @@ public final class FunctionAssertions
         assertTrue(types.size() == 1, "Expected one type, but got " + types);
         Type actualType = types.get(0);
         assertEquals(actualType, expectedType);
+    }
+
+    public Session getSession()
+    {
+        return session;
     }
 
     @Override
