@@ -44,6 +44,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public final class EmbeddedCassandra
@@ -167,6 +168,7 @@ public final class EmbeddedCassandra
                 return;
             }
             log.info("Size estimates haven't been refreshed as expected. Retrying ...");
+            SECONDS.sleep(1);
         }
         throw new TimeoutException(format("Attempting to refresh size estimates for table %s.%s has timed out after %s", keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));
     }
