@@ -77,6 +77,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -632,7 +633,7 @@ public class FileHiveMetastore
                     childPartitionValues = listPartitions(fileStatus.getPath(), partitionColumns.subList(1, partitionColumns.size()));
                 }
 
-                String value = fileStatus.getPath().getName().substring(directoryPrefix.length());
+                String value = unescapePathName(fileStatus.getPath().getName().substring(directoryPrefix.length()));
                 for (ArrayDeque<String> childPartition : childPartitionValues) {
                     childPartition.addFirst(value);
                     partitionValues.add(childPartition);
