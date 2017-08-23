@@ -84,7 +84,6 @@ public class CassandraClientModule
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-        contactPoints.forEach(clusterBuilder::addContactPoint);
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
@@ -145,7 +144,10 @@ public class CassandraClientModule
         return new NativeCassandraSession(
                 connectorId.toString(),
                 extraColumnMetadataCodec,
-                new ReopeningCluster(clusterBuilder::build),
+                new ReopeningCluster(() -> {
+                    contactPoints.forEach(clusterBuilder::addContactPoint);
+                    return clusterBuilder.build();
+                }),
                 config.getNoHostAvailableRetryTimeout());
     }
 }
