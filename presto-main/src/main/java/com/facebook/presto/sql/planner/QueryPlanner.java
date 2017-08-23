@@ -693,10 +693,11 @@ class QueryPlanner
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
-            Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
             for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
-                orderings.put(symbol, toSortOrder(item));
+                // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
+                orderings.putIfAbsent(symbol, toSortOrder(item));
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs
