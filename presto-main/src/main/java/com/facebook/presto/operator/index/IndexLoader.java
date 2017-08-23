@@ -397,7 +397,7 @@ public class IndexLoader
         }
 
         @Override
-        public int getJoinPositionCount()
+        public long getJoinPositionCount()
         {
             return 0;
         }

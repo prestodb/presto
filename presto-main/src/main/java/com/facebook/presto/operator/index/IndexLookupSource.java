@@ -44,9 +44,9 @@ public class IndexLookupSource
     }
 
     @Override
-    public int getJoinPositionCount()
+    public long getJoinPositionCount()
     {
-        throw new UnsupportedOperationException("Index can not be used in a RIGHT or FULL outer join");
+        return 0;
     }
 
     @Override

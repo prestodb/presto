@@ -124,6 +124,9 @@ public class LookupJoinOperator
 
         if (lookupSource == null) {
             lookupSource = tryGetFutureValue(lookupSourceFuture).orElse(null);
+            if (lookupSource != null) {
+                statisticsCounter.setLookupSourcePositions(lookupSource.getJoinPositionCount());
+            }
         }
         return lookupSource != null && probe == null;
     }
