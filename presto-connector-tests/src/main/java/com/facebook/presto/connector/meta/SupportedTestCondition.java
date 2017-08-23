@@ -14,22 +14,23 @@
 package com.facebook.presto.connector.meta;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static java.util.Arrays.stream;
 import static org.junit.jupiter.api.extension.ConditionEvaluationResult.disabled;
 import static org.junit.jupiter.api.extension.ConditionEvaluationResult.enabled;
 
@@ -90,50 +91,54 @@ public class SupportedTestCondition
 
         Class<?> testClass = extensionContext.getRequiredTestClass();
 
-        Optional<RequiredFeatures> methodRequires = testMethod.map(method -> method.getAnnotation(RequiredFeatures.class));
-        List<RequiredFeatures> classRequires = getClassRequiredFeatures(testMethod.get().getDeclaringClass());
-        Optional<SupportedFeatures> classSupports = Optional.ofNullable(testClass.getAnnotation(SupportedFeatures.class));
+        List<ConnectorFeature> classRequires = getClassRequiredFeatures(testMethod.get().getDeclaringClass());
+        Stream<ConnectorFeature> classSupports = streamOfSupported(testClass);
 
         Set<ConnectorFeature> requiredFeatures = Stream.concat(
-                streamOfRequired(methodRequires),
-                classRequires.stream().flatMap(r -> Arrays.stream(r.value())))
-                .distinct()
-                .collect(Collectors.toCollection(HashSet::new));
-
-        Set<ConnectorFeature> supportedFeatures = streamOfSupported(classSupports)
+                streamOfRequired(testMethod.get()),
+                classRequires.stream())
                 .distinct()
                 .collect(toImmutableSet());
 
-        requiredFeatures.removeAll(supportedFeatures);
+        Set<ConnectorFeature> supportedFeatures = streamOfSupported(testClass)
+                .distinct()
+                .collect(toImmutableSet());
 
-        return requiredFeatures.isEmpty() ?
+        Set<ConnectorFeature> missingFeatures = Sets.difference(requiredFeatures, supportedFeatures);
+
+        return missingFeatures.isEmpty() ?
                 enabled("All required features present") :
-                disabled("Missing required features: " + Joiner.on(", ").join(requiredFeatures));
+                disabled("Missing required features: " + Joiner.on(", ").join(missingFeatures));
     }
 
-    private static List<RequiredFeatures> getClassRequiredFeatures(Class<?> testClass)
+    private static List<ConnectorFeature> getClassRequiredFeatures(Class<?> testClass)
     {
-        assertNull(testClass.getEnclosingClass(), "Add support (and tests!) if you need it");
+        Preconditions.checkState(testClass.getEnclosingClass() == null, "Inner classes not supported as test classes. Add support (and tests!) if you need it");
         Class<?>[] interfaces = testClass.getInterfaces();
-        Optional<RequiredFeatures> requiredFeatures = Optional.ofNullable(testClass.getAnnotation(RequiredFeatures.class));
 
-        return Stream.concat(
-                requiredFeatures.map(Stream::of).orElse(Stream.empty()),
-                Arrays.stream(interfaces)
+        return Streams.concat(
+                streamOfRequired(testClass),
+                stream(interfaces)
                         .map(SupportedTestCondition::getClassRequiredFeatures)
                         .flatMap(List::stream))
                 .collect(toImmutableList());
     }
 
-    private static Stream<ConnectorFeature> streamOfRequired(Optional<RequiredFeatures> requiredFeatures)
+    private static Stream<ConnectorFeature> streamOfRequired(AnnotatedElement element)
     {
-        return requiredFeatures.map(required -> Arrays.stream(required.value()))
+        if (element == null) {
+            return Stream.empty();
+        }
+
+        return Optional.ofNullable(element.getAnnotation(RequiredFeatures.class))
+                .map(required -> stream(required.value()))
                 .orElse(Stream.empty());
     }
 
-    private static Stream<ConnectorFeature> streamOfSupported(Optional<SupportedFeatures> supportedFeatures)
+    private static Stream<ConnectorFeature> streamOfSupported(Class<?> testClass)
     {
-        return supportedFeatures.map(supported -> Arrays.stream(supported.value()))
+        return Optional.ofNullable(testClass.getAnnotation(SupportedFeatures.class))
+                .map(required -> stream(required.value()))
                 .orElse(Stream.empty());
     }
 }
