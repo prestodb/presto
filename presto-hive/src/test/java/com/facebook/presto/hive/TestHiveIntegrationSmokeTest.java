@@ -242,10 +242,11 @@ public class TestHiveIntegrationSmokeTest
                 ", _partition_decimal_short DECIMAL(3,2)" +
                 ", _partition_decimal_long DECIMAL(30,10)" +
                 ", _partition_date DATE" +
+                ", _partition_timestamp TIMESTAMP" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_boolean', '_partition_decimal_short', '_partition_decimal_long', '_partition_date']" +
+                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_boolean', '_partition_decimal_short', '_partition_decimal_long', '_partition_date', '_partition_timestamp']" +
                 ") ";
 
         if (storageFormat == HiveStorageFormat.AVRO) {
@@ -269,7 +270,8 @@ public class TestHiveIntegrationSmokeTest
                 "_partition_boolean",
                 "_partition_decimal_short",
                 "_partition_decimal_long",
-                "_partition_date");
+                "_partition_date",
+                "_partition_timestamp");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
@@ -285,6 +287,34 @@ public class TestHiveIntegrationSmokeTest
         MaterializedResult result = computeActual("SELECT * from test_partitioned_table");
         assertEquals(result.getRowCount(), 0);
 
+        @Language("SQL") String insert = "" +
+                "SELECT" +
+                " 'foo' _string" +
+                ", 'bar' _varchar" +
+                ", CAST('boo' AS CHAR(10)) _char" +
+                ", CAST(1 AS BIGINT) _bigint" +
+                ", 2 _integer" +
+                ", CAST (3 AS SMALLINT) _smallint" +
+                ", CAST (4 AS TINYINT) _tinyint" +
+                ", CAST('123.45' AS REAL) _real" +
+                ", CAST('3.14' AS DOUBLE) _double" +
+                ", true _boolean" +
+                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
+                ", 'foo' _partition_string" +
+                ", 'bar' _partition_varchar" +
+                ", CAST('boo' AS CHAR(10)) _partition_char" +
+                ", CAST(1 AS TINYINT) _partition_tinyint" +
+                ", CAST(1 AS SMALLINT) _partition_smallint" +
+                ", 1 _partition_integer" +
+                ", CAST (1 AS BIGINT) _partition_bigint" +
+                ", true _partition_boolean" +
+                ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long" +
+                ", CAST('2017-05-01' AS DATE) _partition_date" +
+                ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _partition_timestamp";
+
+        // This is different from the insert statement because the timestamp needs to be adjusted for the timezone
         @Language("SQL") String select = "" +
                 "SELECT" +
                 " 'foo' _string" +
@@ -309,14 +339,17 @@ public class TestHiveIntegrationSmokeTest
                 ", true _partition_boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long" +
-                ", CAST('2017-05-01' AS DATE) _partition_date";
+                ", CAST('2017-05-01' AS DATE) _partition_date" +
+                ", CAST('2017-05-01 15:57:34' AS TIMESTAMP) _partition_timestamp";
 
         if (storageFormat == HiveStorageFormat.AVRO) {
+            insert = insert.replace(" CAST (3 AS SMALLINT) _smallint,", " 3 _smallint,");
+            insert = insert.replace(" CAST (4 AS TINYINT) _tinyint,", " 4 _tinyint,");
             select = select.replace(" CAST (3 AS SMALLINT) _smallint,", " 3 _smallint,");
             select = select.replace(" CAST (4 AS TINYINT) _tinyint,", " 4 _tinyint,");
         }
 
-        assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
+        assertUpdate(session, "INSERT INTO test_partitioned_table " + insert, 1);
         assertQuery(session, "SELECT * from test_partitioned_table", select);
         assertQuery(session,
                 "SELECT * from test_partitioned_table WHERE" +
@@ -330,7 +363,8 @@ public class TestHiveIntegrationSmokeTest
                         " AND true = _partition_boolean" +
                         " AND CAST('3.14' AS DECIMAL(3,2)) = _partition_decimal_short" +
                         " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _partition_decimal_long" +
-                        " AND CAST('2017-05-01' AS DATE) = _partition_date",
+                        " AND CAST('2017-05-01' AS DATE) = _partition_date" +
+                        " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _partition_timestamp",
                 select);
 
         assertUpdate(session, "DROP TABLE test_partitioned_table");
