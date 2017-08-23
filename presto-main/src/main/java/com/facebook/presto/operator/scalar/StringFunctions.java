@@ -715,6 +715,37 @@ public final class StringFunctions
         return distances[rightCodePoints.length - 1];
     }
 
+    @Description("computes Hamming distance between two strings")
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long hammingDistance(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    {
+        int distance = 0;
+        int leftPosition = 0;
+        int rightPosition = 0;
+        while (leftPosition < left.length() && rightPosition < right.length()) {
+            int codePointLeft = tryGetCodePointAt(left, leftPosition);
+            int codePointRight = tryGetCodePointAt(right, rightPosition);
+
+            // If both code points are invalid, we do not care if they are equal.
+            // The following code will treat them as equal if they happen to be of the same length.
+            if (codePointLeft != codePointRight) {
+                distance++;
+            }
+
+            leftPosition += codePointLeft > 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
+            rightPosition += codePointRight > 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
+        }
+
+        checkCondition(
+                leftPosition == left.length() && rightPosition == right.length(),
+                INVALID_FUNCTION_ARGUMENT,
+                "The input strings to hamming_distance function must have the same length");
+
+        return distance;
+    }
+
     @Description("transforms the string to normalized form")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
