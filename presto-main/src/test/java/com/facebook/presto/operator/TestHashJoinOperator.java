@@ -62,6 +62,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestHashJoinOperator
@@ -178,9 +179,8 @@ public class TestHashJoinOperator
                 Optional.empty());
 
         Operator operator = joinOperatorFactory.createOperator(driverContext);
-        if (operator.needsInput()) {
-            operator.addInput(probeInput.get(0));
-        }
+        assertTrue(operator.needsInput());
+        operator.addInput(probeInput.get(0));
         operator.finish();
 
         // we will yield 4 times due to filterFunction
