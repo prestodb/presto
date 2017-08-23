@@ -77,14 +77,14 @@ public final class EmbeddedCassandra
         CassandraDaemon cassandraDaemon = new CassandraDaemon();
         cassandraDaemon.activate();
 
-        Cluster cluster = Cluster.builder()
+        Cluster.Builder clusterBuilder = Cluster.builder()
                 .withProtocolVersion(V3)
                 .withClusterName("TestCluster")
                 .addContactPointsWithPorts(ImmutableList.of(
                         new InetSocketAddress(HOST, PORT)))
-                .withMaxSchemaAgreementWaitSeconds(30)
-                .build();
+                .withMaxSchemaAgreementWaitSeconds(30);
 
+        ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
         CassandraSession session = new NativeCassandraSession(
                 "EmbeddedCassandra",
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
