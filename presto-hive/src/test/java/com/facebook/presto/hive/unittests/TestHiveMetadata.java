@@ -109,7 +109,7 @@ public class TestHiveMetadata
     }
 
     @Override
-    public List<ColumnMetadata> withSystemColumns(List<ColumnMetadata> connectorColumns)
+    public List<ColumnMetadata> extendWithConnectorSpecificColumns(List<ColumnMetadata> connectorColumns)
     {
         return ImmutableList.<ColumnMetadata>builder()
                 .addAll(connectorColumns)

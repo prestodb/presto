@@ -28,13 +28,14 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
+import com.google.common.io.Closer;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
+import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.connector.meta.ConnectorFeature.CREATE_TABLE;
@@ -43,6 +44,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Arrays.stream;
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public interface BaseMetadataTest
@@ -50,36 +53,112 @@ public interface BaseMetadataTest
 {
     Map<String, Object> getTableProperties();
 
-    default List<ColumnMetadata> withSystemColumns(List<ColumnMetadata> expectedColumns)
-    {
-        return expectedColumns;
-    }
-
     default List<String> systemSchemas()
     {
         return ImmutableList.of();
     }
 
+    /*
+     * Connectors that add columns containing connector metadata to a table, like Hive,
+     * should return a List containing the metadata for all of the expectedColumns and the connector-specific columns added in the appropriate positions.
+     */
+    default List<ColumnMetadata> extendWithConnectorSpecificColumns(List<ColumnMetadata> expectedColumns)
+    {
+        return expectedColumns;
+    }
+
+    /*
+     * Returns a SchemaTableName to be used when the name of the schema is NOT
+     * important.
+     *
+     * Tests that require tables in one schema should use this method. An
+     * example would be a test that renames a table within a single schema.
+     *
+     * Tests written using this can be run against connectors that support the
+     * creation of schemas and those that do not, but come with a usable schema
+     * out of the box. PostgreSQL, for example has a "public" schema.
+     *
+     * A class implementing this interface for e.g. PostgreSQL should return a
+     * SchemaTableName with the schemaName set to "public".
+     *
+     * Tests invoking this method do NOT generally need to be annotated with
+     * @RequiredFeatures({CREATE_SCHEMA, DROP_SCHEMA}).
+     *
+     * A class overriding this method should also override withSchemas, as
+     * described below.
+     */
     default SchemaTableName schemaTableName(String tableName)
     {
         return new SchemaTableName("default_schema", tableName);
     }
 
+    /*
+     * Returns a SchemaTableName to be used when the name of the schema is
+     * important.
+     *
+     * Tests that require tables in multiple schemas should use this method. An
+     * example would be a test that renames a table from one schema to another.
+     *
+     * Tests invoking this method must be annotated with
+     * @RequiredFeatures({CREATE_SCHEMA, DROP_SCHEMA})
+     */
     default SchemaTableName schemaTableName(String schemaName, String tableName)
     {
         return new SchemaTableName(schemaName, tableName);
     }
 
+    /*
+     * Create and drop the schemas specified by schemaNames, running callable
+     * in between creating and dropping the schemas.
+     *
+     * A class implementing this interface for a connector that does NOT
+     * support creating and/or dropping schemas, but DOES have a usable schema
+     * (e.g. PostgreSQL with the "public" schema) should override this method
+     * and invoke callable without trying to create or destroy any of the
+     * schemas specified.
+     *
+     * Overriding this method in such a way allows tests that explicitly
+     * require creating and dropping tables to be written such that they are
+     * independent of whether or not the connector supports creating and
+     * dropping schemas.
+     */
+    default void withSchemas(ConnectorSession session, List<String> schemaNames, Callable<Void> callable)
+            throws Exception
+    {
+        try (Closer cleanup = closerOf(schemaNames.stream()
+                .distinct()
+                .map(schemaName -> new Schema(this, session, schemaName))
+                .collect(toImmutableList()))) {
+            callable.call();
+        }
+    }
+
     @Test
     default void testEmptyMetadata()
+            throws Exception
     {
         ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
 
-        run(ImmutableList.of(
-                metadata -> assertEquals(metadata.listSchemaNames(session), systemSchemas()),
-                metadata -> assertEquals(metadata.listTables(session, null), ImmutableList.of())));
+        withMetadata(
+                ImmutableList.of(
+                        metadata -> assertEquals(metadata.listSchemaNames(session), systemSchemas()),
+                        metadata -> assertEquals(metadata.listTables(session, null), ImmutableList.of())));
     }
 
+    /*
+     * Arguably, this belongs in MetadataTableTest. Unfortunately many
+     * connectors don't support CREATE_TABLE, but do support CREATE_TABLE_AS.
+     * As a result, MetadataTableTest is written in terms of CREATE_TABLE_AS,
+     * and is annotated with @RequiredFeatures({..., CREATE_TABLE_AS, ...) at
+     * the class level.
+     *
+     * Moving this to MetadataTableTest would require either:
+     * 1. Annotating every other methos than this as requiring CREATE_TABLE_AS.
+     * 2. Adding a way to unrequire previously required dependencies.
+     *
+     * 1 is cumbersome, 2 adds confusing semantics and surface area for weird
+     * bugs. Putting the test here seems like a good-enough solution.
+     */
     @Test
     @RequiredFeatures({CREATE_TABLE, DROP_TABLE})
     default void testCreateDropTable()
@@ -96,17 +175,16 @@ public interface BaseMetadataTest
                         new ColumnMetadata("double_column", DOUBLE)),
                 getTableProperties());
 
-        try (AllCloser cleanup = AllCloser.of(new Schema(this, session, schemaTableName.getSchemaName()))) {
-            run(ImmutableList.of(
-                    metadata -> metadata.createTable(session, tableMetadata),
-                    metadata -> assertEquals(getOnlyElement(metadata.listTables(session, schemaTableName.getSchemaName())), schemaTableName),
-                    metadata -> metadata.dropTable(session, metadata.getTableHandle(session, schemaTableName))));
-        }
+        withSchemas(session, ImmutableList.of(schemaTableName.getSchemaName()),
+                ImmutableList.of(
+                        metadata -> metadata.createTable(session, tableMetadata),
+                        metadata -> assertEquals(getOnlyElement(metadata.listTables(session, schemaTableName.getSchemaName())), schemaTableName),
+                        metadata -> metadata.dropTable(session, metadata.getTableHandle(session, schemaTableName))));
     }
 
     default List<String> schemaNamesOf(SchemaTableName... schemaTableNames)
     {
-        return Arrays.stream(schemaTableNames)
+        return stream(schemaTableNames)
                 .map(SchemaTableName::getSchemaName)
                 .collect(toImmutableList());
     }
@@ -130,7 +208,7 @@ public interface BaseMetadataTest
         return new SchemaTablePrefix(schemaTableName.getSchemaName(), schemaTableName.getTableName());
     }
 
-    default void run(List<Consumer<ConnectorMetadata>> consumers)
+    default void withMetadata(List<Consumer<ConnectorMetadata>> consumers)
     {
         consumers.forEach(this::withMetadata);
     }
@@ -144,33 +222,8 @@ public interface BaseMetadataTest
         connector.commit(transaction);
     }
 
-    class AllCloser
-            implements AutoCloseable
-    {
-        List<AutoCloseable> items;
-
-        public AllCloser(List<AutoCloseable> items)
-        {
-            this.items = items;
-        }
-
-        static AllCloser of(AutoCloseable... elements)
-        {
-            return new AllCloser(ImmutableList.copyOf(elements));
-        }
-
-        @Override
-        public void close()
-                throws Exception
-        {
-            for (int i = items.size() - 1; i >= 0; --i) {
-                items.get(i).close();
-            }
-        }
-    }
-
     class Schema
-            implements AutoCloseable
+            implements Closeable
     {
         private final BaseMetadataTest test;
         private final ConnectorSession session;
@@ -178,31 +231,35 @@ public interface BaseMetadataTest
 
         public Schema(BaseMetadataTest test, ConnectorSession session, String name)
         {
-            this.test = test;
-            this.session = session;
-            this.name = name;
+            this.test = requireNonNull(test, "test is null");
+            this.session = requireNonNull(session, "session is null");
+            this.name = requireNonNull(name, "name is null");
 
             test.withMetadata(metadata -> metadata.createSchema(session, name, ImmutableMap.of()));
         }
 
         @Override
         public void close()
-                throws Exception
         {
             test.withMetadata(metadata -> metadata.dropSchema(session, name));
         }
     }
 
-    default List<AutoCloseable> withSchemas(ConnectorSession session, List<String> schemaNames)
+    /*
+     * Don't override this! Override the version that takes a Callable; withTables is written in terms of that version, and will not work properly if you override this version.
+     */
+    default void withSchemas(ConnectorSession session, List<String> schemaNames, List<Consumer<ConnectorMetadata>> consumers)
+            throws Exception
     {
-        return schemaNames.stream()
-                .distinct()
-                .map(schemaName -> new Schema(this, session, schemaName))
-                .collect(toImmutableList());
+        withSchemas(session, schemaNames,
+                () -> {
+                    consumers.forEach(this::withMetadata);
+                    return null;
+                });
     }
 
     class Table
-            implements AutoCloseable
+            implements Closeable
     {
         private final BaseMetadataTest test;
         private final ConnectorSession session;
@@ -210,9 +267,9 @@ public interface BaseMetadataTest
 
         public Table(BaseMetadataTest test, ConnectorSession session, ConnectorTableMetadata tableMetadata)
         {
-            this.test = test;
-            this.session = session;
-            this.tableMetadata = tableMetadata;
+            this.test = requireNonNull(test, "test is null");
+            this.session = requireNonNull(session, "session is null");
+            this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
 
             test.withMetadata(metadata -> {
                 ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
@@ -222,7 +279,6 @@ public interface BaseMetadataTest
 
         @Override
         public void close()
-                throws Exception
         {
             test.withMetadata(metadata -> {
                 ConnectorTableHandle handle = metadata.getTableHandle(session, tableMetadata.getTable());
@@ -231,13 +287,23 @@ public interface BaseMetadataTest
         }
     }
 
-    default AllCloser withTables(ConnectorSession session, ConnectorTableMetadata... tables)
+    default void withTables(ConnectorSession session, List<ConnectorTableMetadata> tables, List<Consumer<ConnectorMetadata>> consumers)
+            throws Exception
     {
-        List<ConnectorTableMetadata> tableList = Arrays.asList(tables);
-        return new AllCloser(Streams.concat(
-                withSchemas(session, schemaNamesOf(tableList)).stream(),
-                tableList.stream()
-                        .map(table -> new Table(this, session, table)))
-                .collect(toImmutableList()));
+        withSchemas(session, schemaNamesOf(tables), () -> {
+            try (Closer cleanup = closerOf(tables.stream()
+                    .map(table -> new Table(this, session, table))
+                    .collect(toImmutableList()))) {
+                consumers.forEach(this::withMetadata);
+            }
+            return null;
+        });
+    }
+
+    default Closer closerOf(List<Closeable> closables)
+    {
+        Closer result = Closer.create();
+        closables.forEach(result::register);
+        return result;
     }
 }
