@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -154,8 +155,10 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         // force a yield for every match
+        AtomicInteger filterFunctionCalls = new AtomicInteger();
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) -> {
+                    filterFunctionCalls.incrementAndGet();
                     driverContext.getYieldSignal().forceYieldForTesting();
                     return true;
                 }));
@@ -186,10 +189,12 @@ public class TestHashJoinOperator
         // we will yield 4 times due to filterFunction
         for (int i = 0; i < entries; i++) {
             driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
+            filterFunctionCalls.set(0);
             assertNull(operator.getOutput());
+            assertEquals(filterFunctionCalls.get(), 1, "Expected join to stop processing (yield) after calling filter function once");
             driverContext.getYieldSignal().reset();
         }
-        // yield is not going to prevent operator from producing a page for the 5th time
+        // delayed yield is not going to prevent operator from producing a page at the 5th time (yield won't be forced because filter function won't be called anymore)
         driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
         Page output = operator.getOutput();
         assertNotNull(output);
