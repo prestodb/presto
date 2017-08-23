@@ -35,6 +35,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
@@ -49,11 +50,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combinePredicates;
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.OR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -116,6 +121,7 @@ public class SimplifyExpressions
         {
             PlanNode source = context.rewrite(node.getSource());
             Expression simplified = simplifyExpression(node.getPredicate());
+            simplified = simplifyFilterPredicate(simplified);
             //When porting this to Rule(s), keep in mind the following logic is already implemented in RemoveTrivialFilters rule
             if (simplified.equals(TRUE_LITERAL)) {
                 return source;
@@ -140,7 +146,7 @@ public class SimplifyExpressions
                     right,
                     node.getCriteria(),
                     node.getOutputSymbols(),
-                    node.getFilter().map(this::simplifyExpression),
+                    node.getFilter().map(this::simplifyExpression).map(this::simplifyFilterPredicate),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),
                     node.getDistributionType());
@@ -173,6 +179,22 @@ public class SimplifyExpressions
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression, emptyList() /* parameters already replaced */);
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+        }
+
+        private Expression simplifyFilterPredicate(Expression predicate)
+        {
+            List<Expression> simplifiedConjuncts = extractConjuncts(predicate).stream()
+                    .map(expression -> {
+                        if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
+                            ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
+                            if (comparisonExpression.getType() == EQUAL && comparisonExpression.getLeft().equals(comparisonExpression.getRight())) {
+                                return new IsNotNullPredicate(comparisonExpression.getLeft());
+                            }
+                        }
+                        return expression;
+                    })
+                    .collect(toImmutableList());
+            return combineConjuncts(simplifiedConjuncts);
         }
     }
 
@@ -298,7 +320,7 @@ public class SimplifyExpressions
          */
         private static Expression distributeIfPossible(LogicalBinaryExpression expression)
         {
-            if (!DeterminismEvaluator.isDeterministic(expression)) {
+            if (!isDeterministic(expression)) {
                 // Do not distribute boolean expressions if there are any non-deterministic elements
                 // TODO: This can be optimized further if non-deterministic elements are not repeated
                 return expression;

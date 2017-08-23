@@ -118,6 +118,15 @@ public class TestSimplifyExpressions
                         " OR (A51 AND A52) OR (A53 AND A54) OR (A55 AND A56) OR (A57 AND A58) OR (A59 AND A60)");
     }
 
+    @Test
+    public void testSimplifiesSymbolEqualsSymbolPredicate()
+    {
+        assertSimplifies("A = A", "A IS NOT NULL");
+        assertSimplifies("(A AND B) = (A AND B)", "(A AND B) IS NOT NULL");
+        assertSimplifies("A = A AND B", "A IS NOT NULL AND B");
+        assertSimplifies("A = A OR B", "A = A OR B");
+    }
+
     private static void assertSimplifies(String expression, String expected)
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
