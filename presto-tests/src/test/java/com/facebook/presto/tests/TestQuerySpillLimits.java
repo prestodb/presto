@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -39,8 +38,6 @@ public class TestQuerySpillLimits
     private static final Session SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema("sf1")
-            .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
-            .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "1B") //spill constantly
             .build();
 
     private File spillPath;
