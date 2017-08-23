@@ -23,17 +23,21 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.TestingConnectorContext;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import static com.facebook.presto.connector.meta.ConnectorFeature.CREATE_TABLE_AS;
 import static com.facebook.presto.connector.meta.ConnectorFeature.DROP_TABLE;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 @SupportedFeatures({
@@ -42,6 +46,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class TestPostgresqlMetadata
         implements BaseMetadataTest, MetadataTableTest, MetadataSchemaTest
 {
+    private static final String PUBLIC = "public";
     private TestingPostgreSqlServer server;
     private Connector connector;
 
@@ -91,18 +96,21 @@ public class TestPostgresqlMetadata
     @Override
     public SchemaTableName schemaTableName(String tableName)
     {
-        return new SchemaTableName("public", tableName);
+        return new SchemaTableName(PUBLIC, tableName);
     }
 
     @Override
     public List<String> systemSchemas()
     {
-        return ImmutableList.of("pg_catalog", "public");
+        return ImmutableList.of("pg_catalog", PUBLIC);
     }
 
     @Override
-    public List<AutoCloseable> withSchemas(ConnectorSession session, List<String> schemaNames)
+    public void withSchemas(ConnectorSession session, List<String> schemaNames, Callable<Void> callable)
+            throws Exception
     {
-        return ImmutableList.of();
+        String schemaName = Iterables.getOnlyElement(schemaNames.stream().distinct().collect(toImmutableList()));
+        Preconditions.checkState(PUBLIC.equals(schemaName), "Invalid schema name. Only " + PUBLIC + " is allowed");
+        callable.call();
     }
 }
