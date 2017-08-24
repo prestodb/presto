@@ -84,6 +84,12 @@ public class TestLambdaExpression
     }
 
     @Test
+    public void testLambdaWithoutArgument()
+    {
+        assertFunction("invoke(() -> 42)", INTEGER, 42);
+    }
+
+    @Test
     public void testSessionDependent()
             throws Exception
     {
