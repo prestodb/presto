@@ -73,6 +73,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
+    public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "deprecated_parse_decimal_literals_as_double";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -318,6 +319,11 @@ public final class SystemSessionProperties
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
                         false,
+                        false),
+                booleanSessionProperty(
+                        PARSE_DECIMAL_LITERALS_AS_DOUBLE,
+                        "Parse decimal literals as DOUBLE instead of DECIMAL",
+                        featuresConfig.isParseDecimalLiteralsAsDouble(),
                         false));
     }
 
@@ -498,5 +504,10 @@ public final class SystemSessionProperties
     public static boolean isPushAggregationThroughJoin(Session session)
     {
         return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
+    }
+
+    public static boolean isParseDecimalLiteralsAsDouble(Session session)
+    {
+        return session.getSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, Boolean.class);
     }
 }

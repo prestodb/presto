@@ -11,26 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import org.testng.annotations.Test;
-
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-
-public class TestLegacyMapSubscript
-        extends AbstractTestFunctions
+public class ParsingOptions
 {
-    private TestLegacyMapSubscript()
+    private boolean parseDecimalLiteralsAsDouble;
+
+    public boolean isParseDecimalLiteralsAsDouble()
     {
-        super(new FeaturesConfig().setLegacyMapSubscript(true));
+        return parseDecimalLiteralsAsDouble;
     }
 
-    @Test
-    public void testSubscript()
-            throws Exception
+    public ParsingOptions setParseDecimalLiteralsAsDouble(boolean parseDecimalLiteralsAsDouble)
     {
-        assertFunction("MAP(ARRAY [1], ARRAY [1.5E0])[2]", DOUBLE, null);
+        this.parseDecimalLiteralsAsDouble = parseDecimalLiteralsAsDouble;
+        return this;
     }
 }
