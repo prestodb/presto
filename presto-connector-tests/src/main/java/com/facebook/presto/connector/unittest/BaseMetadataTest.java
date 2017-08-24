@@ -58,6 +58,11 @@ public interface BaseMetadataTest
         return ImmutableList.of();
     }
 
+    default List<SchemaTableName> systemTables()
+    {
+        return ImmutableList.of();
+    }
+
     /*
      * Connectors that add columns containing connector metadata to a table, like Hive,
      * should return a List containing the metadata for all of the expectedColumns and the connector-specific columns added in the appropriate positions.
@@ -142,7 +147,7 @@ public interface BaseMetadataTest
         withMetadata(
                 ImmutableList.of(
                         metadata -> assertEquals(metadata.listSchemaNames(session), systemSchemas()),
-                        metadata -> assertEquals(metadata.listTables(session, null), ImmutableList.of())));
+                        metadata -> assertEquals(metadata.listTables(session, null), systemTables())));
     }
 
     /*
