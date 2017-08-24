@@ -8973,5 +8973,8 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT COUNT(*) FROM (SELECT SUM(orderkey) FROM orders group by custkey)",
                 "VALUES 1000");
+        assertQuery("SELECT count(*) FROM (VALUES 2) t(a) GROUP BY a", "VALUES 1");
+        assertQuery("SELECT a, count(*) FROM (VALUES 2) t(a) GROUP BY a", "VALUES (2, 1)");
+        assertQuery("SELECT count(*) FROM (VALUES 2) t(a) GROUP BY a+1", "VALUES 1");
     }
 }
