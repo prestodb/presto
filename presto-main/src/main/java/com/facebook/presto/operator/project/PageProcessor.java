@@ -232,7 +232,7 @@ public class PageProcessor
 
                 // if possible, use previouslyComputedResults produced in prior optimistic failure attempt
                 PageProjection projection = projections.get(i);
-                if (previouslyComputedResults[i] != null && previouslyComputedResults[i].getPositionCount() > batchSize) {
+                if (previouslyComputedResults[i] != null && previouslyComputedResults[i].getPositionCount() >= batchSize) {
                     blocks[i] = previouslyComputedResults[i].getRegion(0, batchSize);
                 }
                 else {
