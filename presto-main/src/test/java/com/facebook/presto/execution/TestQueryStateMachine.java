@@ -81,7 +81,7 @@ public class TestQueryStateMachine
 
     private final ExecutorService executor = newCachedThreadPool();
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();

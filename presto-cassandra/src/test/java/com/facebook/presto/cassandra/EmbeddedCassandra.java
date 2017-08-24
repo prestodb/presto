@@ -44,6 +44,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public final class EmbeddedCassandra
@@ -76,14 +77,14 @@ public final class EmbeddedCassandra
         CassandraDaemon cassandraDaemon = new CassandraDaemon();
         cassandraDaemon.activate();
 
-        Cluster cluster = Cluster.builder()
+        Cluster.Builder clusterBuilder = Cluster.builder()
                 .withProtocolVersion(V3)
                 .withClusterName("TestCluster")
                 .addContactPointsWithPorts(ImmutableList.of(
                         new InetSocketAddress(HOST, PORT)))
-                .withMaxSchemaAgreementWaitSeconds(30)
-                .build();
+                .withMaxSchemaAgreementWaitSeconds(30);
 
+        ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
         CassandraSession session = new NativeCassandraSession(
                 "EmbeddedCassandra",
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
@@ -167,6 +168,7 @@ public final class EmbeddedCassandra
                 return;
             }
             log.info("Size estimates haven't been refreshed as expected. Retrying ...");
+            SECONDS.sleep(1);
         }
         throw new TimeoutException(format("Attempting to refresh size estimates for table %s.%s has timed out after %s", keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));
     }

@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -405,6 +406,18 @@ public class TestSqlParser
 
         assertExpression("- - -9", negative(negative(negative(new LongLiteral("9")))));
         assertExpression("- - - 9", negative(negative(negative(new LongLiteral("9")))));
+    }
+
+    @Test
+    public void testCoalesce()
+    {
+        assertInvalidExpression("coalesce()", "The 'coalesce' function must have at least two arguments");
+        assertInvalidExpression("coalesce(5)", "The 'coalesce' function must have at least two arguments");
+        assertExpression("coalesce(13, 42)", new CoalesceExpression(new LongLiteral("13"), new LongLiteral("42")));
+        assertExpression("coalesce(6, 7, 8)", new CoalesceExpression(new LongLiteral("6"), new LongLiteral("7"), new LongLiteral("8")));
+        assertExpression("coalesce(13, null)", new CoalesceExpression(new LongLiteral("13"), new NullLiteral()));
+        assertExpression("coalesce(null, 13)", new CoalesceExpression(new NullLiteral(), new LongLiteral("13")));
+        assertExpression("coalesce(null, null)", new CoalesceExpression(new NullLiteral(), new NullLiteral()));
     }
 
     @Test
@@ -1738,21 +1751,21 @@ public class TestSqlParser
                                 new Table(QualifiedName.of("t")),
                                 new Unnest(ImmutableList.of(new Identifier("a")), false),
                                 Optional.empty())));
-        assertStatement("SELECT * FROM t CROSS JOIN UNNEST(a) WITH ORDINALITY",
+        assertStatement("SELECT * FROM t CROSS JOIN UNNEST(a, b) WITH ORDINALITY",
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Join(
                                 Join.Type.CROSS,
                                 new Table(QualifiedName.of("t")),
-                                new Unnest(ImmutableList.of(new Identifier("a")), true),
+                                new Unnest(ImmutableList.of(new Identifier("a"), new Identifier("b")), true),
                                 Optional.empty())));
-        assertStatement("SELECT * FROM t FULL JOIN UNNEST(a) ON true",
+        assertStatement("SELECT * FROM t FULL JOIN UNNEST(a) AS tmp (c) ON true",
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Join(
                                 Join.Type.FULL,
                                 new Table(QualifiedName.of("t")),
-                                new Unnest(ImmutableList.of(new Identifier("a")), true),
+                                new AliasedRelation(new Unnest(ImmutableList.of(new Identifier("a")), false), new Identifier("tmp"), ImmutableList.of(new Identifier("c"))),
                                 Optional.of(new JoinOn(BooleanLiteral.TRUE_LITERAL)))));
     }
 

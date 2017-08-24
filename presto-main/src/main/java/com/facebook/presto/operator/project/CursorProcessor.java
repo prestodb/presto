@@ -11,16 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.project;
 
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 
 public interface CursorProcessor
 {
-    /**
-     * @return 0 if processing is complete
-     */
-    int process(ConnectorSession session, RecordCursor cursor, int count, PageBuilder pageBuilder);
+    CursorProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, RecordCursor cursor, PageBuilder pageBuilder);
 }

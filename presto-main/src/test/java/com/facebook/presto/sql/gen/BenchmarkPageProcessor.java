@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -95,9 +96,9 @@ public class BenchmarkPageProcessor
     }
 
     @Benchmark
-    public List<Page> compiled()
+    public List<Optional<Page>> compiled()
     {
-        return ImmutableList.copyOf(compiledProcessor.process(null, inputPage));
+        return ImmutableList.copyOf(compiledProcessor.process(null, new DriverYieldSignal(), inputPage));
     }
 
     public static void main(String[] args)

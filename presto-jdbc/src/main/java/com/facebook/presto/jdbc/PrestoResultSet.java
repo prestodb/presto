@@ -1783,6 +1783,9 @@ public class PrestoResultSet
                 }
             }
 
+            QueryResults results = client.finalResults();
+            progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+
             if (client.isFailed()) {
                 throw propagate(resultsException(client.finalResults()));
             }

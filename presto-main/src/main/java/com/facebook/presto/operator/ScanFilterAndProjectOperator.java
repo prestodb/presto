@@ -15,6 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.project.CursorProcessor;
+import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ColumnHandle;
@@ -49,8 +51,6 @@ import static java.util.Objects.requireNonNull;
 public class ScanFilterAndProjectOperator
         implements SourceOperator, Closeable
 {
-    private static final int ROWS_PER_PAGE = 16384;
-
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final PageSourceProvider pageSourceProvider;
@@ -235,20 +235,17 @@ public class ScanFilterAndProjectOperator
 
     private Page processColumnSource()
     {
-        if (!finishing) {
-            int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
-
+        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
+        if (!finishing && !yieldSignal.isSet()) {
+            CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, cursor, pageBuilder);
             pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
 
             long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
             long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
-            operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
+            operatorContext.recordGeneratedInput(bytesProcessed, output.getProcessedRows(), elapsedNanos);
             completedBytes = cursor.getCompletedBytes();
             readTimeNanos = cursor.getReadTimeNanos();
-
-            if (rowsProcessed == 0) {
-                finishing = true;
-            }
+            finishing = output.isNoMoreRows();
         }
 
         // only return a page if buffer is full or we are finishing
@@ -263,7 +260,8 @@ public class ScanFilterAndProjectOperator
 
     private Page processPageSource()
     {
-        if (!finishing && !currentOutput.hasNext()) {
+        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
+        if (!finishing && !currentOutput.hasNext() && !yieldSignal.isSet()) {
             Page page = pageSource.getNextPage();
 
             finishing = pageSource.isFinished();
@@ -280,12 +278,12 @@ public class ScanFilterAndProjectOperator
                 completedBytes = endCompletedBytes;
                 readTimeNanos = endReadTimeNanos;
 
-                currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), page);
+                currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, page);
             }
             pageBuilderMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
         }
 
-        return currentOutput.hasNext() ? currentOutput.next() : null;
+        return currentOutput.hasNext() ? currentOutput.next().orElse(null) : null;
     }
 
     public static class ScanFilterAndProjectOperatorFactory

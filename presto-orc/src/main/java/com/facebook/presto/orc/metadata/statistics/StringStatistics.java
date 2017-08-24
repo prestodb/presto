@@ -15,6 +15,8 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
 
+import javax.annotation.Nullable;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -26,7 +28,9 @@ public class StringStatistics
     // 1 byte to denote if null + 4 bytes to denote offset
     public static final long STRING_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
 
+    @Nullable
     private final Slice minimum;
+    @Nullable
     private final Slice maximum;
     private final long sum;
 
@@ -79,8 +83,8 @@ public class StringStatistics
     public String toString()
     {
         return toStringHelper(this)
-                .add("min", minimum.toStringUtf8())
-                .add("max", maximum.toStringUtf8())
+                .add("min", minimum == null ? "<null>" : minimum.toStringUtf8())
+                .add("max", maximum == null ? "<null>" : maximum.toStringUtf8())
                 .add("sum", sum)
                 .toString();
     }

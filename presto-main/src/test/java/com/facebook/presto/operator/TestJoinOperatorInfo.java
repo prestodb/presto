@@ -27,15 +27,18 @@ public class TestJoinOperatorInfo
         JoinOperatorInfo base = new JoinOperatorInfo(
                 JoinType.INNER,
                 makeHistogramArray(10, 20, 30, 40, 50, 60, 70, 80),
-                makeHistogramArray(12, 22, 32, 42, 52, 62, 72, 82));
+                makeHistogramArray(12, 22, 32, 42, 52, 62, 72, 82),
+                1);
         JoinOperatorInfo other = new JoinOperatorInfo(
                 JoinType.INNER,
                 makeHistogramArray(11, 21, 31, 41, 51, 61, 71, 81),
-                makeHistogramArray(15, 25, 35, 45, 55, 65, 75, 85));
+                makeHistogramArray(15, 25, 35, 45, 55, 65, 75, 85),
+                2);
 
         JoinOperatorInfo merged = base.mergeWith(other);
         assertEquals(makeHistogramArray(21, 41, 61, 81, 101, 121, 141, 161), merged.getLogHistogramProbes());
         assertEquals(makeHistogramArray(27, 47, 67, 87, 107, 127, 147, 167), merged.getLogHistogramOutput());
+        assertEquals(merged.getLookupSourcePositions(), 3);
     }
 
     private long[] makeHistogramArray(long... longArray)

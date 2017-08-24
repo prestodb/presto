@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
@@ -60,7 +61,7 @@ public class HiveHdfsConfiguration
     }
 
     @Override
-    public Configuration getConfiguration(URI uri)
+    public Configuration getConfiguration(HdfsContext context, URI uri)
     {
         // use the same configuration for everything
         return hadoopConfiguration.get();

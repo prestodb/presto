@@ -89,7 +89,7 @@ public class TestJmxSplitManager
     private final JmxMetadata metadata = jmxConnector.getMetadata(new ConnectorTransactionHandle() {});
     private final JmxRecordSetProvider recordSetProvider = jmxConnector.getRecordSetProvider();
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         jmxConnector.shutdown();

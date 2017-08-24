@@ -68,7 +68,7 @@ public class TestProcedureCall
                 .build();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

@@ -20,10 +20,12 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.control.WhileLoop;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
@@ -51,9 +53,12 @@ import java.util.Set;
 
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.or;
+import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
@@ -108,47 +113,58 @@ public class CursorProcessorCompiler
     private static void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
         Parameter session = arg("session", ConnectorSession.class);
+        Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
-        Parameter count = arg("count", int.class);
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, cursor, count, pageBuilder);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(CursorProcessorOutput.class), session, yieldSignal, cursor, pageBuilder);
 
         Scope scope = method.getScope();
         Variable completedPositionsVariable = scope.declareVariable(int.class, "completedPositions");
+        Variable finishedVariable = scope.declareVariable(boolean.class, "finished");
 
         method.getBody()
                 .comment("int completedPositions = 0;")
-                .putVariable(completedPositionsVariable, 0);
+                .putVariable(completedPositionsVariable, 0)
+                .comment("boolean finished = false;")
+                .putVariable(finishedVariable, false);
 
-        //
-        // for loop loop body
-        //
+        // while loop loop body
         LabelNode done = new LabelNode("done");
-        ForLoop forLoop = new ForLoop()
-                .initialize(NOP)
-                .condition(new BytecodeBlock()
-                        .comment("completedPositions < count")
-                        .getVariable(completedPositionsVariable)
-                        .getVariable(count)
-                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
-                .update(new BytecodeBlock()
-                        .comment("completedPositions++")
+        WhileLoop whileLoop = new WhileLoop()
+                .condition(constantTrue())
+                .body(new BytecodeBlock()
+                        .comment("if (pageBuilder.isFull() || yieldSignal.isSet()) return new CursorProcessorOutput(completedPositions, false);")
+                        .append(new IfStatement()
+                                .condition(or(
+                                        pageBuilder.invoke("isFull", boolean.class),
+                                        yieldSignal.invoke("isSet", boolean.class)))
+                                .ifTrue(jump(done)))
+                        .comment("if (!cursor.advanceNextPosition()) return new CursorProcessorOutput(completedPositions, true);")
+                        .append(new IfStatement()
+                                .condition(cursor.invoke("advanceNextPosition", boolean.class))
+                                .ifFalse(new BytecodeBlock()
+                                        .putVariable(finishedVariable, true)
+                                        .gotoLabel(done)))
+                        .comment("do the projection")
+                        .append(createProjectIfStatement(classDefinition, method, session, cursor, pageBuilder, projections))
+                        .comment("completedPositions++;")
                         .incrementVariable(completedPositionsVariable, (byte) 1));
 
-        BytecodeBlock forLoopBody = new BytecodeBlock()
-                .comment("if (pageBuilder.isFull()) break;")
-                .append(new BytecodeBlock()
-                        .getVariable(pageBuilder)
-                        .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
-                        .ifTrueGoto(done))
-                .comment("if (!cursor.advanceNextPosition()) break;")
-                .append(new BytecodeBlock()
-                        .getVariable(cursor)
-                        .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
-                        .ifFalseGoto(done));
+        method.getBody()
+                .append(whileLoop)
+                .visitLabel(done)
+                .append(newInstance(CursorProcessorOutput.class, completedPositionsVariable, finishedVariable)
+                        .ret());
+    }
 
-        forLoop.body(forLoopBody);
-
+    private static IfStatement createProjectIfStatement(
+            ClassDefinition classDefinition,
+            MethodDefinition method,
+            Parameter session,
+            Parameter cursor,
+            Parameter pageBuilder,
+            int projections)
+    {
         // if (filter(cursor))
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition()
@@ -184,14 +200,7 @@ public class CursorProcessorCompiler
                             type(RecordCursor.class),
                             type(BlockBuilder.class));
         }
-        forLoopBody.append(ifStatement);
-
-        method.getBody()
-                .append(forLoop)
-                .visitLabel(done)
-                .comment("return completedPositions;")
-                .getVariable(completedPositionsVariable)
-                .retInt();
+        return ifStatement;
     }
 
     private PreGeneratedExpressions generateMethodsForLambdaAndTry(

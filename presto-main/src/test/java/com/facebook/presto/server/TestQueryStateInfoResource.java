@@ -71,7 +71,7 @@ public class TestQueryStateInfoResource
         client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void teardown()
     {
         closeQuietly(server);

@@ -73,6 +73,7 @@ public class TestSqlTask
     public static final OutputBufferId OUT = new OutputBufferId(0);
     private final TaskExecutor taskExecutor;
     private final ScheduledExecutorService taskNotificationExecutor;
+    private final ScheduledExecutorService driverYieldExecutor;
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
@@ -83,6 +84,7 @@ public class TestSqlTask
         taskExecutor.start();
 
         taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
+        driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
 
         LocalExecutionPlanner planner = createTestingPlanner();
 
@@ -94,12 +96,13 @@ public class TestSqlTask
                 new TaskManagerConfig());
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroy()
             throws Exception
     {
         taskExecutor.stop();
         taskNotificationExecutor.shutdownNow();
+        driverYieldExecutor.shutdown();
     }
 
     @Test
@@ -300,7 +303,7 @@ public class TestSqlTask
         return new SqlTask(
                 taskId,
                 location,
-                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor, new DataSize(1, MEGABYTE), new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
+                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor, driverYieldExecutor, new DataSize(1, MEGABYTE), new SpillSpaceTracker(new DataSize(1, GIGABYTE))),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.identity(),

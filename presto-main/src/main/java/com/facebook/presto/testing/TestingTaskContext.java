@@ -25,6 +25,7 @@ import com.facebook.presto.spiller.SpillSpaceTracker;
 import io.airlift.units.DataSize;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -33,14 +34,14 @@ public final class TestingTaskContext
 {
     private TestingTaskContext() {}
 
-    public static TaskContext createTaskContext(Executor executor, Session session)
+    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
     {
-        return builder(executor, session).build();
+        return builder(notificationExecutor, yieldExecutor, session).build();
     }
 
-    public static TaskContext createTaskContext(Executor executor, Session session, DataSize maxMemory)
+    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session, DataSize maxMemory)
     {
-        return builder(executor, session)
+        return builder(notificationExecutor, yieldExecutor, session)
                 .setQueryMaxMemory(maxMemory)
                 .build();
     }
@@ -54,14 +55,15 @@ public final class TestingTaskContext
                 true);
     }
 
-    public static Builder builder(Executor executor, Session session)
+    public static Builder builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
     {
-        return new Builder(executor, session);
+        return new Builder(notificationExecutor, yieldExecutor, session);
     }
 
     public static class Builder
     {
-        private final Executor executor;
+        private final Executor notificationExecutor;
+        private final ScheduledExecutorService yieldExecutor;
         private final Session session;
         private DataSize queryMaxMemory = new DataSize(256, MEGABYTE);
         private DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
@@ -69,9 +71,10 @@ public final class TestingTaskContext
         private DataSize maxSpillSize = new DataSize(1, GIGABYTE);
         private DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
 
-        private Builder(Executor executor, Session session)
+        private Builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
         {
-            this.executor = executor;
+            this.notificationExecutor = notificationExecutor;
+            this.yieldExecutor = yieldExecutor;
             this.session = session;
         }
 
@@ -115,11 +118,12 @@ public final class TestingTaskContext
                     queryMaxMemory,
                     memoryPool,
                     systemMemoryPool,
-                    executor,
+                    notificationExecutor,
+                    yieldExecutor,
                     queryMaxSpillSize,
                     spillSpaceTracker);
 
-            return createTaskContext(queryContext, executor, session);
+            return createTaskContext(queryContext, notificationExecutor, session);
         }
     }
 }

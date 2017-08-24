@@ -78,7 +78,7 @@ public class TestSqlTaskManager
         taskManagementExecutor = new TaskManagementExecutor();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

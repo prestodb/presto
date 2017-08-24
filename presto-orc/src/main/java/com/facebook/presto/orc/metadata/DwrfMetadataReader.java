@@ -26,11 +26,11 @@ import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,8 +42,9 @@ import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
+import static com.facebook.presto.orc.metadata.OrcMetadataReader.byteStringToSlice;
+import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
+import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
@@ -198,7 +199,7 @@ public class DwrfMetadataReader
     {
         ImmutableMap.Builder<String, Slice> mapBuilder = ImmutableMap.builder();
         for (DwrfProto.UserMetadataItem item : metadataList) {
-            mapBuilder.put(item.getName(), Slices.wrappedBuffer(item.getValue().toByteArray()));
+            mapBuilder.put(item.getName(), byteStringToSlice(item.getValue()));
         }
         return mapBuilder.build();
     }
@@ -283,7 +284,8 @@ public class DwrfMetadataReader
                 doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
     }
 
-    private static StringStatistics toStringStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.StringStatistics stringStatistics, boolean isRowGroup)
+    @VisibleForTesting
+    static StringStatistics toStringStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.StringStatistics stringStatistics, boolean isRowGroup)
     {
         if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
             return null;
@@ -293,17 +295,8 @@ public class DwrfMetadataReader
             return null;
         }
 
-        Slice maximum;
-        Slice minimum;
-        if (hiveWriterVersion != ORIGINAL) {
-            maximum = stringStatistics.hasMaximum() ? Slices.wrappedBuffer(stringStatistics.getMaximumBytes().toByteArray()) : null;
-            minimum = stringStatistics.hasMinimum() ? Slices.wrappedBuffer(stringStatistics.getMinimumBytes().toByteArray()) : null;
-        }
-        else {
-            // see com.facebook.presto.orc.metadata.OrcMetadataReader.toStringStatistics() for a description on why we do this
-            minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
-            maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
-        }
+        Slice maximum = stringStatistics.hasMaximum() ? maxStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMaximumBytes()), hiveWriterVersion) : null;
+        Slice minimum = stringStatistics.hasMinimum() ? minStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMinimumBytes()), hiveWriterVersion) : null;
         long sum = stringStatistics.hasSum() ? stringStatistics.getSum() : 0;
 
         return new StringStatistics(minimum, maximum, sum);

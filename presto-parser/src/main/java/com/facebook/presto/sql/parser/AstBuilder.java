@@ -1313,6 +1313,7 @@ class AstBuilder
                     (Expression) visit(context.expression(1)),
                     elseExpression);
         }
+
         if (name.toString().equalsIgnoreCase("nullif")) {
             check(context.expression().size() == 2, "Invalid number of arguments for 'nullif' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'nullif' function", context);
@@ -1323,12 +1324,15 @@ class AstBuilder
                     (Expression) visit(context.expression(0)),
                     (Expression) visit(context.expression(1)));
         }
+
         if (name.toString().equalsIgnoreCase("coalesce")) {
+            check(context.expression().size() >= 2, "The 'coalesce' function must have at least two arguments", context);
             check(!window.isPresent(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
 
             return new CoalesceExpression(getLocation(context), visit(context.expression(), Expression.class));
         }
+
         if (name.toString().equalsIgnoreCase("try")) {
             check(context.expression().size() == 1, "The 'try' function must have exactly one argument", context);
             check(!window.isPresent(), "OVER clause not valid for 'try' function", context);
@@ -1336,6 +1340,7 @@ class AstBuilder
 
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
         }
+
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
             check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);

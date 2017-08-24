@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.DictionaryBlock;
@@ -32,8 +33,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -61,14 +62,14 @@ public class TestPageProcessorCompiler
     private MetadataManager metadataManager;
     private ExpressionCompiler compiler;
 
-    @BeforeMethod
+    @BeforeClass
     public void setup()
     {
         metadataManager = createTestMetadataManager();
         compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         metadataManager = null;
@@ -98,7 +99,7 @@ public class TestPageProcessorCompiler
 
         Slice varcharValue = Slices.utf8Slice("hello");
         Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof RunLengthEncodedBlock);
@@ -123,7 +124,7 @@ public class TestPageProcessorCompiler
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof DictionaryBlock);
@@ -132,7 +133,7 @@ public class TestPageProcessorCompiler
         assertEquals(dictionaryBlock.getDictionary().getPositionCount(), 10);
 
         // test filter caching
-        Page outputPage2 = getOnlyElement(processor.process(null, page));
+        Page outputPage2 = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertEquals(outputPage2.getPositionCount(), 100);
         assertTrue(outputPage2.getBlock(0) instanceof DictionaryBlock);
 
@@ -151,7 +152,7 @@ public class TestPageProcessorCompiler
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT))).get();
 
         Page page = new Page(createRLEBlock(5L, 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof RunLengthEncodedBlock);
@@ -167,7 +168,7 @@ public class TestPageProcessorCompiler
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
 
         assertEquals(outputPage.getPositionCount(), 100);
         assertTrue(outputPage.getBlock(0) instanceof DictionaryBlock);
@@ -191,7 +192,7 @@ public class TestPageProcessorCompiler
         assertFalse(new DeterminismEvaluator(metadataManager.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
-        Page outputPage = getOnlyElement(processor.process(null, page));
+        Page outputPage = getOnlyElement(processor.process(null, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertFalse(outputPage.getBlock(0) instanceof DictionaryBlock);
     }
 

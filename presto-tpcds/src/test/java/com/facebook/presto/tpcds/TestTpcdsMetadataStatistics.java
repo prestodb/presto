@@ -22,12 +22,16 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.primitives.Primitives;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
+import com.teradata.tpcds.column.WebSiteColumn;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static org.testng.Assert.assertEquals;
@@ -44,30 +48,42 @@ public class TestTpcdsMetadataStatistics
     @Test
     public void testNoTableStatsForNotSupportedSchema()
     {
-        Table.getBaseTables().forEach(
-                table -> {
-                    SchemaTableName schemaTableName = new SchemaTableName("sf10", table.getName());
-                    ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-                    TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
-                    assertTrue(tableStatistics.getRowCount().isValueUnknown());
-                    assertTrue(tableStatistics.getColumnStatistics().isEmpty());
-                });
+        Stream.of("sf0.001", "sf0.1", "sf10")
+                .forEach(schemaName -> Table.getBaseTables()
+                        .forEach(table -> {
+                            SchemaTableName schemaTableName = new SchemaTableName(schemaName, table.getName());
+                            ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+                            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+                            assertTrue(tableStatistics.getRowCount().isValueUnknown());
+                            assertTrue(tableStatistics.getColumnStatistics().isEmpty());
+                        }));
     }
 
     @Test
     public void testTableStatsExistenceSupportedSchema()
     {
-        Table.getBaseTables().forEach(
-                table -> {
-                    SchemaTableName schemaTableName = new SchemaTableName("sf1", table.getName());
-                    ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-                    TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
-                    assertFalse(tableStatistics.getRowCount().isValueUnknown());
-                    for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
-                        assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
-                        assertNotNull(tableStatistics.getColumnStatistics().get(column));
-                    }
-                });
+        Stream.of("sf0.01", "tiny", "sf1", "sf1.000")
+                .forEach(schemaName -> Table.getBaseTables()
+                        .forEach(table -> {
+                            SchemaTableName schemaTableName = new SchemaTableName(schemaName, table.getName());
+                            ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+                            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+                            assertFalse(tableStatistics.getRowCount().isValueUnknown());
+                            for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
+                                assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
+                                assertNotNull(tableStatistics.getColumnStatistics().get(column));
+
+                                TpcdsColumnHandle tpcdsColumn = (TpcdsColumnHandle) column;
+                                Optional<Object> low = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
+                                if (low.isPresent()) {
+                                    assertEquals(low.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
+                                }
+                                Optional<Object> high = tableStatistics.getColumnStatistics().get(column).getOnlyRangeColumnStatistics().getLowValue();
+                                if (high.isPresent()) {
+                                    assertEquals(high.get().getClass(), Primitives.wrap(tpcdsColumn.getType().getJavaType()));
+                                }
+                            }
+                        }));
     }
 
     @Test
@@ -94,8 +110,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1.0))
                                 .setDistinctValuesCount(new Estimate(6))
-                                .setLowValue(Optional.of(1))
-                                .setHighValue(Optional.of(6))
+                                .setLowValue(Optional.of(1L))
+                                .setHighValue(Optional.of(6L))
                                 .build())
                         .build());
 
@@ -107,8 +123,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1.0))
                                 .setDistinctValuesCount(new Estimate(3))
-                                .setLowValue(Optional.of("AAAAAAAABAAAAAAA"))
-                                .setHighValue(Optional.of("AAAAAAAAEAAAAAAA"))
+                                .setLowValue(Optional.of(Slices.utf8Slice("AAAAAAAABAAAAAAA")))
+                                .setHighValue(Optional.of(Slices.utf8Slice("AAAAAAAAEAAAAAAA")))
                                 .build())
                         .build());
 
@@ -120,8 +136,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1.0))
                                 .setDistinctValuesCount(new Estimate(1))
-                                .setLowValue(Optional.of("31904"))
-                                .setHighValue(Optional.of("31904"))
+                                .setLowValue(Optional.of(Slices.utf8Slice("31904")))
+                                .setHighValue(Optional.of(Slices.utf8Slice("31904")))
                                 .build())
                         .build());
 
@@ -133,8 +149,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1.0))
                                 .setDistinctValuesCount(new Estimate(1))
-                                .setLowValue(Optional.of(-500))
-                                .setHighValue(Optional.of(-500))
+                                .setLowValue(Optional.of(-500L))
+                                .setHighValue(Optional.of(-500L))
                                 .build())
                         .build());
 
@@ -146,8 +162,8 @@ public class TestTpcdsMetadataStatistics
                         .addRange(range -> range
                                 .setFraction(new Estimate(1))
                                 .setDistinctValuesCount(new Estimate(4))
-                                .setLowValue(Optional.of(10227))
-                                .setHighValue(Optional.of(11688))
+                                .setLowValue(Optional.of(10227L))
+                                .setHighValue(Optional.of(11688L))
                                 .build())
                         .build());
 
@@ -161,6 +177,29 @@ public class TestTpcdsMetadataStatistics
                                 .setDistinctValuesCount(new Estimate(0))
                                 .setLowValue(Optional.empty())
                                 .setHighValue(Optional.empty())
+                                .build())
+                        .build());
+    }
+
+    @Test
+    public void testNullFraction()
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("sf1", Table.WEB_SITE.getName());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+
+        // some null values
+        assertColumnStatistics(
+                tableStatistics.getColumnStatistics().get(columnHandles.get(WebSiteColumn.WEB_REC_END_DATE.getName())),
+                ColumnStatistics.builder()
+                        .setNullsFraction(new Estimate(0.5))
+                        .addRange(range -> range
+                                .setFraction(new Estimate(0.5))
+                                .setDistinctValuesCount(new Estimate(3))
+                                .setLowValue(Optional.of(10819L))
+                                .setHighValue(Optional.of(11549L))
                                 .build())
                         .build());
     }

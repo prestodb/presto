@@ -68,6 +68,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -81,6 +82,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -92,6 +94,7 @@ public class TestSourcePartitionedScheduler
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
     private final LocationFactory locationFactory = new MockLocationFactory();
     private final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
     private final FinalizerService finalizerService = new FinalizerService();
@@ -110,10 +113,11 @@ public class TestSourcePartitionedScheduler
         finalizerService.start();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destroyExecutor()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
         finalizerService.destroy();
     }
 
@@ -484,7 +488,7 @@ public class TestSourcePartitionedScheduler
         SqlStageExecution stage = new SqlStageExecution(stageId,
                 locationFactory.createStageLocation(stageId),
                 tableScanPlan.getFragment(),
-                new MockRemoteTaskFactory(executor),
+                new MockRemoteTaskFactory(executor, scheduledExecutor),
                 TEST_SESSION,
                 true,
                 nodeTaskMap,

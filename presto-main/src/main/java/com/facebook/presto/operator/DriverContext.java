@@ -30,6 +30,7 @@ import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,7 +54,8 @@ public class DriverContext
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final PipelineContext pipelineContext;
-    private final Executor executor;
+    private final Executor notificationExecutor;
+    private final ScheduledExecutorService yieldExecutor;
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
@@ -83,14 +85,18 @@ public class DriverContext
     private final AtomicLong systemMemoryReservation = new AtomicLong();
     private final AtomicLong revocableMemoryReservation = new AtomicLong();
 
+    private final DriverYieldSignal yieldSignal;
+
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
 
-    public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
+    public DriverContext(PipelineContext pipelineContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, boolean partitioned)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.yieldExecutor = requireNonNull(yieldExecutor, "scheduler is null");
         this.partitioned = partitioned;
+        this.yieldSignal = new DriverYieldSignal();
     }
 
     public TaskId getTaskId()
@@ -106,7 +112,7 @@ public class DriverContext
             checkArgument(operatorId != operatorContext.getOperatorId(), "A context already exists for operatorId %s", operatorId);
         }
 
-        OperatorContext operatorContext = new OperatorContext(operatorId, planNodeId, operatorType, this, executor);
+        OperatorContext operatorContext = new OperatorContext(operatorId, planNodeId, operatorType, this, notificationExecutor);
         operatorContexts.add(operatorContext);
         return operatorContext;
     }
@@ -157,7 +163,7 @@ public class DriverContext
             oldMonitor.run();
         }
 
-        blocked.addListener(monitor, executor);
+        blocked.addListener(monitor, notificationExecutor);
     }
 
     public void finished()
@@ -267,6 +273,11 @@ public class DriverContext
         }
         checkArgument(bytes > 0, "bytes is negative");
         pipelineContext.freeSpill(bytes);
+    }
+
+    public DriverYieldSignal getYieldSignal()
+    {
+        return yieldSignal;
     }
 
     public long getSystemMemoryUsage()
@@ -454,6 +465,11 @@ public class DriverContext
         return partitioned;
     }
 
+    public ScheduledExecutorService getYieldExecutor()
+    {
+        return yieldExecutor;
+    }
+
     private long currentThreadUserTime()
     {
         if (!isCpuTimerEnabled()) {
@@ -473,13 +489,6 @@ public class DriverContext
     private static long nanosBetween(long start, long end)
     {
         return Math.abs(end - start);
-    }
-
-    // hack for index joins
-    @Deprecated
-    public Executor getExecutor()
-    {
-        return executor;
     }
 
     private class BlockedMonitor

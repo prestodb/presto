@@ -19,14 +19,15 @@ import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.SqlFunction;
-import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
+import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.InterpretedPageFilter;
 import com.facebook.presto.operator.project.InterpretedPageProjection;
 import com.facebook.presto.operator.project.PageFilter;
@@ -87,6 +88,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
@@ -121,6 +123,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -131,6 +134,7 @@ public final class FunctionAssertions
         implements Closeable
 {
     private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
@@ -306,7 +310,7 @@ public final class FunctionAssertions
         long maxRetainedSize = 0;
         int maxIterationCount = 0;
         for (int iterationCount = 0; iterationCount < Math.max(1000, maxIterationCount * 4); iterationCount++) {
-            PageProcessorOutput output = processor.process(session.toConnectorSession(), SOURCE_PAGE);
+            PageProcessorOutput output = processor.process(session.toConnectorSession(), new DriverYieldSignal(), SOURCE_PAGE);
             // consume the iterator
             Iterators.getOnlyElement(output);
 
@@ -805,7 +809,7 @@ public final class FunctionAssertions
 
     private static DriverContext createDriverContext(Session session)
     {
-        return createTaskContext(EXECUTOR, session)
+        return createTaskContext(EXECUTOR, SCHEDULED_EXECUTOR, session)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
     }

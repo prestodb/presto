@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -28,7 +27,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -40,8 +38,6 @@ public class TestQuerySpillLimits
     private static final Session SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema("sf1")
-            .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
-            .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "1B") //spill constantly
             .build();
 
     private File spillPath;
@@ -64,13 +60,6 @@ public class TestQuerySpillLimits
     public void testMaxSpillPerNodeLimit()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.aggregation-operator-unspill-memory-limit", "1B")
-                .put("experimental.max-spill-per-node", "10B")
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .build();
         try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setMaxSpillPerNode(DataSize.succinctBytes(10)))) {
             queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
         }
@@ -80,13 +69,6 @@ public class TestQuerySpillLimits
     public void testQueryMaxSpillPerNodeLimit()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.aggregation-operator-unspill-memory-limit", "1B")
-                .put("experimental.query-max-spill-per-node", "10B")
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .build();
         try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setQueryMaxSpillPerNode(DataSize.succinctBytes(10)))) {
             queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
         }
@@ -107,7 +89,7 @@ public class TestQuerySpillLimits
         queryRunner.createCatalog(
                 SESSION.getCatalog().get(),
                 new TpchConnectorFactory(1),
-                ImmutableMap.<String, String>of());
+                ImmutableMap.of());
 
         return queryRunner;
     }

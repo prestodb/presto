@@ -14,10 +14,8 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -32,7 +30,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -43,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -60,18 +56,14 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
-import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
-import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.builder;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Double.doubleToLongBits;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static org.testng.Assert.assertEquals;
 
 public class TestMapOperators
         extends AbstractTestFunctions
@@ -88,33 +80,6 @@ public class TestMapOperators
     public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
-    }
-
-    @Test
-    public void testStackRepresentation()
-            throws Exception
-    {
-        Block array = arrayBlockOf(BIGINT, 1L, 2L);
-        Block actualBlock = mapBlockOf(DOUBLE, new ArrayType(BIGINT), ImmutableMap.of(1.0, array));
-        DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(actualSliceOutput, actualBlock);
-
-        Block expectedBlock = new InterleavedBlockBuilder(ImmutableList.of(DOUBLE, new ArrayType(BIGINT)), new BlockBuilderStatus(), 3)
-                .writeLong(doubleToLongBits(1.0))
-                .closeEntry()
-                .writeObject(
-                        BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1)
-                                .writeLong(1L)
-                                .closeEntry()
-                                .writeLong(2L)
-                                .closeEntry()
-                                .build())
-                .closeEntry()
-                .build();
-        DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(expectedSliceOutput, expectedBlock);
-
-        assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
     }
 
     @Test
@@ -455,7 +420,7 @@ public class TestMapOperators
         assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1} 2') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Unexpected trailing token: 2\n{\"a\": 1} 2");
         assertInvalidCast("CAST(unchecked_to_json('{\"a\": 1') AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint).\n{\"a\": 1");
 
-        assertInvalidCast("CAST(JSON '{\"a\": \"b\"}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Can not cast 'b' to BIGINT\n{\"a\":\"b\"}");
+        assertInvalidCast("CAST(JSON '{\"a\": \"b\"}' AS MAP<VARCHAR, BIGINT>)", "Cannot cast to map(varchar,bigint). Cannot cast 'b' to BIGINT\n{\"a\":\"b\"}");
         assertInvalidCast("CAST(JSON '{\"a\": 1234567890123.456}' AS MAP<VARCHAR, INTEGER>)", "Cannot cast to map(varchar,integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1.234567890123456E12}");
 
         assertInvalidCast("CAST(JSON '{\"1\":1, \"01\": 2}' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint,bigint). Duplicate keys are not allowed\n{\"01\":2,\"1\":1}");
@@ -845,12 +810,12 @@ public class TestMapOperators
         checkArgument(elements.size() % 2 == 0, "the size of elements should be even number");
         MapType mapType = mapType(keyType, valueType);
         BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder mapBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), elements.size());
+        BlockBuilder singleMapWriter = mapArrayBuilder.beginBlockEntry();
         for (int i = 0; i < elements.size(); i += 2) {
-            appendToBlockBuilder(keyType, elements.get(i), mapBuilder);
-            appendToBlockBuilder(valueType, elements.get(i + 1), mapBuilder);
+            appendToBlockBuilder(keyType, elements.get(i), singleMapWriter);
+            appendToBlockBuilder(valueType, elements.get(i + 1), singleMapWriter);
         }
-        mapType.writeObject(mapArrayBuilder, mapBuilder.build());
+        mapArrayBuilder.closeEntry();
         long hashResult = mapType.hash(mapArrayBuilder.build(), 0);
 
         assertOperator(HASH_CODE, inputString, BIGINT, hashResult);

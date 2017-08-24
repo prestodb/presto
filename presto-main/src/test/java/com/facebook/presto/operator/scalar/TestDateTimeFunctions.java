@@ -39,6 +39,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
@@ -134,7 +135,7 @@ public class TestDateTimeFunctions
     private static void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
     {
         long expectedDays = epochDaysInZone(timeZoneKey, instant);
-        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of()));
+        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of()));
         assertEquals(dateTimeCalculation, expectedDays);
     }
 
