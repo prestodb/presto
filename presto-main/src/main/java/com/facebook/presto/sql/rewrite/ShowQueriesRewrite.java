@@ -77,8 +77,8 @@ import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -464,7 +464,7 @@ final class ShowQueriesRewrite
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                Map<String, Expression> sqlProperties = new HashMap<>();
+                ImmutableSortedMap.Builder<String, Expression> sqlProperties = ImmutableSortedMap.naturalOrder();
 
                 for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {
                     String propertyName = propertyEntry.getKey();
@@ -491,7 +491,7 @@ final class ShowQueriesRewrite
                         QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
                         columns,
                         false,
-                        sqlProperties,
+                        sqlProperties.build(),
                         connectorTableMetadata.getComment());
                 return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
             }
