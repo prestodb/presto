@@ -33,35 +33,43 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
-public class DesugaringRewriter
-        extends ExpressionRewriter<Void>
+public class DesugarAtTimeZoneRewriter
 {
-    private final Map<NodeRef<Expression>, Type> expressionTypes;
-
-    public DesugaringRewriter(Map<NodeRef<Expression>, Type> expressionTypes)
+    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes), expression);
     }
 
-    @Override
-    public Expression rewriteAtTimeZone(AtTimeZone node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+    private DesugarAtTimeZoneRewriter() {}
+
+    private static class Visitor
+            extends ExpressionRewriter<Void>
     {
-        Expression value = treeRewriter.rewrite(node.getValue(), context);
-        Type type = getType(node.getValue());
-        if (type.equals(TIME)) {
-            value = new Cast(value, TIME_WITH_TIME_ZONE.getDisplayName());
-        }
-        else if (type.equals(TIMESTAMP)) {
-            value = new Cast(value, TIMESTAMP_WITH_TIME_ZONE.getDisplayName());
+        private final Map<NodeRef<Expression>, Type> expressionTypes;
+
+        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes)
+        {
+            this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         }
 
-        return new FunctionCall(QualifiedName.of("at_timezone"), ImmutableList.of(
-                value,
-                treeRewriter.rewrite(node.getTimeZone(), context)));
-    }
+        @Override
+        public Expression rewriteAtTimeZone(AtTimeZone node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            Expression value = treeRewriter.rewrite(node.getValue(), context);
+            Type type = getType(node.getValue());
+            if (type.equals(TIME)) {
+                value = new Cast(value, TIME_WITH_TIME_ZONE.getDisplayName());
+            }
+            else if (type.equals(TIMESTAMP)) {
+                value = new Cast(value, TIMESTAMP_WITH_TIME_ZONE.getDisplayName());
+            }
 
-    private Type getType(Expression expression)
-    {
-        return expressionTypes.get(NodeRef.of(expression));
+            return new FunctionCall(QualifiedName.of("at_timezone"), ImmutableList.of(value, treeRewriter.rewrite(node.getTimeZone(), context)));
+        }
+
+        private Type getType(Expression expression)
+        {
+            return expressionTypes.get(NodeRef.of(expression));
+        }
     }
 }
