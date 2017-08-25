@@ -38,19 +38,12 @@ import static java.util.Objects.requireNonNull;
 
 public class LambdaCaptureDesugaringRewriter
 {
-    private final Map<Symbol, Type> symbolTypes;
-    private final SymbolAllocator symbolAllocator;
-
-    public LambdaCaptureDesugaringRewriter(Map<Symbol, Type> symbolTypes, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Map<Symbol, Type> symbolTypes, SymbolAllocator symbolAllocator)
     {
-        this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
-        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(symbolTypes, symbolAllocator), expression, new Context());
     }
 
-    public Expression rewrite(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression, new Context());
-    }
+    private LambdaCaptureDesugaringRewriter() {}
 
     private static Expression replaceSymbols(Expression expression, ImmutableMap<Symbol, Symbol> symbolMapping)
     {
@@ -70,9 +63,18 @@ public class LambdaCaptureDesugaringRewriter
                 expression);
     }
 
-    public class Visitor
+    private static class Visitor
             extends ExpressionRewriter<Context>
     {
+        private final Map<Symbol, Type> symbolTypes;
+        private final SymbolAllocator symbolAllocator;
+
+        public Visitor(Map<Symbol, Type> symbolTypes, SymbolAllocator symbolAllocator)
+        {
+            this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        }
+
         @Override
         public Expression rewriteLambdaExpression(LambdaExpression node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
