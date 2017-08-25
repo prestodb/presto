@@ -75,46 +75,6 @@ public class TestHiveTableStatistics
     }
 
     @Test(groups = {HIVE_CONNECTOR})
-    @Requires(UnpartitionedNationTable.class)
-    public void testStatisticsForUnpartitionedTable()
-    {
-        String tableNameInDatabase = mutableTablesState().get(NATION.getName()).getNameInDatabase();
-
-        String showStatsWholeTable = "SHOW STATS FOR " + tableNameInDatabase;
-
-        // table not analyzed
-
-        assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, null, null),
-                row("n_name", null, null, null, null),
-                row("n_regionkey", null, null, null, null),
-                row("n_comment", null, null, null, null),
-                row(null, null, null, null, anyOf(null, 0.0))); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
-
-        // basic analysis
-
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
-
-        assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, null, null),
-                row("n_name", null, null, null, null),
-                row("n_regionkey", null, null, null, null),
-                row("n_comment", null, null, null, null),
-                row(null, null, null, null, 25.0));
-
-        // column analysis
-
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
-
-        assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, 19.0, 0.0, null),
-                row("n_name", null, 24.0, 0.0, null),
-                row("n_regionkey", null, 5.0, 0.0, null),
-                row("n_comment", null, 31.0, 0.0, null),
-                row(null, null, null, null, 25.0));
-    }
-
-    @Test(groups = {HIVE_CONNECTOR})
     @Requires(PartitionedNationTable.class)
     public void testStatisticsForPartitionedTable()
     {
@@ -241,6 +201,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 5.0));
     }
 
+    // This covers also stats calculation for unpartitioned table
     @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypes()
