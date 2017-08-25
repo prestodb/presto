@@ -35,6 +35,7 @@ import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSor
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -103,6 +104,16 @@ public class JoinNode
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
+
+        checkArgument(isValidDynamicFilter(criteria, dynamicFilterAssignments), "Join has dynamic filters for non-existing criteria");
+    }
+
+    private static boolean isValidDynamicFilter(List<EquiJoinClause> criteria, Assignments dynamicFilterAssignments)
+    {
+        ImmutableSet<Symbol> dynamicFilterSymbols = dynamicFilterAssignments.getExpressions().stream().map(Symbol::from).collect(toImmutableSet());
+        ImmutableSet<Symbol> clauseSymbols = criteria.stream().map(EquiJoinClause::getRight).collect(toImmutableSet());
+
+        return clauseSymbols.containsAll(dynamicFilterSymbols);
     }
 
     public enum DistributionType
