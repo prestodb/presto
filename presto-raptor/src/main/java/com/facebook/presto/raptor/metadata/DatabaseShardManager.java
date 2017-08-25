@@ -67,7 +67,6 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
-import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
@@ -195,7 +194,7 @@ public class DatabaseShardManager
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
                     "  shard_id BIGINT NOT NULL,\n" +
-                    "  shard_uuid BINARY(16) NOT NULL,\n" +
+                    "  shard_uuid BYTEA NOT NULL,\n" +
                     "  bucket_number INT NOT NULL\n," +
                     tableColumns +
                     "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
@@ -213,8 +212,8 @@ public class DatabaseShardManager
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
                     "  shard_id BIGINT NOT NULL,\n" +
-                    "  shard_uuid BINARY(16) NOT NULL,\n" +
-                    "  node_ids VARBINARY(128) NOT NULL,\n" +
+                    "  shard_uuid BYTEA NOT NULL,\n" +
+                    "  node_ids BYTEA NOT NULL,\n" +
                     tableColumns +
                     "  PRIMARY KEY (node_ids, shard_uuid),\n" +
                     "  UNIQUE (shard_id),\n" +
@@ -883,12 +882,12 @@ public class DatabaseShardManager
                 case TIMESTAMP:
                     return "bigint";
                 case DOUBLE:
-                    return "double";
+                    return "double precision";
                 case INTEGER:
                 case DATE:
                     return "int";
                 case VARBINARY:
-                    return format("varbinary(%s)", MAX_BINARY_INDEX_SIZE);
+                    return "bytea";
             }
         }
         return null;

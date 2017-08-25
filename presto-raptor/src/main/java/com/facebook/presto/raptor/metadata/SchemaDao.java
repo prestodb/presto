@@ -18,7 +18,7 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 public interface SchemaDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS distributions (\n" +
-            "  distribution_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  distribution_id BIGSERIAL PRIMARY KEY,\n" +
             "  distribution_name VARCHAR(255),\n" +
             "  column_types TEXT NOT NULL,\n" +
             "  bucket_count INT NOT NULL,\n" +
@@ -27,7 +27,7 @@ public interface SchemaDao
     void createTableDistributions();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS tables (\n" +
-            "  table_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  table_id BIGSERIAL PRIMARY KEY,\n" +
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  temporal_column_id BIGINT,\n" +
@@ -41,7 +41,7 @@ public interface SchemaDao
             "  row_count BIGINT NOT NULL,\n" +
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
-            "  maintenance_blocked DATETIME,\n" +
+            "  maintenance_blocked TIMESTAMP,\n" +
             "  UNIQUE (schema_name, table_name),\n" +
             "  UNIQUE (distribution_id, table_id),\n" +
             "  UNIQUE (maintenance_blocked, table_id),\n" +
@@ -75,18 +75,18 @@ public interface SchemaDao
     void createTableViews();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS nodes (\n" +
-            "  node_id INT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  node_id SERIAL PRIMARY KEY,\n" +
             "  node_identifier VARCHAR(255) NOT NULL,\n" +
             "  UNIQUE (node_identifier)\n" +
             ")")
     void createTableNodes();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS shards (\n" +
-            "  shard_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
-            "  shard_uuid BINARY(16) NOT NULL,\n" +
+            "  shard_id BIGSERIAL PRIMARY KEY,\n" +
+            "  shard_uuid BYTEA NOT NULL,\n" +
             "  table_id BIGINT NOT NULL,\n" +
             "  bucket_number INT,\n" +
-            "  create_time DATETIME NOT NULL,\n" +
+            "  create_time TIMESTAMP NOT NULL,\n" +
             "  row_count BIGINT NOT NULL,\n" +
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
@@ -115,17 +115,17 @@ public interface SchemaDao
     void createTableExternalBatches();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS transactions (\n" +
-            "  transaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  transaction_id BIGSERIAL PRIMARY KEY,\n" +
             "  successful BOOLEAN,\n" +
-            "  start_time DATETIME NOT NULL,\n" +
-            "  end_time DATETIME,\n" +
+            "  start_time TIMESTAMP NOT NULL,\n" +
+            "  end_time TIMESTAMP,\n" +
             "  UNIQUE (successful, start_time, transaction_id),\n" +
             "  UNIQUE (end_time, transaction_id, successful)\n" +
             ")")
     void createTableTransactions();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS created_shards (\n" +
-            "  shard_uuid BINARY(16) NOT NULL,\n" +
+            "  shard_uuid BYTEA NOT NULL,\n" +
             "  transaction_id BIGINT NOT NULL,\n" +
             "  PRIMARY KEY (shard_uuid),\n" +
             "  UNIQUE (transaction_id, shard_uuid),\n" +
@@ -134,8 +134,8 @@ public interface SchemaDao
     void createTableCreatedShards();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shards (\n" +
-            "  shard_uuid BINARY(16) PRIMARY KEY,\n" +
-            "  delete_time DATETIME NOT NULL,\n" +
+            "  shard_uuid BYTEA PRIMARY KEY,\n" +
+            "  delete_time TIMESTAMP NOT NULL,\n" +
             "  UNIQUE (delete_time, shard_uuid)\n" +
             ")")
     void createTableDeletedShards();
