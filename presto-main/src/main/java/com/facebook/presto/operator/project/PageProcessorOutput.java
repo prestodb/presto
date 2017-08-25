@@ -16,22 +16,27 @@ package com.facebook.presto.operator.project;
 import com.facebook.presto.spi.Page;
 
 import java.util.Iterator;
-import java.util.Optional;
 import java.util.function.LongSupplier;
 
+import static com.google.common.collect.Iterators.singletonIterator;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
 public class PageProcessorOutput
-        implements Iterator<Optional<Page>>
+        implements Iterator<PageProcessorResult>
 {
     public static final PageProcessorOutput EMPTY_PAGE_PROCESSOR_OUTPUT = new PageProcessorOutput(() -> 0, emptyIterator());
 
     private final LongSupplier retainedSizeInBytesSupplier;
-    private final Iterator<Optional<Page>> pages;
+    private final Iterator<PageProcessorResult> pages;
     private long retainedSizeInBytes;
 
-    public PageProcessorOutput(LongSupplier retainedSizeInBytesSupplier, Iterator<Optional<Page>> pages)
+    public PageProcessorOutput(LongSupplier retainedSizeInBytesSupplier, Page page)
+    {
+        this(retainedSizeInBytesSupplier, singletonIterator(new PageProcessorResult(page)));
+    }
+
+    public PageProcessorOutput(LongSupplier retainedSizeInBytesSupplier, Iterator<PageProcessorResult> pages)
     {
         this.retainedSizeInBytesSupplier = requireNonNull(retainedSizeInBytesSupplier, "retainedSizeInBytesSupplier is null");
         this.pages = requireNonNull(pages, "pages is null");
@@ -52,7 +57,7 @@ public class PageProcessorOutput
     }
 
     @Override
-    public Optional<Page> next()
+    public PageProcessorResult next()
     {
         return pages.next();
     }

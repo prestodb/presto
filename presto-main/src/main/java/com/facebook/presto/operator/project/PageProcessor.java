@@ -33,11 +33,11 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
+import static com.facebook.presto.operator.project.PageProcessorResult.EMPTY_PAGE_PROCESSOR_RESULT;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterators.singletonIterator;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -88,7 +88,7 @@ public class PageProcessor
             }
 
             if (projections.isEmpty()) {
-                return new PageProcessorOutput(() -> calculateRetainedSizeWithoutLoading(page), singletonIterator(Optional.of(new Page(selectedPositions.size()))));
+                return new PageProcessorOutput(() -> calculateRetainedSizeWithoutLoading(page), new Page(selectedPositions.size()));
             }
 
             if (selectedPositions.size() != page.getPositionCount()) {
@@ -124,7 +124,7 @@ public class PageProcessor
     }
 
     private class PositionsPageProcessorIterator
-            extends AbstractIterator<Optional<Page>>
+            extends AbstractIterator<PageProcessorResult>
     {
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
@@ -154,7 +154,7 @@ public class PageProcessor
         }
 
         @Override
-        protected Optional<Page> computeNext()
+        protected PageProcessorResult computeNext()
         {
             int batchSize;
             while (true) {
@@ -179,7 +179,7 @@ public class PageProcessor
                 if (!result.isPresent()) {
                     // if we are running out of time
                     if (forceYieldFinish) {
-                        return Optional.empty();
+                        return EMPTY_PAGE_PROCESSOR_RESULT;
                     }
 
                     // if the page buffer filled up, so halve the batch size and retry
@@ -213,7 +213,7 @@ public class PageProcessor
                 }
 
                 updateRetainedSize();
-                return Optional.of(page);
+                return new PageProcessorResult(page);
             }
         }
 

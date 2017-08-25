@@ -19,6 +19,7 @@ import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProcessorOutput;
+import com.facebook.presto.operator.project.PageProcessorResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -283,7 +284,13 @@ public class ScanFilterAndProjectOperator
             pageBuilderMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
         }
 
-        return currentOutput.hasNext() ? currentOutput.next().orElse(null) : null;
+        if (currentOutput.hasNext()) {
+            PageProcessorResult result = currentOutput.next();
+            if (result.hasPage()) {
+                return result.getPage();
+            }
+        }
+        return null;
     }
 
     public static class ScanFilterAndProjectOperatorFactory

@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorResult;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -68,7 +69,7 @@ public class BenchmarkArrayJoin
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE)
-    public List<Optional<Page>> benchmark(BenchmarkData data)
+    public List<PageProcessorResult> benchmark(BenchmarkData data)
             throws Throwable
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));

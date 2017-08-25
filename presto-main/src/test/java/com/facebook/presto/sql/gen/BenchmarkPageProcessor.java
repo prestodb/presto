@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorResult;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -96,7 +97,7 @@ public class BenchmarkPageProcessor
     }
 
     @Benchmark
-    public List<Optional<Page>> compiled()
+    public List<PageProcessorResult> compiled()
     {
         return ImmutableList.copyOf(compiledProcessor.process(null, new DriverYieldSignal(), inputPage));
     }
