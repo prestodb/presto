@@ -12,9 +12,11 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
