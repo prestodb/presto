@@ -14,13 +14,12 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.google.common.collect.ImmutableList;
 
-import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 
 public interface Lookup
 {
@@ -35,7 +34,7 @@ public interface Lookup
     @Deprecated
     default PlanNode resolve(PlanNode node)
     {
-        return getOnlyElement(resolveGroup(node));
+        return resolveGroup(node).collect(toOptional()).get();
     }
 
     /**
@@ -45,7 +44,7 @@ public interface Lookup
      * If the node is not a GroupReference, it returns the
      * singleton of the argument node.
      */
-    List<PlanNode> resolveGroup(PlanNode node);
+    Stream<PlanNode> resolveGroup(PlanNode node);
 
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
@@ -55,18 +54,18 @@ public interface Lookup
     {
         return node -> {
             verify(!(node instanceof GroupReference), "Unexpected GroupReference");
-            return ImmutableList.of(node);
+            return Stream.of(node);
         };
     }
 
-    static Lookup from(Function<GroupReference, List<PlanNode>> resolver)
+    static Lookup from(Function<GroupReference, Stream<PlanNode>> resolver)
     {
         return node -> {
             if (node instanceof GroupReference) {
                 return resolver.apply((GroupReference) node);
             }
 
-            return ImmutableList.of(node);
+            return Stream.of(node);
         };
     }
 }
