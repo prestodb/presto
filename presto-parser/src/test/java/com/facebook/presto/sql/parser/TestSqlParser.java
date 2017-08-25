@@ -1884,6 +1884,10 @@ public class TestSqlParser
     public void testLambda()
             throws Exception
     {
+        assertExpression("() -> x",
+                new LambdaExpression(
+                        ImmutableList.of(),
+                        new Identifier("x")));
         assertExpression("x -> sin(x)",
                 new LambdaExpression(
                         ImmutableList.of(new LambdaArgumentDeclaration(identifier("x"))),

@@ -293,7 +293,7 @@ primaryExpression
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' filter? over?  #functionCall
     | identifier '->' expression                                                          #lambda
-    | '(' identifier (',' identifier)* ')' '->' expression                                #lambda
+    | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists

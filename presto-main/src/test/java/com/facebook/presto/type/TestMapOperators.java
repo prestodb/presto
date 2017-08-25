@@ -442,22 +442,35 @@ public class TestMapOperators
     public void testElementAt()
             throws Exception
     {
+        // empty map
         assertFunction("element_at(MAP(CAST(ARRAY [] AS ARRAY(BIGINT)), CAST(ARRAY [] AS ARRAY(BIGINT))), 1)", BIGINT, null);
-        assertFunction("element_at(MAP(ARRAY [1], ARRAY [1]), 2)", INTEGER, null);
+
+        // missing key
+        assertFunction("element_at(MAP(ARRAY [1], ARRAY [1.0]), 2)", DOUBLE, null);
+        assertFunction("element_at(MAP(ARRAY [1.0], ARRAY ['a']), 2.0)", createVarcharType(1), null);
+        assertFunction("element_at(MAP(ARRAY ['a'], ARRAY [true]), 'b')", BOOLEAN, null);
+        assertFunction("element_at(MAP(ARRAY [true], ARRAY [ARRAY [1]]), false)", new ArrayType(INTEGER), null);
+        assertFunction("element_at(MAP(ARRAY [ARRAY [1]], ARRAY [1]), ARRAY [2])", INTEGER, null);
+
+        // null value associated with the requested key
         assertFunction("element_at(MAP(ARRAY [1], ARRAY [null]), 1)", UNKNOWN, null);
         assertFunction("element_at(MAP(ARRAY [1.0], ARRAY [null]), 1.0)", UNKNOWN, null);
         assertFunction("element_at(MAP(ARRAY [TRUE], ARRAY [null]), TRUE)", UNKNOWN, null);
-        assertFunction("element_at(MAP(ARRAY['puppies'], ARRAY [null]), 'puppies')", UNKNOWN, null);
+        assertFunction("element_at(MAP(ARRAY ['puppies'], ARRAY [null]), 'puppies')", UNKNOWN, null);
+        assertFunction("element_at(MAP(ARRAY [ARRAY [1]], ARRAY [null]), ARRAY [1])", UNKNOWN, null);
+
+        // general tests
         assertFunction("element_at(MAP(ARRAY [1, 3], ARRAY [2, 4]), 3)", INTEGER, 4);
         assertFunction("element_at(MAP(ARRAY [BIGINT '1', 3], ARRAY [BIGINT '2', 4]), 3)", BIGINT, 4L);
-        assertFunction("element_at(MAP(ARRAY [1, 3], ARRAY[2, NULL]), 3)", INTEGER, null);
-        assertFunction("element_at(MAP(ARRAY [BIGINT '1', 3], ARRAY[2, NULL]), 3)", INTEGER, null);
+        assertFunction("element_at(MAP(ARRAY [1, 3], ARRAY [2, NULL]), 3)", INTEGER, null);
+        assertFunction("element_at(MAP(ARRAY [BIGINT '1', 3], ARRAY [2, NULL]), 3)", INTEGER, null);
         assertFunction("element_at(MAP(ARRAY [1, 3], ARRAY [2.0, 4.0]), 1)", DOUBLE, 2.0);
-        assertFunction("element_at(MAP(ARRAY[1.0, 2.0], ARRAY[ ARRAY[1, 2], ARRAY[3]]), 1.0)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
-        assertFunction("element_at(MAP(ARRAY['puppies'], ARRAY['kittens']), 'puppies')", createVarcharType(7), "kittens");
-        assertFunction("element_at(MAP(ARRAY[TRUE,FALSE],ARRAY[2,4]), TRUE)", INTEGER, 2);
-        assertFunction("element_at(MAP(ARRAY['1', '100'], ARRAY[from_unixtime(1), from_unixtime(100)]), '1')", TIMESTAMP, new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
-        assertFunction("element_at(MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0, 100.0]), from_unixtime(1))", DOUBLE, 1.0);
+        assertFunction("element_at(MAP(ARRAY [1.0, 2.0], ARRAY [ARRAY [1, 2], ARRAY [3]]), 1.0)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
+        assertFunction("element_at(MAP(ARRAY ['puppies'], ARRAY ['kittens']), 'puppies')", createVarcharType(7), "kittens");
+        assertFunction("element_at(MAP(ARRAY [TRUE, FALSE], ARRAY [2, 4]), TRUE)", INTEGER, 2);
+        assertFunction("element_at(MAP(ARRAY [ARRAY [1, 2], ARRAY [3]], ARRAY [1.0, 2.0]), ARRAY [1, 2])", DOUBLE, 1.0);
+        assertFunction("element_at(MAP(ARRAY ['1', '100'], ARRAY [from_unixtime(1), from_unixtime(100)]), '1')", TIMESTAMP, new SqlTimestamp(1000, TEST_SESSION.getTimeZoneKey()));
+        assertFunction("element_at(MAP(ARRAY [from_unixtime(1), from_unixtime(100)], ARRAY [1.0, 100.0]), from_unixtime(1))", DOUBLE, 1.0);
     }
 
     @Test

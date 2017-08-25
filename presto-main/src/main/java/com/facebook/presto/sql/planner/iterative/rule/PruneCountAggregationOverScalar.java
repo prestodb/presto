@@ -50,10 +50,10 @@ public class PruneCountAggregationOverScalar
     @Override
     public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
     {
-        Map<Symbol, AggregationNode.Aggregation> assignments = parent.getAggregations();
-        if (parent.hasDefaultOutput() && assignments.size() != 1) {
+        if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
             return Optional.empty();
         }
+        Map<Symbol, AggregationNode.Aggregation> assignments = parent.getAggregations();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
