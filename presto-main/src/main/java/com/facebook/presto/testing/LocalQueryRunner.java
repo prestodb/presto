@@ -187,6 +187,7 @@ import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.concurrent.Locks.locking;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -490,33 +491,25 @@ public class LocalQueryRunner
     @Override
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        lock.readLock().lock();
-        try {
+        return locking(lock.readLock(), () -> {
             return transaction(transactionManager, accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
                         return getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
                     });
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     @Override
     public boolean tableExists(Session session, String table)
     {
-        lock.readLock().lock();
-        try {
+        return locking(lock.readLock(), () -> {
             return transaction(transactionManager, accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
                         return MetadataUtil.tableExists(getMetadata(), transactionSession, table);
                     });
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        });
     }
 
     @Override
