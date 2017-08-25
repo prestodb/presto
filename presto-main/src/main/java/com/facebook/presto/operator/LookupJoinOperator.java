@@ -209,7 +209,7 @@ public class LookupJoinOperator
      * for the current probe position, calling this again will produce rows that wasn't been produced in previous
      * invocations.
      *
-     * @return true if all eligible rows have been produced; false otherwise (because pageBuilder became full)
+     * @return true if all eligible rows have been produced; false otherwise
      */
     private boolean joinCurrentPosition(DriverYieldSignal yieldSignal)
     {
