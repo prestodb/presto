@@ -21,6 +21,7 @@ import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorResult;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordSet;
@@ -135,7 +136,7 @@ public class PageProcessorBenchmark
     }
 
     @Benchmark
-    public List<Optional<Page>> columnOriented()
+    public List<PageProcessorResult> columnOriented()
     {
         return ImmutableList.copyOf(pageProcessor.process(null, new DriverYieldSignal(), inputPage));
     }

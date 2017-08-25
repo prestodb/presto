@@ -50,7 +50,6 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessor
@@ -68,9 +67,9 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
-        Page outputPage = outputPages.get(0).orElse(null);
+        Page outputPage = outputPages.get(0).getPage();
         assertEquals(outputPage.getChannelCount(), 0);
         assertEquals(outputPage.getPositionCount(), inputPage.getPositionCount());
     }
@@ -86,9 +85,9 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
-        Page outputPage = outputPages.get(0).orElse(null);
+        Page outputPage = outputPages.get(0).getPage();
         assertEquals(outputPage.getChannelCount(), 0);
         assertEquals(outputPage.getPositionCount(), 50);
     }
@@ -104,9 +103,9 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
-        assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).orElse(null), new Page(createLongSequenceBlock(25, 75)));
+        assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).getPage(), new Page(createLongSequenceBlock(25, 75)));
     }
 
     @Test
@@ -120,9 +119,9 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
-        assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).orElse(null), new Page(createLongSequenceBlock(0, 100)));
+        assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).getPage(), new Page(createLongSequenceBlock(0, 100)));
     }
 
     @Test
@@ -136,7 +135,7 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), 0);
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 0);
     }
 
@@ -152,7 +151,7 @@ public class TestPageProcessor
         assertEquals(output.getRetainedSizeInBytes(), 0);
 
         // output should be one page containing no columns (only a count)
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 0);
     }
 
@@ -170,7 +169,7 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), 0);
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 0);
     }
 
@@ -188,9 +187,9 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), createLongSequenceBlock(0, 100).getRetainedSizeInBytes());
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
-        assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).orElse(null), new Page(createLongSequenceBlock(0, 100)));
+        assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).getPage(), new Page(createLongSequenceBlock(0, 100)));
     }
 
     @Test
@@ -204,10 +203,10 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 3);
         for (int i = 0; i < outputPages.size(); i++) {
-            Page actualPage = outputPages.get(i).orElse(null);
+            Page actualPage = outputPages.get(i).getPage();
             int offset = i * MAX_BATCH_SIZE;
             Page expectedPage = new Page(createLongSequenceBlock(offset, offset + Math.min(inputPage.getPositionCount() - offset, MAX_BATCH_SIZE)));
             assertPageEquals(ImmutableList.of(BIGINT), actualPage, expectedPage);
@@ -228,12 +227,15 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
 
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        List<PageProcessorResult> outputPages = ImmutableList.copyOf(output);
         int batchSize = MAX_BATCH_SIZE;
-        for (Optional<Page> actualPage : outputPages) {
+        for (PageProcessorResult actualPage : outputPages) {
             Page expectedPage = new Page(new SliceArrayBlock(batchSize, slices));
-            assertPageEquals(ImmutableList.of(VARCHAR), actualPage.orElse(null), expectedPage);
-            if (actualPage.orElseThrow(() -> new AssertionError("page is not present")).getSizeInBytes() > MAX_PAGE_SIZE_IN_BYTES) {
+            if (!actualPage.hasPage()) {
+                throw new AssertionError("page is not present");
+            }
+            assertPageEquals(ImmutableList.of(VARCHAR), actualPage.getPage(), expectedPage);
+            if (actualPage.getPage().getSizeInBytes() > MAX_PAGE_SIZE_IN_BYTES) {
                 batchSize = batchSize / 2;
             }
         }
@@ -247,11 +249,14 @@ public class TestPageProcessor
 
         outputPages = ImmutableList.copyOf(output);
         int offset = 0;
-        for (Optional<Page> actualPage : outputPages) {
+        for (PageProcessorResult actualPage : outputPages) {
             Page expectedPage = new Page(new SliceArrayBlock(Math.min(inputPage.getPositionCount() - offset, batchSize), slices));
-            assertPageEquals(ImmutableList.of(VARCHAR), actualPage.orElse(null), expectedPage);
-            offset += actualPage.orElseThrow(() -> new AssertionError("page is not present")).getPositionCount();
-            if (actualPage.orElseThrow(() -> new AssertionError("page is not present")).getSizeInBytes() < MIN_PAGE_SIZE_IN_BYTES) {
+            if (!actualPage.hasPage()) {
+                throw new AssertionError("page is not present");
+            }
+            assertPageEquals(ImmutableList.of(VARCHAR), actualPage.getPage(), expectedPage);
+            offset += actualPage.getPage().getPositionCount();
+            if (actualPage.getPage().getSizeInBytes() < MIN_PAGE_SIZE_IN_BYTES) {
                 batchSize = batchSize * 2;
             }
         }
@@ -281,7 +286,7 @@ public class TestPageProcessor
 
         int pageCount = 0;
         while (output.hasNext()) {
-            Page actualPage = output.next().orElse(null);
+            Page actualPage = output.next().getPage();
             Page expectedPage = new Page(new SliceArrayBlock(batchSize, slices), new SliceArrayBlock(batchSize, slices));
             assertPageEquals(ImmutableList.of(VARCHAR, VARCHAR), actualPage, expectedPage);
             pageCount++;
@@ -341,7 +346,7 @@ public class TestPageProcessor
         PageProcessorOutput output = pageProcessor.process(SESSION, yieldSignal, inputPage);
         for (int i = 0; i < columns - 1; i++) {
             assertTrue(output.hasNext());
-            assertNull(output.next().orElse(null));
+            assertFalse(output.next().hasPage());
 
             // we do not need a yield for the next projection
             if (yieldSignal.isSet()) {
@@ -349,7 +354,7 @@ public class TestPageProcessor
             }
         }
         assertTrue(output.hasNext());
-        Page actualPage = output.next().orElse(null);
+        Page actualPage = output.next().getPage();
         assertNotNull(actualPage);
         Block[] blocks = new Block[columns];
         Arrays.fill(blocks, new SliceArrayBlock(rows, slices));

@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorResult;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -136,7 +137,7 @@ public class InCodeGeneratorBenchmark
     }
 
     @Benchmark
-    public List<Optional<Page>> benchmark()
+    public List<PageProcessorResult> benchmark()
     {
         return ImmutableList.copyOf(processor.process(SESSION, new DriverYieldSignal(), inputPage));
     }

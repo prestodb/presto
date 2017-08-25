@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProcessorOutput;
+import com.facebook.presto.operator.project.PageProcessorResult;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -99,7 +100,11 @@ public class FilterAndProjectOperator
         if (!currentOutput.hasNext()) {
             return null;
         }
-        return currentOutput.next().orElse(null);
+        PageProcessorResult result = currentOutput.next();
+        if (result.hasPage()) {
+            return result.getPage();
+        }
+        return null;
     }
 
     public static class FilterAndProjectOperatorFactory
