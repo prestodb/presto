@@ -207,6 +207,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-connector-tests</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tests</artifactId>
             <scope>test</scope>
         </dependency>
@@ -234,6 +240,12 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+		</dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
