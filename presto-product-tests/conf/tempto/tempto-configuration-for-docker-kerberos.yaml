@@ -18,6 +18,9 @@ databases:
     kerberos_principal: hdfs/hadoop-master@LABS.TERADATA.COM
     kerberos_keytab: /etc/hadoop/conf/hdfs.keytab
 
+    inject_stats_for_immutable_tables: false
+    inject_stats_for_mutable_tables: false
+
   presto:
     host: presto-master.docker.cluster
     port: 7778
