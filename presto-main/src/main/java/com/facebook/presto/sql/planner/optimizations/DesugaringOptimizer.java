@@ -35,19 +35,14 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.GroupingOperation;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class DesugaringOptimizer
@@ -194,15 +189,8 @@ public class DesugaringOptimizer
 
         private Expression desugar(Expression expression)
         {
-            checkState(!(expression instanceof GroupingOperation), "GroupingOperation should have been re-written to a FunctionCall before execution");
-
-            if (expression instanceof SymbolReference) {
-                return expression;
-            }
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression, emptyList() /* parameters already replaced */);
-
             expression = LambdaCaptureDesugaringRewriter.rewrite(expression, symbolAllocator.getTypes(), symbolAllocator);
-            expression = DesugarAtTimeZoneRewriter.rewrite(expression, expressionTypes);
+            expression = DesugarAtTimeZoneRewriter.rewrite(expression, session, metadata, sqlParser, symbolAllocator);
 
             return expression;
         }
