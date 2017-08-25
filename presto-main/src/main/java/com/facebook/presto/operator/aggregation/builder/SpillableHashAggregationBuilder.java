@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
-import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.MergeHashSort;
 import com.facebook.presto.operator.OperatorContext;
@@ -58,7 +56,6 @@ public class SpillableHashAggregationBuilder
     private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
     private Optional<MergeHashSort> mergeHashSort = Optional.empty();
     private ListenableFuture<?> spillInProgress = immediateFuture(null);
-    private final LocalMemoryContext memoryContext;
     private final JoinCompiler joinCompiler;
 
     // todo get rid of that and only use revocable memory
@@ -91,9 +88,6 @@ public class SpillableHashAggregationBuilder
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
         this.joinCompiler = joinCompiler;
-
-        AbstractAggregatedMemoryContext systemMemoryContext = operatorContext.getSystemMemoryContext();
-        this.memoryContext = systemMemoryContext.newLocalMemoryContext();
 
         rebuildHashAggregationBuilder();
     }
