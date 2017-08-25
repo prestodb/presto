@@ -202,8 +202,9 @@ public class DesugaringOptimizer
             }
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression, emptyList() /* parameters already replaced */);
 
-            expression = new LambdaCaptureDesugaringRewriter(types, symbolAllocator).rewrite(expression);
+            expression = LambdaCaptureDesugaringRewriter.rewrite(expression, symbolAllocator.getTypes(), symbolAllocator);
             expression = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(expressionTypes), expression);
+
             return expression;
         }
     }
