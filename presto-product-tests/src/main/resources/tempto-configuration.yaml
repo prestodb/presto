@@ -20,8 +20,11 @@ databases:
     table_manager_type: hive
     warehouse_directory_path: /user/hive/warehouse
     path: /user/hive/warehouse
-    analyze_immutable_tables: false
-    analyze_mutable_tables: false
+    inject_stats_for_immutable_tables: true
+    inject_stats_for_mutable_tables: true
+    metastore:
+      host: ${databases.hive.host}
+      port: 9083
 
   presto:
     host: localhost
