@@ -17,7 +17,20 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -27,10 +40,28 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
+    private static final Map<String, Type> PG_ARRAY_TYPE_TO_ELEMENT_TYPE =
+            ImmutableMap.<String, Type>builder()
+                    .put("_bool", BooleanType.BOOLEAN)
+                    .put("_bit", BooleanType.BOOLEAN)
+                    .put("_int8", BigintType.BIGINT)
+                    .put("_int4", IntegerType.INTEGER)
+                    .put("_int2", SmallintType.SMALLINT)
+                    .put("_text", VarcharType.createUnboundedVarcharType())
+                    .put("_bytea", VarbinaryType.VARBINARY)
+                    .put("_float4", DoubleType.DOUBLE)
+                    .put("_float8", DoubleType.DOUBLE)
+                    .put("_timestamp", TimestampType.TIMESTAMP)
+                    .put("_date", DateType.DATE)
+                    .put("_time", TimeType.TIME)
+                    .put("_numeric", DoubleType.DOUBLE)
+                    .build();
+
     @Inject
     public PostgreSqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
             throws SQLException
@@ -77,5 +108,18 @@ public class PostgreSqlClient
                 escapeNamePattern(schemaName, escape),
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE"});
+    }
+
+    @Override
+    protected Type toPrestoType(int dataType, int columnSize, String typeName)
+    {
+        if ("_char".equals(typeName) || "_varchar".equals(typeName)) {
+            return new ArrayType(VarcharType.createVarcharType(columnSize));
+        }
+        Type elementType = PG_ARRAY_TYPE_TO_ELEMENT_TYPE.get(typeName);
+        if (elementType != null) {
+            return new ArrayType(elementType);
+        }
+        return super.toPrestoType(dataType, columnSize, typeName);
     }
 }
