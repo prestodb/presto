@@ -310,7 +310,8 @@ public class OrcMetadataReader
 
         return new IntegerStatistics(
                 integerStatistics.hasMinimum() ? integerStatistics.getMinimum() : null,
-                integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null);
+                integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null,
+                integerStatistics.hasSum() ? integerStatistics.getSum() : null);
     }
 
     private static DoubleStatistics toDoubleStatistics(OrcProto.DoubleStatistics doubleStatistics)

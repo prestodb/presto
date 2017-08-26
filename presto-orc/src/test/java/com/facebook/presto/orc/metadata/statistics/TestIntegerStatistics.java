@@ -24,7 +24,8 @@ public class TestIntegerStatistics
     @Override
     protected IntegerStatistics getCreateStatistics(Long min, Long max)
     {
-        return new IntegerStatistics(min, max);
+        // a fake sum is ok
+        return new IntegerStatistics(min, max, 1000L);
     }
 
     @Test
