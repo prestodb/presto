@@ -105,6 +105,7 @@ public class HiveClientConfig
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
     private boolean orcOptimizedWriterEnabled;
+    private boolean orcWriterValidate = true;
 
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
@@ -766,6 +767,19 @@ public class HiveClientConfig
     public HiveClientConfig setOrcOptimizedWriterEnabled(boolean orcOptimizedWriterEnabled)
     {
         this.orcOptimizedWriterEnabled = orcOptimizedWriterEnabled;
+        return this;
+    }
+
+    public boolean isOrcWriterValidate()
+    {
+        return orcWriterValidate;
+    }
+
+    @Config("hive.orc.writer.validate")
+    @ConfigDescription("Validate RCFile after write by re-reading the whole file")
+    public HiveClientConfig setOrcWriterValidate(boolean orcWriterValidate)
+    {
+        this.orcWriterValidate = orcWriterValidate;
         return this;
     }
 

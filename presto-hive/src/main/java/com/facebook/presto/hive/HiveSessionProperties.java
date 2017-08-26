@@ -99,7 +99,7 @@ public final class HiveSessionProperties
                 booleanSessionProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: ORC: Validate writer files",
-                        true,
+                        config.isOrcWriterValidate(),
                         false),
                 booleanSessionProperty(
                         PARQUET_OPTIMIZED_READER_ENABLED,
