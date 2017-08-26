@@ -34,7 +34,18 @@ public interface Rule<T>
         return true;
     }
 
-    Optional<PlanNode> apply(T node, Captures captures, Context context);
+    @Deprecated
+    default Optional<PlanNode> apply(T node, Captures captures, Context context)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    // TODO remove default implementaiton once deprecated apply method got removed
+    default void apply(T node, Captures captures, Context context, Result result)
+    {
+        apply(node, captures, context)
+                .ifPresent(transformed -> result.transformTo(transformed));
+    }
 
     interface Context
     {
@@ -45,5 +56,10 @@ public interface Rule<T>
         SymbolAllocator getSymbolAllocator();
 
         Session getSession();
+    }
+
+    interface Result
+    {
+        Result transformTo(PlanNode planNode);
     }
 }
