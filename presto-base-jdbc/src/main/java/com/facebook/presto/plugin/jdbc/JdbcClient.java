@@ -63,4 +63,6 @@ public interface JdbcClient
 
     PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException;
+
+    JdbcResultSetReader getJdbcResultSetReader();
 }
