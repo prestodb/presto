@@ -36,7 +36,7 @@ public class CsvPrinter
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.writer = new CSVWriter(writer);
+        this.writer = new CSVWriter(writer, ',', CSVWriter.NO_QUOTE_CHARACTER);
         this.needHeader = header;
     }
 
