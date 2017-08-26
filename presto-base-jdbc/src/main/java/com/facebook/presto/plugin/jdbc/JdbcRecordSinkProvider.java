@@ -38,12 +38,12 @@ public class JdbcRecordSinkProvider
     @Override
     public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        return new JdbcRecordSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return jdbcClient.getJdbcRecordSink((JdbcOutputTableHandle) tableHandle);
     }
 
     @Override
     public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        return new JdbcRecordSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return jdbcClient.getJdbcRecordSink((JdbcOutputTableHandle) tableHandle);
     }
 }

@@ -18,6 +18,8 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.type.CharType;
@@ -206,7 +208,10 @@ public class BaseJdbcClient
                 boolean found = false;
                 while (resultSet.next()) {
                     found = true;
-                    Type columnType = toPrestoType(resultSet.getInt("DATA_TYPE"), resultSet.getInt("COLUMN_SIZE"));
+                    Type columnType = toPrestoType(
+                            resultSet.getInt("DATA_TYPE"),
+                            resultSet.getInt("COLUMN_SIZE"),
+                            resultSet.getString("TYPE_NAME"));
                     // skip unsupported column types
                     if (columnType != null) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -434,6 +439,18 @@ public class BaseJdbcClient
         return connection.prepareStatement(sql);
     }
 
+    @Override
+    public RecordSet getJdbcRecordSet(JdbcSplit jdbcSplit, List<JdbcColumnHandle> handles)
+    {
+        return new JdbcRecordSet(this, jdbcSplit, handles);
+    }
+
+    @Override
+    public RecordSink getJdbcRecordSink(JdbcOutputTableHandle tableHandle)
+    {
+        return new JdbcRecordSink(this, tableHandle);
+    }
+
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)
             throws SQLException
     {
@@ -463,7 +480,7 @@ public class BaseJdbcClient
         }
     }
 
-    protected Type toPrestoType(int jdbcType, int columnSize)
+    protected Type toPrestoType(int jdbcType, int columnSize, String typeName)
     {
         switch (jdbcType) {
             case Types.BIT:

@@ -15,6 +15,8 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 
 import javax.annotation.Nullable;
@@ -63,4 +65,8 @@ public interface JdbcClient
 
     PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException;
+
+    RecordSet getJdbcRecordSet(JdbcSplit jdbcSplit, List<JdbcColumnHandle> handles);
+
+    RecordSink getJdbcRecordSink(JdbcOutputTableHandle tableHandle);
 }

@@ -48,6 +48,6 @@ public class JdbcRecordSetProvider
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, jdbcSplit, handles.build());
+        return jdbcClient.getJdbcRecordSet(jdbcSplit, handles.build());
     }
 }
