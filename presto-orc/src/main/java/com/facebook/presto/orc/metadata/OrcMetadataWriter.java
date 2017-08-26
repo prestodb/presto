@@ -204,10 +204,13 @@ public class OrcMetadataWriter
         }
 
         if (columnStatistics.getIntegerStatistics() != null) {
-            builder.setIntStatistics(OrcProto.IntegerStatistics.newBuilder()
+            OrcProto.IntegerStatistics.Builder integerStatistics = OrcProto.IntegerStatistics.newBuilder()
                     .setMinimum(columnStatistics.getIntegerStatistics().getMin())
-                    .setMaximum(columnStatistics.getIntegerStatistics().getMax())
-                    .build());
+                    .setMaximum(columnStatistics.getIntegerStatistics().getMax());
+            if (columnStatistics.getIntegerStatistics().getSum() != null) {
+                integerStatistics.setSum(columnStatistics.getIntegerStatistics().getSum());
+            }
+            builder.setIntStatistics(integerStatistics.build());
         }
 
         if (columnStatistics.getDoubleStatistics() != null) {
