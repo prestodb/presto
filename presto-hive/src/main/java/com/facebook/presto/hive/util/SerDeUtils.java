@@ -16,7 +16,6 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
@@ -252,25 +251,25 @@ public final class SerDeUtils
         List<? extends StructField> allStructFieldRefs = inspector.getAllStructFieldRefs();
         checkArgument(typeParameters.size() == allStructFieldRefs.size());
         BlockBuilder currentBuilder;
-        if (builder != null) {
-            currentBuilder = builder.beginBlockEntry();
+
+        boolean builderSynthesized = false;
+        if (builder == null) {
+            builderSynthesized = true;
+            builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
         }
-        else {
-            currentBuilder = new InterleavedBlockBuilder(typeParameters, new BlockBuilderStatus(), typeParameters.size());
-        }
+        currentBuilder = builder.beginBlockEntry();
 
         for (int i = 0; i < typeParameters.size(); i++) {
             StructField field = allStructFieldRefs.get(i);
             serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
         }
 
-        if (builder != null) {
-            builder.closeEntry();
-            return null;
+        builder.closeEntry();
+        if (builderSynthesized) {
+            return (Block) type.getObject(builder, 0);
         }
         else {
-            Block resultBlock = currentBuilder.build();
-            return resultBlock;
+            return null;
         }
     }
 
