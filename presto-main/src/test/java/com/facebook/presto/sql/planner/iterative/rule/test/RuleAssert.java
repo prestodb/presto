@@ -93,7 +93,7 @@ public class RuleAssert
         return this;
     }
 
-    public void doesNotFire()
+    public RuleAssert doesNotFire()
     {
         RuleApplication ruleApplication = applyRule();
 
@@ -103,9 +103,11 @@ public class RuleAssert
                     rule.getClass().getName(),
                     inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, costCalculator, session, 2))));
         }
+
+        return this;
     }
 
-    public void matches(PlanMatchPattern pattern)
+    public RuleAssert matches(PlanMatchPattern pattern)
     {
         RuleApplication ruleApplication = applyRule();
         Map<Symbol, Type> types = ruleApplication.types;
@@ -141,6 +143,8 @@ public class RuleAssert
             assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), ruleApplication.lookup, pattern);
             return null;
         });
+
+        return this;
     }
 
     private RuleApplication applyRule()
