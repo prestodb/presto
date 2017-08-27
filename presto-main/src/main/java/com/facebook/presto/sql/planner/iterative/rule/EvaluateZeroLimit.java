@@ -17,11 +17,8 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
-
-import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.Limit.count;
 import static com.facebook.presto.sql.planner.plan.Patterns.limit;
@@ -39,8 +36,8 @@ public class EvaluateZeroLimit
     }
 
     @Override
-    public Optional<PlanNode> apply(LimitNode limit, Captures captures, Context context)
+    public Result apply(LimitNode limit, Captures captures, Context context)
     {
-        return Optional.of(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
+        return Result.replace(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
     }
 }

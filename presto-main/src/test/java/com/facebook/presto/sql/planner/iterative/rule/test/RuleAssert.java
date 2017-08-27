@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
@@ -163,9 +162,9 @@ public class RuleAssert
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
         Match<T> match = matcher.match(rule.getPattern(), planNode);
 
-        Optional<PlanNode> result;
+        Rule.Result result;
         if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
-            result = Optional.empty();
+            result = Rule.Result.empty();
         }
         else {
             result = rule.apply(match.value(), match.captures(), context);
@@ -224,9 +223,9 @@ public class RuleAssert
     {
         private final Lookup lookup;
         private final Map<Symbol, Type> types;
-        private final Optional<PlanNode> result;
+        private final Rule.Result result;
 
-        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
@@ -240,7 +239,7 @@ public class RuleAssert
 
         public PlanNode getResult()
         {
-            return result.orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+            return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule was not applied"));
         }
     }
 }

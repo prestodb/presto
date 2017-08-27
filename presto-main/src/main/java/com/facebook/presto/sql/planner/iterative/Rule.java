@@ -22,6 +22,8 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public interface Rule<T>
 {
     /**
@@ -34,7 +36,7 @@ public interface Rule<T>
         return true;
     }
 
-    Optional<PlanNode> apply(T node, Captures captures, Context context);
+    Result apply(T node, Captures captures, Context context);
 
     interface Context
     {
@@ -45,5 +47,41 @@ public interface Rule<T>
         SymbolAllocator getSymbolAllocator();
 
         Session getSession();
+    }
+
+    class Result
+    {
+        @Deprecated
+        public static Result fromOptional(Optional<PlanNode> transformedPlan)
+        {
+            return new Result(transformedPlan);
+        }
+
+        public static Result empty()
+        {
+            return new Result(Optional.empty());
+        }
+
+        public static Result replace(PlanNode transformedPlan)
+        {
+            return new Result(Optional.of(transformedPlan));
+        }
+
+        private final Optional<PlanNode> transformedPlan;
+
+        private Result(Optional<PlanNode> transformedPlan)
+        {
+            this.transformedPlan = requireNonNull(transformedPlan, "transformedPlan is null");
+        }
+
+        public Optional<PlanNode> getTransformedPlan()
+        {
+            return transformedPlan;
+        }
+
+        public boolean isPresent()
+        {
+            return transformedPlan.isPresent();
+        }
     }
 }

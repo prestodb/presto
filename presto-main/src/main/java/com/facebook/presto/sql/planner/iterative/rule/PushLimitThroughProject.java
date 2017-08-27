@@ -18,10 +18,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-
-import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
@@ -44,8 +41,8 @@ public class PushLimitThroughProject
     }
 
     @Override
-    public Optional<PlanNode> apply(LimitNode parent, Captures captures, Context context)
+    public Result apply(LimitNode parent, Captures captures, Context context)
     {
-        return Optional.of(transpose(parent, captures.get(CHILD)));
+        return Result.replace(transpose(parent, captures.get(CHILD)));
     }
 }

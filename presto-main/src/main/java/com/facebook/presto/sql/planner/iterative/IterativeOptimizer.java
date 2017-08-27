@@ -31,7 +31,6 @@ import io.airlift.units.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
@@ -127,10 +126,10 @@ public class IterativeOptimizer
                     continue;
                 }
 
-                Optional<PlanNode> transformed = transform(node, rule, matcher, context);
+                Rule.Result result = transform(node, rule, matcher, context);
 
-                if (transformed.isPresent()) {
-                    node = context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
+                if (result.getTransformedPlan().isPresent()) {
+                    node = context.getMemo().replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
 
                     done = false;
                     progress = true;
@@ -141,14 +140,14 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private <T> Optional<PlanNode> transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
+    private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
     {
-        Optional<PlanNode> transformed;
+        Rule.Result transformed;
 
         Match<T> match = matcher.match(rule.getPattern(), node);
 
         if (match.isEmpty()) {
-            return Optional.empty();
+            return Rule.Result.empty();
         }
 
         long duration;

@@ -20,9 +20,6 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-
-import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -55,11 +52,11 @@ public class MergeLimitWithDistinct
     }
 
     @Override
-    public Optional<PlanNode> apply(LimitNode parent, Captures captures, Context context)
+    public Result apply(LimitNode parent, Captures captures, Context context)
     {
         AggregationNode child = captures.get(CHILD);
 
-        return Optional.of(
+        return Result.replace(
                 new DistinctLimitNode(
                         parent.getId(),
                         child.getSource(),

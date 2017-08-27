@@ -18,11 +18,8 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableMap;
-
-import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
@@ -44,19 +41,19 @@ public class MergeAdjacentWindows
     }
 
     @Override
-    public Optional<PlanNode> apply(WindowNode parent, Captures captures, Context context)
+    public Result apply(WindowNode parent, Captures captures, Context context)
     {
         WindowNode child = captures.get(CHILD);
 
         if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         ImmutableMap.Builder<Symbol, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
         functionsBuilder.putAll(parent.getWindowFunctions());
         functionsBuilder.putAll(child.getWindowFunctions());
 
-        return Optional.of(new WindowNode(
+        return Result.replace(new WindowNode(
                 parent.getId(),
                 child.getSource(),
                 parent.getSpecification(),

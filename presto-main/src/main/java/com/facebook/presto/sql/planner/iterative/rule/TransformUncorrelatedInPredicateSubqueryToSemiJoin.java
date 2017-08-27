@@ -18,7 +18,6 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -66,15 +65,15 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(ApplyNode applyNode, Captures captures, Context context)
+    public Result apply(ApplyNode applyNode, Captures captures, Context context)
     {
         if (applyNode.getSubqueryAssignments().size() != 1) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         Expression expression = getOnlyElement(applyNode.getSubqueryAssignments().getExpressions());
         if (!(expression instanceof InPredicate)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         InPredicate inPredicate = (InPredicate) expression;
@@ -90,6 +89,6 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 Optional.empty(),
                 Optional.empty());
 
-        return Optional.of(replacement);
+        return Result.replace(replacement);
     }
 }

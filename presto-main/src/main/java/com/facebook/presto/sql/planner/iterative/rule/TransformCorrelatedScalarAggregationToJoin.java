@@ -83,17 +83,17 @@ public class TransformCorrelatedScalarAggregationToJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
         PlanNode subquery = lateralJoinNode.getSubquery();
 
         if (!isScalar(subquery, context.getLookup())) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         Optional<AggregationNode> aggregation = findAggregation(subquery, context.getLookup());
         if (!(aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty())) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionRegistry, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
@@ -101,10 +101,10 @@ public class TransformCorrelatedScalarAggregationToJoin
         PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
 
         if (rewrittenNode instanceof LateralJoinNode) {
-            return Optional.empty();
+            return Result.empty();
         }
 
-        return Optional.of(rewrittenNode);
+        return Result.replace(rewrittenNode);
     }
 
     private static Optional<AggregationNode> findAggregation(PlanNode rootNode, Lookup lookup)
