@@ -18,7 +18,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.toOptional;
 
 public interface Lookup
@@ -34,15 +34,17 @@ public interface Lookup
     @Deprecated
     default PlanNode resolve(PlanNode node)
     {
-        return resolveGroup(node).collect(toOptional()).get();
+        if (node instanceof GroupReference) {
+            return resolveGroup(node).collect(toOptional()).get();
+        }
+        return node;
     }
 
     /**
      * Resolves nodes by materializing GroupReference nodes
      * representing symbolic references to other nodes.
      * <p>
-     * If the node is not a GroupReference, it returns the
-     * singleton of the argument node.
+     * @throws IllegalArgumentException if the node is not a GroupReference
      */
     Stream<PlanNode> resolveGroup(PlanNode node);
 
@@ -53,19 +55,15 @@ public interface Lookup
     static Lookup noLookup()
     {
         return node -> {
-            verify(!(node instanceof GroupReference), "Unexpected GroupReference");
-            return Stream.of(node);
+            throw new UnsupportedOperationException();
         };
     }
 
     static Lookup from(Function<GroupReference, Stream<PlanNode>> resolver)
     {
         return node -> {
-            if (node instanceof GroupReference) {
-                return resolver.apply((GroupReference) node);
-            }
-
-            return Stream.of(node);
+            checkArgument(node instanceof GroupReference, "Node '%s' is not a GroupReference", node.getClass().getSimpleName());
+            return resolver.apply((GroupReference) node);
         };
     }
 }
