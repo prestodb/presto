@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -26,11 +26,12 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.union;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestPushTableWriteThroughUnion
+        extends BaseRuleTest
 {
     @Test
     public void testPushThroughUnion()
     {
-        new RuleTester().assertThat(new PushTableWriteThroughUnion())
+        tester().assertThat(new PushTableWriteThroughUnion())
                 .on(p ->
                         p.tableWriter(
                                 ImmutableList.of(p.symbol("A", BIGINT), p.symbol("B", BIGINT)), ImmutableList.of("a", "b"),

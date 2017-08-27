@@ -13,18 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -37,24 +31,12 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestTransformCorrelatedScalarAggregationToJoin
+        extends BaseRuleTest
 {
-    private RuleTester tester;
-    private FunctionRegistry functionRegistry;
-    private Rule rule;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-        TypeRegistry typeRegistry = new TypeRegistry();
-        functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        rule = new TransformCorrelatedScalarAggregationToJoin(functionRegistry);
-    }
-
     @Test
     public void doesNotFireOnPlanWithoutApplyNode()
     {
-        tester.assertThat(rule)
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -62,7 +44,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnCorrelatedWithoutAggregation()
     {
-        tester.assertThat(rule)
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -73,7 +55,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnUncorrelated()
     {
-        tester.assertThat(rule)
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
                 .on(p -> p.lateral(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
@@ -84,7 +66,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnCorrelatedWithNonScalarAggregation()
     {
-        tester.assertThat(rule)
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -98,7 +80,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void rewritesOnSubqueryWithoutProjection()
     {
-        tester.assertThat(rule)
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -120,7 +102,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void rewritesOnSubqueryWithProjection()
     {
-        tester.assertThat(rule)
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
