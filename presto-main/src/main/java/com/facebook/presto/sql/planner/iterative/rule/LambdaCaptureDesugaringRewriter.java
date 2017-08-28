@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
@@ -44,24 +45,6 @@ public class LambdaCaptureDesugaringRewriter
     }
 
     private LambdaCaptureDesugaringRewriter() {}
-
-    private static Expression replaceSymbols(Expression expression, ImmutableMap<Symbol, Symbol> symbolMapping)
-    {
-        return ExpressionTreeRewriter.rewriteWith(
-                new ExpressionRewriter<Void>()
-                {
-                    @Override
-                    public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-                    {
-                        Symbol mapTo = symbolMapping.get(new Symbol(node.getName()));
-                        if (mapTo == null) {
-                            return node;
-                        }
-                        return mapTo.toSymbolReference();
-                    }
-                },
-                expression);
-    }
 
     private static class Visitor
             extends ExpressionRewriter<Context>
@@ -104,7 +87,10 @@ public class LambdaCaptureDesugaringRewriter
                 newLambdaArguments.add(new LambdaArgumentDeclaration(new Identifier(extraSymbol.getName())));
             }
             newLambdaArguments.addAll(node.getArguments());
-            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), replaceSymbols(rewrittenBody, captureSymbolToExtraSymbol.build()));
+
+            ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.build();
+            ExpressionSymbolInliner inliner = new ExpressionSymbolInliner(x -> symbolsMap.getOrDefault(x, x).toSymbolReference());
+            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inliner.rewrite(rewrittenBody));
 
             if (captureSymbols.size() != 0) {
                 List<Expression> capturedValues = captureSymbols.stream()
