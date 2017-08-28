@@ -74,6 +74,12 @@ public class IterativeOptimizer
             return plan;
         }
 
+        Memo memo = explore(plan, session, symbolAllocator, idAllocator);
+        return memo.extract();
+    }
+
+    public Memo explore(PlanNode plan, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
         Matcher matcher = new PlanNodeMatcher(lookup);
@@ -81,8 +87,7 @@ public class IterativeOptimizer
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session);
         exploreGroup(memo.getRootGroup(), context, matcher);
-
-        return memo.extract();
+        return memo;
     }
 
     private boolean exploreGroup(int group, Context context, Matcher matcher)
