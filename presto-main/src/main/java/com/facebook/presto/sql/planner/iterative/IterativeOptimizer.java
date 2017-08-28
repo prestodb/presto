@@ -20,6 +20,8 @@ import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.RuleApplicationListener;
+import com.facebook.presto.sql.planner.RuleApplicationListener.RuleApplication;
 import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -36,6 +38,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
+import static com.facebook.presto.sql.planner.RuleApplicationListener.noListener;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -46,13 +49,24 @@ public class IterativeOptimizer
     private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
     private final StatsRecorder stats;
+    private final RuleApplicationListener ruleApplicationListener;
 
     public IterativeOptimizer(StatsRecorder stats, Set<Rule<?>> rules)
     {
         this(stats, ImmutableList.of(), rules);
     }
 
+    public IterativeOptimizer(StatsRecorder stats, RuleApplicationListener ruleApplicationListener, Set<Rule<?>> rules)
+    {
+        this(stats, ruleApplicationListener, ImmutableList.of(), rules);
+    }
+
     public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    {
+        this(stats, noListener(), legacyRules, newRules);
+    }
+
+    public IterativeOptimizer(StatsRecorder stats, RuleApplicationListener ruleApplicationListener, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
@@ -60,6 +74,7 @@ public class IterativeOptimizer
                 .build();
 
         this.stats = stats;
+        this.ruleApplicationListener = ruleApplicationListener;
 
         stats.registerAll(newRules);
     }
@@ -163,6 +178,7 @@ public class IterativeOptimizer
             throw e;
         }
         stats.record(rule, duration, transformed.isPresent());
+        ruleApplicationListener.appliedRule(new RuleApplication(rule, (PlanNode) match.value(), match.captures(), context, transformed));
 
         return transformed;
     }
