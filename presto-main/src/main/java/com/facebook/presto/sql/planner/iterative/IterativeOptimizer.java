@@ -81,7 +81,7 @@ public class IterativeOptimizer
     public Memo explore(PlanNode plan, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
+        Lookup lookup = memo.getLookup();
         Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
@@ -135,6 +135,16 @@ public class IterativeOptimizer
 
                 if (result.getTransformedPlan().isPresent()) {
                     node = context.getMemo().replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+
+                    done = false;
+                    progress = true;
+                }
+
+                if (result.getTrait().isPresent()) {
+                    Trait trait = result.getTrait().get();
+
+                    checkState(trait.getType().isEquivalenceGroupApplicable(), "Only group trait are currently supported");
+                    context.getMemo().setGroupTrait(group, trait);
 
                     done = false;
                     progress = true;

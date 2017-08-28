@@ -16,9 +16,8 @@ package com.facebook.presto.sql.planner.iterative;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.List;
-import java.util.function.Function;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public interface Lookup
@@ -48,22 +47,41 @@ public interface Lookup
      */
     List<PlanNode> resolveGroup(PlanNode node);
 
+    default <T extends Trait> boolean isTraitSatisfied(PlanNode node, T required)
+    {
+        Optional<T> actual = resolveTraitSet(node).getTrait(required.getType());
+        if (actual.isPresent()) {
+            return actual.get().satisfies(required);
+        }
+        return false;
+    }
+
+    default <T extends Trait> Optional<T> resolveTrait(PlanNode node, TraitType<T> traitType)
+    {
+        return resolveTraitSet(node).getTrait(traitType);
+    }
+
+    TraitSet resolveTraitSet(PlanNode node);
+
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
      * by rejecting {@link GroupReference}-s.
      */
     static Lookup noLookup()
     {
-        return node -> {
-            throw new UnsupportedOperationException();
-        };
-    }
+        return new Lookup()
+        {
+            @Override
+            public List<PlanNode> resolveGroup(PlanNode node)
+            {
+                throw new UnsupportedOperationException();
+            }
 
-    static Lookup from(Function<GroupReference, List<PlanNode>> resolver)
-    {
-        return node -> {
-            checkArgument(node instanceof GroupReference, "Node is not a GroupReference");
-            return resolver.apply((GroupReference) node);
+            @Override
+            public TraitSet resolveTraitSet(PlanNode node)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 }

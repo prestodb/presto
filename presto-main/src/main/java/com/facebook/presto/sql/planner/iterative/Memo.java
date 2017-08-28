@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Stores a plan in a form that's efficient to mutate locally (i.e. without
@@ -60,6 +62,7 @@ public class Memo
 
     private final Map<Integer, PlanNode> membership = new HashMap<>();
     private final Map<Integer, Integer> referenceCounts = new HashMap<>();
+    private final Map<Integer, TraitSet> groupTraits = new HashMap<>();
 
     private int nextGroupId;
 
@@ -93,7 +96,38 @@ public class Memo
 
     private PlanNode extract(PlanNode node)
     {
-        return resolveGroupReferences(node, Lookup.from(planNode -> ImmutableList.of(this.resolve(planNode))));
+        return resolveGroupReferences(node, getLookup());
+    }
+
+    public Lookup getLookup()
+    {
+        return new Lookup()
+        {
+            @Override
+            public List<PlanNode> resolveGroup(PlanNode node)
+            {
+                checkArgument(node instanceof GroupReference, "node is not a group reference");
+                return ImmutableList.of(membership.get(((GroupReference) node).getGroupId()));
+            }
+
+            @Override
+            public TraitSet resolveTraitSet(PlanNode node)
+            {
+                if (node instanceof GroupReference) {
+                    GroupReference groupReference = (GroupReference) node;
+                    return groupTraits.getOrDefault(groupReference.getGroupId(), TraitSet.empty());
+                }
+                else {
+                    // TODO: REMOVE THIS LOOP BEFORE PULL REQUEST MERGE
+                    for (Map.Entry<Integer, PlanNode> entry : membership.entrySet()) {
+                        if (entry.getValue() == node) {
+                            return groupTraits.getOrDefault(entry.getKey(), TraitSet.empty());
+                        }
+                    }
+                }
+                throw new IllegalArgumentException("Unable to find node: " + node);
+            }
+        };
     }
 
     public PlanNode replace(int group, PlanNode node, String reason)
@@ -155,7 +189,7 @@ public class Memo
 
     private void deleteGroup(int group)
     {
-        membership.remove(group);
+        groupTraits.remove(group);
         referenceCounts.remove(group);
     }
 
@@ -167,7 +201,7 @@ public class Memo
                                 idAllocator.getNextId(),
                                 insertRecursive(child),
                                 child.getOutputSymbols()))
-                        .collect(Collectors.toList()));
+                        .collect(toList()));
     }
 
     private int insertRecursive(PlanNode node)
@@ -181,6 +215,7 @@ public class Memo
 
         membership.put(group, rewritten);
         referenceCounts.put(group, 0);
+
         incrementReferenceCounts(rewritten);
 
         return group;
@@ -194,5 +229,10 @@ public class Memo
     public int getGroupCount()
     {
         return membership.size();
+    }
+
+    public void setGroupTrait(int node, Trait trait)
+    {
+        groupTraits.merge(node, TraitSet.of(trait), TraitSet::merge);
     }
 }
