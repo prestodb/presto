@@ -14,9 +14,9 @@
 package com.facebook.presto.unittests;
 
 import com.facebook.presto.connector.meta.SupportedFeatures;
-import com.facebook.presto.connector.unittest.BaseMetadataTest;
-import com.facebook.presto.connector.unittest.MetadataSchemaTest;
-import com.facebook.presto.connector.unittest.MetadataTableTest;
+import com.facebook.presto.connector.unittest.TestBaseMetadata;
+import com.facebook.presto.connector.unittest.TestMetadataSchema;
+import com.facebook.presto.connector.unittest.TestMetadataTable;
 import com.facebook.presto.connector.unittest.ValidatesSchema;
 import com.facebook.presto.plugin.postgresql.PostgreSqlPlugin;
 import com.facebook.presto.spi.connector.Connector;
@@ -39,7 +39,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
         CREATE_TABLE_AS,
         DROP_TABLE})
 public class TestPostgresqlMetadata
-        implements BaseMetadataTest, MetadataTableTest, MetadataSchemaTest, ValidatesSchema
+        implements TestBaseMetadata, TestMetadataTable, TestMetadataSchema, ValidatesSchema
 {
     private static final String PUBLIC = "public";
     private TestingPostgreSqlServer server;

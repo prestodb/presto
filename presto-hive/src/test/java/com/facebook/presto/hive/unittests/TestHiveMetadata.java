@@ -14,8 +14,8 @@
 package com.facebook.presto.hive.unittests;
 
 import com.facebook.presto.connector.meta.SupportedFeatures;
-import com.facebook.presto.connector.unittest.TestBaseMetadata;
 import com.facebook.presto.connector.unittest.CreatesSchemas;
+import com.facebook.presto.connector.unittest.TestBaseMetadata;
 import com.facebook.presto.connector.unittest.TestMetadataSchema;
 import com.facebook.presto.connector.unittest.TestMetadataTable;
 import com.facebook.presto.hive.HdfsConfiguration;
