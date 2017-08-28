@@ -16,18 +16,19 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.PlanNodeCost;
-import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.RuleApplicationListener;
+import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
-import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -35,6 +36,8 @@ import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -43,6 +46,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
@@ -95,29 +99,29 @@ public class RuleAssert
 
     public void doesNotFire()
     {
-        RuleApplication ruleApplication = applyRule();
+        OptimizationResult result = optimize();
 
-        if (ruleApplication.wasRuleApplied()) {
+        if (result.wasRuleApplied()) {
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, costCalculator, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, result.types, metadata, costCalculator, session, 2))));
         }
     }
 
     public void matches(PlanMatchPattern pattern)
     {
-        RuleApplication ruleApplication = applyRule();
-        Map<Symbol, Type> types = ruleApplication.types;
+        OptimizationResult result = optimize();
+        Map<Symbol, Type> types = result.types;
 
-        if (!ruleApplication.wasRuleApplied()) {
+        if (!result.wasRuleApplied()) {
             fail(String.format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
         }
 
-        PlanNode actual = ruleApplication.getResult();
+        PlanNode actual = result.getResult();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
             fail(String.format(
@@ -138,36 +142,38 @@ public class RuleAssert
 
         inTransaction(session -> {
             Map<PlanNodeId, PlanNodeCost> planNodeCosts = costCalculator.calculateCostForPlan(session, types, actual);
-            assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), ruleApplication.lookup, pattern);
+            assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), result.lookup, pattern);
             return null;
         });
     }
 
-    private RuleApplication applyRule()
+    private OptimizationResult optimize()
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        return inTransaction(session -> {
+            List<RuleApplicationListener.RuleApplication> ruleApplications = new ArrayList<>();
+            IterativeOptimizer optimizer = new IterativeOptimizer(
+                    new StatsRecorder(),
+                    ruleApplications::add,
+                    ImmutableSet.of(rule));
 
-        PlanNode memoRoot = memo.getNode(memo.getRootGroup());
+            SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
+            Memo memo = new Memo(idAllocator, plan);
+            Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+            optimizer.optimize(memo, session, symbolAllocator, idAllocator);
 
-        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(symbolAllocator, lookup, session)));
-    }
+            List<RuleApplicationListener.RuleApplication> nonEmptyRuleApplications = ruleApplications.stream()
+                    .filter(application -> application.getResult().isPresent())
+                    .collect(toImmutableList());
 
-    private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
-    {
-        PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
-        Match<T> match = matcher.match(rule.getPattern(), planNode);
+            if (nonEmptyRuleApplications.size() == 1) {
+                return new OptimizationResult(lookup, symbolAllocator.getTypes(), Optional.of(memo.getNode(memo.getRootGroup())));
+            }
+            else if (nonEmptyRuleApplications.size() == 0) {
+                return new OptimizationResult(lookup, symbolAllocator.getTypes(), Optional.empty());
+            }
 
-        Optional<PlanNode> result;
-        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
-            result = Optional.empty();
-        }
-        else {
-            result = rule.apply(match.value(), match.captures(), context);
-        }
-
-        return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);
+            throw new IllegalStateException("Unexpected multiple rule executions");
+        });
     }
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
@@ -186,43 +192,13 @@ public class RuleAssert
                 });
     }
 
-    private Rule.Context ruleContext(SymbolAllocator symbolAllocator, Lookup lookup, Session session)
-    {
-        return new Rule.Context()
-        {
-            @Override
-            public Lookup getLookup()
-            {
-                return lookup;
-            }
-
-            @Override
-            public PlanNodeIdAllocator getIdAllocator()
-            {
-                return idAllocator;
-            }
-
-            @Override
-            public SymbolAllocator getSymbolAllocator()
-            {
-                return symbolAllocator;
-            }
-
-            @Override
-            public Session getSession()
-            {
-                return session;
-            }
-        };
-    }
-
-    private static class RuleApplication
+    private static class OptimizationResult
     {
         private final Lookup lookup;
         private final Map<Symbol, Type> types;
         private final Optional<PlanNode> result;
 
-        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        public OptimizationResult(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
