@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.Chars.padSpaces;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -72,7 +72,7 @@ public final class CharacterStringCasts
     @LiteralParameters({"x", "y"})
     public static Slice varcharToCharCast(@LiteralParameter("y") Long y, @SqlType("varchar(x)") Slice slice)
     {
-        return trimSpacesAndTruncateToLength(slice, y.intValue());
+        return truncateToLengthAndTrimSpaces(slice, y.intValue());
     }
 
     @ScalarOperator(OperatorType.CAST)

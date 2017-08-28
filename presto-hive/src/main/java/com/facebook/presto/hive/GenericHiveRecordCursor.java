@@ -58,7 +58,7 @@ import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -388,7 +388,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 value = truncateToLength(value, type);
             }
             if (isCharType(type)) {
-                value = trimSpacesAndTruncateToLength(value, type);
+                value = truncateToLengthAndTrimSpaces(value, type);
             }
 
             // store a copy of the bytes, since the hive reader can reuse the underlying buffer
