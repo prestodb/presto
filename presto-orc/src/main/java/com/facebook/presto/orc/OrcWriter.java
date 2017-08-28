@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationBuilder;
+import com.facebook.presto.orc.OrcWriterStats.FlushReason;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -55,6 +56,10 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.OrcReader.validateFile;
+import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
+import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
+import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
+import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,6 +84,8 @@ public class OrcWriter
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
+    private final OrcWriterStats stats;
+
     static {
         String version = OrcWriter.class.getPackage().getImplementationVersion();
         PRESTO_ORC_WRITER_VERSION = version == null ? "UNKNOWN" : version;
@@ -123,7 +130,8 @@ public class OrcWriter
             DataSize dictionaryMemoryMaxBytes,
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
-            boolean validate)
+            boolean validate,
+            OrcWriterStats stats)
     {
         this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(types) : null;
 
@@ -145,6 +153,7 @@ public class OrcWriter
                 .build();
         this.metadataWriter = new CompressedMetadataWriter(orcEncoding.createMetadataWriter(), compression, DEFAULT_BUFFER_SIZE);
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(columnNames, "columnNames is null");
         this.orcTypes = OrcType.createOrcRowType(0, columnNames, types);
@@ -259,8 +268,14 @@ public class OrcWriter
 
         // flush stripe if necessary
         bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
-        if (stripeRowCount == stripeMaxRowCount || bufferedBytes > stripeMaxBytes || dictionaryCompressionOptimizer.isFull()) {
-            writeStripe();
+        if (stripeRowCount == stripeMaxRowCount) {
+            writeStripe(MAX_ROWS);
+        }
+        else if (bufferedBytes > stripeMaxBytes) {
+            writeStripe(MAX_BYTES);
+        }
+        else if (dictionaryCompressionOptimizer.isFull()) {
+            writeStripe(DICTIONARY_FULL);
         }
 
         retainedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum());
@@ -274,7 +289,7 @@ public class OrcWriter
         rowGroupRowCount = 0;
     }
 
-    private void writeStripe()
+    private void writeStripe(FlushReason flushReason)
             throws IOException
     {
         if (stripeRowCount == 0) {
@@ -341,6 +356,7 @@ public class OrcWriter
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
         StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footerLength);
         closedStripes.add(new ClosedStripe(stripeInformation, statistics));
+        stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
 
         // open next stripe
         columnWriters.forEach(ColumnWriter::reset);
@@ -360,7 +376,7 @@ public class OrcWriter
         }
         closed = true;
 
-        writeStripe();
+        writeStripe(CLOSED);
 
         Metadata metadata = new Metadata(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)

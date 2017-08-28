@@ -634,7 +634,8 @@ public class OrcTester
                 new DataSize(32, MEGABYTE),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
-                true);
+                true,
+                new OrcWriterStats());
 
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1024);
         while (values.hasNext()) {

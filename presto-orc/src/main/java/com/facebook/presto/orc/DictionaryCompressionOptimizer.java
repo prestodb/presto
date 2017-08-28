@@ -76,6 +76,11 @@ public class DictionaryCompressionOptimizer
         dictionaryWriters.addAll(allWriters);
     }
 
+    public int getDictionaryMemoryBytes()
+    {
+        return dictionaryMemoryBytes;
+    }
+
     public boolean isFull()
     {
         // if the strip is big enough to flush, stop before we hit the absolute max, so we are

@@ -18,6 +18,7 @@ import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -31,6 +32,8 @@ import org.apache.hadoop.hive.ql.io.orc.OrcFile.OrcTableProperties;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -64,7 +67,8 @@ public class OrcFileWriterFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
-    private final FileFormatDataSourceStats stats;
+    private final FileFormatDataSourceStats readStats;
+    private final OrcWriterStats stats = new OrcWriterStats();
 
     @Inject
     public OrcFileWriterFactory(
@@ -72,9 +76,9 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             HiveClientConfig hiveClientConfig,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats readStats)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(), stats);
+        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(), readStats);
     }
 
     public OrcFileWriterFactory(
@@ -82,13 +86,20 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats readStats)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        this.stats = requireNonNull(stats, "stats is null");
+        this.readStats = requireNonNull(readStats, "stats is null");
+    }
+
+    @Managed
+    @Flatten
+    public OrcWriterStats getStats()
+    {
+        return stats;
     }
 
     @Override
@@ -144,7 +155,7 @@ public class OrcFileWriterFactory
                                 getOrcStreamBufferSize(session),
                                 false,
                                 fileSystem.open(path),
-                                stats);
+                                readStats);
                     }
                     catch (IOException e) {
                         throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
@@ -170,7 +181,8 @@ public class OrcFileWriterFactory
                             .put(HiveMetadata.PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
                     hiveStorageTimeZone,
-                    validationInputFactory));
+                    validationInputFactory,
+                    stats));
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file", e);
