@@ -19,6 +19,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTraitCalculationRuleSet;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.type.TypeRegistry;
@@ -55,6 +56,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnPlanWithoutApplyNode()
     {
         tester.assertThat(rule)
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -63,6 +65,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnCorrelatedWithoutAggregation()
     {
         tester.assertThat(rule)
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -74,6 +77,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnUncorrelated()
     {
         tester.assertThat(rule)
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.lateral(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
@@ -85,6 +89,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnCorrelatedWithNonScalarAggregation()
     {
         tester.assertThat(rule)
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -99,6 +104,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void rewritesOnSubqueryWithoutProjection()
     {
         tester.assertThat(rule)
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -121,6 +127,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void rewritesOnSubqueryWithProjection()
     {
         tester.assertThat(rule)
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),

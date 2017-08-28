@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait.scalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -61,7 +61,7 @@ public class PruneCountAggregationOverScalar
                 return Result.empty();
             }
         }
-        if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
+        if (!assignments.isEmpty() && context.getLookup().isTraitSatisfied(parent.getSource(), scalar())) {
             return Result.replace(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
         }
         return Result.empty();

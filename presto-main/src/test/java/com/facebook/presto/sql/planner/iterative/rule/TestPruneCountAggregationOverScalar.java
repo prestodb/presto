@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTraitCalculationRuleSet;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -40,6 +41,7 @@ public class TestPruneCountAggregationOverScalar
     public void testDoesNotFireOnNonNestedAggregate()
     {
         tester().assertThat(new PruneCountAggregationOverScalar())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .globalGrouping()
@@ -56,6 +58,7 @@ public class TestPruneCountAggregationOverScalar
     public void testFiresOnNestedCountAggregate()
     {
         tester().assertThat(new PruneCountAggregationOverScalar())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -75,6 +78,7 @@ public class TestPruneCountAggregationOverScalar
     public void testFiresOnCountAggregateOverValues()
     {
         tester().assertThat(new PruneCountAggregationOverScalar())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -91,6 +95,7 @@ public class TestPruneCountAggregationOverScalar
     public void testFiresOnCountAggregateOverEnforceSingleRow()
     {
         tester().assertThat(new PruneCountAggregationOverScalar())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -107,6 +112,7 @@ public class TestPruneCountAggregationOverScalar
     public void testDoesNotFireOnNestedCountAggregateWithNonEmptyGroupBy()
     {
         tester().assertThat(new PruneCountAggregationOverScalar())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -126,6 +132,7 @@ public class TestPruneCountAggregationOverScalar
     public void testDoesNotFireOnNestedNonCountAggregate()
     {
         tester().assertThat(new PruneCountAggregationOverScalar())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> {
                     Symbol totalPrice = p.symbol("total_price", DOUBLE);
                     AggregationNode inner = p.aggregation((a) -> a

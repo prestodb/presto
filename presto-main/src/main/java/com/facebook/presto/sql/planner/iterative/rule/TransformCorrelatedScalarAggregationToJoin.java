@@ -28,8 +28,8 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.nonEmpty;
+import static com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait.scalar;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
@@ -85,11 +85,11 @@ public class TransformCorrelatedScalarAggregationToJoin
     @Override
     public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
-        PlanNode subquery = lateralJoinNode.getSubquery();
-
-        if (!isScalar(subquery, context.getLookup())) {
+        if (!context.getLookup().isTraitSatisfied(lateralJoinNode.getSubquery(), scalar())) {
             return Result.empty();
         }
+
+        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
 
         Optional<AggregationNode> aggregation = findAggregation(subquery, context.getLookup());
         if (!(aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty())) {

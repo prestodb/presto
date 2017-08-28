@@ -70,6 +70,7 @@ import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupB
 import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTraitCalculationRuleSet;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -181,6 +182,7 @@ public class PlanOptimizers
                 new IterativeOptimizer(
                         stats,
                         ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CardinalityTraitCalculationRuleSet().rules())
                                 .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(
@@ -220,11 +222,13 @@ public class PlanOptimizers
                                 new TransformUncorrelatedLateralToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry())),
-                        ImmutableSet.of(
-                                new com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes(),
-                                new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin(),
-                                new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                                new com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()))),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CardinalityTraitCalculationRuleSet().rules())
+                                .add(new com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes())
+                                .add(new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin())
+                                .add(new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin())
+                                .add(new com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()))
+                        .build()),
                 new IterativeOptimizer(
                         stats,
                         ImmutableSet.of(

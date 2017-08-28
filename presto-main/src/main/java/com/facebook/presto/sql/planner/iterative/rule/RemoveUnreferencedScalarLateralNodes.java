@@ -20,7 +20,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait.scalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 
 public class RemoveUnreferencedScalarLateralNodes
@@ -53,6 +53,6 @@ public class RemoveUnreferencedScalarLateralNodes
 
     private boolean isUnreferencedScalar(PlanNode planNode, Lookup lookup)
     {
-        return planNode.getOutputSymbols().isEmpty() && isScalar(planNode, lookup);
+        return planNode.getOutputSymbols().isEmpty() && lookup.isTraitSatisfied(planNode, scalar());
     }
 }
