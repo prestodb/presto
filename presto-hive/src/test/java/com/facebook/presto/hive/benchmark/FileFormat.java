@@ -33,6 +33,7 @@ import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.OrcWriter;
+import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
 import com.facebook.presto.rcfile.RcFileEncoding;
@@ -523,7 +524,8 @@ public enum FileFormat
                     OrcWriter.DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
-                    false);
+                    false,
+                    new OrcWriterStats());
         }
 
         @Override
@@ -562,7 +564,8 @@ public enum FileFormat
                     OrcWriter.DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
-                    false);
+                    false,
+                    new OrcWriterStats());
         }
 
         @Override

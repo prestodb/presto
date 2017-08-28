@@ -67,7 +67,8 @@ public class TestOrcWriter
                 new DataSize(32, MEGABYTE),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
-                true);
+                true,
+                new OrcWriterStats());
 
         // write down some data with unsorted streams
         String[] data = new String[]{"a", "bbbbb", "ccc", "dd", "eeee"};

@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriter;
+import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -69,7 +70,8 @@ public class OrcFileWriter
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
             DateTimeZone hiveStorageTimeZone,
-            Optional<Supplier<OrcDataSource>> validationInputFactory)
+            Optional<Supplier<OrcDataSource>> validationInputFactory,
+            OrcWriterStats stats)
     {
         this.outputStream = new CountingOutputStream(outputStream);
 
@@ -86,7 +88,8 @@ public class OrcFileWriter
                 DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
                 metadata,
                 hiveStorageTimeZone,
-                validationInputFactory.isPresent());
+                validationInputFactory.isPresent(),
+                stats);
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
 
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
