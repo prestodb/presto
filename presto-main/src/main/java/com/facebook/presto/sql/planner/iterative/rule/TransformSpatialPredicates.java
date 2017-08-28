@@ -275,7 +275,8 @@ public class TransformSpatialPredicates
                 Optional.of(newFilter),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
-                joinNode.getDistributionType());
+                joinNode.getDistributionType(),
+                joinNode.getDynamicFilterSource());
 
         return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), metadata);
     }
@@ -333,7 +334,8 @@ public class TransformSpatialPredicates
                 Optional.of(newFilter),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
-                joinNode.getDistributionType()));
+                joinNode.getDistributionType(),
+                joinNode.getDynamicFilterSource()));
     }
 
     private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)
