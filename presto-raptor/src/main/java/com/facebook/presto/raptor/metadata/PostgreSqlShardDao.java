@@ -26,14 +26,12 @@ import java.util.UUID;
 
 @RegisterArgumentFactory(UuidArgumentFactory.class)
 @RegisterMapperFactory(UuidMapperFactory.class)
-public interface JdbcShardDao
+public interface PostgreSqlShardDao
         extends ShardDao
 {
     @Override
-    @SqlUpdate("DELETE x\n" +
-            "FROM shard_nodes x\n" +
-            "JOIN shards USING (shard_id)\n" +
-            "WHERE table_id = :tableId")
+    @SqlUpdate("DELETE FROM shard_nodes WHERE shard_id IN\n" +
+            "  (SELECT shard_id FROM shards WHERE table_id = :tableId)")
     void dropShardNodes(@Bind("tableId") long tableId);
 
     @Override
@@ -42,9 +40,12 @@ public interface JdbcShardDao
             "ON CONFLICT DO NOTHING")
     void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
-    @SqlUpdate("DELETE FROM transactions\n" +
-            "WHERE end_time < :maxEndTime\n" +
+    @SqlUpdate("DELETE FROM transactions WHERE transaction_id IN (\n" +
+            "  SELECT transaction_id FROM transactions\n" +
+            "  WHERE end_time < :maxEndTime\n" +
             "  AND successful IN (TRUE, FALSE)\n" +
-            "  AND transaction_id NOT IN (SELECT transaction_id FROM created_shards)")
+            "  AND transaction_id NOT IN (SELECT transaction_id FROM created_shards)\n" +
+            "  ORDER BY end_time, transaction_id\n" +
+            "  LIMIT " + CLEANUP_TRANSACTIONS_BATCH_SIZE + ")")
     int deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
 }

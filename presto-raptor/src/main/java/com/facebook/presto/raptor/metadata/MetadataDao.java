@@ -62,7 +62,7 @@ public interface MetadataDao
 
     @SqlQuery("SELECT schema_name, table_name\n" +
             "FROM tables\n" +
-            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)")
+            "WHERE schema_name = COALESCE(:schemaName, schema_name)")
     @Mapper(SchemaTableNameMapper.class)
     List<SchemaTableName> listTables(
             @Bind("schemaName") String schemaName);
@@ -71,8 +71,8 @@ public interface MetadataDao
     List<String> listSchemaNames();
 
     @SqlQuery(TABLE_COLUMN_SELECT +
-            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
-            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
+            "WHERE schema_name = COALESCE(:schemaName, schema_name)\n" +
+            "  AND table_name = COALESCE(:tableName, table_name)\n" +
             "ORDER BY schema_name, table_name, ordinal_position")
     List<TableColumn> listTableColumns(
             @Bind("schemaName") String schemaName,
@@ -97,15 +97,15 @@ public interface MetadataDao
 
     @SqlQuery("SELECT schema_name, table_name, data\n" +
             "FROM views\n" +
-            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)")
+            "WHERE schema_name = COALESCE(:schemaName, schema_name)")
     @Mapper(SchemaTableNameMapper.class)
     List<SchemaTableName> listViews(
             @Bind("schemaName") String schemaName);
 
     @SqlQuery("SELECT schema_name, table_name, data\n" +
             "FROM views\n" +
-            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
-            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
+            "WHERE schema_name = COALESCE(:schemaName, schema_name)\n" +
+            "  AND table_name = COALESCE(:tableName, table_name)\n" +
             "ORDER BY schema_name, table_name\n")
     @Mapper(ViewResult.Mapper.class)
     List<ViewResult> getViews(
@@ -250,8 +250,8 @@ public interface MetadataDao
             "FROM tables\n" +
             "LEFT JOIN distributions\n" +
             "ON tables.distribution_id = distributions.distribution_id\n" +
-            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
-            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
+            "WHERE schema_name = COALESCE(:schemaName, schema_name)\n" +
+            "  AND table_name = COALESCE(:tableName, table_name)\n" +
             "ORDER BY table_id")
     @Mapper(TableMetadataRow.Mapper.class)
     List<TableMetadataRow> getTableMetadataRows(
@@ -263,8 +263,8 @@ public interface MetadataDao
             "WHERE table_id IN (\n" +
             "  SELECT table_id\n" +
             "  FROM tables\n" +
-            "  WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
-            "    AND (table_name = :tableName OR :tableName IS NULL))\n" +
+            "  WHERE schema_name = COALESCE(:schemaName, schema_name)\n" +
+            "    AND table_name = COALESCE(:tableName, table_name))\n" +
             "ORDER BY table_id")
     @Mapper(ColumnMetadataRow.Mapper.class)
     List<ColumnMetadataRow> getColumnMetadataRows(
@@ -274,8 +274,8 @@ public interface MetadataDao
     @SqlQuery("SELECT schema_name, table_name, create_time, update_time, table_version,\n" +
             "  shard_count, row_count, compressed_size, uncompressed_size\n" +
             "FROM tables\n" +
-            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
-            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
+            "WHERE schema_name = COALESCE(:schemaName, schema_name)\n" +
+            "  AND table_name = COALESCE(:tableName, table_name)\n" +
             "ORDER BY schema_name, table_name")
     @Mapper(TableStatsRow.Mapper.class)
     List<TableStatsRow> getTableStatsRows(

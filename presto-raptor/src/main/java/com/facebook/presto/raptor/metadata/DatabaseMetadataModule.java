@@ -58,7 +58,7 @@ public class DatabaseMetadataModule
                 config -> "mysql".equals(config.getDatabaseType()),
                 binder -> {
                     binder.install(new MySqlDataSourceModule());
-                    bindDaoSupplier(binder, ShardDao.class, JdbcShardDao.class);
+                    bindDaoSupplier(binder, ShardDao.class, MySqlShardDao.class);
                 }));
 
         install(installModuleIf(
@@ -66,7 +66,7 @@ public class DatabaseMetadataModule
                 config -> "postgresql".equals(config.getDatabaseType()),
                 binder -> {
                     binder.install(new PostgreSqlDataSourceModule());
-                    bindDaoSupplier(binder, ShardDao.class, JdbcShardDao.class);
+                    bindDaoSupplier(binder, ShardDao.class, PostgreSqlShardDao.class);
                 }));
 
         install(installModuleIf(

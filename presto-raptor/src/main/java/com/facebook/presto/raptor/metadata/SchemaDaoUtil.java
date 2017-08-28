@@ -30,10 +30,20 @@ public final class SchemaDaoUtil
 
     public static void createTablesWithRetry(IDBI dbi)
     {
+        createTablesWithRetry(dbi, false);
+    }
+
+    public static void createTablesWithRetry(IDBI dbi, boolean isPostgreSql)
+    {
         Duration delay = new Duration(2, TimeUnit.SECONDS);
         while (true) {
             try (Handle handle = dbi.open()) {
-                createTables(handle.attach(SchemaDao.class));
+                if (isPostgreSql) {
+                    createTables(handle.attach(PostgreSqlSchemaDao.class));
+                }
+                else {
+                    createTables(handle.attach(SchemaDao.class));
+                }
                 return;
             }
             catch (UnableToObtainConnectionException e) {
