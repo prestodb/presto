@@ -125,7 +125,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -706,7 +706,7 @@ public class OrcTester
                 type.writeSlice(blockBuilder, slice);
             }
             else if (type instanceof CharType) {
-                Slice slice = trimSpacesAndTruncateToLength(utf8Slice((String) value), type);
+                Slice slice = truncateToLengthAndTrimSpaces(utf8Slice((String) value), type);
                 type.writeSlice(blockBuilder, slice);
             }
             else if (VARBINARY.equals(type)) {

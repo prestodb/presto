@@ -74,28 +74,28 @@ public final class Chars
         return buffer;
     }
 
-    public static Slice trimSpacesAndTruncateToLength(Slice slice, Type type)
+    public static Slice truncateToLengthAndTrimSpaces(Slice slice, Type type)
     {
         requireNonNull(type, "type is null");
         if (!isCharType(type)) {
             throw new IllegalArgumentException("type must be the instance of CharType");
         }
-        return trimSpacesAndTruncateToLength(slice, CharType.class.cast(type));
+        return truncateToLengthAndTrimSpaces(slice, CharType.class.cast(type));
     }
 
-    public static Slice trimSpacesAndTruncateToLength(Slice slice, CharType charType)
+    public static Slice truncateToLengthAndTrimSpaces(Slice slice, CharType charType)
     {
         requireNonNull(charType, "charType is null");
-        return trimSpacesAndTruncateToLength(slice, charType.getLength());
+        return truncateToLengthAndTrimSpaces(slice, charType.getLength());
     }
 
-    public static Slice trimSpacesAndTruncateToLength(Slice slice, int maxLength)
+    public static Slice truncateToLengthAndTrimSpaces(Slice slice, int maxLength)
     {
         requireNonNull(slice, "slice is null");
         if (maxLength < 0) {
             throw new IllegalArgumentException("Max length must be greater or equal than zero");
         }
-        return truncateToLength(trimTrailingSpaces(slice), maxLength);
+        return trimTrailingSpaces(truncateToLength(slice, maxLength));
     }
 
     public static Slice trimTrailingSpaces(Slice slice)
