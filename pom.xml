@@ -57,7 +57,7 @@
         <dep.nifty.version>0.15.1</dep.nifty.version>
         <dep.swift.version>0.15.2</dep.swift.version>
 
-        <!-- Remove once Presto is on airbase >= 67 -->
+        <!-- TODO: Remove once Presto is on airbase >= 67 -->
         <dep.junit-jupiter.version>5.0.0-RC2</dep.junit-jupiter.version>
         <dep.junit-platform.version>1.0.0-RC2</dep.junit-platform.version>
 
@@ -1044,7 +1044,7 @@
                     </configuration>
                 </plugin>
 
-                <!-- Remove once Presto is on airbase >= 67 -->
+                <!-- TODO: Remove once Presto is on airbase >= 67 -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
