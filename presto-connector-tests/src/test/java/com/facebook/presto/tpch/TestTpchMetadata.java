@@ -14,9 +14,9 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.connector.meta.SupportedFeatures;
-import com.facebook.presto.connector.unittest.BaseMetadataTest;
-import com.facebook.presto.connector.unittest.MetadataSchemaTest;
-import com.facebook.presto.connector.unittest.MetadataTableTest;
+import com.facebook.presto.connector.unittest.TestBaseMetadata;
+import com.facebook.presto.connector.unittest.TestMetadataSchema;
+import com.facebook.presto.connector.unittest.TestMetadataTable;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -39,7 +39,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  */
 @SupportedFeatures({})
 public class TestTpchMetadata
-        implements BaseMetadataTest, MetadataSchemaTest, MetadataTableTest
+        implements TestBaseMetadata, TestMetadataSchema, TestMetadataTable
 {
     @Override
     public Connector getConnector()
