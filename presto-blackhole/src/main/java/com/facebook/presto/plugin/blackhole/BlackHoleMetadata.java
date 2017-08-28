@@ -245,13 +245,6 @@ public class BlackHoleMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        return new ConnectorTableLayout(
-                handle,
-                Optional.empty(),
-                TupleDomain.none(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableList.of());
+        return new ConnectorTableLayout(handle);
     }
 }
