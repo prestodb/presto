@@ -86,20 +86,6 @@ public class TestPickTableLayout
     }
 
     @Test
-    public void doesNotFireIfTableScanHasConstraint()
-    {
-        tester().assertThat(pickTableLayout)
-                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
-                        p.tableScan(
-                                nationTableHandle,
-                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                expression("nationkey = BIGINT '44'"),
-                                Optional.of(nationTableLayoutHandle))))
-                .doesNotFire();
-    }
-
-    @Test
     public void ruleAddedTableLayoutToTableScan()
     {
         // The TPCH connector returns a TableLayout, but that TableLayout doesn't handle any of the constraints.
