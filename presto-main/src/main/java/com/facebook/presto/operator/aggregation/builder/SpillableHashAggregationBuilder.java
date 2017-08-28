@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
-import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.MergeHashSort;
 import com.facebook.presto.operator.OperatorContext;
@@ -58,7 +56,6 @@ public class SpillableHashAggregationBuilder
     private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
     private Optional<MergeHashSort> mergeHashSort = Optional.empty();
     private ListenableFuture<?> spillInProgress = immediateFuture(null);
-    private final LocalMemoryContext memoryContext;
     private final JoinCompiler joinCompiler;
 
     // todo get rid of that and only use revocable memory
@@ -91,9 +88,6 @@ public class SpillableHashAggregationBuilder
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
         this.joinCompiler = joinCompiler;
-
-        AbstractAggregatedMemoryContext systemMemoryContext = operatorContext.getSystemMemoryContext();
-        this.memoryContext = systemMemoryContext.newLocalMemoryContext();
 
         rebuildHashAggregationBuilder();
     }
@@ -189,10 +183,10 @@ public class SpillableHashAggregationBuilder
     @Override
     public void close()
     {
-        if (hashAggregationBuilder != null) {
-            hashAggregationBuilder.close();
-        }
         try (Closer closer = Closer.create()) {
+            if (hashAggregationBuilder != null) {
+                closer.register(hashAggregationBuilder::close);
+            }
             merger.ifPresent(closer::register);
             spiller.ifPresent(closer::register);
             mergeHashSort.ifPresent(closer::register);
@@ -278,9 +272,10 @@ public class SpillableHashAggregationBuilder
         if (hashAggregationBuilder != null) {
             hashCollisions += hashAggregationBuilder.getHashCollisions();
             expectedHashCollisions += hashAggregationBuilder.getExpectedHashCollisions();
+            hashAggregationBuilder.close();
         }
 
-        this.hashAggregationBuilder = new InMemoryHashAggregationBuilder(
+        hashAggregationBuilder = new InMemoryHashAggregationBuilder(
                 accumulatorFactories,
                 step,
                 expectedGroups,
@@ -290,6 +285,6 @@ public class SpillableHashAggregationBuilder
                 operatorContext,
                 DataSize.succinctBytes(0),
                 joinCompiler);
-        this.emptyHashAggregationBuilderSize = this.hashAggregationBuilder.getSizeInMemory();
+        emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }
 }

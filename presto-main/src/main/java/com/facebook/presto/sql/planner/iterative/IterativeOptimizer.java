@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -76,7 +77,7 @@ public class IterativeOptimizer
         }
 
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
+        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
         Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);

@@ -103,6 +103,7 @@ public final class HiveQueryRunner
                     .put("hive.time-zone", TIME_ZONE.getID())
                     .put("hive.security", security)
                     .put("hive.max-partitions-per-scan", "1000")
+                    .put("hive.assume-canonical-partition-keys", "true")
                     .build();
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                     .putAll(hiveProperties)
