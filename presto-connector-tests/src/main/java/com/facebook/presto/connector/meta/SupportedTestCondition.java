@@ -98,11 +98,9 @@ public class SupportedTestCondition
         Set<ConnectorFeature> requiredFeatures = Stream.concat(
                 streamOfRequired(testMethod.get()),
                 classRequires.stream())
-                .distinct()
                 .collect(toImmutableSet());
 
         Set<ConnectorFeature> supportedFeatures = streamOfSupported(testClass)
-                .distinct()
                 .collect(toImmutableSet());
 
         Set<ConnectorFeature> missingFeatures = Sets.difference(requiredFeatures, supportedFeatures);
