@@ -45,6 +45,11 @@ public class Patterns
         return typeOf(DeleteNode.class);
     }
 
+    public static Pattern<EnforceSingleRowNode> enforceSingleRow()
+    {
+        return typeOf(EnforceSingleRowNode.class);
+    }
+
     public static Pattern<ExchangeNode> exchange()
     {
         return typeOf(ExchangeNode.class);

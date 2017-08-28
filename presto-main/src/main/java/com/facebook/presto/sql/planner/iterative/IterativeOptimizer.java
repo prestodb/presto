@@ -31,7 +31,6 @@ import io.airlift.units.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
@@ -75,15 +74,20 @@ public class IterativeOptimizer
             return plan;
         }
 
+        Memo memo = explore(plan, session, symbolAllocator, idAllocator);
+        return memo.extract();
+    }
+
+    public Memo explore(PlanNode plan, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
+        Lookup lookup = memo.getLookup();
         Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session);
         exploreGroup(memo.getRootGroup(), context, matcher);
-
-        return memo.extract();
+        return memo;
     }
 
     private boolean exploreGroup(int group, Context context, Matcher matcher)
@@ -127,10 +131,20 @@ public class IterativeOptimizer
                     continue;
                 }
 
-                Optional<PlanNode> transformed = transform(node, rule, matcher, context);
+                Rule.Result result = transform(node, rule, matcher, context);
 
-                if (transformed.isPresent()) {
-                    node = context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
+                if (result.getTransformedPlan().isPresent()) {
+                    node = context.getMemo().replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+
+                    done = false;
+                    progress = true;
+                }
+
+                if (result.getTrait().isPresent()) {
+                    Trait trait = result.getTrait().get();
+
+                    checkState(trait.getType().isEquivalenceGroupApplicable(), "Only group trait are currently supported");
+                    context.getMemo().setGroupTrait(group, trait);
 
                     done = false;
                     progress = true;
@@ -141,14 +155,14 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private <T> Optional<PlanNode> transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
+    private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
     {
-        Optional<PlanNode> transformed;
+        Rule.Result transformed;
 
         Match<T> match = matcher.match(rule.getPattern(), node);
 
         if (match.isEmpty()) {
-            return Optional.empty();
+            return Rule.Result.empty();
         }
 
         long duration;

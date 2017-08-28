@@ -28,8 +28,8 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.nonEmpty;
+import static com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait.scalar;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
@@ -83,17 +83,17 @@ public class TransformCorrelatedScalarAggregationToJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
-        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
-
-        if (!isScalar(subquery, context.getLookup())) {
-            return Optional.empty();
+        if (!context.getLookup().isTraitSatisfied(lateralJoinNode.getSubquery(), scalar())) {
+            return Result.empty();
         }
+
+        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
 
         Optional<AggregationNode> aggregation = findAggregation(subquery, context.getLookup());
         if (!(aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty())) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionRegistry, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
@@ -101,10 +101,10 @@ public class TransformCorrelatedScalarAggregationToJoin
         PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
 
         if (rewrittenNode instanceof LateralJoinNode) {
-            return Optional.empty();
+            return Result.empty();
         }
 
-        return Optional.of(rewrittenNode);
+        return Result.replace(rewrittenNode);
     }
 
     private static Optional<AggregationNode> findAggregation(PlanNode rootNode, Lookup lookup)

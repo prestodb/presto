@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
@@ -54,7 +53,7 @@ public class PushProjectionThroughUnion
     }
 
     @Override
-    public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
+    public Result apply(ProjectNode parent, Captures captures, Context context)
     {
         UnionNode source = captures.get(CHILD);
 
@@ -86,7 +85,7 @@ public class PushProjectionThroughUnion
             outputLayout.forEach(symbol -> mappings.put(symbol, projectSymbolMapping.get(symbol)));
         }
 
-        return Optional.of(new UnionNode(parent.getId(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
+        return Result.replace(new UnionNode(parent.getId(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
     }
 
     private static Expression translateExpression(Expression inputExpression, Map<Symbol, SymbolReference> symbolMapping)

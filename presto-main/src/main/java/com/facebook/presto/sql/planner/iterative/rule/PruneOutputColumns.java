@@ -17,10 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableSet;
-
-import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.output;
@@ -37,11 +34,12 @@ public class PruneOutputColumns
     }
 
     @Override
-    public Optional<PlanNode> apply(OutputNode outputNode, Captures captures, Context context)
+    public Result apply(OutputNode outputNode, Captures captures, Context context)
     {
-        return restrictChildOutputs(
+        return Result.fromOptional(
+                restrictChildOutputs(
                 context.getIdAllocator(),
                 outputNode,
-                ImmutableSet.copyOf(outputNode.getOutputSymbols()));
+                ImmutableSet.copyOf(outputNode.getOutputSymbols())));
     }
 }

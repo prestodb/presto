@@ -22,22 +22,26 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.Trait;
+import com.facebook.presto.sql.planner.iterative.TraitType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
@@ -51,6 +55,7 @@ public class RuleAssert
     private final Metadata metadata;
     private final CostCalculator costCalculator;
     private Session session;
+    private Set<Rule<?>> beforeRules = ImmutableSet.of();
     private final Rule<?> rule;
 
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -83,6 +88,15 @@ public class RuleAssert
         return this;
     }
 
+    public RuleAssert withBefore(Set<Rule<?>> rules)
+    {
+        beforeRules = ImmutableSet.<Rule<?>>builder()
+                .addAll(beforeRules)
+                .addAll(rules)
+                .build();
+        return this;
+    }
+
     public RuleAssert on(Function<PlanBuilder, PlanNode> planProvider)
     {
         checkArgument(plan == null, "plan has already been set");
@@ -93,7 +107,7 @@ public class RuleAssert
         return this;
     }
 
-    public void doesNotFire()
+    public RuleAssert doesNotFire()
     {
         RuleApplication ruleApplication = applyRule();
 
@@ -103,9 +117,11 @@ public class RuleAssert
                     rule.getClass().getName(),
                     inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, costCalculator, session, 2))));
         }
+
+        return this;
     }
 
-    public void matches(PlanMatchPattern pattern)
+    public RuleAssert matches(PlanMatchPattern pattern)
     {
         RuleApplication ruleApplication = applyRule();
         Map<Symbol, Type> types = ruleApplication.types;
@@ -141,13 +157,53 @@ public class RuleAssert
             assertPlan(session, metadata, costCalculator, new Plan(actual, types, planNodeCosts), ruleApplication.lookup, pattern);
             return null;
         });
+
+        return this;
+    }
+
+    public <T extends Trait> RuleAssert satisfies(T trait)
+    {
+        RuleApplication ruleApplication = applyRule();
+        if (!ruleApplication.satisfies(trait)) {
+            Optional<T> actual = ruleApplication.lookup.resolveTrait(ruleApplication.planNode, trait.getType());
+            fail(String.format("Plan node does not satisfy trait: %s, but it has: %s", trait, actual));
+        }
+        return this;
+    }
+
+    public <T extends Trait> RuleAssert doesNotSatisfy(T trait)
+    {
+        RuleApplication ruleApplication = applyRule();
+        if (ruleApplication.satisfies(trait)) {
+            Optional<T> actual = ruleApplication.lookup.resolveTrait(ruleApplication.planNode, trait.getType());
+            fail(String.format("Expected plan node to not satisfy trait: %s, but it has: %s", trait, actual.get()));
+        }
+        return this;
+    }
+
+    public <T extends Trait> RuleAssert hasNo(TraitType<T> traitType)
+    {
+        RuleApplication ruleApplication = applyRule();
+        Optional<T> trait = ruleApplication.lookup.resolveTrait(ruleApplication.planNode, traitType);
+        if (trait.isPresent()) {
+            fail(String.format("Expected plan node to not have trait, but found: %s", trait.get()));
+        }
+        return this;
     }
 
     private RuleApplication applyRule()
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
-        Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
+        Memo memo;
+        if (beforeRules.isEmpty()) {
+            memo = new Memo(idAllocator, plan);
+        }
+        else {
+            IterativeOptimizer iterativeOptimizer = new IterativeOptimizer(new StatsRecorder(), beforeRules);
+            memo = iterativeOptimizer.explore(plan, session, symbolAllocator, idAllocator);
+        }
+
+        Lookup lookup = memo.getLookup();
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
@@ -159,15 +215,15 @@ public class RuleAssert
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
         Match<T> match = matcher.match(rule.getPattern(), planNode);
 
-        Optional<PlanNode> result;
+        Rule.Result result;
         if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
-            result = Optional.empty();
+            result = Rule.Result.empty();
         }
         else {
             result = rule.apply(match.value(), match.captures(), context);
         }
 
-        return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);
+        return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), planNode, result);
     }
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
@@ -220,12 +276,14 @@ public class RuleAssert
     {
         private final Lookup lookup;
         private final Map<Symbol, Type> types;
-        private final Optional<PlanNode> result;
+        private final PlanNode planNode;
+        private final Rule.Result result;
 
-        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, PlanNode planNode, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
+            this.planNode = requireNonNull(planNode, "planNode is null");
             this.result = requireNonNull(result, "result is null");
         }
 
@@ -236,7 +294,12 @@ public class RuleAssert
 
         public PlanNode getResult()
         {
-            return result.orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+            return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+        }
+
+        public <T extends Trait> boolean satisfies(T trait)
+        {
+            return lookup.isTraitSatisfied(planNode, trait);
         }
     }
 }

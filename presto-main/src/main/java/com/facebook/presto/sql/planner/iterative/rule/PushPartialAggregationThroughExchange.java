@@ -69,7 +69,7 @@ public class PushPartialAggregationThroughExchange
     }
 
     @Override
-    public Optional<PlanNode> apply(AggregationNode aggregationNode, Captures captures, Context context)
+    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
         boolean decomposable = aggregationNode.isDecomposable(functionRegistry);
 
@@ -79,16 +79,16 @@ public class PushPartialAggregationThroughExchange
             checkState(
                     decomposable,
                     "Distributed aggregation with empty grouping set requires partial but functions are not decomposable");
-            return Optional.of(split(aggregationNode, context));
+            return Result.replace(split(aggregationNode, context));
         }
 
         if (!decomposable) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
         if (!(childNode instanceof ExchangeNode)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         ExchangeNode exchangeNode = (ExchangeNode) childNode;
@@ -97,7 +97,7 @@ public class PushPartialAggregationThroughExchange
         // the cardinality of the stream (i.e., gather or repartition)
         if ((exchangeNode.getType() != GATHER && exchangeNode.getType() != REPARTITION) ||
                 exchangeNode.getPartitioningScheme().isReplicateNullsAndAny()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         if (exchangeNode.getType() == REPARTITION) {
@@ -112,24 +112,24 @@ public class PushPartialAggregationThroughExchange
                     .collect(Collectors.toList());
 
             if (!aggregationNode.getGroupingKeys().containsAll(partitioningColumns)) {
-                return Optional.empty();
+                return Result.empty();
             }
         }
 
         // currently, we only support plans that don't use pre-computed hash functions
         if (aggregationNode.getHashSymbol().isPresent() || exchangeNode.getPartitioningScheme().getHashColumn().isPresent()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         switch (aggregationNode.getStep()) {
             case SINGLE:
                 // Split it into a FINAL on top of a PARTIAL and
-                return Optional.of(split(aggregationNode, context));
+                return Result.replace(split(aggregationNode, context));
             case PARTIAL:
                 // Push it underneath each branch of the exchange
-                return Optional.of(pushPartial(aggregationNode, exchangeNode, context));
+                return Result.replace(pushPartial(aggregationNode, exchangeNode, context));
             default:
-                return Optional.empty();
+                return Result.empty();
         }
     }
 

@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
@@ -79,7 +78,7 @@ public class PushProjectionThroughExchange
     }
 
     @Override
-    public Optional<PlanNode> apply(ProjectNode project, Captures captures, Context context)
+    public Result apply(ProjectNode project, Captures captures, Context context)
     {
         ExchangeNode exchange = captures.get(CHILD);
 
@@ -144,7 +143,7 @@ public class PushProjectionThroughExchange
                 inputsBuilder.build());
 
         // we need to strip unnecessary symbols (hash, partitioning columns).
-        return Optional.of(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
+        return Result.replace(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
     }
 
     private static boolean isSymbolToSymbolProjection(ProjectNode project)

@@ -22,6 +22,9 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
+
 public interface Rule<T>
 {
     /**
@@ -34,7 +37,7 @@ public interface Rule<T>
         return true;
     }
 
-    Optional<PlanNode> apply(T node, Captures captures, Context context);
+    Result apply(T node, Captures captures, Context context);
 
     interface Context
     {
@@ -45,5 +48,54 @@ public interface Rule<T>
         SymbolAllocator getSymbolAllocator();
 
         Session getSession();
+    }
+
+    class Result
+    {
+        @Deprecated
+        public static Result fromOptional(Optional<PlanNode> transformedPlan)
+        {
+            return new Result(transformedPlan, Optional.empty());
+        }
+
+        public static Result empty()
+        {
+            return new Result(Optional.empty(), Optional.empty());
+        }
+
+        public static Result replace(PlanNode transformedPlan)
+        {
+            return new Result(Optional.of(transformedPlan), Optional.empty());
+        }
+
+        public static Result set(Trait trait)
+        {
+            return new Result(Optional.empty(), Optional.of(trait));
+        }
+
+        private final Optional<PlanNode> transformedPlan;
+        private final Optional<Trait> trait;
+
+        private Result(Optional<PlanNode> transformedPlan, Optional<Trait> trait)
+        {
+            checkArgument(!(transformedPlan.isPresent() && trait.isPresent()), "Either transformed plan or trait can be set");
+            this.transformedPlan = requireNonNull(transformedPlan, "transformedPlan is null");
+            this.trait = requireNonNull(trait, "trait is null");
+        }
+
+        public Optional<PlanNode> getTransformedPlan()
+        {
+            return transformedPlan;
+        }
+
+        public Optional<Trait> getTrait()
+        {
+            return trait;
+        }
+
+        public boolean isPresent()
+        {
+            return transformedPlan.isPresent() || trait.isPresent();
+        }
     }
 }

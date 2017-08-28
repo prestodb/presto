@@ -18,11 +18,9 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 
 import java.util.Iterator;
-import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
@@ -45,15 +43,15 @@ public class SwapAdjacentWindowsBySpecifications
     }
 
     @Override
-    public Optional<PlanNode> apply(WindowNode parent, Captures captures, Context context)
+    public Result apply(WindowNode parent, Captures captures, Context context)
     {
         WindowNode windowNode = captures.get(CHILD);
 
         if ((compare(parent, windowNode) < 0) && (!dependsOn(parent, windowNode))) {
-            return Optional.of(transpose(parent, windowNode));
+            return Result.replace(transpose(parent, windowNode));
         }
         else {
-            return Optional.empty();
+            return Result.empty();
         }
     }
 

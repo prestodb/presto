@@ -14,12 +14,10 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.function.Function;
+import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public interface Lookup
@@ -35,17 +33,35 @@ public interface Lookup
     @Deprecated
     default PlanNode resolve(PlanNode node)
     {
-        return getOnlyElement(resolveGroup(node));
+        if (node instanceof GroupReference) {
+            return getOnlyElement(resolveGroup(node));
+        }
+        return node;
     }
 
     /**
      * Resolves nodes by materializing GroupReference nodes
      * representing symbolic references to other nodes.
      * <p>
-     * If the node is not a GroupReference, it returns the
-     * singleton of the argument node.
+     * @throws IllegalArgumentException if the node is not a GroupReference
      */
     List<PlanNode> resolveGroup(PlanNode node);
+
+    default <T extends Trait> boolean isTraitSatisfied(PlanNode node, T required)
+    {
+        Optional<T> actual = resolveTraitSet(node).getTrait(required.getType());
+        if (actual.isPresent()) {
+            return actual.get().satisfies(required);
+        }
+        return false;
+    }
+
+    default <T extends Trait> Optional<T> resolveTrait(PlanNode node, TraitType<T> traitType)
+    {
+        return resolveTraitSet(node).getTrait(traitType);
+    }
+
+    TraitSet resolveTraitSet(PlanNode node);
 
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
@@ -53,20 +69,19 @@ public interface Lookup
      */
     static Lookup noLookup()
     {
-        return node -> {
-            verify(!(node instanceof GroupReference), "Unexpected GroupReference");
-            return ImmutableList.of(node);
-        };
-    }
-
-    static Lookup from(Function<GroupReference, List<PlanNode>> resolver)
-    {
-        return node -> {
-            if (node instanceof GroupReference) {
-                return resolver.apply((GroupReference) node);
+        return new Lookup()
+        {
+            @Override
+            public List<PlanNode> resolveGroup(PlanNode node)
+            {
+                throw new UnsupportedOperationException();
             }
 
-            return ImmutableList.of(node);
+            @Override
+            public TraitSet resolveTraitSet(PlanNode node)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 }

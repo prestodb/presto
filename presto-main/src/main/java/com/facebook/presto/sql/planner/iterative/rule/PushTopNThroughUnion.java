@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -53,7 +52,7 @@ public class PushTopNThroughUnion
     }
 
     @Override
-    public Optional<PlanNode> apply(TopNNode topNNode, Captures captures, Context context)
+    public Result apply(TopNNode topNNode, Captures captures, Context context)
     {
         UnionNode unionNode = captures.get(CHILD);
 
@@ -71,7 +70,7 @@ public class PushTopNThroughUnion
             sources.add(symbolMapper.build().map(topNNode, source, context.getIdAllocator().getNextId()));
         }
 
-        return Optional.of(new UnionNode(
+        return Result.replace(new UnionNode(
                 unionNode.getId(),
                 sources.build(),
                 unionNode.getSymbolMapping(),

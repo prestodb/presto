@@ -20,11 +20,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.Optional;
-
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.iterative.trait.CardinalityTrait.scalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
-import static java.util.Optional.empty;
 
 public class RemoveUnreferencedScalarLateralNodes
         implements Rule<LateralJoinNode>
@@ -38,24 +35,24 @@ public class RemoveUnreferencedScalarLateralNodes
     }
 
     @Override
-    public Optional<PlanNode> apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
         PlanNode input = lateralJoinNode.getInput();
         PlanNode subquery = lateralJoinNode.getSubquery();
 
         if (isUnreferencedScalar(input, context.getLookup())) {
-            return Optional.of(subquery);
+            return Result.replace(subquery);
         }
 
         if (isUnreferencedScalar(subquery, context.getLookup())) {
-            return Optional.of(input);
+            return Result.replace(input);
         }
 
-        return empty();
+        return Result.empty();
     }
 
-    private boolean isUnreferencedScalar(PlanNode input, Lookup lookup)
+    private boolean isUnreferencedScalar(PlanNode planNode, Lookup lookup)
     {
-        return input.getOutputSymbols().isEmpty() && isScalar(input, lookup);
+        return planNode.getOutputSymbols().isEmpty() && lookup.isTraitSatisfied(planNode, scalar());
     }
 }

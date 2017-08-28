@@ -65,20 +65,20 @@ public class EliminateCrossJoins
     }
 
     @Override
-    public Optional<PlanNode> apply(JoinNode node, Captures captures, Context context)
+    public Result apply(JoinNode node, Captures captures, Context context)
     {
         JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup());
         if (joinGraph.size() < 3) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         List<Integer> joinOrder = getJoinOrder(joinGraph);
         if (isOriginalOrder(joinOrder)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode replacement = buildJoinTree(node.getOutputSymbols(), joinGraph, joinOrder, context.getIdAllocator());
-        return Optional.of(replacement);
+        return Result.replace(replacement);
     }
 
     public static boolean isOriginalOrder(List<Integer> joinOrder)

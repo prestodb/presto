@@ -17,12 +17,10 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -42,16 +40,17 @@ public class PruneSemiJoinFilteringSourceColumns
     }
 
     @Override
-    public Optional<PlanNode> apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
+    public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
     {
         Set<Symbol> requiredFilteringSourceInputs = Streams.concat(
                 Stream.of(semiJoinNode.getFilteringSourceJoinSymbol()),
                 semiJoinNode.getFilteringSourceHashSymbol().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)
-                .map(newFilteringSource ->
-                        semiJoinNode.replaceChildren(ImmutableList.of(
-                                semiJoinNode.getSource(), newFilteringSource)));
+        return Result.fromOptional(
+                restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)
+                        .map(newFilteringSource ->
+                                semiJoinNode.replaceChildren(ImmutableList.of(
+                                        semiJoinNode.getSource(), newFilteringSource))));
     }
 }

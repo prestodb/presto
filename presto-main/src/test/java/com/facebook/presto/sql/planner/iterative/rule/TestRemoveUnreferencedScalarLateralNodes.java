@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.trait.CardinalityTraitCalculationRuleSet;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -28,6 +29,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
     public void testRemoveUnreferencedInput()
     {
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.lateral(
                         emptyList(),
                         p.values(p.symbol("x", BigintType.BIGINT)),
@@ -39,6 +41,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
     public void testRemoveUnreferencedSubquery()
     {
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.lateral(
                         emptyList(),
                         p.values(emptyList(), ImmutableList.of(emptyList())),
@@ -50,6 +53,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
     public void testDoesNotFire()
     {
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
+                .withBefore(new CardinalityTraitCalculationRuleSet().rules())
                 .on(p -> p.lateral(
                         emptyList(),
                         p.values(),
