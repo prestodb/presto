@@ -143,7 +143,8 @@ public class SimplifyExpressions
                     node.getFilter().map(this::simplifyExpression),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),
-                    node.getDistributionType());
+                    node.getDistributionType(),
+                    node.getDynamicFilterAssignments());
         }
 
         @Override

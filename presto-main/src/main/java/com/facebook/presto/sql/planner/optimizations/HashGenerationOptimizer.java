@@ -359,7 +359,8 @@ public class HashGenerationOptimizer
                             node.getFilter(),
                             leftHashSymbol,
                             rightHashSymbol,
-                            node.getDistributionType()),
+                            node.getDistributionType(),
+                            node.getDynamicFilterAssignments()),
                     hashSymbolsWithParentPreferences);
         }
 

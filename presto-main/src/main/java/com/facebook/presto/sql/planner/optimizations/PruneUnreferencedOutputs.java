@@ -219,7 +219,7 @@ public class PruneUnreferencedOutputs
                         .collect(toImmutableList());
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), outputSymbols, node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
+            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), outputSymbols, node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.getDynamicFilterAssignments());
         }
 
         @Override

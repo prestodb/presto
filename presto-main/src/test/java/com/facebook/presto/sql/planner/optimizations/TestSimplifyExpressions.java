@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -158,7 +159,8 @@ public class TestSimplifyExpressions
                 Optional.of(expression),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Assignments.of());
         JoinNode simplifiedNode = (JoinNode) SIMPLIFIER.optimize(
                 joinNode,
                 TEST_SESSION,
