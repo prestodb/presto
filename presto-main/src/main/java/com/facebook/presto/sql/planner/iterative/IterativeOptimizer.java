@@ -76,7 +76,7 @@ public class IterativeOptimizer
         }
 
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
+        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)).stream());
         Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
