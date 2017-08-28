@@ -1,0 +1,46 @@
+hdfs:
+  username: hdfs/hadoop-master@LABS.TERADATA.COM
+  webhdfs:
+    authentication: SPNEGO
+    keytab: /etc/hadoop/conf/hdfs.keytab
+    spnego_use_canonical_hostname: false
+
+databases:
+  hive:
+    host: hadoop-master
+    jdbc_url: jdbc:hive2://${databases.hive.host}:10000/default;principal=hive/hadoop-master@LABS.TERADATA.COM;auth=kerberos;kerberosAuthType=fromSubject;
+    jdbc_user: hdfs
+    jdbc_password: na
+    kerberos_principal: hdfs/hadoop-master@LABS.TERADATA.COM
+    kerberos_keytab: /etc/hadoop/conf/hdfs.keytab
+
+  presto:
+    host: presto-master.docker.cluster
+    port: 7778
+    http_port: 8080
+    https_port: ${databases.presto.port}
+    server_address: https://${databases.presto.host}:${databases.presto.https_port}
+    jdbc_url: "jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?\
+      SSL=true&\
+      SSLTrustStorePath=${databases.presto.https_keystore_path}&\
+      SSLTrustStorePassword=${databases.presto.https_keystore_password}&\
+      user=presto-client&\
+      KerberosRemoteServiceName=${databases.presto.kerberos_service_name}&\
+      KerberosPrincipal=${databases.presto.kerberos_principal}&\
+      KerberosKeytabPath=${databases.presto.kerberos_keytab}&\
+      KerberosConfigPath=${databases.presto.kerberos_config_path}&\
+      KerberosUseCanonicalHostname=${databases.presto.kerberos_use_canonical_hostname}"
+    configured_hdfs_user: hdfs
+    https_keystore_path: /docker/volumes/conf/presto/etc/docker.cluster.jks
+    https_keystore_password: '123456'
+    kerberos_principal: presto-client/presto-master.docker.cluster@LABS.TERADATA.COM
+    kerberos_keytab: /etc/presto/conf/presto-client.keytab
+    kerberos_config_path: /etc/krb5.conf
+    kerberos_service_name: presto-server
+    kerberos_use_canonical_hostname: false
+    cli_kerberos_authentication: true
+    cli_kerberos_principal: ${databases.presto.kerberos_principal}
+    cli_kerberos_keytab: ${databases.presto.kerberos_keytab}
+    cli_kerberos_config_path: ${databases.presto.kerberos_config_path}
+    cli_kerberos_service_name: ${databases.presto.kerberos_service_name}
+    cli_kerberos_use_canonical_hostname: ${databases.presto.kerberos_use_canonical_hostname}
