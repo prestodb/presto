@@ -45,7 +45,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTI
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -280,7 +280,7 @@ public class SliceDictionaryStreamReader
                     value = truncateToLength(value, type);
                 }
                 if (isCharType(type)) {
-                    value = trimSpacesAndTruncateToLength(value, type);
+                    value = truncateToLengthAndTrimSpaces(value, type);
                 }
                 dictionary[dictionaryOutputOffset + i] = value;
             }

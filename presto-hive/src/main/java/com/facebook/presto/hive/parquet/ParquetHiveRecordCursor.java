@@ -77,7 +77,7 @@ import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.b
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.getParquetTupleDomain;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
@@ -597,7 +597,7 @@ public class ParquetHiveRecordCursor
                 slices[fieldIndex] = truncateToLength(wrappedBuffer(value.getBytes()), type);
             }
             else if (isCharType(type)) {
-                slices[fieldIndex] = trimSpacesAndTruncateToLength(wrappedBuffer(value.getBytes()), type);
+                slices[fieldIndex] = truncateToLengthAndTrimSpaces(wrappedBuffer(value.getBytes()), type);
             }
             else {
                 slices[fieldIndex] = wrappedBuffer(value.getBytes());
@@ -1289,7 +1289,7 @@ public class ParquetHiveRecordCursor
                 type.writeSlice(builder, truncateToLength(wrappedBuffer(value.getBytes()), type));
             }
             else if (isCharType(type)) {
-                type.writeSlice(builder, trimSpacesAndTruncateToLength(wrappedBuffer(value.getBytes()), type));
+                type.writeSlice(builder, truncateToLengthAndTrimSpaces(wrappedBuffer(value.getBytes()), type));
             }
             else {
                 type.writeSlice(builder, wrappedBuffer(value.getBytes()));
