@@ -34,19 +34,20 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Arrays.stream;
+import static java.util.Collections.emptyList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public interface BaseMetadataTest
-        extends SPITest
+public interface TestBaseMetadata
+        extends TestSPI
 {
     default List<String> systemSchemas()
     {
-        return ImmutableList.of();
+        return emptyList();
     }
 
     default List<SchemaTableName> systemTables()
     {
-        return ImmutableList.of();
+        return emptyList();
     }
 
     /*
@@ -77,7 +78,7 @@ public interface BaseMetadataTest
     default void testEmptyMetadata()
             throws Exception
     {
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(emptyList());
 
         withMetadata(
                 ImmutableList.of(
@@ -86,13 +87,13 @@ public interface BaseMetadataTest
     }
 
     /*
-     * Arguably, this belongs in MetadataTableTest. Unfortunately many
+     * Arguably, this belongs in TestMetadataTable. Unfortunately many
      * connectors don't support CREATE_TABLE, but do support CREATE_TABLE_AS.
-     * As a result, MetadataTableTest is written in terms of CREATE_TABLE_AS,
+     * As a result, TestMetadataTable is written in terms of CREATE_TABLE_AS,
      * and is annotated with @RequiredFeatures({..., CREATE_TABLE_AS, ...) at
      * the class level.
      *
-     * Moving this to MetadataTableTest would require either:
+     * Moving this to TestMetadataTable would require either:
      * 1. Annotating every other methos than this as requiring CREATE_TABLE_AS.
      * 2. Adding a way to unrequire previously required dependencies.
      *
@@ -104,7 +105,7 @@ public interface BaseMetadataTest
     default void testCreateDropTable()
             throws Exception
     {
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(emptyList());
         String tableName = "table";
         SchemaTableName schemaTableName = tableInDefaultSchema(tableName);
 
@@ -132,6 +133,13 @@ public interface BaseMetadataTest
         return new SchemaTablePrefix(schemaTableName.getSchemaName(), schemaTableName.getTableName());
     }
 
+    /*
+     * Why not varargs?
+     *
+     * Unfortunate side-effect of having this in an interface: Can't have
+     * default final methods, meaning we can't annotate these @SafeVarargs to
+     * suppress the warning that otherwise results.
+     */
     default void withMetadata(List<Consumer<ConnectorMetadata>> consumers)
     {
         consumers.forEach(this::withMetadata);

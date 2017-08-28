@@ -26,7 +26,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public interface CreatesSchemas
-        extends SPITest
+        extends TestSPI
 {
     @Override
     default SchemaTableName tableInDefaultSchema(String tableName)
@@ -49,11 +49,11 @@ public interface CreatesSchemas
     class Schema
             implements Closeable
     {
-        private final SPITest test;
+        private final TestSPI test;
         private final ConnectorSession session;
         private final String name;
 
-        public Schema(SPITest test, ConnectorSession session, String name)
+        public Schema(TestSPI test, ConnectorSession session, String name)
         {
             this.test = requireNonNull(test, "test is null");
             this.session = requireNonNull(session, "session is null");

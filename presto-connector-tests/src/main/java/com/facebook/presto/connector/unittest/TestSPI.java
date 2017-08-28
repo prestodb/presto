@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 
 @ExtendWith(SupportedTestCondition.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public interface SPITest
+public interface TestSPI
 {
     Connector getConnector();
 
@@ -72,7 +72,7 @@ public interface SPITest
      * Run callable while the schemas listed in schemaNames exist.
      *
      * For connectors that support creating and dropping schemas, this may
-     * include creating and dropping the schemas. Classes implementing SPITest
+     * include creating and dropping the schemas. Classes implementing TestSPI
      * may implement CreatesSchemas to avoid the need to implement this themselves.
      *
      * For connectors that do NOT support creating and dropping schemas
@@ -91,6 +91,12 @@ public interface SPITest
         throw new UnsupportedOperationException("Concrete classes must override this method");
     }
 
+    /*
+     * Some connectors don't support certain combinations of operations in the
+     * same transaction. E.g. creating a schema and listing the schemas. Tests
+     * meant to run against all connectors will need to be careful about
+     * combining metadata operations in the same consumer.
+     */
     default void withMetadata(Consumer<ConnectorMetadata> consumer)
     {
         Connector connector = getConnector();
@@ -116,11 +122,11 @@ public interface SPITest
     class Table
             implements Closeable
     {
-        private final SPITest test;
+        private final TestSPI test;
         private final ConnectorSession session;
         private final ConnectorTableMetadata tableMetadata;
 
-        public Table(SPITest test, ConnectorSession session, ConnectorTableMetadata tableMetadata)
+        public Table(TestSPI test, ConnectorSession session, ConnectorTableMetadata tableMetadata)
         {
             this.test = requireNonNull(test, "test is null");
             this.session = requireNonNull(session, "session is null");

@@ -24,7 +24,7 @@ import java.util.concurrent.Callable;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public interface ValidatesSchema
-        extends SPITest
+        extends TestSPI
 {
     String onlySchemaName();
 

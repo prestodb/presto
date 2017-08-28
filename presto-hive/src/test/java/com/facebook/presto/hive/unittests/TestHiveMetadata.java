@@ -14,10 +14,10 @@
 package com.facebook.presto.hive.unittests;
 
 import com.facebook.presto.connector.meta.SupportedFeatures;
-import com.facebook.presto.connector.unittest.BaseMetadataTest;
+import com.facebook.presto.connector.unittest.TestBaseMetadata;
 import com.facebook.presto.connector.unittest.CreatesSchemas;
-import com.facebook.presto.connector.unittest.MetadataSchemaTest;
-import com.facebook.presto.connector.unittest.MetadataTableTest;
+import com.facebook.presto.connector.unittest.TestMetadataSchema;
+import com.facebook.presto.connector.unittest.TestMetadataTable;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -75,7 +75,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
         ADD_COLUMN,
         RENAME_COLUMN})
 public class TestHiveMetadata
-        implements BaseMetadataTest, MetadataSchemaTest, MetadataTableTest, CreatesSchemas
+        implements TestBaseMetadata, TestMetadataSchema, TestMetadataTable, CreatesSchemas
 {
     private Connector connector;
 

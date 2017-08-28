@@ -47,8 +47,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @RequiredFeatures({CREATE_TABLE_AS, DROP_TABLE})
-public interface MetadataTableTest
-        extends BaseMetadataTest
+public interface TestMetadataTable
+        extends TestBaseMetadata
 {
     default void testRenameTable(SchemaTableName initial, SchemaTableName renamed)
             throws Exception

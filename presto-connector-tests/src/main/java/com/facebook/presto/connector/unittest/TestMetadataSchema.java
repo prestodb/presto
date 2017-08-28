@@ -31,8 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @RequiredFeatures({CREATE_SCHEMA, DROP_SCHEMA})
-public interface MetadataSchemaTest
-        extends BaseMetadataTest
+public interface TestMetadataSchema
+        extends TestBaseMetadata
 {
     Map<String, Object> getTableProperties();
 
