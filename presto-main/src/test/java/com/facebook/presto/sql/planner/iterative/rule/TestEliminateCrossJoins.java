@@ -280,7 +280,8 @@ public class TestEliminateCrossJoins
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Assignments.of());
     }
 
     private ValuesNode values(String... symbols)

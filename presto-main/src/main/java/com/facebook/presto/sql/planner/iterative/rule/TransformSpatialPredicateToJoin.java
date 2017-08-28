@@ -165,7 +165,8 @@ public class TransformSpatialPredicateToJoin
                     Optional.of(newFilter),
                     joinNode.getLeftHashSymbol(),
                     joinNode.getRightHashSymbol(),
-                    joinNode.getDistributionType()));
+                    joinNode.getDistributionType(),
+                    joinNode.getDynamicFilterAssignments()));
         }
 
         return Result.empty();

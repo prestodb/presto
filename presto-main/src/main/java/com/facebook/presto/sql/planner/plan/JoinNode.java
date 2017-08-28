@@ -59,6 +59,7 @@ public class JoinNode
     private final Optional<Symbol> rightHashSymbol;
     private final Optional<DistributionType> distributionType;
     private final boolean spatialJoin;
+    private final Assignments dynamicFilterAssignments;
 
     @JsonCreator
     public JoinNode(@JsonProperty("id") PlanNodeId id,
@@ -70,7 +71,8 @@ public class JoinNode
             @JsonProperty("filter") Optional<Expression> filter,
             @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("dynamicFilterAssignments") Assignments dynamicFilterAssignments)
     {
         super(id);
         requireNonNull(type, "type is null");
@@ -93,6 +95,7 @@ public class JoinNode
         this.rightHashSymbol = rightHashSymbol;
         this.distributionType = distributionType;
         this.spatialJoin = type == INNER && criteria.isEmpty() && filter.isPresent() && isSpatialJoinFilter(left, right, filter.get());
+        this.dynamicFilterAssignments = requireNonNull(dynamicFilterAssignments, "dynamicFilterAssignments is null");
 
         List<Symbol> inputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(left.getOutputSymbols())
@@ -217,6 +220,12 @@ public class JoinNode
         return distributionType;
     }
 
+    @JsonProperty("dynamicFilterAssignments")
+    public Assignments getDynamicFilterAssignments()
+    {
+        return dynamicFilterAssignments;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -233,12 +242,23 @@ public class JoinNode
         List<Symbol> newOutputSymbols = Stream.concat(newLeft.getOutputSymbols().stream(), newRight.getOutputSymbols().stream())
                 .filter(outputSymbols::contains)
                 .collect(toImmutableList());
-        return new JoinNode(getId(), type, newLeft, newRight, criteria, newOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(
+                getId(),
+                type,
+                newLeft,
+                newRight,
+                criteria,
+                newOutputSymbols,
+                filter,
+                leftHashSymbol,
+                rightHashSymbol,
+                distributionType,
+                dynamicFilterAssignments);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType));
+        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType), dynamicFilterAssignments);
     }
 
     public boolean isCrossJoin()
