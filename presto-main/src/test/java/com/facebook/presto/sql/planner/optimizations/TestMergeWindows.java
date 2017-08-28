@@ -39,12 +39,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.assertions.FunctionCallProvider.windowFunctionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
@@ -85,12 +85,12 @@ public class TestMergeWindows
                     DISCOUNT_ALIAS, "discount",
                     EXTENDEDPRICE_ALIAS, "extendedprice"));
 
-    private static final Optional<WindowFrame> COMMON_FRAME = Optional.of(new WindowFrame(
+    private static final ExpectedValueProvider<WindowNode.Frame> COMMON_FRAME = windowFrame(
             WindowFrame.Type.ROWS,
-            new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-            Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW))));
-
-    private static final Optional<WindowFrame> UNSPECIFIED_FRAME = Optional.empty();
+            FrameBound.Type.UNBOUNDED_PRECEDING,
+            Optional.empty(),
+            FrameBound.Type.CURRENT_ROW,
+            Optional.empty());
 
     private final ExpectedValueProvider<WindowNode.Specification> specificationA;
     private final ExpectedValueProvider<WindowNode.Specification> specificationB;
@@ -154,12 +154,18 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)))
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                COMMON_FRAME)
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                COMMON_FRAME),
                                 anyTree(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specificationB)
-                                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(
+                                                                windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                                COMMON_FRAME),
                                                 anyNot(WindowNode.class,
                                                         LINEITEM_TABLESCAN_DOQSS)))));  // should be anyTree(LINEITEM_TABLESCAN_DOQSS) but anyTree does not handle zero nodes case correctly
 
@@ -179,11 +185,17 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)))
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                COMMON_FRAME)
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                COMMON_FRAME),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
-                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(
+                                                        windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                        COMMON_FRAME),
                                         LINEITEM_TABLESCAN_DOQSS))));
     }
 
@@ -200,14 +212,20 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                COMMON_FRAME),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
-                                                .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
+                                                .addFunction(
+                                                        windowFunctionCall("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")),
+                                                        COMMON_FRAME),
                                         project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(specificationA)
-                                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                                                .addFunction(
+                                                                        windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                                        COMMON_FRAME),
                                                         LINEITEM_TABLESCAN_DOQSS))))));
     }
 
@@ -224,12 +242,18 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
-                                        .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                COMMON_FRAME)
+                                        .addFunction(
+                                                windowFunctionCall("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")),
+                                                COMMON_FRAME),
                                 project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specificationA)
-                                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(
+                                                                windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                                COMMON_FRAME),
                                                 LINEITEM_TABLESCAN_DOQS)))));
     }
 
@@ -256,11 +280,11 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationC)
-                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS)))
-                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)))
+                                        .addFunction(windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationD)
-                                                .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                         LINEITEM_TABLESCAN_DOQSS))));
     }
 
@@ -288,31 +312,28 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationC)
-                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS)))
-                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)))
+                                        .addFunction(windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationD)
-                                                .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                         LINEITEM_TABLESCAN_DOQSS))));
     }
 
     @Test
     public void testMergeDifferentFrames()
     {
-        Optional<WindowFrame> frameC = Optional.of(new WindowFrame(
-                WindowFrame.Type.ROWS,
-                new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW))));
-
         ExpectedValueProvider<WindowNode.Specification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_LAST));
 
-        Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
+        ExpectedValueProvider<WindowNode.Frame> frameD = windowFrame(
                 WindowFrame.Type.ROWS,
-                new FrameBound(FrameBound.Type.CURRENT_ROW),
-                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING))));
+                FrameBound.Type.CURRENT_ROW,
+                Optional.empty(),
+                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty());
 
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (w ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C, " +
@@ -325,19 +346,27 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationC)
-                                        .addFunction(functionCall("avg", frameD, ImmutableList.of(QUANTITY_ALIAS)))
-                                        .addFunction(functionCall("sum", frameC, ImmutableList.of(DISCOUNT_ALIAS)))
-                                        .addFunction(functionCall("sum", frameC, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(
+                                                windowFunctionCall("avg", ImmutableList.of(QUANTITY_ALIAS)),
+                                                frameD)
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                COMMON_FRAME)
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                COMMON_FRAME),
                                 LINEITEM_TABLESCAN_DOQS)));
     }
 
     @Test
     public void testMergeDifferentFramesWithDefault()
     {
-        Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
+        ExpectedValueProvider<WindowNode.Frame> frameD = windowFrame(
                 WindowFrame.Type.ROWS,
-                new FrameBound(FrameBound.Type.CURRENT_ROW),
-                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING))));
+                FrameBound.Type.CURRENT_ROW,
+                Optional.empty(),
+                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty());
 
         ExpectedValueProvider<WindowNode.Specification> specificationD = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -355,9 +384,11 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationD)
-                                        .addFunction(functionCall("avg", frameD, ImmutableList.of(QUANTITY_ALIAS)))
-                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
-                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(
+                                                windowFunctionCall("avg", ImmutableList.of(QUANTITY_ALIAS)),
+                                                frameD)
+                                        .addFunction(windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)))
+                                        .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                 LINEITEM_TABLESCAN_DOQS)));
     }
 
@@ -419,13 +450,13 @@ public class TestMergeWindows
                                         any(
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(leftSpecification)
-                                                                .addFunction("SUM", functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                .addFunction("SUM", windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)), COMMON_FRAME),
                                                         any(
                                                                 leftTableScan))),
                                         any(
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(rightSpecification)
-                                                                .addFunction("AVG", functionCall("avg", COMMON_FRAME, ImmutableList.of(rQuantityAlias))),
+                                                                .addFunction("AVG", windowFunctionCall("avg", ImmutableList.of(rQuantityAlias)), COMMON_FRAME),
                                                         any(
                                                                 rightTableScan)))))));
     }
@@ -447,10 +478,14 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                COMMON_FRAME),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationC)
-                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(
+                                                        windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                        COMMON_FRAME),
                                         LINEITEM_TABLESCAN_DOQS))));
     }
 
@@ -471,10 +506,14 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationC)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                COMMON_FRAME),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
-                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                .addFunction(
+                                                        windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                        COMMON_FRAME),
                                         LINEITEM_TABLESCAN_DOQS))));
     }
 
@@ -493,26 +532,22 @@ public class TestMergeWindows
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.DESC_NULLS_LAST));
-        ExpectedValueProvider<WindowNode.Frame> windowNodeFrame = windowFrame(
-                WindowFrame.Type.ROWS,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
-                Optional.empty(),
-                FrameBound.Type.CURRENT_ROW,
-                Optional.empty());
 
         assertUnitPlan(sql,
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationC)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(
+                                                windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                COMMON_FRAME),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
                                                 .addFunction(
-                                                        functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(EXTENDEDPRICE_ALIAS)),
-                                                        windowNodeFrame)
+                                                        windowFunctionCall("sum", ImmutableList.of(EXTENDEDPRICE_ALIAS)),
+                                                        COMMON_FRAME)
                                                 .addFunction(
-                                                        functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(DISCOUNT_ALIAS)),
-                                                        windowNodeFrame),
+                                                        windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                        COMMON_FRAME),
                                         LINEITEM_TABLESCAN_DEOQS))));
     }
 
@@ -531,24 +566,20 @@ public class TestMergeWindows
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_FIRST));
-        ExpectedValueProvider<WindowNode.Frame> windowNodeFrame = windowFrame(
-                WindowFrame.Type.ROWS,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
-                Optional.empty(),
-                FrameBound.Type.CURRENT_ROW,
-                Optional.empty());
 
         assertUnitPlan(sql,
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(EXTENDEDPRICE_ALIAS)))
+                                        .addFunction(windowFunctionCall("sum", ImmutableList.of(EXTENDEDPRICE_ALIAS)))
                                         .addFunction(
-                                                functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(DISCOUNT_ALIAS)),
-                                                windowNodeFrame),
+                                                windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS)),
+                                                COMMON_FRAME),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationC)
-                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(
+                                                        windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS)),
+                                                        COMMON_FRAME),
                                         LINEITEM_TABLESCAN_DEOQS))));
     }
 

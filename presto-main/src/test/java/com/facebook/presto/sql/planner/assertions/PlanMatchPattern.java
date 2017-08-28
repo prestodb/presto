@@ -47,7 +47,6 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -578,27 +577,6 @@ public final class PlanMatchPattern
         return new AnySymbol();
     }
 
-    public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args)
-    {
-        return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args));
-    }
-
-    public static ExpectedValueProvider<FunctionCall> functionCall(
-            String name,
-            Optional<WindowFrame> frame,
-            List<String> args)
-    {
-        return new FunctionCallProvider(QualifiedName.of(name), frame, false, toSymbolAliases(args));
-    }
-
-    public static ExpectedValueProvider<FunctionCall> functionCall(
-            String name,
-            boolean distinct,
-            List<PlanTestSymbol> args)
-    {
-        return new FunctionCallProvider(QualifiedName.of(name), distinct, args);
-    }
-
     public static List<Expression> toSymbolReferences(List<PlanTestSymbol> aliases, SymbolAliases symbolAliases)
     {
         return aliases
@@ -607,7 +585,7 @@ public final class PlanMatchPattern
                 .collect(toImmutableList());
     }
 
-    private static List<PlanTestSymbol> toSymbolAliases(List<String> aliases)
+    public static List<PlanTestSymbol> toSymbolAliases(List<String> aliases)
     {
         return aliases
                 .stream()

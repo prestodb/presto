@@ -37,10 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.assertions.FunctionCallProvider.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.groupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -91,8 +91,8 @@ public class TestMixedDistinctAggregationOptimizer
         // Second Aggregation data
         List<String> groupByKeysSecond = ImmutableList.of(groupBy);
         Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
-                Optional.of("arbitrary"), PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
-                Optional.of("count"), PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
+                Optional.of("arbitrary"), functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
+                Optional.of("count"), functionCall("count", false, ImmutableList.of(anySymbol())));
 
         // First Aggregation data
         List<String> groupByKeysFirst = ImmutableList.of(groupBy, distinctAggregation, group);
@@ -120,12 +120,12 @@ public class TestMixedDistinctAggregationOptimizer
     {
         // Second Aggregation data
         Map<String, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
-                "arbitrary", PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
-                "count", PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
+                "arbitrary", functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
+                "count", functionCall("count", false, ImmutableList.of(anySymbol())));
 
         // First Aggregation data
         Map<String, ExpectedValueProvider<FunctionCall>> aggregationsFirst = ImmutableMap.of(
-                "max", PlanMatchPattern.functionCall("max", false, ImmutableList.of(anySymbol())));
+                "max", functionCall("max", false, ImmutableList.of(anySymbol())));
 
         assertUnitPlan("SELECT count(DISTINCT a), max(b) FROM (VALUES (ROW(1, 2), 3)) t(a, b)",
                 anyTree(

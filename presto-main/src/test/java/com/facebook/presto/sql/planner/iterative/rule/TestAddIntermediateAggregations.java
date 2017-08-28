@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -29,6 +28,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.assertions.FunctionCallProvider.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -49,7 +49,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testBasic()
     {
-        ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<FunctionCall> aggregationPattern = functionCall("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -103,8 +103,8 @@ public class TestAddIntermediateAggregations
     public void testNoInputCount()
     {
         // COUNT(*) is a special class of aggregation that doesn't take any input that should be tested
-        ExpectedValueProvider<FunctionCall> rawInputCount = PlanMatchPattern.functionCall("count", false, ImmutableList.of());
-        ExpectedValueProvider<FunctionCall> partialInputCount = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<FunctionCall> rawInputCount = functionCall("count", false, ImmutableList.of());
+        ExpectedValueProvider<FunctionCall> partialInputCount = functionCall("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -157,7 +157,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testMultipleExchanges()
     {
-        ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<FunctionCall> aggregationPattern = functionCall("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -235,7 +235,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testNoLocalParallel()
     {
-        ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<FunctionCall> aggregationPattern = functionCall("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -302,7 +302,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testInterimProject()
     {
-        ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<FunctionCall> aggregationPattern = functionCall("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")

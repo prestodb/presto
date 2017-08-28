@@ -32,10 +32,9 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.assertions.FunctionCallProvider.windowFunctionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
@@ -65,7 +64,7 @@ public class TestEliminateSorts
                 output(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowSpec)
-                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunctionCall("row_number", ImmutableList.of())),
                                 anyTree(LINEITEM_TABLESCAN_Q)));
 
         assertUnitPlan(sql, pattern);
@@ -81,7 +80,7 @@ public class TestEliminateSorts
                         sort(
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(windowSpec)
-                                                .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                                .addFunction(windowFunctionCall("row_number", ImmutableList.of())),
                                         anyTree(LINEITEM_TABLESCAN_Q))));
 
         assertUnitPlan(sql, pattern);

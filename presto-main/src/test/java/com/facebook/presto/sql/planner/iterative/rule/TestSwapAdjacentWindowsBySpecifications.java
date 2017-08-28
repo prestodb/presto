@@ -33,7 +33,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.FunctionCallProvider.windowFunctionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
@@ -115,10 +115,10 @@ public class TestSwapAdjacentWindowsBySpecifications
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationAB)
-                                        .addFunction(functionCall("avg", Optional.empty(), ImmutableList.of(columnBAlias))),
+                                        .addFunction(windowFunctionCall("avg", ImmutableList.of(columnBAlias))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
-                                                .addFunction(functionCall("avg", Optional.empty(), ImmutableList.of(columnAAlias))),
+                                                .addFunction(windowFunctionCall("avg", ImmutableList.of(columnAAlias))),
                                         values(ImmutableMap.of(columnAAlias, 0, columnBAlias, 1)))));
     }
 

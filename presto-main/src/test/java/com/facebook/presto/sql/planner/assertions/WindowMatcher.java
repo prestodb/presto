@@ -191,6 +191,25 @@ public final class WindowMatcher
         }
 
         public Builder addFunction(
+                String outputAlias,
+                ExpectedValueProvider<FunctionCall> functionCall,
+                ExpectedValueProvider<WindowNode.Frame> frame)
+        {
+            return addFunction(Optional.of(outputAlias), functionCall, frame);
+        }
+
+        private Builder addFunction(
+                Optional<String> outputAlias,
+                ExpectedValueProvider<FunctionCall> functionCall,
+                ExpectedValueProvider<WindowNode.Frame> frame)
+        {
+            windowFunctionMatchers.add(new AliasMatcher(
+                    outputAlias,
+                    new WindowFunctionMatcher(functionCall, Optional.empty(), Optional.of(frame))));
+            return this;
+        }
+
+        public Builder addFunction(
                 ExpectedValueProvider<FunctionCall> functionCall,
                 ExpectedValueProvider<WindowNode.Frame> frame)
         {

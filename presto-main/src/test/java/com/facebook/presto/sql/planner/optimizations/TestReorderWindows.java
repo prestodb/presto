@@ -35,9 +35,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.assertions.FunctionCallProvider.windowFunctionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -140,14 +140,14 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
-                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        .addFunction(windowFunctionCall("min", ImmutableList.of(TAX_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(windowA)
-                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                         anyTree(
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowB)
-                                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                .addFunction(windowFunctionCall("avg", ImmutableList.of(DISCOUNT_ALIAS))),
                                                         anyTree(LINEITEM_TABLESCAN_DOQPRSST))))));
 
         assertPlan(sql, pattern);
@@ -167,14 +167,14 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
-                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        .addFunction(windowFunctionCall("min", ImmutableList.of(TAX_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(windowA)
-                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                         anyTree(
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowB)
-                                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                .addFunction(windowFunctionCall("avg", ImmutableList.of(DISCOUNT_ALIAS))),
                                                         anyTree(LINEITEM_TABLESCAN_DOQPRSST))))));
 
         assertPlan(sql, pattern);
@@ -193,13 +193,13 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
-                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        .addFunction(windowFunctionCall("min", ImmutableList.of(TAX_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(windowA)
-                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowB)
-                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        .addFunction(windowFunctionCall("avg", ImmutableList.of(DISCOUNT_ALIAS))),
                                                 LINEITEM_TABLESCAN_DOQPRSST))))); // should be anyTree(LINEITEM_TABLESCANE_DOQPRSST) but anyTree does not handle zero nodes case correctly
     }
 
@@ -219,13 +219,13 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
-                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        .addFunction(windowFunctionCall("min", ImmutableList.of(TAX_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(windowA)
-                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowB)
-                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        .addFunction(windowFunctionCall("avg", ImmutableList.of(DISCOUNT_ALIAS))),
                                                 LINEITEM_TABLESCAN_DOQPRSST))))); // should be anyTree(LINEITEM_TABLESCANE_DOQPRSST) but anyTree does not handle zero nodes case correctly
     }
 
@@ -242,10 +242,10 @@ public class TestReorderWindows
                     anyTree(
                             window(windowMatcherBuilder -> windowMatcherBuilder
                                             .specification(windowApp)
-                                            .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                            .addFunction(windowFunctionCall("avg", ImmutableList.of(DISCOUNT_ALIAS))),
                                     window(windowMatcherBuilder -> windowMatcherBuilder
                                                     .specification(windowA)
-                                                    .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                    .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                             LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
         }
 
@@ -259,10 +259,10 @@ public class TestReorderWindows
                     anyTree(
                             window(windowMatcherBuilder -> windowMatcherBuilder
                                             .specification(windowApp)
-                                            .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                            .addFunction(windowFunctionCall("avg", ImmutableList.of(DISCOUNT_ALIAS))),
                                     window(windowMatcherBuilder -> windowMatcherBuilder
                                                     .specification(windowA)
-                                                    .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                    .addFunction(windowFunctionCall("sum", ImmutableList.of(QUANTITY_ALIAS))),
                                             LINEITEM_TABLESCAN_DOQRST)))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
         }
     }
@@ -279,11 +279,11 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowA)
-                                        .addFunction(functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
+                                        .addFunction(windowFunctionCall("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
                                 project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowApp)
-                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        .addFunction(windowFunctionCall("avg", ImmutableList.of(DISCOUNT_ALIAS))),
                                                 LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
@@ -312,16 +312,16 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowD)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(windowFunctionCall("avg", ImmutableList.of(QUANTITY_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(windowA)
-                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                .addFunction(windowFunctionCall("avg", ImmutableList.of(DISCOUNT_ALIAS))),
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowC)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        .addFunction(windowFunctionCall("sum", ImmutableList.of(DISCOUNT_ALIAS))),
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowE)
-                                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                                                .addFunction(windowFunctionCall("sum", ImmutableList.of(TAX_ALIAS))),
                                                         LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
