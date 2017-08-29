@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -53,6 +54,7 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
+    private final Map<String, SelectedRole> setRoles;
     private final Map<String, String> addedPreparedStatements;
     private final Set<String> deallocatedPreparedStatements;
     private final Optional<TransactionId> startedTransactionId;
@@ -80,6 +82,7 @@ public class QueryInfo
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
+            @JsonProperty("setRoles") Map<String, SelectedRole> setRoles,
             @JsonProperty("addedPreparedStatements") Map<String, String> addedPreparedStatements,
             @JsonProperty("deallocatedPreparedStatements") Set<String> deallocatedPreparedStatements,
             @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
@@ -121,6 +124,7 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
+        this.setRoles = ImmutableMap.copyOf(setRoles);
         this.addedPreparedStatements = ImmutableMap.copyOf(addedPreparedStatements);
         this.deallocatedPreparedStatements = ImmutableSet.copyOf(deallocatedPreparedStatements);
         this.startedTransactionId = startedTransactionId;
@@ -200,6 +204,12 @@ public class QueryInfo
     public Set<String> getResetSessionProperties()
     {
         return resetSessionProperties;
+    }
+
+    @JsonProperty
+    public Map<String, SelectedRole> getSetRoles()
+    {
+        return setRoles;
     }
 
     @JsonProperty

@@ -42,6 +42,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -98,6 +99,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -222,6 +224,10 @@ public class StatementResource
         query.getResetSessionProperties()
                 .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
 
+        // add set roles
+        query.getSetRoles().entrySet()
+                .forEach(entry -> response.header(PRESTO_SET_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString())));
+
         // add added prepare statements
         for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
             String encodedKey = urlEncode(entry.getKey());
@@ -297,6 +303,9 @@ public class StatementResource
         private Set<String> resetSessionProperties;
 
         @GuardedBy("this")
+        private Map<String, SelectedRole> setRoles;
+
+        @GuardedBy("this")
         private Map<String, String> addedPreparedStatements;
 
         @GuardedBy("this")
@@ -358,6 +367,11 @@ public class StatementResource
         public synchronized Set<String> getResetSessionProperties()
         {
             return resetSessionProperties;
+        }
+
+        public synchronized Map<String, SelectedRole> getSetRoles()
+        {
+            return setRoles;
         }
 
         public synchronized Map<String, String> getAddedPreparedStatements()
@@ -459,6 +473,9 @@ public class StatementResource
             // update setSessionProperties
             setSessionProperties = queryInfo.getSetSessionProperties();
             resetSessionProperties = queryInfo.getResetSessionProperties();
+
+            // update setRoles
+            setRoles = queryInfo.getSetRoles();
 
             // update preparedStatements
             addedPreparedStatements = queryInfo.getAddedPreparedStatements();

@@ -32,6 +32,8 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -64,6 +66,8 @@ import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowRoleGrants;
+import com.facebook.presto.sql.tree.ShowRoles;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
@@ -86,7 +90,9 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
@@ -128,6 +134,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -242,15 +249,63 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(
+                            aliasedName("grantor", "Grantor"),
+                            aliasedName("grantor_type", "Grantor Type"),
                             aliasedName("grantee", "Grantee"),
+                            aliasedName("grantee_type", "Grantee Type"),
                             aliasedName("table_catalog", "Catalog"),
                             aliasedName("table_schema", "Schema"),
                             aliasedName("table_name", "Table"),
                             aliasedName("privilege_type", "Privilege"),
-                            aliasedName("is_grantable", "Grantable")),
+                            aliasedName("is_grantable", "Grantable"),
+                            aliasedName("with_hierarchy", "With Hierarchy")),
                     from(catalogName, TABLE_TABLE_PRIVILEGES),
                     predicate,
-                    Optional.of(ordering(ascending("grantee"), ascending("table_name"))));
+                    Optional.empty());
+        }
+
+        @Override
+        protected Node visitShowRoles(ShowRoles node, Void context)
+        {
+            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            }
+
+            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
+
+            if (node.isCurrent()) {
+                accessControl.checkCanShowCurrentRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+                return simpleQuery(
+                        selectList(aliasedName("role_name", "Role")),
+                        from(catalog, TABLE_ENABLED_ROLES));
+            }
+            else {
+                accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+                return simpleQuery(
+                        selectList(aliasedName("role_name", "Role")),
+                        from(catalog, TABLE_ROLES));
+            }
+        }
+
+        @Override
+        protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
+        {
+            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            }
+
+            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
+            PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
+
+            accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+            List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
+                    .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
+                    .collect(toList());
+
+            return simpleQuery(
+                    selectList(new AllColumns()),
+                    aliased(new Values(rows), "role_grants", ImmutableList.of("Role Grants")),
+                    ordering(ascending("Role Grants")));
         }
 
         @Override

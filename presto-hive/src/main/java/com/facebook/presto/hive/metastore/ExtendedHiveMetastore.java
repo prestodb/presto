@@ -14,6 +14,8 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 
 import java.util.List;
 import java.util.Map;
@@ -80,13 +82,21 @@ public interface ExtendedHiveMetastore
 
     void alterPartition(String databaseName, String tableName, Partition partition);
 
-    Set<String> getRoles(String user);
+    void createRole(String role, String grantor);
 
-    Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName);
+    void dropRole(String role);
 
-    Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName);
+    Set<String> listRoles();
 
-    void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges);
+    void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor);
 
-    void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges);
+    void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor);
+
+    Set<RoleGrant> listRoleGrants(PrestoPrincipal principal);
+
+    void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges);
+
+    void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges);
+
+    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal);
 }

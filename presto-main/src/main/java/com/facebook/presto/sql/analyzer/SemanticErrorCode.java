@@ -90,4 +90,7 @@ public enum SemanticErrorCode
     INVALID_PARAMETER_USAGE,
 
     STANDALONE_LAMBDA,
+
+    ROLE_ALREADY_EXIST,
+    MISSING_ROLE
 }

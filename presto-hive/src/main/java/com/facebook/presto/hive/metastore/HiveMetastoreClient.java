@@ -18,10 +18,10 @@ import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
+import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
@@ -98,18 +98,30 @@ public interface HiveMetastoreClient
     List<Role> listRoles(String principalName, PrincipalType principalType)
             throws TException;
 
-    PrincipalPrivilegeSet getPrivilegeSet(HiveObjectRef hiveObject, String userName, List<String> groupNames)
-            throws TException;
-
     List<HiveObjectPrivilege> listPrivileges(String principalName, PrincipalType principalType, HiveObjectRef hiveObjectRef)
             throws TException;
 
     List<String> getRoleNames()
             throws TException;
 
+    void createRole(String role, String grantor)
+            throws TException;
+
+    void dropRole(String role)
+            throws TException;
+
     boolean grantPrivileges(PrivilegeBag privilegeBag)
             throws TException;
 
     boolean revokePrivileges(PrivilegeBag privilegeBag)
+            throws TException;
+
+    void grantRole(String role, String granteeName, PrincipalType granteeType, String grantorName, PrincipalType grantorType, boolean grantOption)
+            throws TException;
+
+    void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
+            throws TException;
+
+    List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
             throws TException;
 }

@@ -597,6 +597,31 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCreateRole(CreateRole node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropRole(DropRole node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitGrantRoles(GrantRoles node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRevokeRoles(RevokeRoles node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetRole(SetRole node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitGrant(Grant node, C context)
     {
         return visitStatement(node, context);
@@ -608,6 +633,16 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitShowGrants(ShowGrants node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitShowRoles(ShowRoles node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitShowRoleGrants(ShowRoleGrants node, C context)
     {
         return visitStatement(node, context);
     }

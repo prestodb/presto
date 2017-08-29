@@ -242,13 +242,19 @@ public class TestStatementBuilder
 
         printStatement("grant select on foo to alice with grant option");
         printStatement("grant all privileges on foo to alice");
-        printStatement("grant delete, select on foo to public");
+        printStatement("grant delete, select on foo to role public");
         printStatement("revoke grant option for select on foo from alice");
         printStatement("revoke all privileges on foo from alice");
-        printStatement("revoke insert, delete on foo from public"); //check support for public
+        printStatement("revoke insert, delete on foo from role public");
         printStatement("show grants on table t");
         printStatement("show grants on t");
         printStatement("show grants");
+        printStatement("show roles");
+        printStatement("show roles from foo");
+        printStatement("show current roles");
+        printStatement("show current roles from foo");
+        printStatement("show role grants");
+        printStatement("show role grants from foo");
 
         printStatement("prepare p from select * from (select * from T) \"A B\"");
 

@@ -20,6 +20,11 @@ import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.PrincipalType;
+import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -36,6 +41,7 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.LongColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
+import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
@@ -45,7 +51,10 @@ import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -53,18 +62,30 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Properties;
+import java.util.Queue;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.security.PrincipalType.ROLE;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
@@ -238,38 +259,39 @@ public class MetastoreUtil
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(MetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
-        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(table.getOwner(), privileges));
+        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(privileges));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
         return result;
     }
 
-    private static PrincipalPrivilegeSet toMetastoreApiPrincipalPrivilegeSet(String grantee, PrincipalPrivileges privileges)
+    private static PrincipalPrivilegeSet toMetastoreApiPrincipalPrivilegeSet(PrincipalPrivileges privileges)
     {
         ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> userPrivileges = ImmutableMap.builder();
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getUserPrivileges().asMap().entrySet()) {
             userPrivileges.put(entry.getKey(), entry.getValue().stream()
-                    .map(privilegeInfo -> toMetastoreApiPrivilegeGrantInfo(grantee, privilegeInfo))
+                    .map(MetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                     .collect(toList()));
         }
 
         ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> rolePrivileges = ImmutableMap.builder();
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getRolePrivileges().asMap().entrySet()) {
             rolePrivileges.put(entry.getKey(), entry.getValue().stream()
-                    .map(privilegeInfo -> toMetastoreApiPrivilegeGrantInfo(grantee, privilegeInfo))
+                    .map(MetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                     .collect(toList()));
         }
 
         return new PrincipalPrivilegeSet(userPrivileges.build(), ImmutableMap.of(), rolePrivileges.build());
     }
 
-    public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(String grantee, HivePrivilegeInfo privilegeInfo)
+    public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(HivePrivilegeInfo privilegeInfo)
     {
         return new PrivilegeGrantInfo(
                 privilegeInfo.getHivePrivilege().name().toLowerCase(),
                 0,
-                grantee,
-                org.apache.hadoop.hive.metastore.api.PrincipalType.USER, privilegeInfo.isGrantOption());
+                privilegeInfo.getGrantor().getName(),
+                fromPrestoPrincipalType(privilegeInfo.getGrantor().getType()),
+                privilegeInfo.isGrantOption());
     }
 
     private static org.apache.hadoop.hive.metastore.api.PrincipalType toMetastoreApiPrincipalType(PrincipalType principalType)
@@ -474,8 +496,126 @@ public class MetastoreUtil
         return Optional.of(new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale()));
     }
 
+    public static Set<RoleGrant> fromRolePrincipalGrants(Collection<RolePrincipalGrant> grants)
+    {
+        return ImmutableSet.copyOf(grants.stream().map(MetastoreUtil::fromRolePrincipalGrant).collect(toList()));
+    }
+
+    public static RoleGrant fromRolePrincipalGrant(RolePrincipalGrant grant)
+    {
+        return new RoleGrant(
+                new PrestoPrincipal(fromMetastoreApiPrincipalType(grant.getPrincipalType()), grant.getPrincipalName()),
+                grant.getRoleName(),
+                grant.isGrantOption());
+    }
+
+    public static org.apache.hadoop.hive.metastore.api.PrincipalType fromPrestoPrincipalType(PrincipalType principalType)
+    {
+        switch (principalType) {
+            case USER:
+                return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
+            case ROLE:
+                return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
+            default:
+                throw new IllegalArgumentException("Unsupported principal type: " + principalType);
+        }
+    }
+
+    public static Set<RoleGrant> listApplicableRoles(PrestoPrincipal principal, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
+    {
+        Set<RoleGrant> result = new HashSet<>();
+        Queue<PrestoPrincipal> queue = new LinkedList<>();
+        queue.add(principal);
+        while (!queue.isEmpty()) {
+            PrestoPrincipal current = queue.poll();
+            Set<RoleGrant> grants = listRoleGrants.apply(current);
+            for (RoleGrant grant : grants) {
+                if (!result.contains(grant)) {
+                    result.add(grant);
+                    queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
+                }
+            }
+        }
+        return ImmutableSet.copyOf(result);
+    }
+
+    public static Set<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal)
+    {
+        return listApplicableRoles(principal, metastore::listRoleGrants)
+                .stream()
+                .map(RoleGrant::getRoleName)
+                .collect(toSet());
+    }
+
+    public static Set<PrestoPrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
+    {
+        ImmutableSet.Builder<PrestoPrincipal> principals = ImmutableSet.builder();
+        PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, identity.getUser());
+        principals.add(userPrincipal);
+        listEnabledRoles(identity, metastore::listRoleGrants).stream().map(role -> new PrestoPrincipal(ROLE, role)).forEach(principals::add);
+        return principals.build();
+    }
+
+    public static Set<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
+    {
+        return listTablePrivileges(metastore, databaseName, tableName, listEnabledPrincipals(metastore, identity));
+    }
+
+    public static Set<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, String user)
+    {
+        ImmutableSet.Builder<PrestoPrincipal> principals = ImmutableSet.builder();
+        PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, user);
+        principals.add(userPrincipal);
+        listApplicableRoles(metastore, userPrincipal).stream().map(role -> new PrestoPrincipal(ROLE, role)).forEach(principals::add);
+        return listTablePrivileges(metastore, databaseName, tableName, principals.build());
+    }
+
+    private static Set<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, Set<PrestoPrincipal> principals)
+    {
+        ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
+        for (PrestoPrincipal current : principals) {
+            result.addAll(metastore.listTablePrivileges(databaseName, tableName, current));
+        }
+        return result.build();
+    }
+
+    public static Set<String> listEnabledRoles(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
+    {
+        Optional<SelectedRole> role = identity.getRole();
+
+        if (role.isPresent() && role.get().getType() == SelectedRole.Type.NONE) {
+            return ImmutableSet.of("public");
+        }
+
+        PrestoPrincipal principal;
+        if (!role.isPresent() || role.get().getType() == SelectedRole.Type.ALL) {
+            principal = new PrestoPrincipal(USER, identity.getUser());
+        }
+        else {
+            principal = new PrestoPrincipal(ROLE, identity.getRole().get().getRole().get());
+        }
+
+        Set<String> roles = listApplicableRoles(principal, listRoleGrants)
+                .stream()
+                .map(RoleGrant::getRoleName)
+                .collect(Collectors.toSet());
+
+        if (!principal.equals(new PrestoPrincipal(ROLE, "admin"))) {
+            roles.remove("admin");
+        }
+
+        roles.add("public");
+
+        if (principal.getType() == ROLE) {
+            roles.add(principal.getName());
+        }
+
+        return ImmutableSet.copyOf(roles);
+    }
+
     private static PrincipalType fromMetastoreApiPrincipalType(org.apache.hadoop.hive.metastore.api.PrincipalType principalType)
     {
+        requireNonNull(principalType, "principalType is null");
         switch (principalType) {
             case USER:
                 return PrincipalType.USER;
@@ -484,19 +624,6 @@ public class MetastoreUtil
             default:
                 throw new IllegalArgumentException("Unsupported principal type: " + principalType);
         }
-    }
-
-    public static Set<HivePrivilegeInfo> toGrants(List<PrivilegeGrantInfo> userGrants)
-    {
-        if (userGrants == null) {
-            return ImmutableSet.of();
-        }
-
-        ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
-        for (PrivilegeGrantInfo userGrant : userGrants) {
-            privileges.addAll(parsePrivilege(userGrant));
-        }
-        return privileges.build();
     }
 
     private static String toThriftDdl(String structName, List<Column> columns)
@@ -615,6 +742,31 @@ public class MetastoreUtil
         }
         if (table.getDataColumns().size() <= 1) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
+        }
+    }
+
+    public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant)
+    {
+        boolean withGrantOption = userGrant.isGrantOption();
+        String name = userGrant.getPrivilege().toUpperCase(ENGLISH);
+        PrestoPrincipal grantor = new PrestoPrincipal(fromMetastoreApiPrincipalType(userGrant.getGrantorType()), userGrant.getGrantor());
+        switch (name) {
+            case "ALL":
+                return ImmutableSet.copyOf(Arrays.stream(HivePrivilegeInfo.HivePrivilege.values())
+                        .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, withGrantOption, grantor))
+                        .collect(toSet()));
+            case "SELECT":
+                return ImmutableSet.of(new HivePrivilegeInfo(SELECT, withGrantOption, grantor));
+            case "INSERT":
+                return ImmutableSet.of(new HivePrivilegeInfo(INSERT, withGrantOption, grantor));
+            case "UPDATE":
+                return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, withGrantOption, grantor));
+            case "DELETE":
+                return ImmutableSet.of(new HivePrivilegeInfo(DELETE, withGrantOption, grantor));
+            case "OWNERSHIP":
+                return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, withGrantOption, grantor));
+            default:
+                throw new IllegalArgumentException("Unsupported privilege name: " + name);
         }
     }
 }

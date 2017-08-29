@@ -43,7 +43,9 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -98,6 +100,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -809,7 +812,99 @@ public class MetadataManager
     }
 
     @Override
-    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    public void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.createRole(session.toConnectorSession(connectorId), role, grantor);
+    }
+
+    @Override
+    public void dropRole(Session session, String role, String catalog)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.dropRole(session.toConnectorSession(connectorId), role);
+    }
+
+    @Override
+    public Set<String> listRoles(Session session, String catalog)
+    {
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (!catalogMetadata.isPresent()) {
+            return ImmutableSet.of();
+        }
+        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        return metadata.listRoles(connectorSession).stream().map(r -> r.toLowerCase(ENGLISH)).collect(toImmutableSet());
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
+    {
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (!catalogMetadata.isPresent()) {
+            return ImmutableSet.of();
+        }
+        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        return metadata.listRoleGrants(connectorSession, principal);
+    }
+
+    @Override
+    public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.grantRoles(session.toConnectorSession(connectorId), roles, grantees, withAdminOption, grantor);
+    }
+
+    @Override
+    public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.revokeRoles(session.toConnectorSession(connectorId), roles, grantees, adminOptionFor, grantor);
+    }
+
+    @Override
+    public Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog)
+    {
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (!catalogMetadata.isPresent()) {
+            return ImmutableSet.of();
+        }
+        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        return ImmutableSet.copyOf(metadata.listApplicableRoles(connectorSession, principal));
+    }
+
+    @Override
+    public Set<String> listEnabledRoles(Session session, String catalog)
+    {
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (!catalogMetadata.isPresent()) {
+            return ImmutableSet.of();
+        }
+        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        return ImmutableSet.copyOf(metadata.listEnabledRoles(connectorSession));
+    }
+
+    @Override
+    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
         ConnectorId connectorId = catalogMetadata.getConnectorId();
@@ -819,7 +914,7 @@ public class MetadataManager
     }
 
     @Override
-    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
         ConnectorId connectorId = catalogMetadata.getConnectorId();

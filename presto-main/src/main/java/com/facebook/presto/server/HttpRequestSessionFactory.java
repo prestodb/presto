@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
@@ -48,6 +49,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -94,7 +96,7 @@ final class HttpRequestSessionFactory
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
-        identity = new Identity(user, Optional.ofNullable(servletRequest.getUserPrincipal()));
+        identity = new Identity(user, Optional.ofNullable(servletRequest.getUserPrincipal()), parseRoleHeaders(servletRequest));
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         userAgent = servletRequest.getHeader(USER_AGENT);
@@ -220,6 +222,17 @@ final class HttpRequestSessionFactory
             sessionProperties.put(nameValue.get(0), nameValue.get(1));
         }
         return sessionProperties;
+    }
+
+    private static Map<String, SelectedRole> parseRoleHeaders(HttpServletRequest servletRequest)
+    {
+        ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
+        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_ROLE))) {
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_ROLE);
+            roles.put(nameValue.get(0), SelectedRole.valueOf(urlDecode(nameValue.get(1))));
+        }
+        return roles.build();
     }
 
     private static void assertRequest(boolean expression, String format, Object... args)

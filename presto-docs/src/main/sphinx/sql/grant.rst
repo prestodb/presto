@@ -8,10 +8,8 @@ Synopsis
 .. code-block:: none
 
     GRANT ( privilege [, ...] | ( ALL PRIVILEGES ) )
-    ON [ TABLE ] table_name TO ( grantee | PUBLIC )
+    ON [ TABLE ] table_name TO ( user | USER user | ROLE role )
     [ WITH GRANT OPTION ]
-
-Usage of the term ``grantee`` denotes both users and roles.
 
 Description
 -----------
@@ -20,7 +18,7 @@ Grants the specified privileges to the specified grantee.
 
 Specifying ``ALL PRIVILEGES`` grants :doc:`delete`, :doc:`insert` and :doc:`select` privileges.
 
-Specifying ``PUBLIC`` grants privileges to the ``PUBLIC`` role and hence to all users.
+Specifying ``ROLE PUBLIC`` grants privileges to the ``PUBLIC`` role and hence to all users.
 
 The optional ``WITH GRANT OPTION`` clause allows the grantee to grant these same privileges to others.
 
@@ -39,7 +37,7 @@ Grant ``SELECT`` privilege on the table ``nation`` to user ``alice``, additional
 
 Grant ``SELECT`` privilege on the table ``orders`` to everyone::
 
-    GRANT SELECT ON orders TO PUBLIC;
+    GRANT SELECT ON orders TO ROLE PUBLIC;
 
 Limitations
 -----------
