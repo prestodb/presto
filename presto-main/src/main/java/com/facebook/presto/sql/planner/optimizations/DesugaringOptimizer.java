@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DesugarAtTimeZoneRewriter;
+import com.facebook.presto.sql.planner.DesugarTryExpressionRewriter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -189,6 +190,7 @@ public class DesugaringOptimizer
 
         private Expression desugar(Expression expression)
         {
+            expression = DesugarTryExpressionRewriter.rewrite(expression);
             expression = LambdaCaptureDesugaringRewriter.rewrite(expression, symbolAllocator.getTypes(), symbolAllocator);
             expression = DesugarAtTimeZoneRewriter.rewrite(expression, session, metadata, sqlParser, symbolAllocator);
 
