@@ -49,6 +49,7 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.accumulo.minicluster.MemoryUnit.MEGABYTE;
 
 public final class AccumuloQueryRunner
 {
@@ -192,6 +193,7 @@ public final class AccumuloQueryRunner
 
         // Start MAC and connect to it
         MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
+        accumulo.getConfig().setDefaultMemory(512, MEGABYTE);
         accumulo.start();
 
         // Add shutdown hook to stop MAC and cleanup temporary files
