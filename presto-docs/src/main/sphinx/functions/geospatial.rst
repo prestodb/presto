@@ -171,3 +171,28 @@ Accessors
 .. function:: st_interior_ring_number(geometry) -> bigint
 
     Returns the number of interior rings in the polygon.
+
+GeoSpatial Join Optimization
+----------------------------
+
+GeoSpatial join is supported in Presto as cross join. Here is an example, we have events table, which has
+event location longitude and latitude. We also have cities table, which has city id and city shape.
+To group events happenning in each city::
+
+    SELECT city_id, count(*)
+    FROM event_table
+    CROSS JOIN city_table
+    ON st_contains(city_shape, st_point(event.location.lng, event.location.lat))
+    GROUP BY 1
+
+In GeoSpatial Join Optimization, we could use build_geo_index to build a QuadTree using city_id and city_shape,
+Then geo_contains could use this QuadTree to find out city_id containing the event location::
+
+    SELECT city_id, count(*)
+    FROM event_table
+    CROSS JOIN (
+        SELECT build_geo_index(city_id, city_shape) as geo_index
+        FROM city_table
+    )
+    WHERE geo_contains(st_point(event.location.lng, event.location.lat), geo_index) is not null
+    GROUP BY 1

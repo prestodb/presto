@@ -13,30 +13,28 @@
  */
 package com.facebook.presto.geospatial;
 
-import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
-import java.util.Set;
-
-import static com.facebook.presto.geospatial.GeometryType.GEOMETRY;
-
-public class GeoPlugin
-        implements Plugin
+public class GeoDataSerializer
+        implements AccumulatorStateSerializer<GeoData>
 {
     @Override
-    public Iterable<Type> getTypes()
+    public Type getSerializedType()
     {
-        return ImmutableList.of(GEOMETRY);
+        return BigintType.BIGINT;
     }
 
     @Override
-    public Set<Class<?>> getFunctions()
+    public void serialize(GeoData state, BlockBuilder out)
     {
-        return ImmutableSet.<Class<?>>builder()
-                .add(GeoFunctions.class)
-                .add(AggregateGeoData.class)
-                .build();
+    }
+
+    @Override
+    public void deserialize(Block block, int index, GeoData state)
+    {
     }
 }

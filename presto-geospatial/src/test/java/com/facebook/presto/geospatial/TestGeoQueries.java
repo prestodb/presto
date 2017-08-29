@@ -295,6 +295,22 @@ public class TestGeoQueries
         assertQuery("select st_within(st_geometry_from_wkt('POINT(3 2)'), st_geometry_from_wkt('polygon ((1 1, 1 4, 4 4, 4 1))'))", "select true");
     }
 
+    @Test
+    public void testGeoContains()
+            throws Exception
+    {
+        assertQuery("select geo_contains(st_geometry_from_wkt('POINT(25 25)'), model) FROM (SELECT build_geo_index(shape_id, shape) as model from (VALUES ('sfo', 'LINESTRING(20 20,30 30)'), ('sjc', 'POLYGON((-1 2, 0 3, 0 1, -1 2))')) as t(shape_id, shape))", "SELECT 'sfo'");
+        assertQuery("select geo_contains(st_geometry_from_wkt('POINT(25 25)'), model) FROM (SELECT build_geo_index(shape_id, shape) as model from (VALUES ('34251', 'POLYGON((-1 2, 0 3, 0 1, -1 2))')) as t(shape_id, shape))", "SELECT NULL");
+    }
+
+    @Test
+    public void testGeoIntersects()
+            throws Exception
+    {
+        assertQuery("select geo_intersects(st_geometry_from_wkt('POLYGON((-1 2,0 3,0 1,-1 2))'), model) from (select build_geo_index(shape_id, shape) as model from (VALUES ('sfo', 'POLYGON((1 0,1 1,0 1,1 0))')) as t(shape_id, shape))", "SELECT 'sfo'");
+        assertQuery("select geo_intersects(st_geometry_from_wkt('POLYGON((-1 2,0 3,0 1,-1 2))'), model) from (select build_geo_index(shape_id, shape) as model from (VALUES ('sfo', 'POLYGON((1 0,1 1,2 2,1 0))')) as t(shape_id, shape))", "SELECT NULL ");
+    }
+
     private static LocalQueryRunner createLocalQueryRunner()
     {
         Session defaultSession = testSessionBuilder()

@@ -33,18 +33,33 @@ import com.esri.core.geometry.ogc.OGCLineString;
 import com.esri.core.geometry.ogc.OGCMultiLineString;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
+import com.facebook.presto.geospatial.QuadTreeUtils.GeoIndex;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.hash.HashCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.geospatial.GeometryUtils.serialize;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public final class GeoFunctions
 {
@@ -54,6 +69,8 @@ public final class GeoFunctions
     private static final String POLYGON = "Polygon";
     private static final String POINT = "Point";
     private static final String GEOMETRY = "Geometry";
+    private static final long MAX_INDICES_SIZE = 20;
+    private static final Cache<HashCode, GeoIndex> QuardTreeCache = CacheBuilder.newBuilder().maximumSize(MAX_INDICES_SIZE).build();
 
     private GeoFunctions() {}
 
@@ -528,5 +545,103 @@ public final class GeoFunctions
         OGCGeometry rightGeometry = deserialize(right);
         OperatorSimpleRelation withinOperator = OperatorWithin.local();
         return withinOperator.execute(leftGeometry.getEsriGeometry(), rightGeometry.getEsriGeometry(), leftGeometry.getEsriSpatialReference(), null);
+    }
+
+    @SqlNullable
+    @Description("Returns the first shape id contains the input geo shape")
+    @ScalarFunction("geo_contains")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice geoContains(@SqlType(GEOMETRY) Slice shape, @SqlType(StandardTypes.VARCHAR) Slice geometries)
+    {
+        OGCGeometry shapeGeometry = deserialize(shape);
+        List<String> shapeIds = processGeo(shapeGeometry, geometries, OperatorContains.local(), true);
+        if (!shapeIds.isEmpty()) {
+            return Slices.utf8Slice(shapeIds.get(0));
+        }
+        return null;
+    }
+
+    @SqlNullable
+    @Description("Returns the first shape id intersects with the input shape")
+    @ScalarFunction("geo_intersects")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice geoIntersects(@SqlType(GEOMETRY) Slice shape, @SqlType(StandardTypes.VARCHAR) Slice geometries)
+    {
+        OGCGeometry shapeGeometry = deserialize(shape);
+        List<String> shapeIds = processGeo(shapeGeometry, geometries, OperatorIntersects.local(), true);
+        if (!shapeIds.isEmpty()) {
+            return Slices.utf8Slice(shapeIds.get(0));
+        }
+        return null;
+    }
+
+    @SqlNullable
+    @Description("Returns all shpae ids contains input shape")
+    @ScalarFunction("geo_contains_all")
+    @SqlType("array(varchar)")
+    public static Block geoContainsAll(@SqlType(GEOMETRY) Slice shape, @SqlType(StandardTypes.VARCHAR) Slice geometries)
+    {
+        OGCGeometry shapeGeometry = deserialize(shape);
+        List<String> shapeIds = processGeo(shapeGeometry, geometries, OperatorContains.local(), false);
+        if (!shapeIds.isEmpty()) {
+            BlockBuilder blockBuilder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus(), shapeIds.size());
+            for (String shapeId : shapeIds) {
+                VarcharType.VARCHAR.writeString(blockBuilder, shapeId);
+            }
+            return blockBuilder.build();
+        }
+        return null;
+    }
+
+    @SqlNullable
+    @Description("Returns all shpae ids intersects with input shape")
+    @ScalarFunction("geo_intersects_all")
+    @SqlType("array(varchar)")
+    public static Block geoIntersectsAll(@SqlType(GEOMETRY) Slice shape, @SqlType(StandardTypes.VARCHAR) Slice geometries)
+    {
+        OGCGeometry shapeGeometry = deserialize(shape);
+        List<String> shapeIds = processGeo(shapeGeometry, geometries, OperatorIntersects.local(), false);
+        if (!shapeIds.isEmpty()) {
+            BlockBuilder blockBuilder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus(), shapeIds.size());
+            for (String shapeId : shapeIds) {
+                VarcharType.VARCHAR.writeString(blockBuilder, shapeId);
+            }
+            return blockBuilder.build();
+        }
+        return null;
+    }
+
+    private static List<String> processGeo(OGCGeometry shape, Slice geometries, OperatorSimpleRelation relationOperator, boolean getFirst)
+    {
+        GeoIndex geoIndex = getGeoIndex(geometries);
+        try {
+            return QuadTreeUtils.queryIndex(shape, geoIndex, relationOperator, getFirst);
+        }
+        catch (Exception e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Not able to query QuadTree", e);
+        }
+    }
+
+    private static GeoIndex getGeoIndex(Slice slice)
+    {
+        HashCode hashCode = HashCode.fromInt(slice.getInt(0));
+        try {
+            return QuardTreeCache.get(hashCode, () -> createGeoIndex(slice));
+        }
+        catch (ExecutionException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "not able to create geo index", e);
+        }
+    }
+
+    private static GeoIndex createGeoIndex(Slice slice)
+    {
+        Map<String, OGCGeometry> geoIdWithShape = new HashMap<>();
+        int geoShapeDataSize = slice.getInt(SIZE_OF_INT);
+        byte[] bytes = slice.getBytes(SIZE_OF_INT + SIZE_OF_INT, geoShapeDataSize);
+        List<GeoShape> geoShapes = GeoShape.deserialize(Slices.wrappedBuffer(bytes));
+        for (GeoShape shapeCombo : geoShapes) {
+            geoIdWithShape.put(shapeCombo.id.toStringUtf8(), deserialize(shapeCombo.geoShape));
+        }
+        return QuadTreeUtils.init(geoIdWithShape);
     }
 }
