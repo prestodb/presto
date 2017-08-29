@@ -186,7 +186,8 @@
                 org.weakref.jmx.internal,
                 jersey.repackaged,
                 jdk.nashorn.internal,
-                jdk.internal" />
+                jdk.internal,
+                org.testng.AssertJUnit" />
         </module>
     </module>
 </module>
