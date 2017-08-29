@@ -27,7 +27,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestSortExpressionExtractor
 {
@@ -86,13 +86,13 @@ public class TestSortExpressionExtractor
     private static void assertGetSortExpression(Expression expression)
     {
         Optional<Expression> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
-        assertEquals(Optional.empty(), actual);
+        assertEquals(actual, Optional.empty());
     }
 
     private static void assertGetSortExpression(Expression expression, String expectedSymbol)
     {
         Optional<Expression> expected = Optional.of(new SymbolReference(expectedSymbol));
         Optional<Expression> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
-        assertEquals(expected, actual);
+        assertEquals(actual, expected);
     }
 }

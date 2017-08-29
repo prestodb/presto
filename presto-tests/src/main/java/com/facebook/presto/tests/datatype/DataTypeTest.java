@@ -25,7 +25,7 @@ import java.util.List;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
-import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class DataTypeTest
 {
@@ -50,9 +50,9 @@ public class DataTypeTest
         List<Object> expectedResults = inputs.stream().map(Input::toPrestoQueryResult).collect(toList());
         try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(inputs))) {
             MaterializedResult materializedRows = prestoExecutor.execute("SELECT * from " + testTable.getName());
-            assertEquals(expectedTypes, materializedRows.getTypes());
+            assertEquals(materializedRows.getTypes(), expectedTypes);
             MaterializedRow row = getOnlyElement(materializedRows);
-            assertEquals(expectedResults, row.getFields());
+            assertEquals(row.getFields(), expectedResults);
         }
     }
 
