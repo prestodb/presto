@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -36,9 +37,11 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestPickTableLayout
@@ -56,7 +59,7 @@ public class TestPickTableLayout
     @BeforeClass
     public final void setUp()
     {
-        tester = new RuleTester();
+        tester = new RuleTester(true);
     }
 
     @AfterClass(alwaysRun = true)
@@ -156,5 +159,21 @@ public class TestPickTableLayout
                 .matches(
                         filter("nationkey = BIGINT '44'",
                                 constrainedTableScanWithTableLayout("nation", filterConstraint, ImmutableMap.of("nationkey", "nationkey"))));
+    }
+
+    @Test
+    public void ruleAddsFullyEnforcedTableLayout()
+    {
+        Type orderStatusType = createVarcharType(1);
+        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
+                .put("orderstatus", singleValue(orderStatusType, utf8Slice("O")))
+                .build();
+        tester.assertThat(pickTableLayout)
+                .on(p -> p.filter(expression("orderstatus = 'O'"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
+                                ImmutableMap.of(p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType)))))
+                .matches(constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderstatus", "orderstatus")));
     }
 }
