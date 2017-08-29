@@ -116,6 +116,7 @@
         </module>
         <module name="GenericWhitespace" />
         <module name="WhitespaceAfter" />
+        <module name="NoWhitespaceAfter" />
         <module name="NoWhitespaceBefore" />
         <module name="SingleSpaceSeparator" />
         <module name="Indentation">
