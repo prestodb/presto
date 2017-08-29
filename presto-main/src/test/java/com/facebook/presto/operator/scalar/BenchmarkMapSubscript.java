@@ -19,12 +19,10 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
@@ -140,7 +138,7 @@ public class BenchmarkMapSubscript
             }
 
             Block keyBlock = createKeyBlock(POSITIONS, keys);
-            Block block = createMapBlock(POSITIONS, keyBlock, valueBlock);
+            Block block = createMapBlock(mapType, POSITIONS, keyBlock, valueBlock);
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
@@ -172,15 +170,14 @@ public class BenchmarkMapSubscript
             return page;
         }
 
-        private static Block createMapBlock(int positionCount, Block keyBlock, Block valueBlock)
+        private static Block createMapBlock(MapType mapType, int positionCount, Block keyBlock, Block valueBlock)
         {
-            InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[] {keyBlock, valueBlock});
             int[] offsets = new int[positionCount + 1];
             int mapSize = keyBlock.getPositionCount() / positionCount;
             for (int i = 0; i < offsets.length; i++) {
-                offsets[i] = mapSize * 2 * i;
+                offsets[i] = mapSize * i;
             }
-            return new ArrayBlock(positionCount, new boolean[positionCount], offsets, interleavedBlock);
+            return mapType.createBlockFromKeyValue(new boolean[positionCount], offsets, keyBlock, valueBlock);
         }
 
         private static Block createKeyBlock(int positionCount, List<String> keys)
