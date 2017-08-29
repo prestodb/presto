@@ -22,11 +22,11 @@ import static java.util.Objects.requireNonNull;
 
 public class OrcWriterOptions
 {
-    private static final DataSize DEFAULT_STRIPE_MAX_SIZE = new DataSize(256, MEGABYTE);
+    private static final DataSize DEFAULT_STRIPE_MAX_SIZE = new DataSize(64, MEGABYTE);
     private static final int DEFAULT_STRIPE_MIN_ROW_COUNT = 100_000;
     private static final int DEFAULT_STRIPE_MAX_ROW_COUNT = 10_000_000;
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
-    private static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = new DataSize(32, MEGABYTE);
+    private static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = new DataSize(16, MEGABYTE);
 
     private final DataSize stripeMaxSize;
     private final int stripeMinRowCount;

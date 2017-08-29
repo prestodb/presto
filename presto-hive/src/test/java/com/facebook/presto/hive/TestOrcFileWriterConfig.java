@@ -30,11 +30,11 @@ public class TestOrcFileWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OrcFileWriterConfig.class)
-                .setStripeMaxSize(new DataSize(256, MEGABYTE))
+                .setStripeMaxSize(new DataSize(64, MEGABYTE))
                 .setStripeMinRowCount(100_000)
                 .setStripeMaxRowCount(10_000_000)
                 .setRowGroupMaxRowCount(10_000)
-                .setDictionaryMaxMemory(new DataSize(32, MEGABYTE)));
+                .setDictionaryMaxMemory(new DataSize(16, MEGABYTE)));
     }
 
     @Test
