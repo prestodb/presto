@@ -71,7 +71,6 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
-import static java.lang.String.valueOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -346,7 +345,7 @@ public class HivePageSource
                     blockBuilder.appendNull();
                     continue;
                 }
-                toType.writeSlice(blockBuilder, utf8Slice(valueOf(fromType.getLong(block, i))));
+                toType.writeSlice(blockBuilder, utf8Slice(String.valueOf(fromType.getLong(block, i))));
             }
             return blockBuilder.build();
         }

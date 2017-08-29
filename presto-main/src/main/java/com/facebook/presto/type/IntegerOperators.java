@@ -46,7 +46,6 @@ import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
-import static java.lang.String.valueOf;
 
 public final class IntegerOperators
 {
@@ -233,7 +232,7 @@ public final class IntegerOperators
     public static Slice castToVarchar(@SqlType(StandardTypes.INTEGER) long value)
     {
         // todo optimize me
-        return utf8Slice(valueOf(value));
+        return utf8Slice(String.valueOf(value));
     }
 
     @ScalarOperator(HASH_CODE)
