@@ -261,7 +261,7 @@ public class OrcWriter
         if (stripeRowCount == stripeMaxRowCount) {
             writeStripe(MAX_ROWS);
         }
-        else if (bufferedBytes > stripeMaxBytes) {
+        else if (bufferedBytes + dictionaryCompressionOptimizer.getDictionaryMemoryBytes() > stripeMaxBytes) {
             writeStripe(MAX_BYTES);
         }
         else if (dictionaryCompressionOptimizer.isFull()) {
