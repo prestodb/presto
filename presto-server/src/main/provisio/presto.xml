@@ -86,6 +86,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/geo">
+        <artifact id="${project.groupId}:presto-geospatial:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/mysql">
         <artifact id="${project.groupId}:presto-mysql:zip:${project.version}">
             <unpack />
