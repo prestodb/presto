@@ -28,7 +28,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.copyOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -96,7 +95,7 @@ public final class SqlScalarFunctionBuilder
 
     public SqlScalarFunctionBuilder nullableArguments(List<Boolean> nullableArguments)
     {
-        this.nullableArguments = copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
+        this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
         return this;
     }
 
