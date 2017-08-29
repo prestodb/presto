@@ -31,13 +31,11 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -52,9 +50,9 @@ import java.util.Set;
 import static com.facebook.presto.sql.ExpressionUtils.combinePredicates;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.OR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
@@ -168,41 +166,11 @@ public class SimplifyExpressions
             if (expression instanceof SymbolReference) {
                 return expression;
             }
-            expression = ExpressionTreeRewriter.rewriteWith(new PushDownNegationsExpressionRewriter(), expression);
+            expression = pushDownNegations(expression);
             expression = ExpressionTreeRewriter.rewriteWith(new ExtractCommonPredicatesExpressionRewriter(), expression, NodeContext.ROOT_NODE);
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression, emptyList() /* parameters already replaced */);
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
-        }
-    }
-
-    private static class PushDownNegationsExpressionRewriter
-            extends ExpressionRewriter<Void>
-    {
-        @Override
-        public Expression rewriteNotExpression(NotExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            if (node.getValue() instanceof LogicalBinaryExpression) {
-                LogicalBinaryExpression child = (LogicalBinaryExpression) node.getValue();
-                List<Expression> predicates = extractPredicates(child);
-                List<Expression> negatedPredicates = predicates.stream()
-                        .map(predicate -> treeRewriter.rewrite((Expression) new NotExpression(predicate), context))
-                        .collect(toImmutableList());
-                return combinePredicates(child.getType().flip(), negatedPredicates);
-            }
-            else if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getType() != IS_DISTINCT_FROM) {
-                ComparisonExpression child = (ComparisonExpression) node.getValue();
-                return new ComparisonExpression(
-                        child.getType().negate(),
-                        treeRewriter.rewrite(child.getLeft(), context),
-                        treeRewriter.rewrite(child.getRight(), context));
-            }
-            else if (node.getValue() instanceof NotExpression) {
-                NotExpression child = (NotExpression) node.getValue();
-                return treeRewriter.rewrite(child.getValue(), context);
-            }
-
-            return new NotExpression(treeRewriter.rewrite(node.getValue(), context));
         }
     }
 
