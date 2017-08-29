@@ -18,6 +18,8 @@ import io.airlift.slice.Slice;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
+
 public abstract class AbstractInterleavedBlock
         implements Block
 {
@@ -223,19 +225,22 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        if (positions.size() % columns != 0) {
-            throw new IllegalArgumentException("Positions.size (" + positions.size() + ") is not evenly dividable by columns (" + columns + ")");
+        checkValidPositionsArray(positions, offset, length);
+
+        if (length % columns != 0) {
+            throw new IllegalArgumentException("Positions.size (" + length + ") is not evenly dividable by columns (" + columns + ")");
         }
-        int positionsPerColumn = positions.size() / columns;
+        int positionsPerColumn = length / columns;
 
         List<List<Integer>> valuePositions = new ArrayList<>(columns);
         for (int i = 0; i < columns; i++) {
             valuePositions.add(new ArrayList<>(positionsPerColumn));
         }
         int ordinal = 0;
-        for (int position : positions) {
+        for (int i = 0; i < length; ++i) {
+            int position = positions[offset + i];
             position = toAbsolutePosition(position);
             if (ordinal % columns != position % columns) {
                 throw new IllegalArgumentException("Position (" + position + ") is not congruent to ordinal (" + ordinal + ") modulo columns (" + columns + ")");

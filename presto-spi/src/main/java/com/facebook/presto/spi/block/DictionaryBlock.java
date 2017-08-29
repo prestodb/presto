@@ -264,16 +264,17 @@ public class DictionaryBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositions(positions, positionCount);
+        checkValidPositions(positions, offset, length, positionCount);
 
         List<Integer> positionsToCopy = new ArrayList<>();
         Map<Integer, Integer> oldIndexToNewIndex = new HashMap<>();
-        int[] newIds = new int[positions.size()];
+        int[] newIds = new int[length];
 
-        for (int i = 0; i < positions.size(); i++) {
-            int oldIndex = getId(positions.get(i));
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
+            int oldIndex = getId(position);
             if (!oldIndexToNewIndex.containsKey(oldIndex)) {
                 oldIndexToNewIndex.put(oldIndex, positionsToCopy.size());
                 positionsToCopy.add(oldIndex);

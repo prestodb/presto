@@ -18,7 +18,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
@@ -92,18 +91,19 @@ public class FixedWidthBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositions(positions, positionCount);
+        checkValidPositions(positions, offset, length, positionCount);
 
-        SliceOutput newSlice = Slices.allocate(positions.size() * fixedSize).getOutput();
-        SliceOutput newValueIsNull = Slices.allocate(positions.size()).getOutput();
+        SliceOutput newSlice = Slices.allocate(length * fixedSize).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(length).getOutput();
 
-        for (int position : positions) {
+        for (int i = 0; i < length; ++i) {
+            int position = positions[offset + i];
             newSlice.writeBytes(slice, position * fixedSize, fixedSize);
             newValueIsNull.writeByte(valueIsNull.getByte(position));
         }
-        return new FixedWidthBlock(fixedSize, positions.size(), newSlice.slice(), newValueIsNull.slice());
+        return new FixedWidthBlock(fixedSize, length, newSlice.slice(), newValueIsNull.slice());
     }
 
     @Override

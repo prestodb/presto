@@ -197,7 +197,20 @@ public interface Block
      * <p>
      * The returned block must be a compact representation of the original block.
      */
-    Block copyPositions(List<Integer> positions);
+    Block copyPositions(int[] positions, int offset, int length);
+
+    /**
+     * Returns a block containing the specified positions.
+     * All specified positions must be valid for this block.
+     * Use primitive version of this method if possible
+     * since it allows to avoid integer boxing.
+     * <p>
+     * The returned block must be a compact representation of the original block.
+     */
+    default Block copyPositions(List<Integer> positions)
+    {
+        return copyPositions(positions.stream().mapToInt(i -> i).toArray(), 0, positions.size());
+    }
 
     /**
      * Returns a block starting at the specified position and extends for the

@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
-import java.util.List;
-import java.util.Set;
-
-import static java.util.stream.Collectors.toSet;
+import static java.util.Objects.requireNonNull;
 
 final class BlockUtil
 {
@@ -30,11 +27,27 @@ final class BlockUtil
     {
     }
 
-    static void checkValidPositions(List<Integer> positions, int positionCount)
+    static void checkValidPositions(int[] positions, int offset, int length, int positionCount)
     {
-        Set<Integer> invalidPositions = positions.stream().filter(position -> position >= positionCount).collect(toSet());
-        if (!invalidPositions.isEmpty()) {
-            throw new IllegalArgumentException("Invalid positions " + invalidPositions + " in block with " + positionCount + " positions");
+        checkValidPositionsArray(positions, offset, length);
+
+        for (int i = 0; i < length; ++i) {
+            int position = positions[offset + i];
+            if (position > positionCount) {
+                throw new IllegalArgumentException("Invalid position " + position + " in block with " + positionCount + " positions");
+            }
+        }
+    }
+
+    static void checkValidPositionsArray(int[] positions, int offset, int length)
+    {
+        requireNonNull(positions, "positions array is null");
+        if (offset < 0 || offset > positions.length) {
+            throw new IndexOutOfBoundsException("Invalid offset " + offset + " for positions array with " + positions.length + " elements");
+        }
+
+        if (length < 0 || offset + length > positions.length) {
+            throw new IndexOutOfBoundsException("Invalid length " + length + " for positions array with " + positions.length + " elements and offset " + offset);
         }
     }
 
