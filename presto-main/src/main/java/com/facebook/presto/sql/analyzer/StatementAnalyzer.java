@@ -406,11 +406,7 @@ class StatementAnalyzer
                 throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
 
-            for (Expression expression : node.getProperties().values()) {
-                // analyze table property value expressions which must be constant
-                createConstantAnalyzer(metadata, session, analysis.getParameters(), analysis.isDescribe())
-                        .analyze(expression, createScope(scope));
-            }
+            validateProperties(node.getProperties(), scope);
             analysis.setCreateTableProperties(node.getProperties());
 
             node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
@@ -485,6 +481,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateSchema(CreateSchema node, Optional<Scope> scope)
         {
+            validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
 
@@ -503,6 +500,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
+            validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
 
@@ -588,6 +586,15 @@ class StatementAnalyzer
         protected Scope visitCall(Call node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
+        }
+
+        private void validateProperties(Map<String, Expression> properties, Optional<Scope> scope)
+        {
+            for (Expression expression : properties.values()) {
+                // analyze property value expressions which must be constant
+                createConstantAnalyzer(metadata, session, analysis.getParameters(), analysis.isDescribe())
+                        .analyze(expression, createScope(scope));
+            }
         }
 
         private void validateColumns(Statement node, RelationType descriptor)
