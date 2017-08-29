@@ -86,17 +86,17 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("GRANT INSERT, SELECT ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName))).hasRowsCount(1);
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
-        assertThat(() -> bobExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName))).
-                failsWithMessage(format("Access Denied: Cannot delete from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot delete from table default.%s", tableName));
 
         // test REVOKE
         aliceExecutor.executeQuery(format("REVOKE INSERT ON %s FROM bob", tableName));
-        assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES ('y', 5)", tableName))).
-                failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES ('y', 5)", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
         aliceExecutor.executeQuery(format("REVOKE INSERT, SELECT ON %s FROM bob", tableName));
-        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).
-                failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
     }
 
     @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -139,8 +139,8 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO PUBLIC", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
         aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM PUBLIC", tableName));
-        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).
-                failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
     }
 
@@ -148,9 +148,9 @@ public class TestGrantRevoke
     public void testTableOwnerPrivileges()
     {
         onHive().executeQuery("set role admin;");
-        assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON TABLE %s", tableName)).
-                project(7, 8)). // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
-                containsOnly(ownerGrants());
+        assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON TABLE %s", tableName))
+                .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
+                .containsOnly(ownerGrants());
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
@@ -158,9 +158,9 @@ public class TestGrantRevoke
     {
         onHive().executeQuery("set role admin;");
         executeWith(createViewAs(viewName, format("SELECT * FROM %s", tableName), aliceExecutor), view -> {
-            assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON %s", viewName)).
-                    project(7, 8)). // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
-                    containsOnly(ownerGrants());
+            assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON %s", viewName))
+                    .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
+                    .containsOnly(ownerGrants());
         });
     }
 
@@ -176,11 +176,11 @@ public class TestGrantRevoke
 
     private static void assertAccessDeniedOnAllOperationsOnTable(QueryExecutor queryExecutor, String tableName)
     {
-        assertThat(() -> queryExecutor.executeQuery(format("SELECT * FROM %s", tableName))).
-                failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
-        assertThat(() -> queryExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName))).
-                failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
-        assertThat(() -> queryExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName))).
-                failsWithMessage(format("Access Denied: Cannot delete from table default.%s", tableName));
+        assertThat(() -> queryExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> queryExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
+        assertThat(() -> queryExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot delete from table default.%s", tableName));
     }
 }
