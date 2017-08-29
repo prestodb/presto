@@ -19,8 +19,8 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.AssertJUnit.assertFalse;
 
 public class TestExpressionVerifier
 {
