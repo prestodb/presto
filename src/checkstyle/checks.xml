@@ -171,6 +171,11 @@
                 STAR, STAR_ASSIGN, TYPE_EXTENSION_AND" />
         </module>
 
+        <module name="NoWhitespaceAfter">
+            <property name="tokens" value="DOT" />
+            <property name="allowLineBreaks" value="false" />
+        </module>
+
         <module name="IllegalToken">
             <property name="tokens" value="LITERAL_ASSERT" />
         </module>
