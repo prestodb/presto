@@ -287,6 +287,14 @@ public class DatabaseShardManager
                 if (attempts >= MAX_ADD_COLUMN_ATTEMPTS) {
                     throw metadataError(e);
                 }
+                log.warn(e, "Failed to alter table on attempt %s, will retry. SQL: %s", attempts, sql);
+                try {
+                    SECONDS.sleep(3);
+                }
+                catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw metadataError(ie);
+                }
             }
         }
     }
