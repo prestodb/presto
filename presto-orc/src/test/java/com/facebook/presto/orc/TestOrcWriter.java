@@ -60,11 +60,12 @@ public class TestOrcWriter
                 ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
                 ORC,
                 NONE,
-                new DataSize(32, MEGABYTE),
-                ORC_STRIPE_SIZE,
-                ORC_STRIPE_SIZE,
-                ORC_ROW_GROUP_SIZE,
-                new DataSize(32, MEGABYTE),
+                new OrcWriterOptions()
+                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                        .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                        .withStripeMinRowCount(ORC_STRIPE_SIZE)
+                        .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
+                        .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,

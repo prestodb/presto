@@ -33,6 +33,7 @@ import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.OrcWriter;
+import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
@@ -517,11 +518,7 @@ public enum FileFormat
                     types,
                     ORC,
                     compressionCodec.getOrcCompressionKind(),
-                    OrcWriter.DEFAULT_STRIPE_MAX_SIZE,
-                    OrcWriter.DEFAULT_STRIPE_MIN_ROW_COUNT,
-                    OrcWriter.DEFAULT_STRIPE_MAX_ROW_COUNT,
-                    OrcWriter.DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
-                    OrcWriter.DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
+                    new OrcWriterOptions(),
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,
@@ -557,11 +554,7 @@ public enum FileFormat
                     types,
                     DWRF,
                     compressionCodec.getOrcCompressionKind(),
-                    OrcWriter.DEFAULT_STRIPE_MAX_SIZE,
-                    OrcWriter.DEFAULT_STRIPE_MIN_ROW_COUNT,
-                    OrcWriter.DEFAULT_STRIPE_MAX_ROW_COUNT,
-                    OrcWriter.DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
-                    OrcWriter.DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
+                    new OrcWriterOptions(),
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,
