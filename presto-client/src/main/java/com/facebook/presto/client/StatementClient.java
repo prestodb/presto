@@ -319,11 +319,9 @@ public class StatementClient
             if (keyValue.size() != 2) {
                 continue;
             }
-            setSessionProperties.put(keyValue.get(0), keyValue.size() > 1 ? keyValue.get(1) : "");
+            setSessionProperties.put(keyValue.get(0), keyValue.get(1));
         }
-        for (String clearSession : headers.values(PRESTO_CLEAR_SESSION)) {
-            resetSessionProperties.add(clearSession);
-        }
+        resetSessionProperties.addAll(headers.values(PRESTO_CLEAR_SESSION));
 
         for (String entry : headers.values(PRESTO_ADDED_PREPARE)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
