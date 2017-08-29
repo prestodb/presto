@@ -95,8 +95,8 @@ public class TestGrantRevoke
                 .failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
         aliceExecutor.executeQuery(format("REVOKE INSERT, SELECT ON %s FROM bob", tableName));
-        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).
-                failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
     }
 
     @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -139,8 +139,8 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO PUBLIC", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
         aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM PUBLIC", tableName));
-        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).
-                failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
     }
 
