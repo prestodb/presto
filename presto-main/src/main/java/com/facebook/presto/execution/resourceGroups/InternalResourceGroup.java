@@ -30,6 +30,7 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -837,6 +838,13 @@ public class InternalResourceGroup
             }
             return runningQueries.size() + descendantRunningQueries < maxRunning &&
                     cachedMemoryUsageBytes < softMemoryLimitBytes;
+        }
+    }
+
+    public Collection<InternalResourceGroup> subGroups()
+    {
+        synchronized (root) {
+            return subGroups.values();
         }
     }
 

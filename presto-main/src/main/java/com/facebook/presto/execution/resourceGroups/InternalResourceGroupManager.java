@@ -33,6 +33,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.Managed;
 import org.weakref.jmx.ObjectNames;
 
 import javax.annotation.PostConstruct;
@@ -299,5 +300,32 @@ public final class InternalResourceGroupManager
     private Optional<String> determineQueryType(QueryExecution queryExecution)
     {
         return queryExecution.getQueryType().map(Enum::toString);
+    }
+
+    @Managed
+    public int getQueriesQueuedOnInternal()
+    {
+        int queriesQueuedInternal = 0;
+        for (RootInternalResourceGroup rootGroup : rootGroups) {
+            synchronized (rootGroup) {
+                queriesQueuedInternal += getQueriesQueuedOnInternal(rootGroup);
+            }
+        }
+
+        return queriesQueuedInternal;
+    }
+
+    private static int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
+    {
+        if (resourceGroup.subGroups().isEmpty()) {
+            return Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getMaxRunningQueries() - resourceGroup.getRunningQueries());
+        }
+
+        int queriesQueuedInternal = 0;
+        for (InternalResourceGroup subGroup : resourceGroup.subGroups()) {
+            queriesQueuedInternal += getQueriesQueuedOnInternal(subGroup);
+        }
+
+        return queriesQueuedInternal;
     }
 }
