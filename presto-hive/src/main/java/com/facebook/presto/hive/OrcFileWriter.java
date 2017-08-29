@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriter;
+import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
@@ -42,11 +43,6 @@ import java.util.function.Supplier;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_DICTIONARY_MEMORY_MAX_SIZE;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MAX_ROW_COUNT;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MAX_SIZE;
-import static com.facebook.presto.orc.OrcWriter.DEFAULT_STRIPE_MIN_ROW_COUNT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -81,11 +77,7 @@ public class OrcFileWriter
                 fileColumnTypes,
                 orcEncoding,
                 compression,
-                DEFAULT_STRIPE_MAX_SIZE,
-                DEFAULT_STRIPE_MIN_ROW_COUNT,
-                DEFAULT_STRIPE_MAX_ROW_COUNT,
-                DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
-                DEFAULT_DICTIONARY_MEMORY_MAX_SIZE,
+                new OrcWriterOptions(),
                 metadata,
                 hiveStorageTimeZone,
                 validationInputFactory.isPresent(),

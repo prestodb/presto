@@ -112,8 +112,6 @@ import java.util.Set;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
-import static com.facebook.presto.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -627,11 +625,7 @@ public class OrcTester
                 ImmutableList.of(type),
                 format.getOrcEncoding(),
                 compression,
-                new DataSize(128, MEGABYTE),
-                ORC_STRIPE_SIZE,
-                ORC_STRIPE_SIZE,
-                ORC_ROW_GROUP_SIZE,
-                new DataSize(32, MEGABYTE),
+                new OrcWriterOptions(),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,

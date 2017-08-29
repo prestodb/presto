@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -65,7 +64,6 @@ import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -75,12 +73,7 @@ public class OrcWriter
         implements Closeable
 {
     private static final int COMPRESSION_BLOCK_SIZE = 262_144;
-    public static final DataSize DEFAULT_STRIPE_MAX_SIZE = new DataSize(256, MEGABYTE);
-    public static final int DEFAULT_STRIPE_MIN_ROW_COUNT = 100_000;
-    public static final int DEFAULT_STRIPE_MAX_ROW_COUNT = 10_000_000;
-    public static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
     public static final int DEFAULT_BUFFER_SIZE = 256 * 1024;
-    public static final DataSize DEFAULT_DICTIONARY_MEMORY_MAX_SIZE = new DataSize(32, MEGABYTE);
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
@@ -123,11 +116,7 @@ public class OrcWriter
             List<Type> types,
             OrcEncoding orcEncoding,
             CompressionKind compression,
-            DataSize stripeMaxBytes,
-            int stripeMinRowCount,
-            int stripeMaxRowCount,
-            int rowGroupMaxRowCount,
-            DataSize dictionaryMemoryMaxBytes,
+            OrcWriterOptions options,
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
@@ -140,13 +129,14 @@ public class OrcWriter
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.compression = requireNonNull(compression, "compression is null");
         recordValidation(validation -> validation.setCompression(compression));
-        this.stripeMaxBytes = toIntExact(requireNonNull(stripeMaxBytes, "stripeMaxSize is null").toBytes());
-        checkArgument(stripeMinRowCount >= 1, "stripeMinRowCount must be at least 1");
-        checkArgument(stripeMaxRowCount >= stripeMinRowCount, "stripeMaxRowCount must be greater than stripeMinRowCount");
-        this.stripeMaxRowCount = stripeMaxRowCount;
-        checkArgument(rowGroupMaxRowCount >= 1, "rowGroupMaxRowCount must be at least 1");
-        this.rowGroupMaxRowCount = rowGroupMaxRowCount;
+
+        requireNonNull(options, "options is null");
+        this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
+        checkArgument(options.getStripeMaxRowCount() >= options.getStripeMinRowCount(), "stripeMaxRowCount must be greater than stripeMinRowCount");
+        this.stripeMaxRowCount = options.getStripeMaxRowCount();
+        this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
+
         this.userMetadata = ImmutableMap.<String, String>builder()
                 .putAll(requireNonNull(userMetadata, "userMetadata is null"))
                 .put(PRESTO_ORC_WRITER_VERSION_METADATA_KEY, PRESTO_ORC_WRITER_VERSION)
@@ -184,10 +174,10 @@ public class OrcWriter
         this.columnWriters = columnWriters.build();
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 sliceColumnWriters.build(),
-                toIntExact(stripeMaxBytes.toBytes()),
-                stripeMinRowCount,
+                stripeMaxBytes,
+                options.getStripeMinRowCount(),
                 stripeMaxRowCount,
-                toIntExact(requireNonNull(dictionaryMemoryMaxBytes, "dictionaryMemoryMaxSize is null").toBytes()));
+                toIntExact(requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes()));
 
         // this is not required but nice to have
         output.writeBytes(MAGIC);
