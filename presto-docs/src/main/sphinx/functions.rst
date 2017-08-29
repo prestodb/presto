@@ -25,3 +25,4 @@ Functions and Operators
     functions/map
     functions/lambda
     functions/teradata
+    functions/geospatial
