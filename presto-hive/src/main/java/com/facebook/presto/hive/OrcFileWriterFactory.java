@@ -18,6 +18,7 @@ import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.ConnectorSession;
@@ -69,6 +70,7 @@ public class OrcFileWriterFactory
     private final NodeVersion nodeVersion;
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
+    private final OrcWriterOptions orcWriterOptions;
 
     @Inject
     public OrcFileWriterFactory(
@@ -76,9 +78,16 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             HiveClientConfig hiveClientConfig,
-            FileFormatDataSourceStats readStats)
+            FileFormatDataSourceStats readStats,
+            OrcFileWriterConfig config)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(), readStats);
+        this(
+                hdfsEnvironment,
+                typeManager,
+                nodeVersion,
+                requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
+                readStats,
+                requireNonNull(config, "config is null").toOrcWriterOptions());
     }
 
     public OrcFileWriterFactory(
@@ -86,13 +95,15 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
-            FileFormatDataSourceStats readStats)
+            FileFormatDataSourceStats readStats,
+            OrcWriterOptions orcWriterOptions)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.readStats = requireNonNull(readStats, "stats is null");
+        this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
     }
 
     @Managed
@@ -175,6 +186,7 @@ public class OrcFileWriterFactory
                     fileColumnNames,
                     fileColumnTypes,
                     compression,
+                    orcWriterOptions,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
