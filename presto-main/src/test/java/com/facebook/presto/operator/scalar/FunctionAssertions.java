@@ -67,6 +67,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -215,6 +216,11 @@ public final class FunctionAssertions
         runner = new LocalQueryRunner(session, featuresConfig);
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
+    }
+
+    public TypeRegistry getTypeRegistry()
+    {
+        return runner.getTypeManager();
     }
 
     public Metadata getMetadata()
