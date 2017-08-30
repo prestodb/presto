@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.Chars.byteCountWithoutTrailingSpace;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;
@@ -24,6 +25,23 @@ import static org.testng.Assert.fail;
 
 public class TestChars
 {
+    @Test
+    public void testTruncateToLengthAndTrimSpaces()
+    {
+        assertEquals(utf8Slice("a"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 1));
+        assertEquals(utf8Slice("a"), truncateToLengthAndTrimSpaces(utf8Slice("a  "), 1));
+        assertEquals(utf8Slice("a"), truncateToLengthAndTrimSpaces(utf8Slice("abc"), 1));
+        assertEquals(utf8Slice(""), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 0));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 3));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 4));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 5));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 3));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 4));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 5));
+        assertEquals(utf8Slice(""), truncateToLengthAndTrimSpaces(utf8Slice("  "), 1));
+        assertEquals(utf8Slice(""), truncateToLengthAndTrimSpaces(utf8Slice(""), 1));
+    }
+
     @Test
     public void testByteCountWithoutTrailingSpaces()
             throws Exception

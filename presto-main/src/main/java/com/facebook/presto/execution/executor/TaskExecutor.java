@@ -154,23 +154,25 @@ public class TaskExecutor
     private volatile boolean closed;
 
     @Inject
-    public TaskExecutor(TaskManagerConfig config)
+    public TaskExecutor(TaskManagerConfig config, MultilevelSplitQueue splitQueue)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), config.getLevelTimeMultiplier().doubleValue(), config.isLevelAbsolutePriority(), config.isLegacySchedulingBehavior(), Ticker.systemTicker());
+        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), splitQueue, config.isLegacySchedulingBehavior(), Ticker.systemTicker());
     }
 
+    @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers)
     {
         this(runnerThreads, minDrivers, Ticker.systemTicker());
     }
 
+    @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, 2, false, true, ticker);
+        this(runnerThreads, minDrivers, new MultilevelSplitQueue(false, 2), false, ticker);
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, double levelTimeMultiplier, boolean levelAbsolutePriority, boolean legacySchedulingBehavior, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, MultilevelSplitQueue splitQueue, boolean legacySchedulingBehavior, Ticker ticker)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
 
@@ -182,7 +184,7 @@ public class TaskExecutor
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.minimumNumberOfDrivers = minDrivers;
-        this.waitingSplits = new MultilevelSplitQueue(levelAbsolutePriority, levelTimeMultiplier);
+        this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
         this.legacySchedulingBehavior = legacySchedulingBehavior;
     }
@@ -670,41 +672,6 @@ public class TaskExecutor
     public long getRunningTasksLevel4()
     {
         return getRunningTasksForLevel(4);
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSelectedCountLevel0()
-    {
-        return waitingSplits.getSelectedLevelCounters().get(0);
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSelectedCountLevel1()
-    {
-        return waitingSplits.getSelectedLevelCounters().get(1);
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSelectedCountLevel2()
-    {
-        return waitingSplits.getSelectedLevelCounters().get(2);
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSelectedCountLevel3()
-    {
-        return waitingSplits.getSelectedLevelCounters().get(3);
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSelectedCountLevel4()
-    {
-        return waitingSplits.getSelectedLevelCounters().get(4);
     }
 
     @Managed

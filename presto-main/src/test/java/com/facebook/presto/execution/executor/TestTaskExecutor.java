@@ -215,7 +215,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 2, true, true, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 2, new MultilevelSplitQueue(true, 2), true, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -271,7 +271,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 2, false, false, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 3, new MultilevelSplitQueue(false, 2), false, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -404,8 +404,8 @@ public class TestTaskExecutor
             handle1.addScheduledNanos(levelAdvanceTime);
             assertEquals(handle1.getPriority().getLevel(), i + 1);
 
-            assertEquals(splitQueue.getLevelScheduledTime()[i], 2 * Math.min(levelAdvanceTime, LEVEL_CONTRIBUTION_CAP));
-            assertEquals(splitQueue.getLevelScheduledTime()[i + 1], 0);
+            assertEquals(splitQueue.getLevelScheduledTime(i), 2 * Math.min(levelAdvanceTime, LEVEL_CONTRIBUTION_CAP));
+            assertEquals(splitQueue.getLevelScheduledTime(i + 1), 0);
         }
     }
 
@@ -422,7 +422,7 @@ public class TestTaskExecutor
 
         for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
             long thisLevelTime = Math.min(SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]), cappedNanos);
-            assertEquals(splitQueue.getLevelScheduledTime()[i], thisLevelTime);
+            assertEquals(splitQueue.getLevelScheduledTime(i), thisLevelTime);
             cappedNanos -= thisLevelTime;
         }
     }

@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,8 +45,8 @@ public class MultilevelSplitQueue
 
     @GuardedBy("lock")
     private final List<PriorityQueue<PrioritizedSplitRunner>> levelWaitingSplits;
-    @GuardedBy("lock")
-    private final long[] levelScheduledTime = new long[LEVEL_THRESHOLD_SECONDS.length];
+
+    private final AtomicLong[] levelScheduledTime = new AtomicLong[LEVEL_THRESHOLD_SECONDS.length];
 
     private final AtomicLong[] levelMinPriority;
     private final List<CounterStat> selectedLevelCounters;
@@ -53,6 +57,12 @@ public class MultilevelSplitQueue
     private final boolean levelAbsolutePriority;
     private final double levelTimeMultiplier;
 
+    @Inject
+    public MultilevelSplitQueue(TaskManagerConfig taskManagerConfig)
+    {
+        this(taskManagerConfig.isLevelAbsolutePriority(), taskManagerConfig.getLevelTimeMultiplier().doubleValue());
+    }
+
     public MultilevelSplitQueue(boolean levelAbsolutePriority, double levelTimeMultiplier)
     {
         this.levelMinPriority = new AtomicLong[LEVEL_THRESHOLD_SECONDS.length];
@@ -60,6 +70,7 @@ public class MultilevelSplitQueue
         ImmutableList.Builder<CounterStat> counters = ImmutableList.builder();
 
         for (int i = 0; i < LEVEL_THRESHOLD_SECONDS.length; i++) {
+            levelScheduledTime[i] = new AtomicLong();
             levelMinPriority[i] = new AtomicLong(-1);
             levelWaitingSplits.add(new PriorityQueue<>());
             counters.add(new CounterStat());
@@ -73,23 +84,39 @@ public class MultilevelSplitQueue
 
     private void addLevelTime(int level, long nanos)
     {
-        lock.lock();
-        try {
-            levelScheduledTime[level] += nanos;
-        }
-        finally {
-            lock.unlock();
-        }
+        levelScheduledTime[level].addAndGet(nanos);
     }
 
+    /**
+     * During periods of time when a level has no waiting splits, it will not accumulate
+     * scheduled time and will fall behind relative to other levels.
+     * <p>
+     * This can cause temporary starvation for other levels when splits do reach the
+     * previously-empty level.
+     * <p>
+     * To prevent this we set the scheduled time for levels which were empty to the expected
+     * scheduled time.
+     */
     public void offer(PrioritizedSplitRunner split)
     {
         checkArgument(split != null, "split is null");
 
         split.setReady();
+        int level = split.getPriority().getLevel();
         lock.lock();
         try {
-            levelWaitingSplits.get(split.getPriority().getLevel()).offer(split);
+            if (levelWaitingSplits.get(level).isEmpty()) {
+                // Accesses to levelScheduledTime are not synchronized, so we have a data race
+                // here - our level time math will be off. However, the staleness is bounded by
+                // the fact that only running splits that complete during this computation
+                // can update the level time. Therefore, this is benign.
+                long level0Time = getLevel0TargetTime();
+                long levelExpectedTime = (long) (level0Time / Math.pow(levelTimeMultiplier, level));
+                long delta = levelExpectedTime - levelScheduledTime[level].get();
+                levelScheduledTime[level].addAndGet(delta);
+            }
+
+            levelWaitingSplits.get(level).offer(split);
             notEmpty.signal();
         }
         finally {
@@ -140,12 +167,13 @@ public class MultilevelSplitQueue
             return pollFirstSplit();
         }
 
-        long targetScheduledTime = updateLevelTimes();
+        long targetScheduledTime = getLevel0TargetTime();
         double worstRatio = 1;
         int selectedLevel = -1;
         for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
             if (!levelWaitingSplits.get(level).isEmpty()) {
-                double ratio = levelScheduledTime[level] == 0 ? 0 : targetScheduledTime / (1.0 * levelScheduledTime[level]);
+                long levelTime = levelScheduledTime[level].get();
+                double ratio = levelTime == 0 ? 0 : targetScheduledTime / (1.0 * levelTime);
                 if (selectedLevel == -1 || ratio > worstRatio) {
                     worstRatio = ratio;
                     selectedLevel = level;
@@ -165,45 +193,19 @@ public class MultilevelSplitQueue
         return result;
     }
 
-    /**
-     * During periods of time when a level has no waiting splits, it will not accumulate
-     * accumulate scheduled time and will fall behind relative to other levels.
-     * <p>
-     * This can cause temporary starvation for other levels when splits do reach the
-     * previously-empty level.
-     * <p>
-     * To prevent this we set the scheduled time for levels which are empty to the expected
-     * scheduled time.
-     *
-     * @return target scheduled time for level 0
-     */
     @GuardedBy("lock")
-    private long updateLevelTimes()
+    private long getLevel0TargetTime()
     {
-        long level0ExpectedTime = levelScheduledTime[0];
-        boolean updated;
-        do {
-            double currentMultiplier = levelTimeMultiplier;
-            updated = false;
-            for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
-                currentMultiplier /= levelTimeMultiplier;
-                long levelExpectedTime = (long) (level0ExpectedTime * currentMultiplier);
+        long level0TargetTime = levelScheduledTime[0].get();
+        double currentMultiplier = levelTimeMultiplier;
 
-                if (levelWaitingSplits.get(level).isEmpty()) {
-                    levelScheduledTime[level] = levelExpectedTime;
-                    continue;
-                }
-
-                if (levelScheduledTime[level] > levelExpectedTime) {
-                    level0ExpectedTime = (long) (levelScheduledTime[level] / currentMultiplier);
-                    updated = true;
-                    break;
-                }
-            }
+        for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
+            currentMultiplier /= levelTimeMultiplier;
+            long levelTime = levelScheduledTime[level].get();
+            level0TargetTime = Math.max(level0TargetTime, (long) (levelTime / currentMultiplier));
         }
-        while (updated && level0ExpectedTime != 0);
 
-        return level0ExpectedTime;
+        return level0TargetTime;
     }
 
     @GuardedBy("lock")
@@ -309,11 +311,6 @@ public class MultilevelSplitQueue
         }
     }
 
-    public List<CounterStat> getSelectedLevelCounters()
-    {
-        return selectedLevelCounters;
-    }
-
     public static int computeLevel(long threadUsageNanos)
     {
         long seconds = NANOSECONDS.toSeconds(threadUsageNanos);
@@ -327,14 +324,73 @@ public class MultilevelSplitQueue
     }
 
     @VisibleForTesting
-    long[] getLevelScheduledTime()
+    long getLevelScheduledTime(int level)
     {
-        lock.lock();
-        try {
-            return levelScheduledTime;
-        }
-        finally {
-            lock.unlock();
-        }
+        return levelScheduledTime[level].longValue();
+    }
+
+    @Managed
+    public long getLevel0Time()
+    {
+        return getLevelScheduledTime(0);
+    }
+
+    @Managed
+    public long getLevel1Time()
+    {
+        return getLevelScheduledTime(1);
+    }
+
+    @Managed
+    public long getLevel2Time()
+    {
+        return getLevelScheduledTime(2);
+    }
+
+    @Managed
+    public long getLevel3Time()
+    {
+        return getLevelScheduledTime(3);
+    }
+
+    @Managed
+    public long getLevel4Time()
+    {
+        return getLevelScheduledTime(4);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel0()
+    {
+        return selectedLevelCounters.get(0);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel1()
+    {
+        return selectedLevelCounters.get(1);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel2()
+    {
+        return selectedLevelCounters.get(2);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel3()
+    {
+        return selectedLevelCounters.get(3);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSelectedCountLevel4()
+    {
+        return selectedLevelCounters.get(4);
     }
 }
