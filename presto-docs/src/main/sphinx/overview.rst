@@ -8,4 +8,5 @@ distributed over one or more heterogeneous data sources.
 .. toctree::
     :maxdepth: 1
 
+    overview/concepts
     overview/use-cases
