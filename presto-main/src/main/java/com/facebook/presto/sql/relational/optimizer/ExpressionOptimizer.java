@@ -57,7 +57,6 @@ import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
-import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -121,16 +120,6 @@ public class ExpressionOptimizer
                         else {
                             return call.getArguments().get(2).accept(this, context);
                         }
-                    }
-                    List<RowExpression> arguments = call.getArguments().stream()
-                            .map(argument -> argument.accept(this, null))
-                            .collect(toImmutableList());
-                    return call(signature, call.getType(), arguments);
-                }
-                case TRY: {
-                    checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
-                    if (!(Iterables.getOnlyElement(call.getArguments()) instanceof CallExpression)) {
-                        return Iterables.getOnlyElement(call.getArguments()).accept(this, null);
                     }
                     List<RowExpression> arguments = call.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
