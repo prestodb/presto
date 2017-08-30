@@ -35,6 +35,9 @@ public class TestChars
         assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 3));
         assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 4));
         assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 5));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 3));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 4));
+        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 5));
         assertEquals(utf8Slice(""), truncateToLengthAndTrimSpaces(utf8Slice("  "), 1));
         assertEquals(utf8Slice(""), truncateToLengthAndTrimSpaces(utf8Slice(""), 1));
     }
