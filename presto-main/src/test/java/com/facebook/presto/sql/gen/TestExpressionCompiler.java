@@ -763,26 +763,6 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void testTry()
-            throws Exception
-    {
-        assertExecute("try(cast(null as bigint))", BIGINT, null);
-        assertExecute("try(cast('123' as bigint))", BIGINT, 123L);
-        assertExecute("try(cast('foo' as bigint))", BIGINT, null);
-        assertExecute("try(cast('foo' as bigint)) + try(cast('123' as bigint))", BIGINT, null);
-        assertExecute("try(cast (cast (123 AS VARCHAR) AS BIGINT))", BIGINT, 123L);
-        assertExecute("coalesce(cast (CONCAT('123', CAST (123 AS VARCHAR)) AS BIGINT), 0)", BIGINT, 123123L);
-        assertExecute("try(cast (CONCAT(bound_string, CAST (123 AS VARCHAR)) AS BIGINT))", BIGINT, null);
-        assertExecute("coalesce(try(cast (concat('a', cast (123 AS VARCHAR)) AS INTEGER)), 0)", INTEGER, 0);
-        assertExecute("coalesce(try(cast (concat('a', cast (123 AS VARCHAR)) AS BIGINT)), 0)", BIGINT, 0L);
-        assertExecute("123 + TRY(ABS(-9223372036854775807 - 1))", BIGINT, null);
-        assertExecute("JSON_FORMAT(TRY(JSON '[]')) || '123'", VARCHAR, "[]123");
-        assertExecute("JSON_FORMAT(TRY(JSON 'INVALID')) || '123'", VARCHAR, null);
-
-        Futures.allAsList(futures).get();
-    }
-
-    @Test
     public void testTryCast()
             throws Exception
     {
