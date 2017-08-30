@@ -966,7 +966,7 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
+            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
             return functionInvoker.invoke(functionSignature, session, argumentValues);
