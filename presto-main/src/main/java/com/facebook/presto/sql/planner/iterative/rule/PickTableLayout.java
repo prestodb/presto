@@ -13,24 +13,30 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.RuleSet;
+import com.facebook.presto.sql.planner.optimizations.ExpressionEquivalence;
 import com.facebook.presto.sql.planner.optimizations.TableLayoutRewriter;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class PickTableLayout
@@ -42,7 +48,7 @@ public class PickTableLayout
     {
         rules = ImmutableSet.of(
                 new PickTableLayoutForPredicate(metadata, sqlParser, replaceExistingLayout),
-                new PickTableLayoutWithoutPredicate(metadata, sqlParser));
+                new PickTableLayoutWithoutPredicate(metadata));
     }
 
     @Override
@@ -62,7 +68,7 @@ public class PickTableLayout
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.replaceExistingLayout = replaceExistingLayout;
-            this.sqlParser = sqlParser;
+            this.sqlParser = requireNonNull(sqlParser);
         }
 
         private static final Pattern<FilterNode> PATTERN = filter();
@@ -82,13 +88,36 @@ public class PickTableLayout
                 return Optional.empty();
             }
 
-            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator(), sqlParser);
-            return tableLayoutRewriter.planTableScan((TableScanNode) source, filterNode.getPredicate());
+            TableScanNode tableScanNode = (TableScanNode) source;
+            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
+            PlanNode result = tableLayoutRewriter.planTableScan(tableScanNode, filterNode.getPredicate());
+
+            if (!(result instanceof FilterNode)) {
+                return Optional.of(result);
+            }
+
+            FilterNode resultFilterNode = (FilterNode) result;
+            checkState(resultFilterNode.getSource() instanceof TableScanNode, "expected source to be a TableScanNode, but it was a %s", resultFilterNode.getSource().getClass().getName());
+            if (!planChanged(tableScanNode, (TableScanNode) resultFilterNode.getSource(), filterNode.getPredicate(), resultFilterNode.getPredicate(), context.getSession(), context.getSymbolAllocator())) {
+                return Optional.empty();
+            }
+
+            return Optional.of(result);
         }
 
         private boolean shouldRewriteTableLayout(TableScanNode source)
         {
             return !source.getLayout().isPresent() || replaceExistingLayout || source.getOriginalConstraint() == BooleanLiteral.TRUE_LITERAL;
+        }
+
+        private boolean planChanged(TableScanNode oldTableScan, TableScanNode rewrittenTableScan, Expression oldPredicate, Expression rewrittenPredicate, Session session, SymbolAllocator symbolAllocator)
+        {
+            if (!new ExpressionEquivalence(metadata, sqlParser).areExpressionsEquivalent(session, oldPredicate, rewrittenPredicate, symbolAllocator.getTypes())) {
+                if (!ImmutableSet.copyOf(extractConjuncts(oldPredicate)).equals(ImmutableSet.copyOf(extractConjuncts(rewrittenPredicate)))) {
+                    return true;
+                }
+            }
+            return !rewrittenTableScan.getCurrentConstraint().equals(oldTableScan.getCurrentConstraint());
         }
     }
 
@@ -96,12 +125,10 @@ public class PickTableLayout
             implements Rule<TableScanNode>
     {
         private final Metadata metadata;
-        private final SqlParser sqlParser;
 
-        private PickTableLayoutWithoutPredicate(Metadata metadata, SqlParser sqlParser)
+        private PickTableLayoutWithoutPredicate(Metadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         }
 
         private static final Pattern<TableScanNode> PATTERN = tableScan();
@@ -119,8 +146,8 @@ public class PickTableLayout
                 return Optional.empty();
             }
 
-            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator(), sqlParser);
-            return tableLayoutRewriter.planTableScan(tableScanNode, BooleanLiteral.TRUE_LITERAL);
+            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
+            return Optional.of(tableLayoutRewriter.planTableScan(tableScanNode, BooleanLiteral.TRUE_LITERAL));
         }
     }
 }
