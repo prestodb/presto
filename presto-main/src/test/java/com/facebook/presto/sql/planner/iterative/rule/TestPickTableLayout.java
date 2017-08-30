@@ -179,23 +179,4 @@ public class TestPickTableLayout
                         filter("nationkey = BIGINT '44'",
                                 constrainedTableScanWithTableLayout("nation", filterConstraint, ImmutableMap.of("nationkey", "nationkey"))));
     }
-
-    @Test
-    public void ruleAddedNewTableLayoutIfTableScanHasEmptyConstraint()
-    {
-        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
-                .put("nationkey", singleValue(BIGINT, 44L))
-                .build();
-        tester().assertThat(pickTableLayout)
-                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
-                        p.tableScan(
-                                nationTableHandle,
-                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                BooleanLiteral.TRUE_LITERAL,
-                                Optional.of(nationTableLayoutHandle))))
-                .matches(
-                        filter("nationkey = BIGINT '44'",
-                                constrainedTableScanWithTableLayout("nation", filterConstraint, ImmutableMap.of("nationkey", "nationkey"))));
-    }
 }

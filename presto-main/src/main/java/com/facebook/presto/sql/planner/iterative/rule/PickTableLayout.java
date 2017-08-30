@@ -107,7 +107,7 @@ public class PickTableLayout
 
         private boolean shouldRewriteTableLayout(TableScanNode source)
         {
-            return !source.getLayout().isPresent() || replaceExistingLayout || source.getOriginalConstraint() == BooleanLiteral.TRUE_LITERAL;
+            return !source.getLayout().isPresent() || replaceExistingLayout;
         }
 
         private boolean planChanged(TableScanNode oldTableScan, TableScanNode rewrittenTableScan, Expression oldPredicate, Expression rewrittenPredicate, Session session, SymbolAllocator symbolAllocator)
