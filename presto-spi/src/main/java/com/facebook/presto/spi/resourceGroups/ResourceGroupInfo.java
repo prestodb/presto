@@ -137,8 +137,8 @@ public class ResourceGroupInfo
 
     public Optional<ResourceGroupInfo> getSubGroup(ResourceGroupId resourceGroupId)
     {
-        return subGroups.stream().
-                filter(subGroup -> subGroup.getId().equals(resourceGroupId) || subGroup.getId().isAncestorOf(resourceGroupId))
+        return subGroups.stream()
+                .filter(subGroup -> subGroup.getId().equals(resourceGroupId) || subGroup.getId().isAncestorOf(resourceGroupId))
                 .findFirst();
     }
 

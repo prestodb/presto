@@ -75,6 +75,10 @@
         <property name="format" value="^[ \t]*import org.jetbrains.annotations.Nullable;$" />
         <property name="message" value="Use javax.annotation.Nullable instead of org.jetbrains.annotations.Nullable" />
     </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import static org.testng.AssertJUnit\." />
+        <property name="message" value="Use org.testng.Assert instead of org.testng.AssertJUnit" />
+    </module>
 
     <module name="SuppressWarningsFilter" />
     <module name="TreeWalker">
@@ -112,6 +116,7 @@
         </module>
         <module name="GenericWhitespace" />
         <module name="WhitespaceAfter" />
+        <module name="NoWhitespaceAfter" />
         <module name="NoWhitespaceBefore" />
         <module name="SingleSpaceSeparator" />
         <module name="Indentation">
@@ -169,6 +174,11 @@
                 LOR, LT, MINUS, MINUS_ASSIGN, MOD, MOD_ASSIGN, NOT_EQUAL,
                 PLUS, PLUS_ASSIGN, QUESTION, SL, SLIST, SL_ASSIGN, SR, SR_ASSIGN,
                 STAR, STAR_ASSIGN, TYPE_EXTENSION_AND" />
+        </module>
+
+        <module name="NoWhitespaceAfter">
+            <property name="tokens" value="DOT" />
+            <property name="allowLineBreaks" value="false" />
         </module>
 
         <module name="IllegalToken">
