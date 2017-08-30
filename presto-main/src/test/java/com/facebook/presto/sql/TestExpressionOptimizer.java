@@ -71,20 +71,6 @@ public class TestExpressionOptimizer
     }
 
     @Test
-    public void testTryOptimization()
-    {
-        TypeRegistry typeManager = new TypeRegistry();
-        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
-        Signature signature = new Signature("TRY", SCALAR, BIGINT.getTypeSignature());
-
-        RowExpression tryExpression = new CallExpression(signature, BIGINT, ImmutableList.of(constant(1L, BIGINT)));
-        assertEquals(optimizer.optimize(tryExpression), constant(1L, BIGINT));
-
-        tryExpression = new CallExpression(signature, BIGINT, ImmutableList.of(field(1, BIGINT)));
-        assertEquals(optimizer.optimize(tryExpression), field(1, BIGINT));
-    }
-
-    @Test
     public void testIfConstantOptimization()
     {
         TypeRegistry typeManager = new TypeRegistry();
