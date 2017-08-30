@@ -74,23 +74,25 @@ public class PickTableLayout
         {
             PlanNode source = context.getLookup().resolve(filterNode.getSource());
 
-            if (!((source instanceof TableScanNode) && shouldRewriteTableLayout((TableScanNode) source))) {
+            if (!(source instanceof TableScanNode)) {
                 return Optional.empty();
             }
 
-            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
-            PlanNode rewrittenTableScan = tableLayoutRewriter.planTableScan((TableScanNode) source, filterNode.getPredicate());
+            TableScanNode tableScanSource = (TableScanNode) source;
 
-            if (rewrittenTableScan instanceof TableScanNode || rewrittenTableScan instanceof ValuesNode || (((FilterNode) rewrittenTableScan).getPredicate() != filterNode.getPredicate())) {
+            TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
+            PlanNode rewrittenTableScan = tableLayoutRewriter.planTableScan(tableScanSource, filterNode.getPredicate());
+
+            if (rewrittenTableScan instanceof ValuesNode || rewrittenTableScan instanceof TableScanNode) {
                 return Optional.of(rewrittenTableScan);
             }
 
-            return Optional.empty();
-        }
+            FilterNode rewrittenFilterNode = (FilterNode) rewrittenTableScan;
+            if (!((TableScanNode) rewrittenFilterNode.getSource()).getCurrentConstraint().equals(tableScanSource.getCurrentConstraint())) {
+                return Optional.of(rewrittenFilterNode);
+            }
 
-        private boolean shouldRewriteTableLayout(TableScanNode source)
-        {
-            return !source.getLayout().isPresent() || source.getOriginalConstraint() == BooleanLiteral.TRUE_LITERAL;
+            return Optional.empty();
         }
     }
 
