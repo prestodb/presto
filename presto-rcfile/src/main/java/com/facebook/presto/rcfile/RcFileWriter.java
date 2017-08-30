@@ -192,12 +192,12 @@ public class RcFileWriter
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            writeRowGroup();
             closer.register(output);
             closer.register(keySectionOutput::destroy);
             for (ColumnEncoder columnEncoder : columnEncoders) {
                 closer.register(columnEncoder::destroy);
             }
+            writeRowGroup();
         }
     }
 
