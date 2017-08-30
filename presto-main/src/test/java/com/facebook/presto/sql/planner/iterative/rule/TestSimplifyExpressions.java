@@ -11,27 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.optimizations;
+package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -40,16 +35,13 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.binaryExpression;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static java.util.Collections.emptyList;
+import static com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestSimplifyExpressions
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final SimplifyExpressions SIMPLIFIER = new SimplifyExpressions(createTestMetadataManager(), SQL_PARSER);
 
     @Test
     public void testPushesDownNegations()
@@ -122,51 +114,10 @@ public class TestSimplifyExpressions
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), createTestMetadataManager(), SQL_PARSER);
         assertEquals(
-                normalize(simplifyFilterExpressions(actualExpression)),
+                normalize(rewritten),
                 normalize(expectedExpression));
-        assertEquals(
-                normalize(simplifyJoinExpressions(actualExpression)),
-                normalize(expectedExpression));
-    }
-
-    private static Expression simplifyFilterExpressions(Expression expression)
-    {
-        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
-        FilterNode filterNode = new FilterNode(
-                planNodeIdAllocator.getNextId(),
-                new ValuesNode(planNodeIdAllocator.getNextId(), emptyList(), emptyList()), expression);
-        FilterNode simplifiedNode = (FilterNode) SIMPLIFIER.optimize(
-                filterNode,
-                TEST_SESSION,
-                booleanSymbolTypeMapFor(expression),
-                new SymbolAllocator(),
-                planNodeIdAllocator);
-        return simplifiedNode.getPredicate();
-    }
-
-    private static Expression simplifyJoinExpressions(Expression expression)
-    {
-        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
-        JoinNode joinNode = new JoinNode(
-                planNodeIdAllocator.getNextId(),
-                INNER,
-                new ValuesNode(planNodeIdAllocator.getNextId(), emptyList(), emptyList()),
-                new ValuesNode(planNodeIdAllocator.getNextId(), emptyList(), emptyList()),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                Optional.of(expression),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-        JoinNode simplifiedNode = (JoinNode) SIMPLIFIER.optimize(
-                joinNode,
-                TEST_SESSION,
-                booleanSymbolTypeMapFor(expression),
-                new SymbolAllocator(),
-                planNodeIdAllocator);
-        assertTrue(joinNode.getFilter().isPresent(), "joinNode filter is absent");
-        return simplifiedNode.getFilter().get();
     }
 
     private static Map<Symbol, Type> booleanSymbolTypeMapFor(Expression expression)
@@ -188,7 +139,7 @@ public class TestSimplifyExpressions
         {
             List<Expression> predicates = extractPredicates(node.getType(), node).stream()
                     .map(p -> treeRewriter.rewrite(p, context))
-                    .sorted((p1, p2) -> p1.toString().compareTo(p2.toString()))
+                    .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
             return binaryExpression(node.getType(), predicates);
         }
