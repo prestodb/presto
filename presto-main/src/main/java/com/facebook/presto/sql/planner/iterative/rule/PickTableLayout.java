@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
@@ -29,7 +30,9 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
@@ -61,7 +64,16 @@ public class PickTableLayout
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
-        private static final Pattern<FilterNode> PATTERN = filter();
+        private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
+
+        private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
+                        tableScan().matching(PickTableLayoutForPredicate::shouldRewriteTableLayout)
+                                .capturedAs(TABLE_SCAN)));
+
+        private static boolean shouldRewriteTableLayout(TableScanNode source)
+        {
+            return !source.getLayout().isPresent() || source.getOriginalConstraint() == BooleanLiteral.TRUE_LITERAL;
+        }
 
         @Override
         public Pattern<FilterNode> getPattern()
@@ -72,25 +84,14 @@ public class PickTableLayout
         @Override
         public Optional<PlanNode> apply(FilterNode filterNode, Captures captures, Context context)
         {
-            PlanNode source = context.getLookup().resolve(filterNode.getSource());
-
-            if (!((source instanceof TableScanNode) && shouldRewriteTableLayout((TableScanNode) source))) {
-                return Optional.empty();
-            }
-
             TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
-            PlanNode rewrittenTableScan = tableLayoutRewriter.planTableScan((TableScanNode) source, filterNode.getPredicate());
+            PlanNode rewrittenTableScan = tableLayoutRewriter.planTableScan(captures.get(TABLE_SCAN), filterNode.getPredicate());
 
             if (rewrittenTableScan instanceof TableScanNode || rewrittenTableScan instanceof ValuesNode || (((FilterNode) rewrittenTableScan).getPredicate() != filterNode.getPredicate())) {
                 return Optional.of(rewrittenTableScan);
             }
 
             return Optional.empty();
-        }
-
-        private boolean shouldRewriteTableLayout(TableScanNode source)
-        {
-            return !source.getLayout().isPresent() || source.getOriginalConstraint() == BooleanLiteral.TRUE_LITERAL;
         }
     }
 
