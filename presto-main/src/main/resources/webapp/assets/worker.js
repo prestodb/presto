@@ -424,6 +424,8 @@ let WorkerThreads = React.createClass({
 
             threads: null,
 
+            snapshotTime: null,
+
             selectedGroup: ALL_THREADS,
             selectedThreadState: ALL_THREAD_STATE,
         };
@@ -433,6 +435,7 @@ let WorkerThreads = React.createClass({
         $.get('/v1/worker/' + nodeId + '/thread', function (threads) {
             this.setState({
                 threads: this.processThreads(threads),
+                snapshotTime: new Date(),
                 initialized: true,
             });
         }.bind(this))
@@ -489,7 +492,7 @@ let WorkerThreads = React.createClass({
         });
         event.preventDefault();
     },
-    handleNewCaptureClick: function(event) {
+    handleNewSnapshotClick: function(event) {
         this.setState({
             initialized: false
         });
@@ -592,18 +595,26 @@ let WorkerThreads = React.createClass({
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-4">
+                    <div className="col-xs-3">
                         <h3>
                             Thread Snapshot
                             <a className="btn copy-button" data-clipboard-target="#stack-traces" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
                                 <span className="glyphicon glyphicon-copy" alt="Copy to clipboard"/>
                             </a>
+                            &nbsp;
                         </h3>
                     </div>
-                    <div className="col-xs-8">
+                    <div className="col-xs-9">
                         <table className="header-inline-links">
                             <tbody>
                             <tr>
+                                <td>
+                                    <small>Snapshot at { this.state.snapshotTime.toTimeString() }</small>
+                                    &nbsp;&nbsp;
+                                </td>
+                                <td>
+                                    <button className="btn btn-info live-button" onClick={ this.handleNewSnapshotClick }>New Snapshot</button></td>
+                                    &nbsp;&nbsp;
                                 <td>
                                     <div className="input-group-btn text-right">
                                         <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -624,7 +635,6 @@ let WorkerThreads = React.createClass({
                                         </ul>
                                     </div>
                                 </td>
-                                <td>&nbsp;&nbsp;<button className="btn btn-info live-button" onClick={ this.handleNewCaptureClick }>New Capture</button></td>
                             </tr>
                             </tbody>
                         </table>
