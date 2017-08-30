@@ -131,7 +131,7 @@ the underlying data source.
 Table
 ^^^^^
 
-A table is set of unordered rows which are organized into named columns
+A table is a set of unordered rows which are organized into named columns
 with types. This is the same as in any relational database. The mapping
 from source data to tables is defined by the connector.
 
@@ -145,7 +145,7 @@ Statement
 ^^^^^^^^^
 
 Presto executes ANSI-compatible SQL statements.  When the Presto
-documentation refers to a statement, it are refering to statements as
+documentation refers to a statement, it is referring to statements as
 defined in the ANSI SQL standard which consists of clauses,
 expressions, and predicates.
 
@@ -208,7 +208,7 @@ series of drivers.
 Split
 ^^^^^
 
-Tasks operate on splits which are are sections of larger data
+Tasks operate on splits which are sections of a larger data
 set. Stages at the lowest level of a distributed query plan retrieve
 data via splits from connectors, and intermediate stages at a higher
 level of a distributed query plan retrieve data from other stages.
