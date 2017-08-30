@@ -6035,7 +6035,7 @@ public abstract class AbstractTestQueries
         // test try with lambda function
         assertQuery("SELECT TRY(apply(5, x -> x + 1) / 0)", "SELECT NULL");
         assertQuery("SELECT TRY(apply(5 + RANDOM(1), x -> x + 1) / 0)", "SELECT NULL");
-        assertQueryFails("SELECT apply(5 + RANDOM(1), x -> x + TRY(1 / 0))", "Try expression inside lambda expression is not support yet");
+        assertQuery("SELECT apply(5 + RANDOM(1), x -> x + TRY(1 / 0))", "SELECT NULL");
 
         // test try with invalid JSON
         assertQuery("SELECT JSON_FORMAT(TRY(JSON 'INVALID'))", "SELECT NULL");

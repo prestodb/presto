@@ -900,9 +900,6 @@ public class ExpressionAnalyzer
         @Override
         public Type visitTryExpression(TryExpression node, StackableAstVisitorContext<Context> context)
         {
-            if (context.getContext().isInLambda()) {
-                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Try expression inside lambda expression is not support yet");
-            }
             Type type = process(node.getInnerExpression(), context);
             return setExpressionType(node, type);
         }

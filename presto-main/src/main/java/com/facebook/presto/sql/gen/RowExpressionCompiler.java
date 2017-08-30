@@ -48,7 +48,6 @@ import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
-import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.google.common.base.Preconditions.checkState;
 
 public class RowExpressionCompiler
@@ -106,9 +105,6 @@ public class RowExpressionCompiler
                     case SWITCH:
                         // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
                         generator = new SwitchCodeGenerator();
-                        break;
-                    case TRY:
-                        generator = new TryCodeGenerator(preGeneratedExpressions.getTryMethodMap());
                         break;
                     // functions that take null as input
                     case IS_NULL:

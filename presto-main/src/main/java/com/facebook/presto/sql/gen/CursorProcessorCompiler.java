@@ -38,10 +38,8 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.Signatures;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
@@ -61,8 +59,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.or;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
-import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
-import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
@@ -217,37 +213,7 @@ public class CursorProcessorCompiler
 
         int counter = 0;
         for (RowExpression expression : lambdaAndTryExpressions) {
-            if (expression instanceof CallExpression) {
-                CallExpression tryExpression = (CallExpression) expression;
-                verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
-
-                Parameter session = arg("session", ConnectorSession.class);
-                Parameter cursor = arg("cursor", RecordCursor.class);
-
-                List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
-                        .add(session)
-                        .add(cursor)
-                        .build();
-
-                RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
-                        callSiteBinder,
-                        cachedInstanceBinder,
-                        fieldReferenceCompiler(cursor),
-                        metadata.getFunctionRegistry(),
-                        new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build()));
-
-                MethodDefinition tryMethod = defineTryMethod(
-                        innerExpressionCompiler,
-                        containerClassDefinition,
-                        methodPrefix + "_try_" + counter,
-                        inputParameters,
-                        Primitives.wrap(tryExpression.getType().getJavaType()),
-                        tryExpression,
-                        callSiteBinder);
-
-                tryMethodMap.put(tryExpression, tryMethod);
-            }
-            else if (expression instanceof LambdaDefinitionExpression) {
+            if (expression instanceof LambdaDefinitionExpression) {
                 LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
                 String fieldName = methodPrefix + "_lambda_" + counter;
                 PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
