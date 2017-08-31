@@ -293,6 +293,41 @@ public class TestVarbinaryFunctions
         assertFunction("crc32(to_utf8('ABCDEFGHIJKLM'))", BIGINT, 4223167559L);
     }
 
+    @Test
+    public void testVarbinarySubstring()
+    {
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5)", VARBINARY, varbinary("ratically"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 50)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5)", VARBINARY, varbinary("cally"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -50)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 0)", VARBINARY, varbinary(""));
+
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 6)", VARBINARY, varbinary("ratica"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 10)", VARBINARY, varbinary("ratically"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 50)", VARBINARY, varbinary("ratically"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 50, 10)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5, 4)", VARBINARY, varbinary("call"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -5, 40)", VARBINARY, varbinary("cally"));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', -50, 4)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 0, 4)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTR(VARBINARY 'Quadratically', 5, 0)", VARBINARY, varbinary(""));
+
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5)", VARBINARY, varbinary("ratically"));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 50)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM -5)", VARBINARY, varbinary("cally"));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM -50)", VARBINARY, varbinary(""));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 0)", VARBINARY, varbinary(""));
+
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5 FOR 6)", VARBINARY, varbinary("ratica"));
+        assertFunction("SUBSTRING(VARBINARY 'Quadratically' FROM 5 FOR 50)", VARBINARY, varbinary("ratically"));
+
+        // Test SUBSTRING for non-ASCII
+        assertFunction("SUBSTRING(X'4FE15FF5' FROM 1 FOR 1)", VARBINARY, varbinary(0x4F));
+        assertFunction("SUBSTRING(X'4FE15FF5' FROM 2 FOR 2)", VARBINARY, varbinary(0xE1, 0x5F));
+        assertFunction("SUBSTRING(X'4FE15FF5' FROM 3)", VARBINARY, varbinary(0x5F, 0xF5));
+        assertFunction("SUBSTRING(X'4FE15FF5' FROM -2)", VARBINARY, varbinary(0x5F, 0xF5));
+    }
+
     private static String encodeBase64(byte[] value)
     {
         return Base64.getEncoder().encodeToString(value);
@@ -326,5 +361,19 @@ public class TestVarbinaryFunctions
     private static SqlVarbinary sqlVarbinaryHex(String value)
     {
         return new SqlVarbinary(base16().decode(value));
+    }
+
+    private static SqlVarbinary varbinary(String string)
+    {
+        return new SqlVarbinary(string.getBytes());
+    }
+
+    private static SqlVarbinary varbinary(int... bytesAsInts)
+    {
+        byte[] bytes = new byte[bytesAsInts.length];
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] = (byte) bytesAsInts[i];
+        }
+        return new SqlVarbinary(bytes);
     }
 }
