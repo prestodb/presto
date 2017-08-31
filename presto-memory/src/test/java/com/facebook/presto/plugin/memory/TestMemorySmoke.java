@@ -129,6 +129,25 @@ public class TestMemorySmoke
         assertQueryResult(format("SELECT count(*) FROM %s.schema2.nation", CATALOG), 12L);
     }
 
+    @Test
+    public void testViews()
+    {
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+
+        assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
+        assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
+
+        assertQueryFails("CREATE TABLE test_view (x date)", "View \\[default.test_view] already exists");
+        assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", "View already exists: default.test_view");
+
+        assertQuery("SELECT * FROM test_view", query);
+
+        assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains("test_view"));
+
+        assertUpdate("DROP VIEW test_view");
+        assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");
+    }
+
     private List<QualifiedObjectName> listMemoryTables()
     {
         return getQueryRunner().listTables(getSession(), "memory", "default");
