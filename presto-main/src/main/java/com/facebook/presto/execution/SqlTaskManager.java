@@ -160,6 +160,7 @@ public class SqlTaskManager
                 return new SqlTask(
                         taskId,
                         locationFactory.createLocalTaskLocation(taskId),
+                        nodeInfo.getNodeId(),
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,

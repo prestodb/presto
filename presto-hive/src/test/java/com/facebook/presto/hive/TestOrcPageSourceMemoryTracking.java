@@ -241,7 +241,6 @@ public class TestOrcPageSourceMemoryTracking
         assertTrue(pageSource.isFinished());
         assertEquals(pageSource.getSystemMemoryUsage(), 0);
         pageSource.close();
-        assertEquals((int) stats.getLoadedBlockBytes().getAllTime().getCount(), 50);
     }
 
     @Test(dataProvider = "rowCount")

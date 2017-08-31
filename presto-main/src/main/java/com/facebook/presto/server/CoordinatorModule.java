@@ -160,6 +160,7 @@ public class CoordinatorModule
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManagerFactory.class).in(Scopes.SINGLETON);
         if (buildConfigObject(FeaturesConfig.class).isResourceGroupsEnabled()) {
