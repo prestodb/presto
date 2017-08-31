@@ -243,6 +243,16 @@ public class TestBlackHoleSmoke
         dropBlackholeAllTypesTable();
     }
 
+    @Test
+    public void testSelectWithUnenforcedConstraint()
+            throws Exception
+    {
+        createBlackholeAllTypesTable();
+        MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types where _bigint > 10");
+        assertEquals(rows.getRowCount(), 0);
+        dropBlackholeAllTypesTable();
+    }
+
     private void createBlackholeAllTypesTable()
     {
         assertThatQueryReturnsValue(
