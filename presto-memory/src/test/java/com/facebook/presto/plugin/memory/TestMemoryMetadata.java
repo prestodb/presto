@@ -19,20 +19,25 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
@@ -168,6 +173,83 @@ public class TestMemoryMetadata
         assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(tableName));
         assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of(tableName));
         assertEquals(metadata.listTables(SESSION, "default"), ImmutableList.of());
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
+    public void testCreateViewWithoutReplace()
+    {
+        SchemaTableName test = new SchemaTableName("test", "test_view");
+        try {
+            metadata.createView(SESSION, test, "test", false);
+        }
+        catch (Exception e) {
+            fail("should have succeeded");
+        }
+        metadata.createView(SESSION, test, "test", false);
+    }
+
+    @Test
+    public void testCreateViewWithReplace()
+    {
+        SchemaTableName test = new SchemaTableName("test", "test_view");
+
+        metadata.createView(SESSION, test, "aaa", true);
+        metadata.createView(SESSION, test, "bbb", true);
+
+        assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
+    }
+
+    @Test
+    public void testViews()
+    {
+        SchemaTableName test1 = new SchemaTableName("test", "test_view1");
+        SchemaTableName test2 = new SchemaTableName("test", "test_view2");
+
+        // create views
+        metadata.createView(SESSION, test1, "test1", false);
+        metadata.createView(SESSION, test2, "test2", false);
+
+        // verify listing
+        List<SchemaTableName> list = metadata.listViews(SESSION, "test");
+        assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
+
+        // verify getting data
+        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        assertEquals(views.keySet(), ImmutableSet.of(test1, test2));
+        assertEquals(views.get(test1).getViewData(), "test1");
+        assertEquals(views.get(test2).getViewData(), "test2");
+
+        // all schemas
+        Map<SchemaTableName, ConnectorViewDefinition> allViews = metadata.getViews(SESSION, new SchemaTablePrefix());
+        assertEquals(allViews.keySet(), ImmutableSet.of(test1, test2));
+
+        // exact match on one schema and table
+        Map<SchemaTableName, ConnectorViewDefinition> exactMatchView = metadata.getViews(SESSION, new SchemaTablePrefix("test", "test_view1"));
+        assertEquals(exactMatchView.keySet(), ImmutableSet.of(test1));
+
+        // non-existent table
+        Map<SchemaTableName, ConnectorViewDefinition> nonexistentTableView = metadata.getViews(SESSION, new SchemaTablePrefix("test", "nonexistenttable"));
+        assertTrue(nonexistentTableView.isEmpty());
+
+        // non-existent schema
+        Map<SchemaTableName, ConnectorViewDefinition> nonexistentSchemaView = metadata.getViews(SESSION, new SchemaTablePrefix("nonexistentschema"));
+        assertTrue(nonexistentSchemaView.isEmpty());
+
+        // drop first view
+        metadata.dropView(SESSION, test1);
+
+        views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        assertEquals(views.keySet(), ImmutableSet.of(test2));
+
+        // drop second view
+        metadata.dropView(SESSION, test2);
+
+        views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        assertTrue(views.isEmpty());
+
+        // verify listing everything
+        views = metadata.getViews(SESSION, new SchemaTablePrefix());
+        assertTrue(views.isEmpty());
     }
 
     private void assertNoTables()
