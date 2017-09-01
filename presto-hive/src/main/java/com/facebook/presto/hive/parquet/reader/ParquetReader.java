@@ -118,7 +118,6 @@ public class ParquetReader
         }
 
         batchSize = toIntExact(min(MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
-
         nextRowInGroup += batchSize;
         currentPosition += batchSize;
         for (PrimitiveColumnIO columnIO : getColumns(fileSchema, requestedSchema)) {
@@ -151,17 +150,17 @@ public class ParquetReader
     public Block readArray(Type type, List<String> path)
             throws IOException
     {
-        return readArray(type, path, new IntArrayList());
+        return readArray(type, path, new IntArrayList(), new boolean[batchSize], false);
     }
 
-    private Block readArray(Type type, List<String> path, IntList elementOffsets)
+    private Block readArray(Type type, List<String> path, IntList elementOffsets, boolean[] isNullAtRowNum, boolean isMapKey)
             throws IOException
     {
         List<Type> parameters = type.getTypeParameters();
         checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %d", parameters.size());
         path.add(ARRAY_TYPE_NAME);
         Type elementType = parameters.get(0);
-        Block block = readBlock(ARRAY_ELEMENT_NAME, elementType, path, elementOffsets);
+        Block block = readBlock(ARRAY_ELEMENT_NAME, elementType, path, elementOffsets, Optional.of(isNullAtRowNum), isMapKey);
         path.remove(ARRAY_TYPE_NAME);
 
         if (elementOffsets.isEmpty()) {
@@ -175,16 +174,16 @@ public class ParquetReader
         for (int i = 1; i < offsets.length; i++) {
             offsets[i] = offsets[i - 1] + elementOffsets.getInt(i - 1);
         }
-        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, block);
+        return new ArrayBlock(batchSize, isNullAtRowNum, offsets, block);
     }
 
     public Block readMap(Type type, List<String> path)
             throws IOException
     {
-        return readMap(type, path, new IntArrayList());
+        return readMap(type, path, new IntArrayList(), new boolean[batchSize]);
     }
 
-    private Block readMap(Type type, List<String> path, IntList elementOffsets)
+    private Block readMap(Type type, List<String> path, IntList elementOffsets, boolean[] isNullAtRowNum)
             throws IOException
     {
         List<Type> parameters = type.getTypeParameters();
@@ -194,8 +193,8 @@ public class ParquetReader
         IntList keyOffsets = new IntArrayList();
         IntList valueOffsets = new IntArrayList();
         path.add(MAP_TYPE_NAME);
-        blocks[0] = readBlock(MAP_KEY_NAME, parameters.get(0), path, keyOffsets);
-        blocks[1] = readBlock(MAP_VALUE_NAME, parameters.get(1), path, valueOffsets);
+        blocks[0] = readBlock(MAP_KEY_NAME, parameters.get(0), path, keyOffsets, Optional.of(isNullAtRowNum), true);
+        blocks[1] = readBlock(MAP_VALUE_NAME, parameters.get(1), path, valueOffsets, Optional.of(isNullAtRowNum), false);
         path.remove(MAP_TYPE_NAME);
 
         if (blocks[0].getPositionCount() == 0) {
@@ -210,16 +209,16 @@ public class ParquetReader
             elementOffsets.add(elementPositionCount * 2);
             offsets[i] = offsets[i - 1] + elementPositionCount;
         }
-        return ((MapType) type).createBlockFromKeyValue(new boolean[batchSize], offsets, blocks[0], blocks[1]);
+        return ((MapType) type).createBlockFromKeyValue(isNullAtRowNum, offsets, blocks[0], blocks[1]);
     }
 
     public Block readStruct(Type type, List<String> path)
             throws IOException
     {
-        return readStruct(type, path, new IntArrayList());
+        return readStruct(type, path, new IntArrayList(), new boolean[batchSize], false);
     }
 
-    private Block readStruct(Type type, List<String> path, IntList elementOffsets)
+    private Block readStruct(Type type, List<String> path, IntList elementOffsets, boolean[] isNullAtRowNum, boolean isMapKey)
             throws IOException
     {
         List<TypeSignatureParameter> parameters = type.getTypeSignature().getParameters();
@@ -228,7 +227,7 @@ public class ParquetReader
             NamedTypeSignature namedTypeSignature = parameters.get(i).getNamedTypeSignature();
             Type fieldType = typeManager.getType(namedTypeSignature.getTypeSignature());
             String name = namedTypeSignature.getName();
-            blocks[i] = readBlock(name, fieldType, path, new IntArrayList());
+            blocks[i] = readBlock(name, fieldType, path, new IntArrayList(), Optional.of(isNullAtRowNum), isMapKey);
         }
 
         int blockSize = blocks[0].getPositionCount();
@@ -237,16 +236,16 @@ public class ParquetReader
             elementOffsets.add(parameters.size());
             offsets[i] = i;
         }
-        return new RowBlock(0, blockSize, new boolean[blockSize], offsets, blocks);
+        return new RowBlock(0, blockSize, isNullAtRowNum, offsets, blocks);
     }
 
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)
             throws IOException
     {
-        return readPrimitive(columnDescriptor, type, new IntArrayList());
+        return readPrimitive(columnDescriptor, type, new IntArrayList(), Optional.of(new boolean[batchSize]), false);
     }
 
-    private Block readPrimitive(ColumnDescriptor columnDescriptor, Type type, IntList offsets)
+    private Block readPrimitive(ColumnDescriptor columnDescriptor, Type type, IntList offsets, Optional<boolean[]> isNullAtRowNum, boolean isMapKey)
             throws IOException
     {
         ParquetColumnReader columnReader = columnReadersMap.get(columnDescriptor);
@@ -261,7 +260,7 @@ public class ParquetReader
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
-        return columnReader.readPrimitive(type, offsets);
+        return columnReader.readPrimitive(type, offsets, isNullAtRowNum, isMapKey);
     }
 
     private byte[] allocateBlock(int length)
@@ -292,7 +291,7 @@ public class ParquetReader
         }
     }
 
-    private Block readBlock(String name, Type type, List<String> path, IntList offsets)
+    private Block readBlock(String name, Type type, List<String> path, IntList offsets, Optional<boolean[]> isNullAtRowNum, boolean isMapKey)
             throws IOException
     {
         path.add(name);
@@ -303,17 +302,18 @@ public class ParquetReader
         }
 
         Block block;
+        boolean[] isNullAtRow = isNullAtRowNum.orElse(new boolean[batchSize]);
         if (ROW.equals(type.getTypeSignature().getBase())) {
-            block = readStruct(type, path, offsets);
+            block = readStruct(type, path, offsets, isNullAtRow, isMapKey);
         }
         else if (MAP.equals(type.getTypeSignature().getBase())) {
-            block = readMap(type, path, offsets);
+            block = readMap(type, path, offsets, isNullAtRow);
         }
         else if (ARRAY.equals(type.getTypeSignature().getBase())) {
-            block = readArray(type, path, offsets);
+            block = readArray(type, path, offsets, isNullAtRow, isMapKey);
         }
         else {
-            block = readPrimitive(descriptor.get(), type, offsets);
+            block = readPrimitive(descriptor.get(), type, offsets, isNullAtRowNum, isMapKey);
         }
         path.remove(name);
         return block;

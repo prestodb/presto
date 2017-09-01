@@ -20,6 +20,8 @@ public class ParquetLevelValuesReader
 {
     private final ValuesReader delegate;
 
+    private Integer nextLevel;
+
     public ParquetLevelValuesReader(ValuesReader delegate)
     {
         this.delegate = delegate;
@@ -28,6 +30,20 @@ public class ParquetLevelValuesReader
     @Override
     public int readLevel()
     {
+        if (nextLevel != null) {
+            int temp = nextLevel;
+            nextLevel = null;
+            return temp;
+        }
         return delegate.readInteger();
+    }
+
+    @Override
+    public int peekLevel()
+    {
+        if (nextLevel == null) {
+            nextLevel = delegate.readInteger();
+        }
+        return nextLevel;
     }
 }

@@ -20,6 +20,7 @@ import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
 import java.math.BigInteger;
+import java.util.Optional;
 
 public class ParquetLongDecimalColumnReader
         extends ParquetColumnReader
@@ -30,14 +31,14 @@ public class ParquetLongDecimalColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary value = valuesReader.readBytes();
             type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
         }
         else {
-            blockBuilder.appendNull();
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, mapRowNum);
         }
     }
 

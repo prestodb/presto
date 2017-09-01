@@ -18,6 +18,8 @@ import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
+import java.util.Optional;
+
 import static com.facebook.presto.hive.parquet.ParquetTimestampUtils.getTimestampMillis;
 
 public class ParquetTimestampColumnReader
@@ -29,14 +31,14 @@ public class ParquetTimestampColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
             type.writeLong(blockBuilder, getTimestampMillis(binary));
         }
         else {
-            blockBuilder.appendNull();
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, mapRowNum);
         }
     }
 

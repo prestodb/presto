@@ -21,4 +21,10 @@ public class ParquetLevelNullReader
     {
         return 0;
     }
+
+    @Override
+    public int peekLevel()
+    {
+        return 0;
+    }
 }

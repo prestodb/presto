@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.spi.block.MethodHandleUtil;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.type.VarcharOperators;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
@@ -24,7 +28,10 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.ql.io.parquet.serde.DeepParquetHiveMapInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.joda.time.DateTimeZone;
@@ -34,22 +41,29 @@ import parquet.hadoop.ParquetOutputFormat;
 import parquet.hadoop.codec.CodecConfig;
 import parquet.schema.MessageType;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -355,6 +369,44 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestParquetReader::byteArrayToVarbinary, VARBINARY);
     }
 
+    @Test
+    public void testMapSequence()
+            throws Exception
+    {
+        MapObjectInspector mapObjectInspector = new DeepParquetHiveMapInspector(javaStringObjectInspector, javaStringObjectInspector);
+
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+
+        MethodType methodType = MethodType.methodType(boolean.class, Slice.class, Slice.class);
+        final MethodHandle keyNativeEquals = lookup.findStatic(VarcharOperators.class, "equal", methodType);
+
+        methodType = MethodType.methodType(long.class, Slice.class);
+        final MethodHandle keyNativeHashCode = lookup.findStatic(VarcharOperators.class, "hashCode", methodType);
+
+        final MethodHandle keyBlockNativeEquals = MethodHandleUtil.compose(keyNativeEquals, nativeValueGetter(createUnboundedVarcharType()));
+        final MethodHandle keyBlockNativeHashCode = MethodHandleUtil.compose(keyNativeHashCode, nativeValueGetter(createUnboundedVarcharType()));
+
+        final MapType mapType = new MapType(
+                createUnboundedVarcharType(),
+                createUnboundedVarcharType(),
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockNativeHashCode);
+
+        // test with no null values
+        tester.testRoundTrip(mapObjectInspector, mapSequence(30_000, false), mapType);
+
+        // test with alternate null values
+        tester.testRoundTrip(mapObjectInspector, mapSequence(30_000, true), mapType);
+    }
+
+    @Test
+    public void testRowSequence() throws Exception
+    {
+        // TODO: not sure what object inspector to use for row type
+        final RowType rowType = new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty());
+    }
+
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
     {
         return () -> new AbstractIterator<T>()
@@ -454,6 +506,19 @@ public abstract class AbstractTestParquetReader
     private static ContiguousSet<Long> longsBetween(long lowerInclusive, long upperExclusive)
     {
         return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.longs());
+    }
+
+    private static final List<Map<String, String>> mapSequence(int numberOfMaps, boolean generateAlternateNullValues)
+    {
+        if (numberOfMaps == 0) {
+            return ImmutableList.of();
+        }
+        return intsBetween(0, numberOfMaps).stream().map((unused) -> generateMap(generateAlternateNullValues)).collect(Collectors.toList());
+    }
+
+    private static final Map<String, String> generateMap(boolean generateAlternateNullValues)
+    {
+        return intsBetween(0, 4).stream().collect(HashMap::new, (m, v) -> m.put("key-" + v, generateAlternateNullValues && v % 2 == 0 ? null : "val-" + v), HashMap::putAll);
     }
 
     private static ContiguousSet<BigInteger> bigIntegersBetween(BigInteger lowerInclusive, BigInteger upperExclusive)
