@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
@@ -250,5 +251,76 @@ public final class VarbinaryFunctions
         CRC32 crc32 = new CRC32();
         crc32.update(slice.toByteBuffer());
         return crc32.getValue();
+    }
+
+    @Description("suffix starting at given index")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice substr(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long start)
+    {
+        if (start == 0 || slice.length() == 0) {
+            return Slices.EMPTY_SLICE;
+        }
+
+        int startByte = Ints.saturatedCast(start);
+
+        if (startByte > 0) {
+            int indexStart = startByte - 1; // index starts with 1.
+            if (indexStart >= slice.length()) {
+                return Slices.EMPTY_SLICE;
+            }
+            return slice.slice(indexStart, slice.length() - indexStart);
+        }
+
+        // negative start is relative to end of string
+        startByte += slice.length();
+
+        // before beginning of string
+        if (startByte < 0) {
+            return Slices.EMPTY_SLICE;
+        }
+
+        return slice.slice(startByte, slice.length() - startByte);
+    }
+
+    @Description("substring of given length starting at an index")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice substr(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    {
+        if (start == 0 || length <= 0 || slice.length() == 0) {
+            return Slices.EMPTY_SLICE;
+        }
+
+        int startByte = Ints.saturatedCast(start);
+        int byteLength = Ints.saturatedCast(length);
+
+        if (startByte > 0) {
+            int indexStart = startByte - 1; // index starts with 1.
+            if (indexStart >= slice.length()) {
+                return Slices.EMPTY_SLICE;
+            }
+            int indexEnd = indexStart + byteLength;
+            if (indexEnd > slice.length()) {
+                indexEnd = slice.length();
+            }
+            return slice.slice(indexStart, indexEnd - indexStart);
+        }
+
+        // negative start is relative to end of string
+        startByte += slice.length();
+
+        // before beginning of string
+        if (startByte < 0) {
+            return Slices.EMPTY_SLICE;
+        }
+
+        int indexStart = startByte;
+        int indexEnd = indexStart + byteLength;
+        if (indexEnd > slice.length()) {
+            indexEnd = slice.length();
+        }
+
+        return slice.slice(indexStart, indexEnd - indexStart);
     }
 }
