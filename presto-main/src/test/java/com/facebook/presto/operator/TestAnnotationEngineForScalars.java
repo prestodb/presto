@@ -64,7 +64,7 @@ public class TestAnnotationEngineForScalars
         extends TestAnnotationEngine
 {
     @ScalarFunction("single_implementation_parametric_scalar")
-    @Description("Simple scalar with single implemenatation based on class")
+    @Description("Simple scalar with single implementation based on class")
     public static class SingleImplementationScalarFunction
     {
         @SqlType(DOUBLE)
@@ -91,7 +91,7 @@ public class TestAnnotationEngineForScalars
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
         assertFalse(scalar.isHidden());
-        assertEquals(scalar.getDescription(), "Simple scalar with single implemenatation based on class");
+        assertEquals(scalar.getDescription(), "Simple scalar with single implementation based on class");
 
         assertImplementationCount(scalar, 1, 0, 0);
 
@@ -229,7 +229,7 @@ public class TestAnnotationEngineForScalars
     public static class StaticMethodScalarFunction
     {
         @ScalarFunction("static_method_scalar")
-        @Description("Simple scalar with single implemenatation based on method")
+        @Description("Simple scalar with single implementation based on method")
         @SqlType(DOUBLE)
         public static double fun(@SqlType(DOUBLE) double v)
         {
@@ -254,7 +254,7 @@ public class TestAnnotationEngineForScalars
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
         assertFalse(scalar.isHidden());
-        assertEquals(scalar.getDescription(), "Simple scalar with single implemenatation based on method");
+        assertEquals(scalar.getDescription(), "Simple scalar with single implementation based on method");
     }
 
     public static class MultiScalarFunction
