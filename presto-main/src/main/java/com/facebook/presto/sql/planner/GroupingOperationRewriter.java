@@ -49,6 +49,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.resolveFunctio
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Type.ADD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class GroupingOperationRewriter
@@ -164,7 +165,7 @@ public final class GroupingOperationRewriter
     {
         long grouping = (1L << columns.size()) - 1;
 
-        List<Integer> groupingSet = groupingSetDescriptors.get((int) groupId);
+        List<Integer> groupingSet = groupingSetDescriptors.get(toIntExact(groupId));
         for (Integer groupingColumn : groupingSet) {
             int index = columns.indexOf(groupingColumn);
             if (index != -1) {
