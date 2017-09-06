@@ -412,6 +412,7 @@ public class TaskExecutor
     {
         allSplits.add(split);
         waitingSplits.offer(split);
+        log.debug("Started %s", split);
     }
 
     private synchronized PrioritizedSplitRunner pollNextSplitWorker()

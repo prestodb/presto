@@ -256,6 +256,6 @@ class PrioritizedSplitRunner
     @Override
     public String toString()
     {
-        return String.format("Split %-15s-%d", taskHandle.getTaskId(), splitId);
+        return String.format("Split %-15s-%d %s", taskHandle.getTaskId(), splitId, split.getInfo());
     }
 }
