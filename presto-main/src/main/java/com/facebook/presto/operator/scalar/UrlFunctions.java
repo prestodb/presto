@@ -106,6 +106,17 @@ public final class UrlFunctions
     }
 
     @SqlNullable
+    @Description("extract raw query from url")
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice urlExtractRawQuery(@SqlType("varchar(x)") Slice url)
+    {
+        URI uri = parseUrl(url);
+        return (uri == null) ? null : slice(uri.getRawQuery());
+    }
+
+    @SqlNullable
     @Description("extract fragment from url")
     @ScalarFunction
     @LiteralParameters("x")
@@ -129,6 +140,37 @@ public final class UrlFunctions
         }
 
         Slice query = slice(uri.getQuery());
+        String parameter = parameterName.toStringUtf8();
+        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toStringUtf8());
+
+        for (String queryArg : queryArgs) {
+            Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
+            if (arg.next().equals(parameter)) {
+                if (arg.hasNext()) {
+                    return utf8Slice(arg.next());
+                }
+                // first matched key is empty
+                return Slices.EMPTY_SLICE;
+            }
+        }
+
+        // no key matched
+        return null;
+    }
+
+    @SqlNullable
+    @Description("extract raw query parameter from url")
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType("varchar(x)")
+    public static Slice urlExtractRawParameter(@SqlType("varchar(x)") Slice url, @SqlType("varchar(y)") Slice parameterName)
+    {
+        URI uri = parseUrl(url);
+        if ((uri == null) || (uri.getRawQuery() == null)) {
+            return null;
+        }
+
+        Slice query = slice(uri.getRawQuery());
         String parameter = parameterName.toStringUtf8();
         Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toStringUtf8());
 
