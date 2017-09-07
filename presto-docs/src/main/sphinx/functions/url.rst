@@ -33,7 +33,7 @@ such as ``:`` or ``?``.
 .. function:: url_extract_raw_parameter(url, name) -> varchar
 
     Returns the value of the first query string parameter named ``name``
-    from ``url`` without decode. Parameter extraction is handled in the typical manner
+    from ``url`` without decoding any escaped characters. Parameter extraction is handled in the typical manner
     as specified by :rfc:`1866#section-8.2.1`.
 
 .. function:: url_extract_path(url) -> varchar
@@ -54,7 +54,7 @@ such as ``:`` or ``?``.
 
 .. function:: url_extract_raw_query(url) -> varchar
 
-    Returns the query string from ``url`` without decode.
+    Returns the query string from ``url`` without decoding any escaped characters.
 
 Encoding Functions
 ------------------
