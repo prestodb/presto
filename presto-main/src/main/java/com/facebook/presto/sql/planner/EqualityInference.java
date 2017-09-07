@@ -41,7 +41,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.DynamicFilterUtils.isDynamicFilter;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
+import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
+import static com.facebook.presto.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
@@ -103,7 +106,7 @@ public class EqualityInference
      */
     public Expression rewriteExpression(Expression expression, Predicate<Symbol> symbolScope)
     {
-        checkArgument(DeterminismEvaluator.isDeterministic(expression), "Only deterministic expressions may be considered for rewrite");
+        checkArgument(isDeterministic(expression), "Only deterministic expressions may be considered for rewrite");
         return rewriteExpression(expression, symbolScope, true);
     }
 
@@ -254,7 +257,10 @@ public class EqualityInference
     {
         return expression -> {
             expression = normalizeInPredicateToEquality(expression);
-            if (expression instanceof ComparisonExpression && DeterminismEvaluator.isDeterministic(expression) && !NullabilityAnalyzer.mayReturnNullOnNonNullInput(expression)) {
+            if (expression instanceof ComparisonExpression &&
+                    isDeterministic(expression) &&
+                    !mayReturnNullOnNonNullInput(expression) &&
+                    !isDynamicFilter(expression)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
                 if (comparison.getType() == ComparisonExpressionType.EQUAL) {
                     // We should only consider equalities that have distinct left and right components
@@ -358,8 +364,8 @@ public class EqualityInference
         public Builder addEquality(Expression expression1, Expression expression2)
         {
             checkArgument(!expression1.equals(expression2), "Need to provide equality between different expressions");
-            checkArgument(DeterminismEvaluator.isDeterministic(expression1), "Expression must be deterministic: " + expression1);
-            checkArgument(DeterminismEvaluator.isDeterministic(expression2), "Expression must be deterministic: " + expression2);
+            checkArgument(isDeterministic(expression1), "Expression must be deterministic: " + expression1);
+            checkArgument(isDeterministic(expression2), "Expression must be deterministic: " + expression2);
 
             equalities.findAndUnion(expression1, expression2);
             return this;

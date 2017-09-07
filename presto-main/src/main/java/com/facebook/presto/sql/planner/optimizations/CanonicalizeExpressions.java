@@ -70,7 +70,8 @@ public class CanonicalizeExpressions
                             Optional.of(canonicalizedExpression),
                             node.getLeftHashSymbol(),
                             node.getRightHashSymbol(),
-                            node.getDistributionType());
+                            node.getDistributionType(),
+                            node.getDynamicFilterAssignments());
                 }
             }
 

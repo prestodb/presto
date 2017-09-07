@@ -14,9 +14,18 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.operator.DynamicFilterSummary;
+import com.facebook.presto.server.DynamicFilterService;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.DynamicFilterDescription;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.DynamicFilter;
+import com.facebook.presto.sql.DynamicFilterUtils;
+import com.facebook.presto.sql.DynamicFilterUtils.ExtractDynamicFiltersResult;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -50,8 +59,12 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
@@ -59,7 +72,11 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.Future;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -68,16 +85,18 @@ public class DistributedExecutionPlanner
     private static final Logger log = Logger.get(DistributedExecutionPlanner.class);
 
     private final SplitManager splitManager;
+    private final DynamicFilterService dynamicFilterService;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager)
+    public DistributedExecutionPlanner(SplitManager splitManager, DynamicFilterService dynamicFilterService)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
     }
 
     public StageExecutionPlan plan(SubPlan root, Session session)
     {
-        Visitor visitor = new Visitor(session);
+        Visitor visitor = new Visitor(session, new DynamicFilterDescriptionFutureSupplier(dynamicFilterService));
         try {
             return plan(root, visitor);
         }
@@ -121,10 +140,12 @@ public class DistributedExecutionPlanner
     {
         private final Session session;
         private final List<SplitSource> splitSources = new ArrayList<>();
+        private final DynamicFilterDescriptionFutureSupplier dynamicFilterDescriptionFutureSupplier;
 
-        private Visitor(Session session)
+        private Visitor(Session session, DynamicFilterDescriptionFutureSupplier dynamicFilterDescriptionFutureSupplier)
         {
             this.session = session;
+            this.dynamicFilterDescriptionFutureSupplier = dynamicFilterDescriptionFutureSupplier;
         }
 
         public List<SplitSource> getSplitSources()
@@ -141,12 +162,28 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
-            // get dataSource for table
-            SplitSource splitSource = splitManager.getSplits(session, node.getLayout().get());
+            return visitScanAndFilter(node, Optional.empty());
+        }
+
+        private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode scan, Optional<FilterNode> filter)
+        {
+            Set<DynamicFilter> dynamicFilters = filter
+                    .map(FilterNode::getPredicate)
+                    .map(DynamicFilterUtils::extractDynamicFilters)
+                    .map(ExtractDynamicFiltersResult::getDynamicFilters)
+                    .orElse(ImmutableSet.of());
+
+            List<Future<DynamicFilterDescription>> futuresList = ImmutableList.of();
+            if (!dynamicFilters.isEmpty()) {
+                log.debug("Dynamic filters: %s", dynamicFilters);
+                futuresList = dynamicFilterDescriptionFutureSupplier.get(session.getQueryId().toString(), dynamicFilters, scan.getAssignments());
+            }
+
+            SplitSource splitSource = splitManager.getSplits(session, scan.getLayout().get(), futuresList);
 
             splitSources.add(splitSource);
 
-            return ImmutableMap.of(node.getId(), splitSource);
+            return ImmutableMap.of(scan.getId(), splitSource);
         }
 
         @Override
@@ -194,6 +231,11 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
+            if (node.getSource() instanceof TableScanNode) {
+                TableScanNode scan = (TableScanNode) node.getSource();
+                return visitScanAndFilter(scan, Optional.of(node));
+            }
+
             return node.getSource().accept(this, context);
         }
 
@@ -360,6 +402,61 @@ public class DistributedExecutionPlanner
         protected Map<PlanNodeId, SplitSource> visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+    }
+
+    private static class DynamicFilterDescriptionFutureSupplier
+    {
+        private final DynamicFilterService dynamicFilterService;
+
+        public DynamicFilterDescriptionFutureSupplier(DynamicFilterService dynamicFilterService)
+        {
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        }
+
+        public List<Future<DynamicFilterDescription>> get(String queryId, Set<DynamicFilter> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+        {
+            Set<String> sources = dynamicFilters.stream().map(DynamicFilter::getTupleDomainSourceId).collect(toImmutableSet());
+            ImmutableList.Builder<Future<DynamicFilterDescription>> futuresBuilder = ImmutableList.builder();
+            for (String source : sources) {
+                futuresBuilder.add(Futures.transform(dynamicFilterService.getSummary(queryId, source), summary -> translateSummaryIntoDescription(summary, dynamicFilters, columnHandles)));
+            }
+            return futuresBuilder.build();
+        }
+
+        private static DynamicFilterDescription translateSummaryIntoDescription(DynamicFilterSummary summary, Set<DynamicFilter> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+        {
+            if (!summary.getTupleDomain().getDomains().isPresent()) {
+                return new DynamicFilterDescription(TupleDomain.none());
+            }
+
+            Map<String, Symbol> sourceExpressionSymbols = extractSourceExpressionSymbols(dynamicFilters);
+            ImmutableMap.Builder<ColumnHandle, Domain> domainBuilder = ImmutableMap.builder();
+            for (Map.Entry<String, Domain> entry : summary.getTupleDomain().getDomains().get().entrySet()) {
+                Symbol actualSymbol = sourceExpressionSymbols.get(entry.getKey());
+                if (actualSymbol == null) {
+                    continue;
+                }
+                ColumnHandle columnHandle = columnHandles.get(actualSymbol);
+                if (columnHandle == null) {
+                    continue;
+                }
+                domainBuilder.put(columnHandle, entry.getValue());
+            }
+            return new DynamicFilterDescription(TupleDomain.withColumnDomains(domainBuilder.build()));
+        }
+
+        private static Map<String, Symbol> extractSourceExpressionSymbols(Set<DynamicFilter> dynamicFilters)
+        {
+            ImmutableMap.Builder<String, Symbol> resultBuilder = ImmutableMap.builder();
+            for (DynamicFilter dynamicFilter : dynamicFilters) {
+                Expression expression = dynamicFilter.getSourceExpression();
+                if (!(expression instanceof SymbolReference)) {
+                    continue;
+                }
+                resultBuilder.put(dynamicFilter.getTupleDomainName(), Symbol.from(expression));
+            }
+            return resultBuilder.build();
         }
     }
 }

@@ -181,7 +181,8 @@ public class EliminateCrossJoins
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    Assignments.of());
         }
 
         List<Expression> filters = graph.getFilters();

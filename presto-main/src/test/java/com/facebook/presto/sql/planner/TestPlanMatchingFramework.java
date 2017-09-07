@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.columnReference;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -144,7 +143,7 @@ public class TestPlanMatchingFramework
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
+                                anyTree(
                                         tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
                                         tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey"))))));
@@ -156,7 +155,7 @@ public class TestPlanMatchingFramework
         assertPlan("SELECT l.orderkey FROM orders l, orders r WHERE l.orderkey = r.orderkey",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("L_ORDERS_OK", "R_ORDERS_OK")),
-                                any(
+                                anyTree(
                                         tableScan("orders").withAlias("L_ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
                                         tableScan("orders").withAlias("R_ORDERS_OK", columnReference("orders", "orderkey"))))));
@@ -244,7 +243,7 @@ public class TestPlanMatchingFramework
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
+                                anyTree(
                                         tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
                                         tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))))));

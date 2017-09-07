@@ -38,6 +38,7 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.util.Progressable;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -214,7 +215,10 @@ public class TestBackgroundSplitLoader
         return new HiveSplitSource(
                 1,
                 backgroundHiveSplitLoader,
-                EXECUTOR);
+                EXECUTOR,
+                ImmutableList.of(),
+                DateTimeZone.UTC,
+                null); // type manager is used only in dynamic filtering, so null is fine for these tests
     }
 
     private static Table table(

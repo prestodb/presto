@@ -20,12 +20,14 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.DynamicFilterDescription;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +36,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import io.airlift.concurrent.BoundedExecutor;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -43,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 
@@ -80,6 +84,8 @@ public class HiveSplitManager
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
     private final boolean recursiveDfsWalkerEnabled;
+    private final DateTimeZone timeZone;
+    private final TypeManager typeManager;
 
     @Inject
     public HiveSplitManager(
@@ -90,7 +96,8 @@ public class HiveSplitManager
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             @ForHiveClient ExecutorService executorService,
-            CoercionPolicy coercionPolicy)
+            CoercionPolicy coercionPolicy,
+            TypeManager typeManager)
     {
         this(connectorId,
                 metastoreProvider,
@@ -103,7 +110,9 @@ public class HiveSplitManager
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.getRecursiveDirWalkerEnabled());
+                hiveClientConfig.getRecursiveDirWalkerEnabled(),
+                hiveClientConfig.getDateTimeZone(),
+                typeManager);
     }
 
     public HiveSplitManager(
@@ -118,7 +127,9 @@ public class HiveSplitManager
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             int maxInitialSplits,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            DateTimeZone timeZone,
+            TypeManager typeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
@@ -133,10 +144,12 @@ public class HiveSplitManager
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        this.typeManager = typeManager;
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle, List<Future<DynamicFilterDescription>> dynamicFilters)
     {
         HiveTableLayoutHandle layout = (HiveTableLayoutHandle) layoutHandle;
 
@@ -175,7 +188,7 @@ public class HiveSplitManager
                 maxInitialSplits,
                 recursiveDfsWalkerEnabled);
 
-        HiveSplitSource splitSource = new HiveSplitSource(maxOutstandingSplits, hiveSplitLoader, executor);
+        HiveSplitSource splitSource = new HiveSplitSource(maxOutstandingSplits, hiveSplitLoader, executor, dynamicFilters, timeZone, typeManager);
         hiveSplitLoader.start(splitSource);
 
         return splitSource;

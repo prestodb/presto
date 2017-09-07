@@ -74,10 +74,15 @@ import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.operator.DynamicFilterClientFactory;
+import com.facebook.presto.operator.DynamicFilterClientSupplier;
+import com.facebook.presto.operator.DynamicFilterSummary;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.ForDynamicFilterSummary;
 import com.facebook.presto.operator.ForExchange;
+import com.facebook.presto.operator.InMemoryDynamicFilterClientSupplier;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
@@ -179,10 +184,17 @@ public class ServerMainModule
         extends AbstractConfigurationAwareModule
 {
     private final SqlParserOptions sqlParserOptions;
+    private final boolean inMemoryDynamicFiltering;
 
     public ServerMainModule(SqlParserOptions sqlParserOptions)
     {
+        this(sqlParserOptions, false);
+    }
+
+    public ServerMainModule(SqlParserOptions sqlParserOptions, boolean inMemoryDynamicFiltering)
+    {
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
+        this.inMemoryDynamicFiltering = inMemoryDynamicFiltering;
     }
 
     @Override
@@ -339,6 +351,24 @@ public class ServerMainModule
 
         // execution
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
+
+        // dynamic filter summary
+        jsonCodecBinder(binder).bindJsonCodec(DynamicFilterSummary.class);
+        binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(DynamicFilterResource.class);
+
+        if (inMemoryDynamicFiltering) {
+            binder.bind(DynamicFilterClientSupplier.class).to(InMemoryDynamicFilterClientSupplier.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(DynamicFilterClientSupplier.class).to(DynamicFilterClientFactory.class).in(Scopes.SINGLETON);
+        }
+        httpClientBinder(binder).bindHttpClient("dynamicFilter", ForDynamicFilterSummary.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(30, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                });
 
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);

@@ -73,6 +73,7 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.InMemoryDynamicFilterClientSupplier;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
@@ -85,6 +86,7 @@ import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.project.InterpretedPageProjection;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -634,7 +636,8 @@ public class LocalQueryRunner
                 blockEncodingSerde,
                 new PagesIndex.TestingFactory(),
                 new JoinCompiler(),
-                new LookupJoinOperators(new JoinProbeCompiler()));
+                new LookupJoinOperators(new JoinProbeCompiler()),
+                new InMemoryDynamicFilterClientSupplier(new DynamicFilterService()));
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
@@ -650,7 +653,7 @@ public class LocalQueryRunner
         for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
             TableLayoutHandle layout = tableScan.getLayout().get();
 
-            SplitSource splitSource = splitManager.getSplits(session, layout);
+            SplitSource splitSource = splitManager.getSplits(session, layout, ImmutableList.of());
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
@@ -858,7 +861,7 @@ public class LocalQueryRunner
 
     private Split getLocalQuerySplit(Session session, TableLayoutHandle handle)
     {
-        SplitSource splitSource = splitManager.getSplits(session, handle);
+        SplitSource splitSource = splitManager.getSplits(session, handle, ImmutableList.of());
         List<Split> splits = new ArrayList<>();
         splits.addAll(getFutureValue(splitSource.getNextBatch(1000)));
         while (!splitSource.isFinished()) {

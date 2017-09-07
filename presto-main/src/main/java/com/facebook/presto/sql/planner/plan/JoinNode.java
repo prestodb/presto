@@ -35,6 +35,7 @@ import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSor
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -56,9 +57,11 @@ public class JoinNode
     private final Optional<Symbol> leftHashSymbol;
     private final Optional<Symbol> rightHashSymbol;
     private final Optional<DistributionType> distributionType;
+    private final Assignments dynamicFilterAssignments;
 
     @JsonCreator
-    public JoinNode(@JsonProperty("id") PlanNodeId id,
+    public JoinNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
@@ -67,7 +70,8 @@ public class JoinNode
             @JsonProperty("filter") Optional<Expression> filter,
             @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("dynamicFilterAssignments") Assignments dynamicFilterAssignments)
     {
         super(id);
         requireNonNull(type, "type is null");
@@ -89,6 +93,7 @@ public class JoinNode
         this.leftHashSymbol = leftHashSymbol;
         this.rightHashSymbol = rightHashSymbol;
         this.distributionType = distributionType;
+        this.dynamicFilterAssignments = requireNonNull(dynamicFilterAssignments, "dynamicFilterAssignments is null");
 
         List<Symbol> inputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(left.getOutputSymbols())
@@ -99,6 +104,16 @@ public class JoinNode
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
+
+        checkArgument(isValidDynamicFilter(criteria, dynamicFilterAssignments), "Join has dynamic filters for non-existing criteria");
+    }
+
+    private static boolean isValidDynamicFilter(List<EquiJoinClause> criteria, Assignments dynamicFilterAssignments)
+    {
+        ImmutableSet<Symbol> dynamicFilterSymbols = dynamicFilterAssignments.getExpressions().stream().map(Symbol::from).collect(toImmutableSet());
+        ImmutableSet<Symbol> clauseSymbols = criteria.stream().map(EquiJoinClause::getRight).collect(toImmutableSet());
+
+        return clauseSymbols.containsAll(dynamicFilterSymbols);
     }
 
     public enum DistributionType
@@ -212,6 +227,12 @@ public class JoinNode
         return distributionType;
     }
 
+    @JsonProperty("dynamicFilterAssignments")
+    public Assignments getDynamicFilterAssignments()
+    {
+        return dynamicFilterAssignments;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -228,7 +249,18 @@ public class JoinNode
         List<Symbol> newOutputSymbols = Stream.concat(newLeft.getOutputSymbols().stream(), newRight.getOutputSymbols().stream())
                 .filter(outputSymbols::contains)
                 .collect(toImmutableList());
-        return new JoinNode(getId(), type, newLeft, newRight, criteria, newOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(
+                getId(),
+                type,
+                newLeft,
+                newRight,
+                criteria,
+                newOutputSymbols,
+                filter,
+                leftHashSymbol,
+                rightHashSymbol,
+                distributionType,
+                dynamicFilterAssignments);
     }
 
     public boolean isCrossJoin()
