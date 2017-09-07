@@ -168,7 +168,8 @@ public class Verifier
                 try {
                     ((Closeable) eventClient).close();
                 }
-                catch (IOException ignored) { }
+                catch (IOException ignored) {
+                }
                 log.info("");
             }
         }
