@@ -139,23 +139,7 @@ public final class UrlFunctions
             return null;
         }
 
-        Slice query = slice(uri.getQuery());
-        String parameter = parameterName.toStringUtf8();
-        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toStringUtf8());
-
-        for (String queryArg : queryArgs) {
-            Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
-            if (arg.next().equals(parameter)) {
-                if (arg.hasNext()) {
-                    return utf8Slice(arg.next());
-                }
-                // first matched key is empty
-                return Slices.EMPTY_SLICE;
-            }
-        }
-
-        // no key matched
-        return null;
+        return extractParameter(uri.getQuery(), parameterName);
     }
 
     @SqlNullable
@@ -170,23 +154,7 @@ public final class UrlFunctions
             return null;
         }
 
-        Slice query = slice(uri.getRawQuery());
-        String parameter = parameterName.toStringUtf8();
-        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toStringUtf8());
-
-        for (String queryArg : queryArgs) {
-            Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
-            if (arg.next().equals(parameter)) {
-                if (arg.hasNext()) {
-                    return utf8Slice(arg.next());
-                }
-                // first matched key is empty
-                return Slices.EMPTY_SLICE;
-            }
-        }
-
-        // no key matched
-        return null;
+        return extractParameter(uri.getRawQuery(), parameterName);
     }
 
     @Description("escape a string for use in URL query parameter names and values")
@@ -231,5 +199,26 @@ public final class UrlFunctions
         catch (URISyntaxException e) {
             return null;
         }
+    }
+
+    @Nullable
+    private static Slice extractParameter(String query, Slice parameterName)
+    {
+        String parameter = parameterName.toStringUtf8();
+        Iterable<String> queryArgs = QUERY_SPLITTER.split(slice(query).toStringUtf8());
+
+        for (String queryArg : queryArgs) {
+            Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
+            if (arg.next().equals(parameter)) {
+                if (arg.hasNext()) {
+                    return utf8Slice(arg.next());
+                }
+                // first matched key is empty
+                return Slices.EMPTY_SLICE;
+            }
+        }
+
+        // no key matched
+        return null;
     }
 }
