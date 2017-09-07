@@ -24,16 +24,17 @@ public class TestUrlFunctions
     @Test
     public void testUrlExtract()
     {
-        validateUrlExtract("http://example.com/path1/p.php?k1=v1&k2=v2#Ref1", "http", "example.com", null, "/path1/p.php", "k1=v1&k2=v2", "Ref1", "k1=v1&k2=v2");
+        validateUrlExtract("http://example.com/path1/p.php?k1=v1&k2=v2#Ref1", "http", "example.com", null, "/path1/p.php", "k1=v1&k2=v2", "k1=v1&k2=v2", "Ref1");
         validateUrlExtract("http://example.com/path1/p.php?", "http", "example.com", null, "/path1/p.php", "", "", "");
         validateUrlExtract("http://example.com/path1/p.php", "http", "example.com", null, "/path1/p.php", "", "", "");
-        validateUrlExtract("http://example.com:8080/path1/p.php?k1=v1&k2=v2#Ref1", "http", "example.com", 8080L, "/path1/p.php", "k1=v1&k2=v2", "Ref1", "k1=v1&k2=v2");
+        validateUrlExtract("http://example.com:8080/path1/p.php?k1=v1&k2=v2#Ref1", "http", "example.com", 8080L, "/path1/p.php", "k1=v1&k2=v2", "k1=v1&k2=v2", "Ref1");
+        validateUrlExtract("http://example.com:8080/path1/p.php?kwd=hello+world&k3=v3", "http", "example.com", 8080L, "/path1/p.php", "kwd=hello+world&k3=v3", "kwd=hello+world&k3=v3", "");
         validateUrlExtract("https://username@example.com", "https", "example.com", null, "", "", "", "");
         validateUrlExtract("https://username:password@example.com", "https", "example.com", null, "", "", "", "");
         validateUrlExtract("mailto:test@example.com", "mailto", "", null, "", "", "", "");
         validateUrlExtract("foo", "", "", null, "foo", "", "", "");
         validateUrlExtract("http://example.com/^", null, null, null, null, null, null, null);
-        validateUrlExtract("http://example.com/path1/p.php?source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1#Ref1", "http", "example.com", null, "/path1/p.php", "source_url=http://bar.com?a=foo&b=bar&k1=v1", "Ref1", "source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1");
+        validateUrlExtract("http://example.com/path1/p.php?source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1#Ref1", "http", "example.com", null, "/path1/p.php", "source_url=http://bar.com?a=foo&b=bar&k1=v1", "source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1", "Ref1");
     }
 
     @Test
@@ -51,6 +52,7 @@ public class TestUrlFunctions
         assertFunction("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", createVarcharType(47), "a=b=c");
         assertFunction("url_extract_parameter('foo', 'k1')", createVarcharType(3), null);
         assertFunction("url_extract_parameter('http://example.com/path1/p.php?source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1', 'source_url')", createVarcharType(88), "http://bar.com?a=foo");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar%3dkwd=hello+world', 'source_url')", createVarcharType(100), "http://bar.com?a=foo");
     }
 
     @Test
@@ -68,6 +70,7 @@ public class TestUrlFunctions
         assertFunction("url_extract_raw_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", createVarcharType(47), "a=b=c");
         assertFunction("url_extract_raw_parameter('foo', 'k1')", createVarcharType(3), null);
         assertFunction("url_extract_raw_parameter('http://example.com/path1/p.php?source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1', 'source_url')", createVarcharType(88), "http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar");
+        assertFunction("url_extract_raw_parameter('http://example.com/path1/p.php?source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar%3dkwd=hello+world', 'source_url')", createVarcharType(100), "http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar%3dkwd=hello+world");
     }
 
     @Test
@@ -108,7 +111,7 @@ public class TestUrlFunctions
         }
     }
 
-    private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment, String rawquery)
+    private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String rawQuery, String fragment)
     {
         assertFunction("url_extract_protocol('" + url + "')", createVarcharType(url.length()), protocol);
         assertFunction("url_extract_host('" + url + "')", createVarcharType(url.length()), host);
@@ -120,7 +123,7 @@ public class TestUrlFunctions
         }
         assertFunction("url_extract_path('" + url + "')", createVarcharType(url.length()), path);
         assertFunction("url_extract_query('" + url + "')", createVarcharType(url.length()), query);
+        assertFunction("url_extract_raw_query('" + url + "')", createVarcharType(url.length()), rawQuery);
         assertFunction("url_extract_fragment('" + url + "')", createVarcharType(url.length()), fragment);
-        assertFunction("url_extract_raw_query('" + url + "')", createVarcharType(url.length()), rawquery);
     }
 }
