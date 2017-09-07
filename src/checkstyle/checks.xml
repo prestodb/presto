@@ -35,6 +35,10 @@
         <property name="format" value="\n\n\Z" />
         <property name="message" value="Blank line before end of file" />
     </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="->\s*\{\s+\}" />
+        <property name="message" value="Whitespace inside empty lambda body" />
+    </module>
     <module name="RegexpSingleline">
         <property name="format" value="(class|interface) ([a-zA-Z0-9_])+(&lt;.*&gt;)? (extends|implements)" />
         <property name="message" value="No new line before extends/implements" />
