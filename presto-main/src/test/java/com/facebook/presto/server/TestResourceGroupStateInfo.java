@@ -56,6 +56,8 @@ public class TestResourceGroupStateInfo
                         "SELECT * FROM t",
                         DateTime.parse("2017-06-12T21:39:48.658Z"),
                         "test_user",
+                        Optional.of("source"),
+                        Optional.of("client_info"),
                         Optional.of("catalog"),
                         Optional.of("schema"),
                         Optional.empty(),
@@ -104,6 +106,8 @@ public class TestResourceGroupStateInfo
         assertEquals(queryStateInfo.getQuery(), "SELECT * FROM t");
         assertEquals(queryStateInfo.getCreateTime(), DateTime.parse("2017-06-12T21:39:48.658Z"));
         assertEquals(queryStateInfo.getUser(), "test_user");
+        assertEquals(queryStateInfo.getSource(), Optional.of("source"));
+        assertEquals(queryStateInfo.getClientInfo(), Optional.of("client_info"));
         assertEquals(queryStateInfo.getCatalog(), Optional.of("catalog"));
         assertEquals(queryStateInfo.getSchema(), Optional.of("schema"));
         assertEquals(queryStateInfo.getResourceGroupChain(), Optional.empty());

@@ -40,6 +40,8 @@ public class QueryStateInfo
     private final String query;
     private final DateTime createTime;
     private final String user;
+    private final Optional<String> source;
+    private final Optional<String> clientInfo;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final Optional<List<ResourceGroupInfo>> resourceGroupChain;
@@ -53,6 +55,8 @@ public class QueryStateInfo
             @JsonProperty("query") String query,
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("user") String user,
+            @JsonProperty("source") Optional<String> source,
+            @JsonProperty("clientInfo") Optional<String> clientInfo,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("resourceGroupChainInfo") Optional<List<ResourceGroupInfo>> resourceGroupChain,
@@ -64,6 +68,8 @@ public class QueryStateInfo
         this.query = requireNonNull(query, "query text is null");
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.user = requireNonNull(user, "user is null");
+        this.source = requireNonNull(source, "source is null");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         requireNonNull(resourceGroupChain, "resourceGroupChain is null");
@@ -108,6 +114,8 @@ public class QueryStateInfo
                 queryInfo.getQuery(),
                 queryInfo.getQueryStats().getCreateTime(),
                 queryInfo.getSession().getUser(),
+                queryInfo.getSession().getSource(),
+                queryInfo.getSession().getClientInfo(),
                 queryInfo.getSession().getCatalog(),
                 queryInfo.getSession().getSchema(),
                 resourceGroups,
@@ -142,6 +150,18 @@ public class QueryStateInfo
     public String getUser()
     {
         return user;
+    }
+
+    @JsonProperty
+    public Optional<String> getSource()
+    {
+        return source;
+    }
+
+    @JsonProperty
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
     }
 
     @JsonProperty

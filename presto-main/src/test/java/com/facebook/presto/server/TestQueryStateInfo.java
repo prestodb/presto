@@ -40,6 +40,7 @@ import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -163,6 +164,8 @@ public class TestQueryStateInfo
                 createQueryInfo("query_root_b", QUEUED, "SELECT count(*) FROM t"),
                 Optional.of(groupRootB),
                 Optional.of(rootInfo));
+        assertEquals(infoForQueryQueuedOnRootB.getCatalog().get(), "tpch");
+        assertEquals(infoForQueryQueuedOnRootB.getSchema().get(), TINY_SCHEMA_NAME);
         assertEquals(infoForQueryQueuedOnRootB.getQuery(), "SELECT count(*) FROM t");
         assertEquals(infoForQueryQueuedOnRootB.getQueryId().toString(), "query_root_b");
         assertEquals(infoForQueryQueuedOnRootB.getQueryState(), QUEUED);
