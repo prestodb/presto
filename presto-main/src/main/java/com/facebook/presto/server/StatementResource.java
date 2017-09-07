@@ -169,7 +169,7 @@ public class StatementResource
 
         SessionSupplier sessionSupplier = new HttpRequestSessionFactory(servletRequest);
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> { });
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> {});
         Query query = new Query(
                 sessionSupplier,
                 statement,

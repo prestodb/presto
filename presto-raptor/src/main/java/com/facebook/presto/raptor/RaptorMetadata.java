@@ -137,7 +137,7 @@ public class RaptorMetadata
 
     public RaptorMetadata(String connectorId, IDBI dbi, ShardManager shardManager)
     {
-        this(connectorId, dbi, shardManager, tableId -> { });
+        this(connectorId, dbi, shardManager, tableId -> {});
     }
 
     public RaptorMetadata(
