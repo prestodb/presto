@@ -249,6 +249,9 @@ public class PlanOptimizers
                 new TransformCorrelatedSingleRowSubqueryToProject(),
                 new CheckSubqueryNodesAreRewritten(),
                 new PredicatePushDown(metadata, sqlParser),
+                new IterativeOptimizer(
+                        stats,
+                        new PickTableLayout(metadata, sqlParser, true).rules()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         stats,
@@ -283,6 +286,9 @@ public class PlanOptimizers
                         ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins()), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                         ImmutableSet.of(new EliminateCrossJoins())),
                 new PredicatePushDown(metadata, sqlParser),
+                new IterativeOptimizer(
+                        stats,
+                        new PickTableLayout(metadata, sqlParser, true).rules()),
                 projectionPushDown);
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
@@ -314,7 +320,7 @@ public class PlanOptimizers
                 new IterativeOptimizer(
                         stats,
                         ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.PickLayout(metadata)),
-                        new PickTableLayout(metadata).rules()));
+                        new PickTableLayout(metadata, sqlParser, false).rules()));
 
         builder.add(
                 new IterativeOptimizer(
