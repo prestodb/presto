@@ -50,7 +50,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.valueOf;
 import static java.math.RoundingMode.FLOOR;
 
 public final class DoubleOperators
@@ -233,7 +232,7 @@ public final class DoubleOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        return utf8Slice(valueOf(value));
+        return utf8Slice(String.valueOf(value));
     }
 
     @ScalarOperator(HASH_CODE)
