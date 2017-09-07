@@ -55,7 +55,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, "weighted", null, true, "1h", "1d", "1h", "1h", null);
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, null, 5, null, null, null, "1h", "1h", 1L);
         dao.insertSelector(2, null, null);
-        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> { },
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {},
                 daoProvider.get());
         AtomicBoolean exported = new AtomicBoolean();
         InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
@@ -117,10 +117,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, null, 5, null, null, null, null, null, 1L);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         dao.insertSelector(2, null, null);
-        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {
-        },
-                daoProvider.get());
-        InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> { }, directExecutor());
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, daoProvider.get());
+        InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> {}, directExecutor());
         manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), 1, Optional.empty()));
     }
 
@@ -138,7 +136,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertSelector(2, null, null);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
-                (poolId, listener) -> { },
+                (poolId, listener) -> {},
                 daoProvider.get());
         manager.start();
         AtomicBoolean exported = new AtomicBoolean();

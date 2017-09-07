@@ -99,8 +99,7 @@ public class TestMemoryPools
     {
         // query will reserve all memory in the user pool and discard the output
         setUp(() -> {
-            OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {
-            }));
+            OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
             return localQueryRunner.createDrivers("SELECT COUNT(*) FROM orders JOIN lineitem USING (orderkey)", outputFactory, taskContext);
         });
     }
@@ -115,8 +114,7 @@ public class TestMemoryPools
                     new PlanNodeId("revokable_operator"),
                     TableScanOperator.class.getSimpleName());
 
-            OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {
-            }));
+            OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
             Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), new TestingPagesSerdeFactory()).createOperator(driverContext);
             RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
             createOperator.set(revocableMemoryOperator);
