@@ -60,7 +60,7 @@ public class AircompressorCompressor
                 compressor.reset();
                 compressedOutput.reset();
                 CompressionOutputStream compressionStream = codec.createOutputStream(compressedOutput, compressor);
-                return new CompressedSliceOutput(compressionStream, compressedOutput, this, () -> { });
+                return new CompressedSliceOutput(compressionStream, compressedOutput, this, () -> {});
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);

@@ -246,7 +246,7 @@ public class TestCachingOrcDataSource
                 Text.class,
                 compression != NONE,
                 tableProperties,
-                () -> { });
+                () -> {});
     }
 
     private static class FakeOrcDataSource

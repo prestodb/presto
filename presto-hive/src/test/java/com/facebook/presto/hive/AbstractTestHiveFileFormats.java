@@ -560,8 +560,7 @@ public abstract class AbstractTestHiveFileFormats
                 Text.class,
                 compressionCodec != HiveCompressionCodec.NONE,
                 tableProperties,
-                () -> {
-                });
+                () -> {});
 
         try {
             serDe.initialize(new Configuration(), tableProperties);

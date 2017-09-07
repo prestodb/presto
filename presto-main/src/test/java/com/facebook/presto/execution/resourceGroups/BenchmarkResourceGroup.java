@@ -72,7 +72,7 @@ public class BenchmarkResourceGroup
         @Setup
         public void setup()
         {
-            root = new RootInternalResourceGroup("root", (group, export) -> { }, executor);
+            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor);
             root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
             root.setMaxQueuedQueries(queries);
             root.setMaxRunningQueries(queries);

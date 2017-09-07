@@ -63,7 +63,7 @@ public class TestFixedCountScheduler
                 (node, partition) -> taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> { })),
+                        new PartitionedSplitCountTracker(delta -> {})),
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
@@ -81,7 +81,7 @@ public class TestFixedCountScheduler
                 (node, partition) -> taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> { })),
+                        new PartitionedSplitCountTracker(delta -> {})),
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();

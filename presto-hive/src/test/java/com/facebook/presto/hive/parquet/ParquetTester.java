@@ -231,7 +231,7 @@ public class ParquetTester
                         Text.class,
                         compressionCodecName != UNCOMPRESSED,
                         createTableProperties("test", columnObjectInspector.getTypeName()),
-                        () -> { });
+                        () -> {});
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", columnObjectInspector);
         Object row = objectInspector.create();
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());

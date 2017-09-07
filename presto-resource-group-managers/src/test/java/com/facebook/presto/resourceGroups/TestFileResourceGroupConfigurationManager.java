@@ -136,7 +136,7 @@ public class TestFileResourceGroupConfigurationManager
         FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResourceFilePath(fileName));
         return new FileResourceGroupConfigurationManager(
-                (poolId, listener) -> { },
+                (poolId, listener) -> {},
                 config,
                 jsonCodec(ManagerSpec.class));
     }

@@ -1093,7 +1093,7 @@ public class SemiTransactionalHiveMetastore
                     // Ignore the task if the source directory doesn't exist.
                     // This is probably because the original rename that we are trying to undo here never succeeded.
                     if (pathExists(directoryRenameTask.getContext(), hdfsEnvironment, directoryRenameTask.getRenameFrom())) {
-                        renameDirectory(directoryRenameTask.getContext(), hdfsEnvironment, directoryRenameTask.getRenameFrom(), directoryRenameTask.getRenameTo(), () -> { });
+                        renameDirectory(directoryRenameTask.getContext(), hdfsEnvironment, directoryRenameTask.getRenameFrom(), directoryRenameTask.getRenameTo(), () -> {});
                     }
                 }
                 catch (Throwable throwable) {

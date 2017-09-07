@@ -30,7 +30,7 @@ public class LocalExchangeSink
 {
     public static LocalExchangeSink finishedLocalExchangeSink(List<Type> types, LocalExchangeMemoryManager memoryManager)
     {
-        LocalExchangeSink finishedSink = new LocalExchangeSink(types, page -> { }, memoryManager, sink -> { });
+        LocalExchangeSink finishedSink = new LocalExchangeSink(types, page -> {}, memoryManager, sink -> {});
         finishedSink.finish();
         return finishedSink;
     }
