@@ -223,9 +223,7 @@ public class PrestoS3FileSystem
             super.close();
         }
         finally {
-            if (s3 instanceof AmazonS3Client) {
-                ((AmazonS3Client) s3).shutdown();
-            }
+            s3.shutdown();
         }
     }
 
