@@ -23,7 +23,7 @@ env:
 
 sudo: required
 dist: trusty
-group: deprecated-2017Q3
+
 addons:
   apt:
     packages:
@@ -35,6 +35,9 @@ cache:
 
 services:
   - docker
+
+before_install:
+  - unset _JAVA_OPTIONS
 
 install:
   - ./mvnw -v
