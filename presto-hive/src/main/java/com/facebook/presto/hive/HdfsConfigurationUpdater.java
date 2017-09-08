@@ -59,20 +59,20 @@ public class HdfsConfigurationUpdater
     }
 
     @Inject
-    public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig, S3ConfigurationUpdater s3ConfigurationUpdater)
+    public HdfsConfigurationUpdater(HiveClientConfig config, S3ConfigurationUpdater s3ConfigurationUpdater)
     {
-        requireNonNull(hiveClientConfig, "hiveClientConfig is null");
-        checkArgument(hiveClientConfig.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
+        requireNonNull(config, "config is null");
+        checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
 
-        this.socksProxy = hiveClientConfig.getMetastoreSocksProxy();
-        this.ipcPingInterval = hiveClientConfig.getIpcPingInterval();
-        this.dfsTimeout = hiveClientConfig.getDfsTimeout();
-        this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
-        this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();
-        this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
-        this.resourcesConfiguration = readConfiguration(hiveClientConfig.getResourceConfigFiles());
-        this.compressionCodec = hiveClientConfig.getHiveCompressionCodec();
-        this.fileSystemMaxCacheSize = hiveClientConfig.getFileSystemMaxCacheSize();
+        this.socksProxy = config.getMetastoreSocksProxy();
+        this.ipcPingInterval = config.getIpcPingInterval();
+        this.dfsTimeout = config.getDfsTimeout();
+        this.dfsConnectTimeout = config.getDfsConnectTimeout();
+        this.dfsConnectMaxRetries = config.getDfsConnectMaxRetries();
+        this.domainSocketPath = config.getDomainSocketPath();
+        this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
+        this.compressionCodec = config.getHiveCompressionCodec();
+        this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
 
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
     }
