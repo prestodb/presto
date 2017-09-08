@@ -38,7 +38,7 @@ class NoneCompressor
         public CompressedSliceOutput get()
         {
             chunkedSliceOutput.reset();
-            return new CompressedSliceOutput(chunkedSliceOutput, chunkedSliceOutput, this, () -> { });
+            return new CompressedSliceOutput(chunkedSliceOutput, chunkedSliceOutput, this, () -> {});
         }
     }
 }

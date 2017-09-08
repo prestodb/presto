@@ -1186,7 +1186,7 @@ public class OrcTester
                 Text.class,
                 compression != NONE,
                 createTableProperties("test", getJavaObjectInspector(type).getTypeName()),
-                () -> { });
+                () -> {});
     }
 
     private static RecordWriter createDwrfRecordWriter(File outputFile, CompressionKind compressionCodec, Type type)
@@ -1205,7 +1205,7 @@ public class OrcTester
                 Text.class,
                 compressionCodec != NONE,
                 createTableProperties("test", getJavaObjectInspector(type).getTypeName()),
-                () -> { });
+                () -> {});
     }
 
     static SettableStructObjectInspector createSettableStructObjectInspector(String name, Type type)

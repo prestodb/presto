@@ -908,8 +908,7 @@ public class TestArbitraryOutputBuffer
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
-                ignored -> {
-                },
+                ignored -> {},
                 stateNotificationExecutor);
         buffer.setOutputBuffers(buffers);
         return buffer;
