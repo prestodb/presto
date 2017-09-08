@@ -448,12 +448,12 @@ public class TestHashJoinOperator
         }
     }
 
-    private static void processRow(final Driver ljoDriver, final TaskStateMachine taskStateMachine)
+    private static void processRow(final Driver joinDriver, final TaskStateMachine taskStateMachine)
             throws Exception
     {
-        ljoDriver.getDriverContext().getYieldSignal().setWithDelay(TimeUnit.SECONDS.toNanos(1), ljoDriver.getDriverContext().getYieldExecutor());
-        ljoDriver.process();
-        ljoDriver.getDriverContext().getYieldSignal().reset();
+        joinDriver.getDriverContext().getYieldSignal().setWithDelay(TimeUnit.SECONDS.toNanos(1), joinDriver.getDriverContext().getYieldExecutor());
+        joinDriver.process();
+        joinDriver.getDriverContext().getYieldSignal().reset();
         checkErrors(taskStateMachine);
     }
 
