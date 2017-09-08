@@ -30,7 +30,7 @@ import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -48,7 +48,7 @@ public class IndexLookupSourceFactory
     public IndexLookupSourceFactory(
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
-            Optional<Integer> keyOutputHashChannel,
+            OptionalInt keyOutputHashChannel,
             List<Type> outputTypes,
             Map<Symbol, Integer> layout,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,

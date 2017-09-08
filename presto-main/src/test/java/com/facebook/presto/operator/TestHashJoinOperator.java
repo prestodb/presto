@@ -199,7 +199,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
+                getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY);
@@ -852,7 +852,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
+                getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY);
@@ -866,7 +866,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
+                getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY);
@@ -923,7 +923,8 @@ public class TestHashJoinOperator
                 rangeList(buildPages.getTypes().size()),
                 ImmutableMap.of(),
                 hashChannels,
-                buildPages.getHashChannel(),
+                buildPages.getHashChannel()
+                        .map(OptionalInt::of).orElse(OptionalInt.empty()),
                 false,
                 filterFunctionFactory,
                 100,
@@ -979,6 +980,12 @@ public class TestHashJoinOperator
                 runDriverInThread(executor, driver);
             }
         });
+    }
+
+    private static OptionalInt getHashChannelAsInt(RowPagesBuilder probePages)
+    {
+        return probePages.getHashChannel()
+                .map(OptionalInt::of).orElse(OptionalInt.empty());
     }
 
     private static List<Integer> rangeList(int endExclusive)

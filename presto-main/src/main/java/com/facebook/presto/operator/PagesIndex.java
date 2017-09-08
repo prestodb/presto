@@ -40,6 +40,7 @@ import javax.inject.Inject;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -376,15 +377,15 @@ public class PagesIndex
 
     public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, OptionalInt.empty(), Optional.empty(), Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel)
     {
         return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<List<Integer>> outputChannels)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
     {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, outputChannels)
@@ -407,7 +408,7 @@ public class PagesIndex
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
-            Optional<Integer> hashChannel,
+            OptionalInt hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
         return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, Optional.empty());
@@ -416,7 +417,7 @@ public class PagesIndex
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
-            Optional<Integer> hashChannel,
+            OptionalInt hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<List<Integer>> outputChannels)
     {

@@ -69,7 +69,7 @@ public class HashJoinBenchmark
                     ImmutableList.of(0, 1),
                     ImmutableMap.of(),
                     Ints.asList(0),
-                    Optional.empty(),
+                    OptionalInt.empty(),
                     false,
                     Optional.empty(),
                     1_500_000,
@@ -90,7 +90,7 @@ public class HashJoinBenchmark
 
         OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(1, new PlanNodeId("test"), lookupSourceFactory, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty(), Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
+        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(1, new PlanNodeId("test"), lookupSourceFactory, lineItemTableScan.getTypes(), Ints.asList(0), OptionalInt.empty(), Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"), joinOperator.getTypes());
 

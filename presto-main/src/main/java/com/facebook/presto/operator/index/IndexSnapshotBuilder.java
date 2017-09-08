@@ -28,6 +28,7 @@ import io.airlift.units.DataSize;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -40,7 +41,7 @@ public class IndexSnapshotBuilder
     private final List<Type> outputTypes;
     private final List<Type> missingKeysTypes;
     private final List<Integer> keyOutputChannels;
-    private final Optional<Integer> keyOutputHashChannel;
+    private final OptionalInt keyOutputHashChannel;
     private final List<Integer> missingKeysChannels;
     private final PagesIndex.Factory pagesIndexFactory;
 
@@ -54,7 +55,7 @@ public class IndexSnapshotBuilder
 
     public IndexSnapshotBuilder(List<Type> outputTypes,
             List<Integer> keyOutputChannels,
-            Optional<Integer> keyOutputHashChannel,
+            OptionalInt keyOutputHashChannel,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
             int expectedPositions,
