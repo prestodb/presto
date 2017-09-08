@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    CREATE [ OR REPLACE ] VIEW view_name AS query
+    CREATE [ OR REPLACE ] VIEW view_name [ COMMENT view_comment ] AS query
 
 Description
 -----------
@@ -40,6 +40,14 @@ Create a view that replaces an existing view::
 
     CREATE OR REPLACE VIEW test AS
     SELECT orderkey, orderstatus, totalprice / 4 AS quarter
+    FROM orders
+
+Create a view ``test`` over the ``orders`` table, with a comment::
+
+    CREATE VIEW test
+    COMMENT 'a view comment test'
+    AS
+    SELECT orderkey, orderstatus, totalprice / 2 AS half
     FROM orders
 
 See Also

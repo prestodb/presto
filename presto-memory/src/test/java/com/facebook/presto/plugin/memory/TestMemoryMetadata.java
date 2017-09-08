@@ -180,12 +180,12 @@ public class TestMemoryMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
         try {
-            metadata.createView(SESSION, test, "test", false);
+            metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "test", Optional.empty()), false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
-        metadata.createView(SESSION, test, "test", false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "test", Optional.empty()), false);
     }
 
     @Test
@@ -193,8 +193,8 @@ public class TestMemoryMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
-        metadata.createView(SESSION, test, "aaa", true);
-        metadata.createView(SESSION, test, "bbb", true);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "aaa", Optional.empty()), true);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "bbb", Optional.empty()), true);
 
         assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
     }
@@ -206,8 +206,8 @@ public class TestMemoryMetadata
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
 
         // create views
-        metadata.createView(SESSION, test1, "test1", false);
-        metadata.createView(SESSION, test2, "test2", false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test1, Optional.empty(), "test1", Optional.empty()), false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test2, Optional.empty(), "test2", Optional.empty()), false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, "test");

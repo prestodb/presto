@@ -244,17 +244,17 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public synchronized void createView(ConnectorSession session, ConnectorViewDefinition connectorViewDefinition, boolean replace)
     {
-        if (getTableHandle(session, viewName) != null) {
-            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+        if (getTableHandle(session, connectorViewDefinition.getName()) != null) {
+            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + connectorViewDefinition.getName());
         }
 
         if (replace) {
-            views.put(viewName, viewData);
+            views.put(connectorViewDefinition.getName(), connectorViewDefinition.getViewData());
         }
-        else if (views.putIfAbsent(viewName, viewData) != null) {
-            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
+        else if (views.putIfAbsent(connectorViewDefinition.getName(), connectorViewDefinition.getViewData()) != null) {
+            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + connectorViewDefinition.getName());
         }
     }
 
@@ -281,7 +281,7 @@ public class MemoryMetadata
                 .filter(entry -> prefix.matches(entry.getKey()))
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue())));
+                        entry -> new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue(), Optional.empty())));
     }
 
     private void updateRowsOnHosts(MemoryTableHandle table, Collection<Slice> fragments)

@@ -810,29 +810,29 @@ public class RaptorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorViewDefinition connectorViewDefinition, boolean replace)
     {
-        String schemaName = viewName.getSchemaName();
-        String tableName = viewName.getTableName();
+        String schemaName = connectorViewDefinition.getName().getSchemaName();
+        String tableName = connectorViewDefinition.getName().getTableName();
 
-        if (getTableHandle(viewName) != null) {
-            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+        if (getTableHandle(connectorViewDefinition.getName()) != null) {
+            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + connectorViewDefinition.getName());
         }
 
         if (replace) {
             daoTransaction(dbi, MetadataDao.class, dao -> {
                 dao.dropView(schemaName, tableName);
-                dao.insertView(schemaName, tableName, viewData);
+                dao.insertView(schemaName, tableName, connectorViewDefinition.getViewData());
             });
             return;
         }
 
         try {
-            dao.insertView(schemaName, tableName, viewData);
+            dao.insertView(schemaName, tableName, connectorViewDefinition.getViewData());
         }
         catch (PrestoException e) {
-            if (viewExists(session, viewName)) {
-                throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
+            if (viewExists(session, connectorViewDefinition.getName())) {
+                throw new PrestoException(ALREADY_EXISTS, "View already exists: " + connectorViewDefinition.getName());
             }
             throw e;
         }
@@ -858,7 +858,7 @@ public class RaptorMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
         for (ViewResult view : dao.getViews(prefix.getSchemaName(), prefix.getTableName())) {
-            map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData()));
+            map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData(), Optional.empty()));
         }
         return map.build();
     }

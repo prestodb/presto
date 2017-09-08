@@ -265,8 +265,13 @@ public class HiveMetadata
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-        if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+        if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
+        }
+
+        Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
+        if (table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+            return new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of(), comment);
         }
 
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager);
@@ -317,8 +322,6 @@ public class HiveMetadata
 
         // Hook point for extended versions of the Hive Plugin
         properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
-
-        Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
     }
@@ -1002,26 +1005,27 @@ public class HiveMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorViewDefinition connectorViewDefinition, boolean replace)
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(TABLE_COMMENT, "Presto View")
-                .put(PRESTO_VIEW_FLAG, "true")
+        Builder<String, String> properties = ImmutableMap.builder();
+        properties.put(PRESTO_VIEW_FLAG, "true")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                .build();
+                .put(PRESTO_QUERY_ID_NAME, session.getQueryId());
+        if (connectorViewDefinition.getComment().isPresent()) {
+            properties.put(TABLE_COMMENT, connectorViewDefinition.getComment().get());
+        }
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
 
         Table.Builder tableBuilder = Table.builder()
-                .setDatabaseName(viewName.getSchemaName())
-                .setTableName(viewName.getTableName())
+                .setDatabaseName(connectorViewDefinition.getName().getSchemaName())
+                .setTableName(connectorViewDefinition.getName().getTableName())
                 .setOwner(session.getUser())
                 .setTableType(TableType.VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
-                .setParameters(properties)
-                .setViewOriginalText(Optional.of(encodeViewData(viewData)))
+                .setParameters(properties.build())
+                .setViewOriginalText(Optional.of(encodeViewData(connectorViewDefinition.getViewData())))
                 .setViewExpandedText(Optional.of("/* Presto View */"));
 
         tableBuilder.getStorageBuilder()
@@ -1030,13 +1034,13 @@ public class HiveMetadata
         Table table = tableBuilder.build();
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
 
-        Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
+        Optional<Table> existing = metastore.getTable(connectorViewDefinition.getName().getSchemaName(), connectorViewDefinition.getName().getTableName());
         if (existing.isPresent()) {
             if (!replace || !HiveUtil.isPrestoView(existing.get())) {
-                throw new ViewAlreadyExistsException(viewName);
+                throw new ViewAlreadyExistsException(connectorViewDefinition.getName());
             }
 
-            metastore.replaceView(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+            metastore.replaceView(connectorViewDefinition.getName().getSchemaName(), connectorViewDefinition.getName().getTableName(), table, principalPrivileges);
             return;
         }
 
@@ -1094,7 +1098,8 @@ public class HiveMetadata
                 views.put(schemaTableName, new ConnectorViewDefinition(
                         schemaTableName,
                         Optional.ofNullable(table.get().getOwner()),
-                        decodeViewData(table.get().getViewOriginalText().get())));
+                        decodeViewData(table.get().getViewOriginalText().get()),
+                        Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT))));
             }
         }
 

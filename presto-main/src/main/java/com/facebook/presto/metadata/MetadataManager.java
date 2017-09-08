@@ -759,6 +759,18 @@ public class MetadataManager
     @Override
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
+        ConnectorViewDefinition connectorViewDefinition = getConnectorViewDefinition(session, viewName);
+        if (connectorViewDefinition != null) {
+            return Optional.of(deserializeView(connectorViewDefinition.getViewData()));
+        }
+        else {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public ConnectorViewDefinition getConnectorViewDefinition(Session session, QualifiedObjectName viewName)
+    {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
@@ -768,22 +780,21 @@ public class MetadataManager
             Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
                     session.toConnectorSession(connectorId),
                     viewName.asSchemaTableName().toSchemaTablePrefix());
-            ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
-            if (view != null) {
-                return Optional.of(deserializeView(view.getViewData()));
-            }
+            return views.get(viewName.asSchemaTableName());
         }
-        return Optional.empty();
+        return null;
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, String viewData, Optional<String> comment, boolean replace)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createView(session.toConnectorSession(connectorId), viewName.asSchemaTableName(), viewData, replace);
+        metadata.createView(session.toConnectorSession(connectorId),
+                new ConnectorViewDefinition(viewName.asSchemaTableName(), Optional.empty(), viewData, comment),
+                replace);
     }
 
     @Override

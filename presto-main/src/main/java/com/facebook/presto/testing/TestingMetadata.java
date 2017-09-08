@@ -179,13 +179,13 @@ public class TestingMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorViewDefinition connectorViewDefinition, boolean replace)
     {
         if (replace) {
-            views.put(viewName, viewData);
+            views.put(connectorViewDefinition.getName(), connectorViewDefinition.getViewData());
         }
-        else if (views.putIfAbsent(viewName, viewData) != null) {
-            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
+        else if (views.putIfAbsent(connectorViewDefinition.getName(), connectorViewDefinition.getViewData()) != null) {
+            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + connectorViewDefinition.getName());
         }
     }
 
@@ -215,7 +215,7 @@ public class TestingMetadata
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
         for (Map.Entry<SchemaTableName, String> entry : views.entrySet()) {
             if (prefix.matches(entry.getKey())) {
-                map.put(entry.getKey(), new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue()));
+                map.put(entry.getKey(), new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue(), Optional.empty()));
             }
         }
         return map.build();
