@@ -50,6 +50,7 @@ import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
 public class LookupJoinOperator
+// TODO "Add spill for join" breaks StreamPropertyDerivations
         implements Operator
 {
     private final OperatorContext operatorContext;
