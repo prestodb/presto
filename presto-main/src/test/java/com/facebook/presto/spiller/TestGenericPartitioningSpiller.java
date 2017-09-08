@@ -226,7 +226,7 @@ public class TestGenericPartitioningSpiller
     {
         private final int valueChannel;
 
-        public FourFixedPartitionsPartitionFunction(int valueChannel)
+        FourFixedPartitionsPartitionFunction(int valueChannel)
         {
             this.valueChannel = valueChannel;
         }
@@ -260,7 +260,7 @@ public class TestGenericPartitioningSpiller
         private final int valueChannel;
         private final int partitionCount;
 
-        public ModuloPartitionFunction(int valueChannel, int partitionCount)
+        ModuloPartitionFunction(int valueChannel, int partitionCount)
         {
             this.valueChannel = valueChannel;
             checkArgument(partitionCount > 0);
