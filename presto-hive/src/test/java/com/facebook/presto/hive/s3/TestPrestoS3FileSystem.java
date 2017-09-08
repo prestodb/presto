@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3;
 
 import com.amazonaws.AmazonWebServiceClient;
 import com.amazonaws.ClientConfiguration;
@@ -23,7 +23,7 @@ import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
-import com.facebook.presto.hive.PrestoS3FileSystem.UnrecoverableS3OperationException;
+import com.facebook.presto.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -41,15 +41,15 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
 
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_KMS_KEY_ID;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;

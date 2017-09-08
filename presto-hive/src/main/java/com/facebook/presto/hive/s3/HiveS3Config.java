@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3;
 
 import com.google.common.base.StandardSystemProperty;
 import io.airlift.configuration.Config;
