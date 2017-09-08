@@ -95,10 +95,10 @@ public final class HiveTestUtils
 
     public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config)
     {
-        return createTestHdfsEnvironment(config, new HiveS3Config());
+        return createTestHdfsEnvironment(config, new PrestoS3ConfigurationUpdater(new HiveS3Config()));
     }
 
-    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig hiveConfig, HiveS3Config s3Config)
+    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig hiveConfig, S3ConfigurationUpdater s3Config)
     {
         HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveConfig, s3Config));
         return new HdfsEnvironment(hdfsConfig, hiveConfig, new NoHdfsAuthentication());

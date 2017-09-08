@@ -150,9 +150,9 @@ public abstract class AbstractTestHiveClientS3
 
         setupHive(databaseName);
 
-        HiveS3Config s3Config = new HiveS3Config()
+        S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
-                .setS3AwsSecretKey(awsSecretKey);
+                .setS3AwsSecretKey(awsSecretKey));
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");

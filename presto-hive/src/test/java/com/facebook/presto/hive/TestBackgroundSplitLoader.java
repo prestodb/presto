@@ -299,7 +299,7 @@ public class TestBackgroundSplitLoader
         public TestingHdfsEnvironment()
         {
             super(
-                    new HiveHdfsConfiguration(new HdfsConfigurationUpdater(new HiveClientConfig(), new HiveS3Config())),
+                    new HiveHdfsConfiguration(new HdfsConfigurationUpdater(new HiveClientConfig())),
                     new HiveClientConfig(),
                     new NoHdfsAuthentication());
         }
