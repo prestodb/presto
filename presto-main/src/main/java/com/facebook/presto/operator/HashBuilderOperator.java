@@ -189,39 +189,18 @@ public class HashBuilderOperator
     }
 
     @Override
-    public void finish()
-    {
-        if (finishing) {
-            return;
-        }
-        finishing = true;
-
-        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, Optional.of(outputChannels));
-        lookupSourceFactory.setPartitionLookupSourceSupplier(partitionIndex, partition);
-
-        operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
-        hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
-    }
-
-    @Override
-    public boolean isFinished()
-    {
-        return finishing && lookupSourceFactory.isDestroyed().isDone();
-    }
-
-    @Override
-    public boolean needsInput()
-    {
-        return !finishing;
-    }
-
-    @Override
     public ListenableFuture<?> isBlocked()
     {
         if (!finishing) {
             return NOT_BLOCKED;
         }
         return lookupSourceFactory.isDestroyed();
+    }
+
+    @Override
+    public boolean needsInput()
+    {
+        return !finishing;
     }
 
     @Override
@@ -242,5 +221,26 @@ public class HashBuilderOperator
     public Page getOutput()
     {
         return null;
+    }
+
+    @Override
+    public void finish()
+    {
+        if (finishing) {
+            return;
+        }
+        finishing = true;
+
+        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, Optional.of(outputChannels));
+        lookupSourceFactory.setPartitionLookupSourceSupplier(partitionIndex, partition);
+
+        operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
+        hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
+    }
+
+    @Override
+    public boolean isFinished()
+    {
+        return finishing && lookupSourceFactory.isDestroyed().isDone();
     }
 }
