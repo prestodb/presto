@@ -100,6 +100,8 @@ public final class PartitionedLookupSourceFactory
      * Cached LookupSource on behalf of LookupJoinOperator (represented by SpillAwareLookupSourceProvider). LookupSource instantiation has non-negligible cost.
      * <p>
      * Whole-sale modifications guarded by rwLock.writeLock(). Modifications (addition, update, removal) of entry for key K is confined to object K.
+     * Important note: this cannot be replaced with regular map guarded by the read-write lock. This is because read lock is held in {@code withLease} for
+     * the prolong time, and other threads would not be able to insert new (cached) lookup sources in this map, harming work concurrency.
      */
     private final ConcurrentHashMap<SpillAwareLookupSourceProvider, LookupSource> suppliedLookupSources = new ConcurrentHashMap<>();
 
