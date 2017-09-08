@@ -1601,6 +1601,10 @@ public class LocalExecutionPlanner
                             context.getTypes(),
                             context.getSession()));
 
+            boolean spillEnabled = isSpillEnabled(context.getSession());
+            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
+
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -1609,12 +1613,12 @@ public class LocalExecutionPlanner
                     buildSource.getLayout(),
                     buildChannels,
                     buildHashChannel,
-                    node.getType() == RIGHT || node.getType() == FULL,
+                    buildOuter,
                     filterFunctionFactory,
                     10_000,
-                    buildContext.getDriverInstanceCount().orElse(1),
+                    partitionCount,
                     pagesIndexFactory,
-                    false,
+                    spillEnabled && !buildOuter && partitionCount > 1,
                     singleStreamSpillerFactory);
 
             context.addDriverFactory(
