@@ -28,15 +28,15 @@ public interface PartitioningSpiller
 {
     /**
      * Partition page and enqueue partitioned pages to spill writers.
-     * @{link PartitioningSpillResult#getSpillingFuture} is completed when spilling is finished.
+     * {@link PartitioningSpillResult#getSpillingFuture} is completed when spilling is finished.
      * <p>
      * This method may not be called if previously initiated spilling is not finished yet.
      */
     PartitioningSpillResult partitionAndSpill(Page page, IntPredicate spillPartitionMask);
 
     /**
-     * Returns iterator of previously spilled pages from given partition. Whether partition
-     * can be read more than once, is an implementation detail.
+     * Returns iterator of previously spilled pages from given partition. Callers are expected to call
+     * this method once. Calling multiple times can results in undefined behavior.
      * <p>
      * This method may not be called if previously initiated spilling is not finished yet.
      * <p>
