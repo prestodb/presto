@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
+import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -63,6 +64,7 @@ public class TestHiveClientConfig
                 .setDfsConnectMaxRetries(5)
                 .setVerifyChecksum(true)
                 .setDomainSocketPath(null)
+                .setS3FileSystemType(S3FileSystemType.PRESTO)
                 .setResourceConfigFiles((String) null)
                 .setHiveStorageFormat(HiveStorageFormat.RCBINARY)
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
@@ -121,6 +123,7 @@ public class TestHiveClientConfig
                 .put("hive.dfs.connect.max-retries", "10")
                 .put("hive.dfs.verify-checksum", "false")
                 .put("hive.dfs.domain-socket-path", "/foo")
+                .put("hive.s3-file-system-type", "EMRFS")
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("hive.max-initial-splits", "10")
                 .put("hive.max-initial-split-size", "16MB")
@@ -195,6 +198,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionsPerWriter(222)
                 .setWriteValidationThreads(11)
                 .setDomainSocketPath("/foo")
+                .setS3FileSystemType(S3FileSystemType.EMRFS)
                 .setUseParquetColumnNames(true)
                 .setUseOrcColumnNames(true)
                 .setParquetPredicatePushdownEnabled(true)

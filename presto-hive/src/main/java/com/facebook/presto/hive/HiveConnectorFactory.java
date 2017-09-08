@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
+import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.hive.security.HiveSecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -92,6 +93,7 @@ public class HiveConnectorFactory
                             context.getTypeManager(),
                             context.getPageIndexerFactory(),
                             context.getNodeManager()),
+                    new HiveS3Module(connectorId),
                     new HiveMetastoreModule(connectorId, Optional.ofNullable(metastore)),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),

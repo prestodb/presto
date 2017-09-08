@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -74,6 +75,8 @@ public class HiveClientConfig
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
     private String domainSocketPath;
+
+    private S3FileSystemType s3FileSystemType = S3FileSystemType.PRESTO;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
@@ -559,6 +562,19 @@ public class HiveClientConfig
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
+        return this;
+    }
+
+    @NotNull
+    public S3FileSystemType getS3FileSystemType()
+    {
+        return s3FileSystemType;
+    }
+
+    @Config("hive.s3-file-system-type")
+    public HiveClientConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
+    {
+        this.s3FileSystemType = s3FileSystemType;
         return this;
     }
 
