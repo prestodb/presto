@@ -26,6 +26,7 @@ import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.IntPredicate;
@@ -93,6 +95,13 @@ public final class PartitionedLookupSourceFactory
 
     @GuardedBy("lock")
     private SettableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption = SettableFuture.create();
+
+    /**
+     * Cached LookupSource on behalf of LookupJoinOperator (represented by SpillAwareLookupSourceProvider). LookupSource instantiation has non-negligible cost.
+     * <p>
+     * Whole-sale modifications guarded by rwLock.writeLock(). Modifications (addition, update, removal) of entry for key K is confined to object K.
+     */
+    private final ConcurrentHashMap<SpillAwareLookupSourceProvider, LookupSource> suppliedLookupSources = new ConcurrentHashMap<>();
 
     public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
@@ -218,6 +227,10 @@ public final class PartitionedLookupSourceFactory
                 verify(!outer, "It is not possible to reset lookupSourceSupplier which is tracking for outer join");
                 verify(partitions.length > 1, "Spill occurred when only one partition");
                 lookupSourceSupplier = createPartitionedLookupSourceSupplier(ImmutableList.copyOf(partitions), hashChannelTypes, outer);
+                closeCachedLookupSources();
+            }
+            else {
+                verify(suppliedLookupSources.isEmpty(), "There are cached LookupSources even though lookupSourceSupplier does not exist");
             }
         }
         finally {
@@ -372,6 +385,19 @@ public final class PartitionedLookupSourceFactory
             // Remove out references to partitions to actually free memory
             Arrays.fill(partitions, null);
             lookupSourceSupplier = null;
+            closeCachedLookupSources();
+        }
+        finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    private void closeCachedLookupSources()
+    {
+        lock.writeLock().lock();
+        try {
+            suppliedLookupSources.values().forEach(LookupSource::close);
+            suppliedLookupSources.clear();
         }
         finally {
             lock.writeLock().unlock();
@@ -383,6 +409,7 @@ public final class PartitionedLookupSourceFactory
         return nonCancellationPropagating(destroyed);
     }
 
+    @NotThreadSafe
     private class SpillAwareLookupSourceProvider
             implements LookupSourceProvider
     {
@@ -391,10 +418,9 @@ public final class PartitionedLookupSourceFactory
         {
             lock.readLock().lock();
             try {
-                try (LookupSource lookupSource = lookupSourceSupplier.getLookupSource()) {
-                    LookupSourceLease lease = new SpillAwareLookupSourceLease(lookupSource, spillingInfo);
-                    return action.apply(lease);
-                }
+                LookupSource lookupSource = suppliedLookupSources.computeIfAbsent(this, k -> lookupSourceSupplier.getLookupSource());
+                LookupSourceLease lease = new SpillAwareLookupSourceLease(lookupSource, spillingInfo);
+                return action.apply(lease);
             }
             finally {
                 lock.readLock().unlock();
@@ -404,6 +430,10 @@ public final class PartitionedLookupSourceFactory
         @Override
         public void close()
         {
+            LookupSource lookupSource = suppliedLookupSources.remove(this);
+            if (lookupSource != null) {
+                lookupSource.close();
+            }
         }
     }
 
