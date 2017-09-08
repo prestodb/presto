@@ -231,7 +231,7 @@ public class LookupJoinOperator
                 return false;
             }
             lookupSourceProvider = requireNonNull(getDone(lookupSourceProviderFuture));
-            statisticsCounter.setLookupSourcePositions(lookupSourceProvider.withLease(lookupSourceLease -> lookupSourceLease.getLookupSource().getJoinPositionCount()));
+            statisticsCounter.updateLookupSourcePositions(lookupSourceProvider.withLease(lookupSourceLease -> lookupSourceLease.getLookupSource().getJoinPositionCount()));
         }
         return true;
     }
@@ -342,6 +342,7 @@ public class LookupJoinOperator
             // Close previous lookupSourceProvider (either supplied initially or for the previous partition)
             lookupSourceProvider.close();
             lookupSourceProvider = new StaticLookupSourceProvider(lookupSource);
+            statisticsCounter.updateLookupSourcePositions(lookupSource.getJoinPositionCount());
 
             int partition = currentPartition.get().number();
             unspilledInputPages = spiller.map(spiller -> spiller.getSpilledPages(partition))

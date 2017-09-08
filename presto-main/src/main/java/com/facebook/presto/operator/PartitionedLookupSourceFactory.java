@@ -507,7 +507,8 @@ public final class PartitionedLookupSourceFactory
         @Override
         public long getJoinPositionCount()
         {
-            throw new UnsupportedOperationException();
+            // Will be counted after unspilling.
+            return 0;
         }
 
         @Override
