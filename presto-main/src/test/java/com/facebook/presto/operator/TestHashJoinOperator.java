@@ -428,8 +428,10 @@ public class TestHashJoinOperator
 
             // process remaining LookupJoinOperator pages
             while (!joinDriver.isFinished()) {
+                checkErrors(taskStateMachine);
                 processRow(joinDriver, taskStateMachine);
             }
+            checkErrors(taskStateMachine);
 
             List<Page> actualPages = getPages(pageBuffer);
 
