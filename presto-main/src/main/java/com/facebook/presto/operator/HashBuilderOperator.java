@@ -222,6 +222,8 @@ public class HashBuilderOperator
     private LookupSourceSupplier lookupSourceSupplier;
     private OptionalLong lookupSourceChecksum = OptionalLong.empty();
 
+    private Optional<Runnable> finishMemoryRevoke = Optional.empty();
+
     public HashBuilderOperator(
             OperatorContext operatorContext,
             PartitionedLookupSourceFactory lookupSourceFactory,
@@ -360,51 +362,53 @@ public class HashBuilderOperator
     {
         checkState(spillEnabled, "Spill not enabled, no revokable memory should be reserved");
 
-        if (state == State.CONSUMING_INPUT || state == State.LOOKUP_SOURCE_BUILT) {
-            checkState(!spiller.isPresent(), "Spiller already created");
-            spiller = Optional.of(singleStreamSpillerFactory.create(
-                    index.getTypes(),
-                    operatorContext.getSpillContext().newLocalSpillContext(),
-                    operatorContext.getSystemMemoryContext().newLocalMemoryContext()));
-            return getSpiller().spill(index.getPages());
+        if (state == State.CONSUMING_INPUT) {
+            finishMemoryRevoke = Optional.of(() -> {
+                index.clear();
+                operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+                operatorContext.setRevocableMemoryReservation(0L);
+                state = State.SPILLING_INPUT;
+            });
+            return spillIndex();
         }
-
-        // Otherwise this is stale revoking request
-        long reservedRevocableBytes = operatorContext.getReservedRevocableBytes();
-        if (reservedRevocableBytes == 0) {
+        else if (state == State.LOOKUP_SOURCE_BUILT) {
+            finishMemoryRevoke = Optional.of(() -> {
+                lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
+                lookupSourceNotNeeded = Optional.empty();
+                index.clear();
+                operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+                operatorContext.setRevocableMemoryReservation(0L);
+                lookupSourceChecksum = OptionalLong.of(lookupSourceSupplier.checksum());
+                lookupSourceSupplier = null;
+                state = State.INPUT_SPILLED;
+            });
+            return spillIndex();
+        }
+        else if (operatorContext.getReservedRevocableBytes() == 0) {
+            // Probably stale revoking request
+            finishMemoryRevoke = Optional.of(() -> {});
             return immediateFuture(null);
         }
+
         throw new IllegalStateException(format("State %s can not have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
+    }
+
+    private ListenableFuture<?> spillIndex()
+    {
+        checkState(!spiller.isPresent(), "Spiller already created");
+        spiller = Optional.of(singleStreamSpillerFactory.create(
+                index.getTypes(),
+                operatorContext.getSpillContext().newLocalSpillContext(),
+                operatorContext.getSystemMemoryContext().newLocalMemoryContext()));
+        return getSpiller().spill(index.getPages());
     }
 
     @Override
     public void finishMemoryRevoke()
     {
-        if (state == State.CONSUMING_INPUT) {
-            index.clear();
-            operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
-            operatorContext.setRevocableMemoryReservation(0L);
-            state = State.SPILLING_INPUT;
-            return;
-        }
-
-        if (state == State.LOOKUP_SOURCE_BUILT) {
-            lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
-            lookupSourceNotNeeded = Optional.empty();
-            index.clear();
-            operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
-            operatorContext.setRevocableMemoryReservation(0L);
-            lookupSourceChecksum = OptionalLong.of(lookupSourceSupplier.checksum());
-            lookupSourceSupplier = null;
-            state = State.INPUT_SPILLED;
-            return;
-        }
-
-        long reservedRevocableBytes = operatorContext.getReservedRevocableBytes();
-        if (reservedRevocableBytes == 0) {
-            return;
-        }
-        throw new IllegalStateException(format("State %s can not have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
+        checkState(finishMemoryRevoke.isPresent(), "Cannot finish unknown revoking");
+        finishMemoryRevoke.get().run();
+        finishMemoryRevoke = Optional.empty();
     }
 
     @Override
@@ -418,6 +422,10 @@ public class HashBuilderOperator
     {
         if (lookupSourceFactoryDestroyed.isDone()) {
             close();
+            return;
+        }
+
+        if (finishMemoryRevoke.isPresent()) {
             return;
         }
 
@@ -603,6 +611,7 @@ public class HashBuilderOperator
 
         lookupSourceSupplier = null;
         state = State.DISPOSED;
+        finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
 
         try (Closer closer = Closer.create()) {
             closer.register(index::clear);
