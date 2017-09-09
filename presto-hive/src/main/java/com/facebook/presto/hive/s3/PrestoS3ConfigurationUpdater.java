@@ -29,6 +29,7 @@ public class PrestoS3ConfigurationUpdater
     private final String awsSecretKey;
     private final String endpoint;
     private final PrestoS3SignerType signerType;
+    private final boolean pathStyleAccess;
     private final boolean useInstanceCredentials;
     private final boolean sslEnabled;
     private final boolean sseEnabled;
@@ -56,6 +57,7 @@ public class PrestoS3ConfigurationUpdater
         this.awsSecretKey = config.getS3AwsSecretKey();
         this.endpoint = config.getS3Endpoint();
         this.signerType = config.getS3SignerType();
+        this.pathStyleAccess = config.isS3PathStyleAccess();
         this.useInstanceCredentials = config.isS3UseInstanceCredentials();
         this.sslEnabled = config.isS3SslEnabled();
         this.sseEnabled = config.isS3SseEnabled();
@@ -97,6 +99,7 @@ public class PrestoS3ConfigurationUpdater
         if (signerType != null) {
             config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, signerType.name());
         }
+        config.setBoolean(PrestoS3FileSystem.S3_PATH_STYLE_ACCESS, pathStyleAccess);
         config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, useInstanceCredentials);
         config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, sslEnabled);
         config.setBoolean(PrestoS3FileSystem.S3_SSE_ENABLED, sseEnabled);

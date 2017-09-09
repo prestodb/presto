@@ -203,6 +203,10 @@ Property Name                                Description
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
                                              Example: ``S3SignerType`` for v2 signer type
 
+``hive.s3.path-style-access``                Use path-style access for all requests to the S3-compatible storage.
+                                             This is for S3-compatible storage that doesn't support virtual-hosted-style access.
+                                             (defaults to ``false``)
+
 ``hive.s3.staging-directory``                Local staging directory for data written to S3.
                                              This defaults to the Java temporary directory specified
                                              by the JVM system property ``java.io.tmpdir``.

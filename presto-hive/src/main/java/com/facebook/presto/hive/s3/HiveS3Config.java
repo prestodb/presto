@@ -36,6 +36,7 @@ public class HiveS3Config
     private String s3AwsSecretKey;
     private String s3Endpoint;
     private PrestoS3SignerType s3SignerType;
+    private boolean s3PathStyleAccess = false;
     private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
@@ -102,6 +103,19 @@ public class HiveS3Config
     public HiveS3Config setS3SignerType(PrestoS3SignerType s3SignerType)
     {
         this.s3SignerType = s3SignerType;
+        return this;
+    }
+
+    public boolean isS3PathStyleAccess()
+    {
+        return s3PathStyleAccess;
+    }
+
+    @Config("hive.s3.path-style-access")
+    @ConfigDescription("Use path-style access for all request to S3")
+    public HiveS3Config setS3PathStyleAccess(boolean s3PathStyleAccess)
+    {
+        this.s3PathStyleAccess = s3PathStyleAccess;
         return this;
     }
 

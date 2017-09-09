@@ -19,7 +19,9 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
+import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
@@ -47,9 +49,11 @@ import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCESS;
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -119,6 +123,20 @@ public class TestPrestoS3FileSystem
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
+        }
+    }
+
+    @Test
+    public void testPathStyleAccess()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.setBoolean(S3_PATH_STYLE_ACCESS, true);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            S3ClientOptions clientOptions = getFieldValue(fs.getS3Client(), AmazonS3Client.class, "clientOptions", S3ClientOptions.class);
+            assertTrue(clientOptions.isPathStyleAccess());
         }
     }
 
