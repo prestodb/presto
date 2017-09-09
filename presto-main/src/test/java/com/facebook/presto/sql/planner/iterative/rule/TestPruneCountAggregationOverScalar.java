@@ -17,8 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -28,37 +27,19 @@ import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestPruneCountAggregationOverScalar
-        extends BasePlanTest
+        extends BaseRuleTest
 {
-    private RuleTester tester;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-    }
-
     @Test
     public void testDoesNotFireOnNonNestedAggregate()
     {
-        tester.assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .globalGrouping()
@@ -74,7 +55,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnNestedCountAggregate()
     {
-        tester.assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -93,7 +74,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnCountAggregateOverValues()
     {
-        tester.assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -109,7 +90,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnCountAggregateOverEnforceSingleRow()
     {
-        tester.assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -125,7 +106,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testDoesNotFireOnNestedCountAggregateWithNonEmptyGroupBy()
     {
-        tester.assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar())
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -144,7 +125,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testDoesNotFireOnNestedNonCountAggregate()
     {
-        tester.assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar())
                 .on(p -> {
                     Symbol totalPrice = p.symbol("total_price", DOUBLE);
                     AggregationNode inner = p.aggregation((a) -> a

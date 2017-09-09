@@ -12,9 +12,12 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -36,41 +39,25 @@ import static java.util.Objects.requireNonNull;
 
 public class LambdaCaptureDesugaringRewriter
 {
-    private final Map<Symbol, Type> symbolTypes;
-    private final SymbolAllocator symbolAllocator;
-
-    public LambdaCaptureDesugaringRewriter(Map<Symbol, Type> symbolTypes, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Map<Symbol, Type> symbolTypes, SymbolAllocator symbolAllocator)
     {
-        this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
-        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(symbolTypes, symbolAllocator), expression, new Context());
     }
 
-    public Expression rewrite(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression, new Context());
-    }
+    private LambdaCaptureDesugaringRewriter() {}
 
-    private static Expression replaceSymbols(Expression expression, ImmutableMap<Symbol, Symbol> symbolMapping)
-    {
-        return ExpressionTreeRewriter.rewriteWith(
-                new ExpressionRewriter<Void>()
-                {
-                    @Override
-                    public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-                    {
-                        Symbol mapTo = symbolMapping.get(new Symbol(node.getName()));
-                        if (mapTo == null) {
-                            return node;
-                        }
-                        return mapTo.toSymbolReference();
-                    }
-                },
-                expression);
-    }
-
-    public class Visitor
+    private static class Visitor
             extends ExpressionRewriter<Context>
     {
+        private final Map<Symbol, Type> symbolTypes;
+        private final SymbolAllocator symbolAllocator;
+
+        public Visitor(Map<Symbol, Type> symbolTypes, SymbolAllocator symbolAllocator)
+        {
+            this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        }
+
         @Override
         public Expression rewriteLambdaExpression(LambdaExpression node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
@@ -100,7 +87,10 @@ public class LambdaCaptureDesugaringRewriter
                 newLambdaArguments.add(new LambdaArgumentDeclaration(new Identifier(extraSymbol.getName())));
             }
             newLambdaArguments.addAll(node.getArguments());
-            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), replaceSymbols(rewrittenBody, captureSymbolToExtraSymbol.build()));
+
+            ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.build();
+            ExpressionSymbolInliner inliner = new ExpressionSymbolInliner(x -> symbolsMap.getOrDefault(x, x).toSymbolReference());
+            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inliner.rewrite(rewrittenBody));
 
             if (captureSymbols.size() != 0) {
                 List<Expression> capturedValues = captureSymbols.stream()

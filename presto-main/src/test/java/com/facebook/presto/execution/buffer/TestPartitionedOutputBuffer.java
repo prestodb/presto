@@ -816,7 +816,7 @@ public class TestPartitionedOutputBuffer
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 buffers,
                 dataSize,
-                ignored -> { },
+                ignored -> {},
                 stateNotificationExecutor);
     }
 

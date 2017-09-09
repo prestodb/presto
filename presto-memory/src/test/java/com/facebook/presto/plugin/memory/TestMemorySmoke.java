@@ -16,29 +16,25 @@ package com.facebook.presto.plugin.memory;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
-import org.testng.annotations.BeforeTest;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
 import java.util.List;
 
 import static com.facebook.presto.plugin.memory.MemoryQueryRunner.CATALOG;
-import static com.facebook.presto.plugin.memory.MemoryQueryRunner.createQueryRunner;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMemorySmoke
+        extends AbstractTestQueryFramework
 {
-    private QueryRunner queryRunner;
-
-    @BeforeTest
-    public void setUp()
-            throws Exception
+    public TestMemorySmoke()
     {
-        queryRunner = createQueryRunner();
+        super(MemoryQueryRunner::createQueryRunner);
     }
 
     @Test
@@ -46,10 +42,10 @@ public class TestMemorySmoke
             throws SQLException
     {
         int tablesBeforeCreate = listMemoryTables().size();
-        queryRunner.execute("CREATE TABLE test AS SELECT * FROM tpch.tiny.nation");
+        assertUpdate("CREATE TABLE test AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
         assertEquals(listMemoryTables().size(), tablesBeforeCreate + 1);
 
-        queryRunner.execute(format("DROP TABLE test"));
+        assertUpdate("DROP TABLE test");
         assertEquals(listMemoryTables().size(), tablesBeforeCreate);
     }
 
@@ -58,17 +54,17 @@ public class TestMemorySmoke
     public void testCreateTableWhenTableIsAlreadyCreated()
             throws SQLException
     {
-        String createTableSql = "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation";
-        queryRunner.execute(createTableSql);
+        @Language("SQL") String createTableSql = "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation";
+        assertUpdate(createTableSql);
     }
 
     @Test
     public void testSelect()
             throws SQLException
     {
-        queryRunner.execute("CREATE TABLE test_select AS SELECT * FROM tpch.tiny.nation");
+        assertUpdate("CREATE TABLE test_select AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
 
-        assertQuery("SELECT * FROM test_select ORDER BY nationkey", "SELECT * FROM tpch.tiny.nation ORDER BY nationkey");
+        assertQuery("SELECT * FROM test_select ORDER BY nationkey", "SELECT * FROM nation ORDER BY nationkey");
 
         assertQueryResult("INSERT INTO test_select SELECT * FROM tpch.tiny.nation", 25L);
 
@@ -81,7 +77,7 @@ public class TestMemorySmoke
     public void testCreateTableWithNoData()
             throws SQLException
     {
-        queryRunner.execute("CREATE TABLE test_empty (a BIGINT)");
+        assertUpdate("CREATE TABLE test_empty (a BIGINT)");
         assertQueryResult("SELECT count(*) FROM test_empty", 0L);
         assertQueryResult("INSERT INTO test_empty SELECT nationkey FROM tpch.tiny.nation", 25L);
         assertQueryResult("SELECT count(*) FROM test_empty", 25L);
@@ -91,7 +87,7 @@ public class TestMemorySmoke
     public void testCreateFilteredOutTable()
             throws SQLException
     {
-        queryRunner.execute("CREATE TABLE filtered_out AS SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 0");
+        assertUpdate("CREATE TABLE filtered_out AS SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 0", "SELECT count(nationkey) FROM nation WHERE nationkey < 0");
         assertQueryResult("SELECT count(*) FROM filtered_out", 0L);
         assertQueryResult("INSERT INTO filtered_out SELECT nationkey FROM tpch.tiny.nation", 25L);
         assertQueryResult("SELECT count(*) FROM filtered_out", 25L);
@@ -101,7 +97,7 @@ public class TestMemorySmoke
     public void testSelectFromEmptyTable()
             throws SQLException
     {
-        queryRunner.execute("CREATE TABLE test_select_empty AS SELECT * FROM tpch.tiny.nation WHERE nationkey > 1000");
+        assertUpdate("CREATE TABLE test_select_empty AS SELECT * FROM tpch.tiny.nation WHERE nationkey > 1000", "SELECT count(*) FROM nation WHERE nationkey > 1000");
 
         assertQueryResult("SELECT count(*) FROM test_select_empty", 0L);
     }
@@ -109,39 +105,57 @@ public class TestMemorySmoke
     @Test
     public void testSelectSingleRow()
     {
-        assertQuery("SELECT * FROM nation WHERE nationkey = 1", "SELECT * FROM tpch.tiny.nation WHERE nationkey = 1");
+        assertQuery("SELECT * FROM tpch.tiny.nation WHERE nationkey = 1", "SELECT * FROM nation WHERE nationkey = 1");
     }
 
     @Test
     public void testSelectColumnsSubset()
             throws SQLException
     {
-        assertQuery("SELECT nationkey, regionkey FROM nation ORDER BY nationkey", "SELECT nationkey, regionkey FROM tpch.tiny.nation ORDER BY nationkey");
+        assertQuery("SELECT nationkey, regionkey FROM tpch.tiny.nation ORDER BY nationkey", "SELECT nationkey, regionkey FROM nation ORDER BY nationkey");
     }
 
     @Test
     public void testCreateTableInNonDefaultSchema()
     {
-        queryRunner.execute(format("CREATE SCHEMA %s.schema1", CATALOG));
-        queryRunner.execute(format("CREATE SCHEMA %s.schema2", CATALOG));
+        assertUpdate(format("CREATE SCHEMA %s.schema1", CATALOG));
+        assertUpdate(format("CREATE SCHEMA %s.schema2", CATALOG));
 
         assertQueryResult(format("SHOW SCHEMAS FROM %s", CATALOG), "default", "information_schema", "schema1", "schema2");
-
-        queryRunner.execute(format("CREATE TABLE %s.schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey %% 2 = 0", CATALOG));
-        queryRunner.execute(format("CREATE TABLE %s.schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey %% 2 = 1", CATALOG));
+        assertUpdate(format("CREATE TABLE %s.schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey %% 2 = 0", CATALOG), "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 0");
+        assertUpdate(format("CREATE TABLE %s.schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey %% 2 = 1", CATALOG), "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 1");
 
         assertQueryResult(format("SELECT count(*) FROM %s.schema1.nation", CATALOG), 13L);
         assertQueryResult(format("SELECT count(*) FROM %s.schema2.nation", CATALOG), 12L);
     }
 
-    private List<QualifiedObjectName> listMemoryTables()
+    @Test
+    public void testViews()
     {
-        return queryRunner.listTables(queryRunner.getDefaultSession(), "memory", "default");
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+
+        assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
+        assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
+
+        assertQueryFails("CREATE TABLE test_view (x date)", "View \\[default.test_view] already exists");
+        assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", "View already exists: default.test_view");
+
+        assertQuery("SELECT * FROM test_view", query);
+
+        assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains("test_view"));
+
+        assertUpdate("DROP VIEW test_view");
+        assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");
     }
 
-    private void assertQueryResult(String sql, Object... expected)
+    private List<QualifiedObjectName> listMemoryTables()
     {
-        MaterializedResult rows = queryRunner.execute(sql);
+        return getQueryRunner().listTables(getSession(), "memory", "default");
+    }
+
+    private void assertQueryResult(@Language("SQL") String sql, Object... expected)
+    {
+        MaterializedResult rows = computeActual(sql);
         assertEquals(rows.getRowCount(), expected.length);
 
         for (int i = 0; i < expected.length; i++) {
@@ -152,13 +166,5 @@ public class TestMemorySmoke
             assertEquals(value, expected[i]);
             assertTrue(materializedRow.getFieldCount() == 1);
         }
-    }
-
-    private void assertQuery(String sql, String expected)
-    {
-        MaterializedResult rows = queryRunner.execute(sql);
-        MaterializedResult expectedRows = queryRunner.execute(expected);
-
-        assertEquals(rows, expectedRows);
     }
 }

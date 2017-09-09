@@ -514,7 +514,7 @@ public class TestClientBuffer
         {
             requireNonNull(page, "page is null");
             checkState(!noMorePages);
-            buffer.add(new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> { }));
+            buffer.add(new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> {}));
         }
 
         @Override

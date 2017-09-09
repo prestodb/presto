@@ -93,7 +93,6 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableSortedMap;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -840,8 +839,7 @@ public final class SqlFormatter
         {
             if (!properties.isEmpty()) {
                 builder.append("\nWITH (\n");
-                // Always output the table properties in sorted order
-                String propertyList = ImmutableSortedMap.copyOf(properties).entrySet().stream()
+                String propertyList = properties.entrySet().stream()
                         .map(entry -> INDENT + formatName(entry.getKey()) + " = " + formatExpression(entry.getValue(), parameters))
                         .collect(joining(",\n"));
                 builder.append(propertyList);
