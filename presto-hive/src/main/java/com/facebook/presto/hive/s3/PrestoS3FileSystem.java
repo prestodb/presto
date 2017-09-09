@@ -30,6 +30,7 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
+import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CryptoConfiguration;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
@@ -127,6 +128,7 @@ public class PrestoS3FileSystem
     public static final String S3_SECRET_KEY = "presto.s3.secret-key";
     public static final String S3_ENDPOINT = "presto.s3.endpoint";
     public static final String S3_SIGNER_TYPE = "presto.s3.signer-type";
+    public static final String S3_PATH_STYLE_ACCESS = "presto.s3.path-style-access";
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
@@ -168,6 +170,7 @@ public class PrestoS3FileSystem
     private boolean sseEnabled;
     private PrestoS3SseType sseType;
     private String sseKmsKeyId;
+    private boolean isPathStyleAccess;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -193,6 +196,7 @@ public class PrestoS3FileSystem
         int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
         long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
+        this.isPathStyleAccess = conf.getBoolean(S3_PATH_STYLE_ACCESS, defaults.isS3PathStyleAccess());
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
@@ -637,6 +641,11 @@ public class PrestoS3FileSystem
         }
         else {
             client = new AmazonS3Client(credentials, clientConfig, METRIC_COLLECTOR);
+        }
+
+        if (isPathStyleAccess) {
+            S3ClientOptions clientOptions = S3ClientOptions.builder().setPathStyleAccess(true).build();
+            client.setS3ClientOptions(clientOptions);
         }
 
         // use local region when running inside of EC2
