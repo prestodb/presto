@@ -22,7 +22,7 @@ public class OrcCorruptionException
 {
     public OrcCorruptionException(OrcDataSourceId orcDataSourceId, String message)
     {
-        super(message);
+        this(orcDataSourceId, "%s", message);
     }
 
     public OrcCorruptionException(OrcDataSourceId orcDataSourceId, String messageFormat, Object... args)
