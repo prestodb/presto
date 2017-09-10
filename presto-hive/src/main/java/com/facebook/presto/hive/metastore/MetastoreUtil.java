@@ -614,7 +614,7 @@ public class MetastoreUtil
             throw new PrestoException(NOT_SUPPORTED, "Cannot drop partition columns");
         }
         if (table.getDataColumns().size() <= 1) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
+            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
         }
     }
 }
