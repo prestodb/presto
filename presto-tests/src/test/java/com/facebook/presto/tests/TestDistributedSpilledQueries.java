@@ -63,4 +63,11 @@ public class TestDistributedSpilledQueries
             throw e;
         }
     }
+
+    @Override
+    public void testAssignUniqueId()
+    {
+        // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
+        //       due to long running query test created many spill files on disk.
+    }
 }
