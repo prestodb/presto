@@ -366,7 +366,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("ALTER TABLE test_drop_column DROP COLUMN x");
         assertQueryFails("SELECT x FROM test_drop_column", ".* Column 'x' cannot be resolved");
 
-        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN a", "Cannot drop the only column in a table");
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN a", ".* Cannot drop the only column in a table");
     }
 
     @Test
