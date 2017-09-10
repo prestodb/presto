@@ -102,8 +102,7 @@ Properties controlling spilling
 
  * **Type:** ``Integer``
  * **Default value:** ``4``
- * **Description:** Number of spiller threads. Increase this value if the default is not able to saturate the underlying
- spilling device (for example, when using a RAID matrix with multiple disks)
+ * **Description:** Number of spiller threads. Increase this value if the default is not able to saturate the underlying spilling device (for example, when using a RAID matrix with multiple disks)
 
 ``beta.max-spill-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
