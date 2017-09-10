@@ -25,6 +25,7 @@ import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -36,10 +37,13 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.inject.Inject;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -373,15 +377,15 @@ public class PagesIndex
 
     public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, OptionalInt.empty(), Optional.empty(), Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel)
     {
         return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<List<Integer>> outputChannels)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
     {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, outputChannels)
@@ -404,7 +408,7 @@ public class PagesIndex
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
-            Optional<Integer> hashChannel,
+            OptionalInt hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
         return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, Optional.empty());
@@ -413,7 +417,7 @@ public class PagesIndex
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
-            Optional<Integer> hashChannel,
+            OptionalInt hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<List<Integer>> outputChannels)
     {
@@ -473,5 +477,27 @@ public class PagesIndex
                 .add("types", types)
                 .add("estimatedSize", estimatedSize)
                 .toString();
+    }
+
+    public Iterator<Page> getPages()
+    {
+        return new AbstractIterator<Page>()
+        {
+            private int pageCounter;
+
+            @Override
+            protected Page computeNext()
+            {
+                if (pageCounter == channels[0].size()) {
+                    return endOfData();
+                }
+
+                Block[] blocks = Stream.of(channels)
+                        .map(channel -> channel.get(pageCounter))
+                        .toArray(Block[]::new);
+                pageCounter++;
+                return new Page(blocks);
+            }
+        };
     }
 }

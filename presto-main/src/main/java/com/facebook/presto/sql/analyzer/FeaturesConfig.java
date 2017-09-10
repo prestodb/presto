@@ -301,7 +301,7 @@ public class FeaturesConfig
         return spillEnabled;
     }
 
-    @Config("experimental.spill-enabled")
+    @Config("beta.spill-enabled")
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
         this.spillEnabled = spillEnabled;
@@ -337,7 +337,7 @@ public class FeaturesConfig
         return aggregationOperatorUnspillMemoryLimit;
     }
 
-    @Config("experimental.aggregation-operator-unspill-memory-limit")
+    @Config("beta.aggregation-operator-unspill-memory-limit")
     public FeaturesConfig setAggregationOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
     {
         this.aggregationOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
@@ -349,7 +349,7 @@ public class FeaturesConfig
         return spillerSpillPaths;
     }
 
-    @Config("experimental.spiller-spill-path")
+    @Config("beta.spiller-spill-path")
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
         List<String> spillPathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(spillPaths));
@@ -362,7 +362,7 @@ public class FeaturesConfig
         return spillerThreads;
     }
 
-    @Config("experimental.spiller-threads")
+    @Config("beta.spiller-threads")
     public FeaturesConfig setSpillerThreads(int spillerThreads)
     {
         this.spillerThreads = spillerThreads;
@@ -404,7 +404,7 @@ public class FeaturesConfig
         return spillMaxUsedSpaceThreshold;
     }
 
-    @Config("experimental.spiller-max-used-space-threshold")
+    @Config("beta.spiller-max-used-space-threshold")
     public FeaturesConfig setSpillMaxUsedSpaceThreshold(double spillMaxUsedSpaceThreshold)
     {
         this.spillMaxUsedSpaceThreshold = spillMaxUsedSpaceThreshold;

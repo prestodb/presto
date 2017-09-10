@@ -18,6 +18,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.Future;
 
 import static com.google.common.collect.Iterators.singletonIterator;
 
@@ -44,6 +46,16 @@ public interface SingleStreamSpiller
      * as they were spilled. Method requires the issued spill request to be completed.
      */
     Iterator<Page> getSpilledPages();
+
+    /**
+     * Returns estimate size of pages that would be returned by {@link #getAllSpilledPages()}.
+     */
+    long getSpilledPagesInMemorySize();
+
+    /**
+     * Initiates read of previously spilled pages. The returned {@link Future} will be complete once all pages are read.
+     */
+    ListenableFuture<List<Page>> getAllSpilledPages();
 
     /**
      * Close releases/removes all underlying resources used during spilling

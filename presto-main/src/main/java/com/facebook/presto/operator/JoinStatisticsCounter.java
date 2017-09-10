@@ -41,9 +41,12 @@ public class JoinStatisticsCounter
         this.joinType = requireNonNull(joinType, "joinType is null");
     }
 
-    public void setLookupSourcePositions(long lookupSourcePositions)
+    public void updateLookupSourcePositions(long lookupSourcePositionsDelta)
     {
-        this.lookupSourcePositions = lookupSourcePositions;
+        if (this.lookupSourcePositions == -1) {
+            this.lookupSourcePositions = 0;
+        }
+        this.lookupSourcePositions += lookupSourcePositionsDelta;
     }
 
     public void recordProbe(int numSourcePositions)

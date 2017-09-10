@@ -78,7 +78,7 @@ class PartitioningExchanger
 
         // assign each row to a partition
         for (int position = 0; position < page.getPositionCount(); position++) {
-            int partition = partitionGenerator.getPartition(position, page);
+            int partition = partitionGenerator.getPartition(page, position);
             partitionAssignments[partition].add(position);
         }
 
