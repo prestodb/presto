@@ -60,7 +60,7 @@ public class TestMergeAdjacentWindows
     public void testPlanWithoutWindowNode()
             throws Exception
     {
-        tester().assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindows())
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -69,7 +69,7 @@ public class TestMergeAdjacentWindows
     public void testPlanWithSingleWindowNode()
             throws Exception
     {
-        tester().assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -81,7 +81,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testDistinctAdjacentWindowSpecifications()
     {
-        tester().assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -96,7 +96,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testNonWindowIntermediateNode()
     {
-        tester().assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -116,7 +116,7 @@ public class TestMergeAdjacentWindows
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester().assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -134,7 +134,7 @@ public class TestMergeAdjacentWindows
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester().assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -156,7 +156,7 @@ public class TestMergeAdjacentWindows
 
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester().assertThat(new MergeAdjacentWindows())
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindows())
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),

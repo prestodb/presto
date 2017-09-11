@@ -26,10 +26,10 @@ import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
+import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
-import com.facebook.presto.sql.planner.iterative.rule.MergeAdjacentWindows;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
@@ -70,7 +70,6 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarAp
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
-import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
@@ -267,11 +266,11 @@ public class PlanOptimizers
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
                         stats,
-                        ImmutableSet.of(
+                        ImmutableSet.<Rule<?>>builder()
                                 // add UnaliasSymbolReferences when it's ported
-                                new RemoveRedundantIdentityProjections(),
-                                new SwapAdjacentWindowsBySpecifications(),
-                                new MergeAdjacentWindows())),
+                                .add(new RemoveRedundantIdentityProjections())
+                                .addAll(new GatherAndMergeWindows().rules())
+                                .build()),
                 inlineProjections,
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
