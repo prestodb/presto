@@ -24,7 +24,7 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
+import com.facebook.presto.sql.planner.SortExpressionExtractor;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -424,11 +424,11 @@ public class PagesIndex
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
             try {
-                Optional<SortExpression> sortChannel = Optional.empty();
+                Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext = Optional.empty();
                 if (filterFunctionFactory.isPresent()) {
-                    sortChannel = filterFunctionFactory.get().getSortChannel();
+                    sortExpressionContext = filterFunctionFactory.get().getSortExpressionContext();
                 }
-                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
+                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortExpressionContext, outputChannels);
                 return lookupSourceFactory.createLookupSourceSupplier(
                         session,
                         valueAddresses,
@@ -448,7 +448,7 @@ public class PagesIndex
                 channels,
                 joinChannels,
                 hashChannel,
-                filterFunctionFactory.map(JoinFilterFunctionFactory::getSortChannel).orElse(Optional.empty()));
+                filterFunctionFactory.map(JoinFilterFunctionFactory::getSortExpressionContext).orElse(Optional.empty()));
 
         return new JoinHashSupplier(
                 session,

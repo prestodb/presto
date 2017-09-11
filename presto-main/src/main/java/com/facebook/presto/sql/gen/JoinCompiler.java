@@ -39,7 +39,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
+import com.facebook.presto.sql.planner.SortExpressionExtractor;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -92,7 +92,7 @@ public class JoinCompiler
                 public LookupSourceSupplierFactory load(CacheKey key)
                         throws Exception
                 {
-                    return internalCompileLookupSourceFactory(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel());
+                    return internalCompileLookupSourceFactory(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortExpressionContext());
                 }
             });
 
@@ -105,13 +105,13 @@ public class JoinCompiler
                 public Class<? extends PagesHashStrategy> load(CacheKey key)
                         throws Exception
                 {
-                    return internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel());
+                    return internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortExpressionContext());
                 }
             });
 
-    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<SortExpression> sortChannel)
+    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
     {
-        return compileLookupSourceFactory(types, joinChannels, sortChannel, Optional.empty());
+        return compileLookupSourceFactory(types, joinChannels, sortExpressionContext, Optional.empty());
     }
 
     @Managed
@@ -128,14 +128,14 @@ public class JoinCompiler
         return new CacheStatsMBean(hashStrategies);
     }
 
-    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<SortExpression> sortChannel, Optional<List<Integer>> outputChannels)
+    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext, Optional<List<Integer>> outputChannels)
     {
         try {
             return lookupSourceFactories.get(new CacheKey(
                     types,
                     outputChannels.orElse(rangeList(types.size())),
                     joinChannels,
-                    sortChannel));
+                    sortExpressionContext));
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
@@ -172,9 +172,9 @@ public class JoinCompiler
                 .collect(toImmutableList());
     }
 
-    private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpression> sortChannel)
+    private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
     {
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, outputChannels, joinChannels, sortChannel);
+        Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, outputChannels, joinChannels, sortExpressionContext);
 
         Class<? extends LookupSourceSupplier> joinHashSupplierClass = IsolatedClass.isolateClass(
                 new DynamicClassLoader(getClass().getClassLoader()),
@@ -201,7 +201,7 @@ public class JoinCompiler
         return instanceSize;
     }
 
-    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpression> sortChannel)
+    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -240,8 +240,8 @@ public class JoinCompiler
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generateIsPositionNull(classDefinition, joinChannelFields);
-        generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
-        generateIsSortChannelPositionNull(classDefinition, channelFields, sortChannel);
+        generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortExpressionContext);
+        generateIsSortChannelPositionNull(classDefinition, channelFields, sortExpressionContext);
 
         return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
@@ -712,7 +712,7 @@ public class JoinCompiler
             CallSiteBinder callSiteBinder,
             List<Type> types,
             List<FieldDefinition> channelFields,
-            Optional<SortExpression> sortChannel)
+            Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
     {
         Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
         Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
@@ -727,7 +727,7 @@ public class JoinCompiler
                 rightBlockIndex,
                 rightBlockPosition);
 
-        if (!sortChannel.isPresent()) {
+        if (!sortExpressionContext.isPresent()) {
             compareMethod.getBody()
                     .append(newInstance(UnsupportedOperationException.class))
                     .throwObject();
@@ -736,7 +736,7 @@ public class JoinCompiler
 
         Variable thisVariable = compareMethod.getThis();
 
-        int index = sortChannel.get().getChannel();
+        int index = sortExpressionContext.get().getChannel();
         BytecodeExpression type = constantType(callSiteBinder, types.get(index));
 
         BytecodeExpression leftBlock = thisVariable
@@ -759,7 +759,7 @@ public class JoinCompiler
     private static void generateIsSortChannelPositionNull(
             ClassDefinition classDefinition,
             List<FieldDefinition> channelFields,
-            Optional<SortExpression> sortChannel)
+            Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
     {
         Parameter blockIndex = arg("blockIndex", int.class);
         Parameter blockPosition = arg("blockPosition", int.class);
@@ -770,7 +770,7 @@ public class JoinCompiler
                 blockIndex,
                 blockPosition);
 
-        if (!sortChannel.isPresent()) {
+        if (!sortExpressionContext.isPresent()) {
             isSortChannelPositionNullMethod.getBody()
                     .append(newInstance(UnsupportedOperationException.class))
                     .throwObject();
@@ -779,7 +779,7 @@ public class JoinCompiler
 
         Variable thisVariable = isSortChannelPositionNullMethod.getThis();
 
-        int index = sortChannel.get().getChannel();
+        int index = sortExpressionContext.get().getChannel();
 
         BytecodeExpression block = thisVariable
                 .getField(channelFields.get(index))
@@ -889,14 +889,14 @@ public class JoinCompiler
         private final List<Type> types;
         private final List<Integer> outputChannels;
         private final List<Integer> joinChannels;
-        private final Optional<SortExpression> sortChannel;
+        private final Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext;
 
-        private CacheKey(List<? extends Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpression> sortChannel)
+        private CacheKey(List<? extends Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
         {
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
             this.joinChannels = ImmutableList.copyOf(requireNonNull(joinChannels, "joinChannels is null"));
-            this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
+            this.sortExpressionContext = requireNonNull(sortExpressionContext, "sortExpressionContext is null");
         }
 
         private List<Type> getTypes()
@@ -914,15 +914,15 @@ public class JoinCompiler
             return joinChannels;
         }
 
-        public Optional<SortExpression> getSortChannel()
+        private Optional<SortExpressionExtractor.RowSortExpressionContext> getSortExpressionContext()
         {
-            return sortChannel;
+            return sortExpressionContext;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(types, outputChannels, joinChannels, sortChannel);
+            return Objects.hash(types, outputChannels, joinChannels, sortExpressionContext);
         }
 
         @Override
@@ -938,7 +938,7 @@ public class JoinCompiler
             return Objects.equals(this.types, other.types) &&
                     Objects.equals(this.outputChannels, other.outputChannels) &&
                     Objects.equals(this.joinChannels, other.joinChannels) &&
-                    Objects.equals(this.sortChannel, other.sortChannel);
+                    Objects.equals(this.sortExpressionContext, other.sortExpressionContext);
         }
     }
 }
