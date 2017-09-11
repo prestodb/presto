@@ -22,7 +22,6 @@ import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.FilterExpressionRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.JoinExpressionRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.ProjectExpressionRewrite;
@@ -43,17 +42,9 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class SimplifyExpressions
-        implements RuleSet
 {
     private final Metadata metadata;
     private final SqlParser sqlParser;
-
-    private final Set<Rule<?>> rules = ImmutableSet.of(
-                    new ProjectExpressionRewrite(this::rewrite),
-                    new FilterExpressionRewrite(this::rewrite),
-                    new TableScanExpressionRewrite(this::rewrite),
-                    new JoinExpressionRewrite(this::rewrite),
-                    new ValuesExpressionRewrite(this::rewrite)); // ApplyNode and AggregationNode are not supported, because ExpressionInterpreter doesn't support them
 
     public static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, SqlParser sqlParser)
     {
@@ -75,10 +66,14 @@ public class SimplifyExpressions
         this.sqlParser = sqlParser;
     }
 
-    @Override
     public Set<Rule<?>> rules()
     {
-        return rules;
+        return ImmutableSet.of(
+                new ProjectExpressionRewrite(this::rewrite),
+                new FilterExpressionRewrite(this::rewrite),
+                new TableScanExpressionRewrite(this::rewrite),
+                new JoinExpressionRewrite(this::rewrite),
+                new ValuesExpressionRewrite(this::rewrite)); // ApplyNode and AggregationNode are not supported, because ExpressionInterpreter doesn't support them
     }
 
     private Expression rewrite(Expression expression, Rule.Context context)
