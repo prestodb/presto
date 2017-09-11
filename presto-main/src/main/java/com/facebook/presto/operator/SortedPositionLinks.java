@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -22,7 +23,6 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Maintains position links in sorted order by build side expression.
- * Then iteration over position links uses @{code searchFunction} which needs to be compatible
+ * Then iteration over position links uses set of @{code searchFunctions} which needs to be compatible
  * with expression used for sorting.
  * The binary search is used to quickly skip positions which would not match filter function from join condition.
  */
@@ -131,13 +131,10 @@ public final class SortedPositionLinks
                 }
             }
 
-            return searchFunction -> {
-                checkState(searchFunction.isPresent(), "Using SortedPositionLinks without searchFunction");
-                return new SortedPositionLinks(
-                        arrayPositionLinksFactoryBuilder.build().create(Optional.empty()),
-                        sortedPositionLinks,
-                        searchFunction.get());
-            };
+            return searchFunctions -> new SortedPositionLinks(
+                    arrayPositionLinksFactoryBuilder.build().create(ImmutableList.of()),
+                    sortedPositionLinks,
+                    searchFunctions);
         }
 
         @Override
@@ -149,15 +146,17 @@ public final class SortedPositionLinks
 
     private final PositionLinks positionLinks;
     private final int[][] sortedPositionLinks;
-    private final JoinFilterFunction searchFunction;
     private final long sizeInBytes;
+    private final JoinFilterFunction[] searchFunctions;
 
-    private SortedPositionLinks(PositionLinks positionLinks, int[][] sortedPositionLinks, JoinFilterFunction searchFunction)
+    private SortedPositionLinks(PositionLinks positionLinks, int[][] sortedPositionLinks, List<JoinFilterFunction> searchFunctions)
     {
         this.positionLinks = requireNonNull(positionLinks, "positionLinks is null");
         this.sortedPositionLinks = requireNonNull(sortedPositionLinks, "sortedPositionLinks is null");
-        this.searchFunction = requireNonNull(searchFunction, "searchFunction is null");
         this.sizeInBytes = INSTANCE_SIZE + positionLinks.getSizeInBytes() + sizeOfPositionLinks(sortedPositionLinks);
+        requireNonNull(searchFunctions, "searchFunctions is null");
+        checkState(!searchFunctions.isEmpty(), "Using sortedPositionLinks with no search functions");
+        this.searchFunctions = searchFunctions.stream().toArray(JoinFilterFunction[]::new);
     }
 
     private long sizeOfPositionLinks(int[][] sortedPositionLinks)
@@ -181,43 +180,67 @@ public final class SortedPositionLinks
         if (nextPosition < 0) {
             return -1;
         }
-        // break a position links chain if next position should be filtered out
-        if (applySearchFunction(nextPosition, probePosition, allProbeChannelsPage)) {
-            return nextPosition;
+        if (!applyAllSearchFunctions(nextPosition, probePosition, allProbeChannelsPage)) {
+            // break a position links chain if next position should be filtered out
+            return -1;
         }
-        return -1;
+        return nextPosition;
     }
 
     @Override
     public int start(int startingPosition, int probePosition, Page allProbeChannelsPage)
     {
-        // check if filtering function to startingPosition
-        if (applySearchFunction(startingPosition, probePosition, allProbeChannelsPage)) {
+        if (applyAllSearchFunctions(startingPosition, probePosition, allProbeChannelsPage)) {
             return startingPosition;
         }
-
-        if (sortedPositionLinks[startingPosition] == null) {
+        int[] links = sortedPositionLinks[startingPosition];
+        if (links == null) {
             return -1;
         }
+        int currentStartOffset = 0;
+        for (JoinFilterFunction searchFunction : searchFunctions) {
+            currentStartOffset = findStartPositionForFunction(searchFunction, links, currentStartOffset, probePosition, allProbeChannelsPage);
+            // return as soon as a mismatch is found, since we are handling only AND predicates (conjuncts)
+            if (currentStartOffset == -1) {
+                return -1;
+            }
+        }
+        return links[currentStartOffset];
+    }
 
-        int left = 0;
-        int right = sortedPositionLinks[startingPosition].length - 1;
+    private boolean applyAllSearchFunctions(int buildPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        for (JoinFilterFunction searchFunction : searchFunctions) {
+            if (!applySearchFunction(searchFunction, buildPosition, probePosition, allProbeChannelsPage)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private int findStartPositionForFunction(JoinFilterFunction searchFunction, int[] links, int startOffset, int probePosition, Page allProbeChannelsPage)
+    {
+        if (applySearchFunction(searchFunction, links, startOffset, probePosition, allProbeChannelsPage)) {
+            // MAJOR HACK: if searchFunction is of shape `f(probe) > build_symbol` it is not fit for binary search below,
+            // but it does not imply extra constraints on start position; so we just ignore it.
+            // It does not break logic for `f(probe) < build_symbol` as the binary search below would return same value.
+
+            // todo: Explicitly handle less-than and greater-than functions separately.
+            return startOffset;
+        }
 
         // do a binary search for the first position for which filter function applies
-        int offset = lowerBound(startingPosition, left, right, probePosition, allProbeChannelsPage);
-        if (offset < 0) {
+        int offset = lowerBound(searchFunction, links, startOffset, links.length - 1, probePosition, allProbeChannelsPage);
+        if (!applySearchFunction(searchFunction, links, offset, probePosition, allProbeChannelsPage)) {
             return -1;
         }
-        if (!applySearchFunction(startingPosition, offset, probePosition, allProbeChannelsPage)) {
-            return -1;
-        }
-        return sortedPositionLinks[startingPosition][offset];
+        return offset;
     }
 
     /**
      * Find the first element in position links that is NOT smaller than probePosition
      */
-    private int lowerBound(int startingPosition, int first, int last, int probePosition, Page allProbeChannelsPage)
+    private int lowerBound(JoinFilterFunction searchFunction, int[] links, int first, int last, int probePosition, Page allProbeChannelsPage)
     {
         int middle;
         int step;
@@ -225,7 +248,7 @@ public final class SortedPositionLinks
         while (count > 0) {
             step = count / 2;
             middle = first + step;
-            if (!applySearchFunction(startingPosition, middle, probePosition, allProbeChannelsPage)) {
+            if (!applySearchFunction(searchFunction, links, middle, probePosition, allProbeChannelsPage)) {
                 first = ++middle;
                 count -= step + 1;
             }
@@ -242,14 +265,14 @@ public final class SortedPositionLinks
         return sizeInBytes;
     }
 
-    private boolean applySearchFunction(int leftPosition, int leftOffset, int rightPosition, Page rightPage)
+    private boolean applySearchFunction(JoinFilterFunction searchFunction, int[] links, int linkOffset, int probePosition, Page allProbeChannelsPage)
     {
-        return applySearchFunction(sortedPositionLinks[leftPosition][leftOffset], rightPosition, rightPage);
+        return applySearchFunction(searchFunction, links[linkOffset], probePosition, allProbeChannelsPage);
     }
 
-    private boolean applySearchFunction(long leftPosition, int rightPosition, Page rightPage)
+    private boolean applySearchFunction(JoinFilterFunction searchFunction, long buildPosition, int probePosition, Page allProbeChannelsPage)
     {
-        return searchFunction.filter((int) leftPosition, rightPosition, rightPage);
+        return searchFunction.filter((int) buildPosition, probePosition, allProbeChannelsPage);
     }
 
     private static class PositionComparator

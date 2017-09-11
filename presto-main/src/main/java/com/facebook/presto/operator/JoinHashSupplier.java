@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isFastInequalityJoin;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class JoinHashSupplier
@@ -34,7 +36,7 @@ public class JoinHashSupplier
     private final List<List<Block>> channels;
     private final Optional<PositionLinks.Factory> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
-    private final Optional<JoinFilterFunctionFactory> searchFunctionFactory;
+    private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
     public JoinHashSupplier(
             Session session,
@@ -43,13 +45,13 @@ public class JoinHashSupplier
             List<List<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
-            Optional<JoinFilterFunctionFactory> searchFunctionFactory)
+            List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
         this.session = requireNonNull(session, "session is null");
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.channels = requireNonNull(channels, "channels is null");
         this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
-        this.searchFunctionFactory = requireNonNull(searchFunctionFactory, "searchFunctionFactory is null");
+        this.searchFunctionFactories = ImmutableList.copyOf(searchFunctionFactories);
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
 
         PositionLinks.FactoryBuilder positionLinksFactoryBuilder;
@@ -92,9 +94,10 @@ public class JoinHashSupplier
                 pagesHash,
                 filterFunction,
                 positionLinks.map(links -> {
-                    Optional<JoinFilterFunction> searchFunction =
-                            searchFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channels));
-                    return links.create(searchFunction);
+                    List<JoinFilterFunction> searchFunctions = searchFunctionFactories.stream()
+                            .map(factory -> factory.create(session.toConnectorSession(), addresses, channels))
+                            .collect(toImmutableList());
+                    return links.create(searchFunctions);
                 }));
     }
 }

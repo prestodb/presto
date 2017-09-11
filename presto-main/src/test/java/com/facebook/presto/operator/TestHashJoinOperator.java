@@ -794,7 +794,7 @@ public class TestHashJoinOperator
                 false,
                 filterFunctionFactory,
                 Optional.empty(),
-                Optional.empty(),
+                ImmutableList.of(),
                 100,
                 partitionCount,
                 new PagesIndex.TestingFactory());
