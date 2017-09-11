@@ -273,7 +273,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 // add UnaliasSymbolReferences when it's ported
                                 .add(new RemoveRedundantIdentityProjections())
-                                .addAll(new GatherAndMergeWindows().rules())
+                                .addAll(GatherAndMergeWindows.rules())
                                 .build()),
                 inlineProjections,
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point

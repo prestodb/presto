@@ -562,7 +562,7 @@ public class TestMergeWindows
                         new StatsRecorder(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
-                                .addAll(new GatherAndMergeWindows().rules())
+                                .addAll(GatherAndMergeWindows.rules())
                                 .build()),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
