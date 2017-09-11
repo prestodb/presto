@@ -16,27 +16,17 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Match;
-import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
-import java.util.Set;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
 
 public class RuleTester
         implements Closeable
@@ -75,11 +65,6 @@ public class RuleTester
         return new RuleAssert(metadata, costCalculator, session, rule, transactionManager, accessControl);
     }
 
-    public RuleAssert assertThat(RuleSet rules)
-    {
-        return assertThat(new RuleSetAdapter(rules));
-    }
-
     @Override
     public void close()
     {
@@ -94,55 +79,5 @@ public class RuleTester
     public ConnectorId getCurrentConnectorId()
     {
         return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
-    }
-
-    private static class RuleSetAdapter
-            implements Rule<PlanNode>
-    {
-        private final RuleSet ruleSet;
-
-        RuleSetAdapter(RuleSet ruleSet)
-        {
-            this.ruleSet = ruleSet;
-        }
-
-        @Override
-        public Pattern<PlanNode> getPattern()
-        {
-            return Pattern.typeOf(PlanNode.class);
-        }
-
-        @Override
-        public Result apply(PlanNode node, Captures captures, Context context)
-        {
-            PlanNodeMatcher planNodeMatcher = new PlanNodeMatcher(context.getLookup());
-            Set<RuleMatch> matching = ruleSet.rules().stream()
-                    .map(rule -> new RuleMatch(rule, planNodeMatcher.match(rule.getPattern(), node)))
-                    .filter(ruleMatch -> ruleMatch.match.isPresent())
-                    .collect(toSet());
-
-            if (matching.size() == 0) {
-                return Result.empty();
-            }
-
-            return getOnlyElement(matching).apply(context);
-        }
-
-        private static class RuleMatch<T>
-        {
-            private final Rule<T> rule;
-            private final Match<T> match;
-
-            private RuleMatch(Rule<T> rule, Match<T> match)
-            {
-                this.rule = requireNonNull(rule, "rule is null");
-                this.match = requireNonNull(match, "match is null");
-            }
-
-            private Result apply(Context context)
-            {
-                return rule.apply(match.value(), match.captures(), context);
-            }
-        }
     }
 }
