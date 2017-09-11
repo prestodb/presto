@@ -31,26 +31,10 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class assumes that lessThanFunction is a superset of the whole filtering
- * condition used in a join. In other words, we can use SortedPositionLinks
- * with following join condition:
- * <p>
- * {@code filterFunction_1(...) AND filterFunction_2(....) AND ... AND filterFunction_n(...)}
- * <p>
- * by passing any of the filterFunction_i to the SortedPositionLinks. We could not
- * do that for join condition like:
- * <p>
- * {@code filterFunction_1(...) OR filterFunction_2(....) OR ... OR filterFunction_n(...)}
- * <p>
- * To use lessThanFunction in this class, it must be an expression in form of:
- * <p>
- * {@code f(probeColumn1, probeColumn2, ..., probeColumnN) COMPARE g(buildColumn1, ..., buildColumnN)}
- * <p>
- * where {@code COMPARE} is one of: {@code < <= > >=}
- * <p>
- * That allows us to define an order of the elements in positionLinks (this defining which
- * element is smaller) using {@code g(...)} function and to perform a binary search using
- * {@code f(probePosition)} value.
+ * Maintains position links in sorted order by build side expression.
+ * Then iteration over position links uses @{code lessThanFunction} which needs to be compatible
+ * with expression used for sorting.
+ * The binary search is used to quickly skip positions which would not match filter function from join condition.
  */
 public final class SortedPositionLinks
         implements PositionLinks
