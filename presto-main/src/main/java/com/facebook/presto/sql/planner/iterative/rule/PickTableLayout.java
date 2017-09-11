@@ -38,19 +38,29 @@ import static java.util.Objects.requireNonNull;
 public class PickTableLayout
         implements RuleSet
 {
-    private final ImmutableSet<Rule<?>> rules;
+    private final Metadata metadata;
 
     public PickTableLayout(Metadata metadata)
     {
-        rules = ImmutableSet.of(
-                new PickTableLayoutForPredicate(metadata),
-                new PickTableLayoutWithoutPredicate(metadata));
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
     public Set<Rule<?>> rules()
     {
-        return rules;
+        return ImmutableSet.of(
+                pickTableLayoutForPredicate(),
+                pickTableLayoutWithoutPredicate());
+    }
+
+    public PickTableLayoutForPredicate pickTableLayoutForPredicate()
+    {
+        return new PickTableLayoutForPredicate(metadata);
+    }
+
+    public PickTableLayoutWithoutPredicate pickTableLayoutWithoutPredicate()
+    {
+        return new PickTableLayoutWithoutPredicate(metadata);
     }
 
     private static final class PickTableLayoutForPredicate
