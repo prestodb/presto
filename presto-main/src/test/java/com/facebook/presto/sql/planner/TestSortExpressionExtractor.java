@@ -46,6 +46,10 @@ public class TestSortExpressionExtractor
 
         assertNoSortExpression("b2 > random(p1)");
 
+        assertGetSortExpression("b2 > random(p1) AND b2 > p1", "b2", "b2 > p1");
+
+        assertGetSortExpression("b2 > random(p1) AND b1 > p1", "b1", "b1 > p1");
+
         assertNoSortExpression("b1 > p1 + b2");
 
         assertNoSortExpression("sin(b1) > p1");
