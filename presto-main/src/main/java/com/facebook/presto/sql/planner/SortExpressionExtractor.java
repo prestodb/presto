@@ -67,7 +67,7 @@ public final class SortExpressionExtractor
                         hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
-                        return sortChannel.map(symbolReference -> new SortExpressionContext(symbolReference));
+                        return sortChannel.map(symbolReference -> new SortExpressionContext(symbolReference, filter));
                     }
                     return Optional.empty();
                 default:

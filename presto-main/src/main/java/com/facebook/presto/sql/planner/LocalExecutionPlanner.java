@@ -1591,12 +1591,23 @@ public class LocalExecutionPlanner
                             context.getTypes(),
                             context.getSession()));
 
-            Optional<Integer> sortChannel = node.getSortExpressionContext()
+            Optional<SortExpressionContext> sortExpressionContext = node.getSortExpressionContext();
+
+            Optional<Integer> sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
                     .map(sortExpression -> sortExpressionAsSortChannel(
                             sortExpression,
                             probeLayout,
                             buildSource.getLayout()));
+
+            Optional<JoinFilterFunctionFactory> searchFunctionFactory = sortExpressionContext
+                    .map(SortExpressionContext::getSearchExpression)
+                    .map(searchExpression -> compileJoinFilterFunction(
+                            searchExpression,
+                            probeLayout,
+                            buildSource.getLayout(),
+                            context.getTypes(),
+                            context.getSession()));
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -1609,6 +1620,7 @@ public class LocalExecutionPlanner
                     node.getType() == RIGHT || node.getType() == FULL,
                     filterFunctionFactory,
                     sortChannel,
+                    searchFunctionFactory,
                     10_000,
                     buildContext.getDriverInstanceCount().orElse(1),
                     pagesIndexFactory);
@@ -1638,7 +1650,6 @@ public class LocalExecutionPlanner
                     .collect(toImmutableMap(Map.Entry::getValue, entry -> types.get(entry.getKey())));
 
             Expression rewrittenFilter = new SymbolToInputRewriter(joinSourcesLayout).rewrite(filterExpression);
-
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
                     session,
                     metadata,

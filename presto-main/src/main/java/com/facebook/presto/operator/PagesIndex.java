@@ -372,7 +372,7 @@ public class PagesIndex
 
     public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
@@ -405,9 +405,10 @@ public class PagesIndex
             List<Integer> joinChannels,
             Optional<Integer> hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            Optional<Integer> sortChannel)
+            Optional<Integer> sortChannel,
+            Optional<JoinFilterFunctionFactory> searchFunctionFactory)
     {
-        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactory, Optional.empty());
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -416,6 +417,7 @@ public class PagesIndex
             Optional<Integer> hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
+            Optional<JoinFilterFunctionFactory> searchFunctionFactory,
             Optional<List<Integer>> outputChannels)
     {
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
@@ -432,7 +434,8 @@ public class PagesIndex
                         channels,
                         hashChannel,
                         filterFunctionFactory,
-                        sortChannel);
+                        sortChannel,
+                        searchFunctionFactory);
             }
             catch (Exception e) {
                 log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -454,7 +457,8 @@ public class PagesIndex
                 valueAddresses,
                 channels,
                 filterFunctionFactory,
-                sortChannel);
+                sortChannel,
+                searchFunctionFactory);
     }
 
     private List<Integer> rangeList(int endExclusive)

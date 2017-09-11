@@ -34,6 +34,7 @@ public class JoinHashSupplier
     private final List<List<Block>> channels;
     private final Optional<PositionLinks.Factory> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
+    private final Optional<JoinFilterFunctionFactory> searchFunctionFactory;
 
     public JoinHashSupplier(
             Session session,
@@ -41,12 +42,14 @@ public class JoinHashSupplier
             LongArrayList addresses,
             List<List<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            Optional<Integer> sortChannel)
+            Optional<Integer> sortChannel,
+            Optional<JoinFilterFunctionFactory> searchFunctionFactory)
     {
         this.session = requireNonNull(session, "session is null");
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.channels = requireNonNull(channels, "channels is null");
         this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
+        this.searchFunctionFactory = requireNonNull(searchFunctionFactory, "searchFunctionFactory is null");
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
 
         PositionLinks.FactoryBuilder positionLinksFactoryBuilder;
@@ -88,6 +91,10 @@ public class JoinHashSupplier
         return new JoinHash(
                 pagesHash,
                 filterFunction,
-                positionLinks.map(links -> links.create(filterFunction)));
+                positionLinks.map(links -> {
+                    Optional<JoinFilterFunction> searchFunction =
+                            searchFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channels));
+                    return links.create(searchFunction);
+                }));
     }
 }
