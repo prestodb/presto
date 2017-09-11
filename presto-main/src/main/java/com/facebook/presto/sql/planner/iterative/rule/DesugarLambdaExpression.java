@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.AggregationExpressionRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.FilterExpressionRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.JoinExpressionRewrite;
@@ -27,9 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Set;
 
 public class DesugarLambdaExpression
-        implements RuleSet
 {
-    @Override
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
