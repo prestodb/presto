@@ -24,7 +24,6 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.sql.planner.RowSortExpressionContext;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -405,9 +404,10 @@ public class PagesIndex
             Session session,
             List<Integer> joinChannels,
             Optional<Integer> hashChannel,
-            Optional<JoinFilterFunctionFactory> filterFunctionFactory)
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            Optional<Integer> sortChannel)
     {
-        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, Optional.empty());
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -415,6 +415,7 @@ public class PagesIndex
             List<Integer> joinChannels,
             Optional<Integer> hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            Optional<Integer> sortChannel,
             Optional<List<Integer>> outputChannels)
     {
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
@@ -424,17 +425,14 @@ public class PagesIndex
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
             try {
-                Optional<RowSortExpressionContext> sortExpressionContext = Optional.empty();
-                if (filterFunctionFactory.isPresent()) {
-                    sortExpressionContext = filterFunctionFactory.get().getSortExpressionContext();
-                }
-                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortExpressionContext, outputChannels);
+                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
                 return lookupSourceFactory.createLookupSourceSupplier(
                         session,
                         valueAddresses,
                         channels,
                         hashChannel,
-                        filterFunctionFactory);
+                        filterFunctionFactory,
+                        sortChannel);
             }
             catch (Exception e) {
                 log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -448,14 +446,15 @@ public class PagesIndex
                 channels,
                 joinChannels,
                 hashChannel,
-                filterFunctionFactory.map(JoinFilterFunctionFactory::getSortExpressionContext).orElse(Optional.empty()));
+                sortChannel);
 
         return new JoinHashSupplier(
                 session,
                 hashStrategy,
                 valueAddresses,
                 channels,
-                filterFunctionFactory);
+                filterFunctionFactory,
+                sortChannel);
     }
 
     private List<Integer> rangeList(int endExclusive)
