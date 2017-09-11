@@ -62,7 +62,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     public void doesNotFireOnPlanWithoutWindowFunctions()
             throws Exception
     {
-        tester().assertThat(new SwapAdjacentWindowsBySpecifications())
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications())
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -71,7 +71,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     public void doesNotFireOnPlanWithSingleWindowNode()
             throws Exception
     {
-        tester().assertThat(new SwapAdjacentWindowsBySpecifications())
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications())
                 .on(p -> p.window(new WindowNode.Specification(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(),
@@ -95,7 +95,7 @@ public class TestSwapAdjacentWindowsBySpecifications
         Optional<Window> windowAB = Optional.of(new Window(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b")), Optional.empty(), Optional.empty()));
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester().assertThat(new SwapAdjacentWindowsBySpecifications())
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications())
                 .on(p ->
                         p.window(new WindowNode.Specification(
                                         ImmutableList.of(p.symbol("a")),
@@ -126,7 +126,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     {
         Optional<Window> windowA = Optional.of(new Window(ImmutableList.of(new SymbolReference("a")), Optional.empty(), Optional.empty()));
 
-        tester().assertThat(new SwapAdjacentWindowsBySpecifications())
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications())
                 .on(p ->
                         p.window(new WindowNode.Specification(
                                         ImmutableList.of(p.symbol("a")),
