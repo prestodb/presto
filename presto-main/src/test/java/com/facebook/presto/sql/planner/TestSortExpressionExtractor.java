@@ -85,14 +85,14 @@ public class TestSortExpressionExtractor
 
     private static void assertGetSortExpression(Expression expression)
     {
-        Optional<Expression> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
+        Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
         assertEquals(actual, Optional.empty());
     }
 
     private static void assertGetSortExpression(Expression expression, String expectedSymbol)
     {
-        Optional<Expression> expected = Optional.of(new SymbolReference(expectedSymbol));
-        Optional<Expression> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
+        Optional<SortExpressionContext> expected = Optional.of(new SortExpressionContext(new SymbolReference(expectedSymbol)));
+        Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
         assertEquals(actual, expected);
     }
 }

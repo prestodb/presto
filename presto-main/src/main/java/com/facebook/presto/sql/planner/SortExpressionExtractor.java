@@ -47,7 +47,7 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<Expression> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
+    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
     {
         if (!DeterminismEvaluator.isDeterministic(filter)) {
             return Optional.empty();
@@ -67,7 +67,7 @@ public final class SortExpressionExtractor
                         hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
-                        return sortChannel.map(symbolReference -> (Expression) symbolReference);
+                        return sortChannel.map(symbolReference -> new SortExpressionContext(symbolReference));
                     }
                     return Optional.empty();
                 default:

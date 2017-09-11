@@ -554,7 +554,7 @@ public class PlanPrinter
                         formatOutputs(node.getOutputSymbols()));
             }
 
-            node.getSortExpression().ifPresent(expression -> print(indent + 2, "SortExpression[%s]", expression));
+            node.getSortExpressionContext().ifPresent(context -> print(indent + 2, "SortExpression[%s]", context.getSortExpression()));
             printCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             node.getLeft().accept(this, indent + 1);
