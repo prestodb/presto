@@ -84,6 +84,7 @@ public final class SortExpressionExtractor
 
     private static Optional<SymbolReference> asBuildSymbolReference(Set<Symbol> buildLayout, Expression expression)
     {
+        // Currently only we support only symbol as sort expression on build side
         if (expression instanceof SymbolReference) {
             SymbolReference symbolReference = (SymbolReference) expression;
             if (buildLayout.contains(new Symbol(symbolReference.getName()))) {
