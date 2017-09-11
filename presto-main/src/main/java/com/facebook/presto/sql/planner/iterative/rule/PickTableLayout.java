@@ -67,8 +67,8 @@ public class PickTableLayout
         private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
 
         private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
-                        tableScan().matching(PickTableLayoutForPredicate::shouldRewriteTableLayout)
-                                .capturedAs(TABLE_SCAN)));
+                tableScan().matching(PickTableLayoutForPredicate::shouldRewriteTableLayout)
+                        .capturedAs(TABLE_SCAN)));
 
         private static boolean shouldRewriteTableLayout(TableScanNode source)
         {
