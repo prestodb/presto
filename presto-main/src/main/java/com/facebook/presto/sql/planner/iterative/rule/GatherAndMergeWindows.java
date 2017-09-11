@@ -16,53 +16,170 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.matching.PropertyPattern;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.RuleSet;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class GatherAndMergeWindows
         implements RuleSet
 {
-    private static final Set<Rule<?>> RULES = ImmutableSet.of(new MergeAdjacentWindows(), new SwapAdjacentWindowsBySpecifications());
+    // TODO convert to a pattern that allows for a sequence of ProjectNode, instead
+    // of a canned number, once the pattern system supports it.
+    private static final Set<Rule<?>> RULES =
+            IntStream.range(0, 5)
+                    .boxed()
+                    .flatMap(numProjects ->
+                            Stream.of(
+                                    new MergeAdjacentWindowsOverProjects(numProjects),
+                                    new SwapAdjacentWindowsBySpecifications(numProjects)))
+                    .collect(toImmutableSet());
 
     public Set<Rule<?>> rules()
     {
         return RULES;
     }
 
-    public static class MergeAdjacentWindows
+    private abstract static class ManipulateAdjacentWindowsOverProjects
             implements Rule<WindowNode>
     {
-        private static final Capture<WindowNode> CHILD = newCapture();
+        private final Capture<WindowNode> childCapture = newCapture();
+        private final List<Capture<ProjectNode>> projectCaptures;
+        private final Pattern<WindowNode> pattern;
 
-        private static final Pattern<WindowNode> PATTERN = window()
-                .with(source().matching(window().capturedAs(CHILD)));
+        protected ManipulateAdjacentWindowsOverProjects(int numProjects)
+        {
+            PropertyPattern<PlanNode, ?> childPattern = source().matching(window().capturedAs(childCapture));
+            ImmutableList.Builder<Capture<ProjectNode>> projectCapturesBuilder = ImmutableList.builder();
+            for (int i = 0; i < numProjects; ++i) {
+                Capture<ProjectNode> projectCapture = newCapture();
+                projectCapturesBuilder.add(projectCapture);
+                childPattern = source().matching(project().capturedAs(projectCapture).with(childPattern));
+            }
+            this.projectCaptures = projectCapturesBuilder.build();
+            this.pattern = window().with(childPattern);
+        }
 
         @Override
         public Pattern<WindowNode> getPattern()
         {
-            return PATTERN;
+            return pattern;
         }
 
         @Override
         public Optional<PlanNode> apply(WindowNode parent, Captures captures, Context context)
         {
-            WindowNode child = captures.get(CHILD);
+            // Pulling the descendant WindowNode above projects is done as a part of this rule, as opposed in a
+            // separate rule, because that pullup is not useful on its own, and could be undone by other rules.
+            // For example, a rule could insert a project-off node between adjacent WindowNodes that use different
+            // input symbols.
+            List<ProjectNode> projects = projectCaptures.stream()
+                    .map(captures::get)
+                    .collect(toImmutableList());
 
+            return pullWindowNodeAboveProjects(captures.get(childCapture), projects)
+                    .flatMap(newChild -> manipulateAdjacentWindowNodes(parent, newChild, context));
+        }
+
+        protected abstract Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context);
+
+        /**
+         * Looks for the pattern (ProjectNode*)WindowNode, and rewrites it to WindowNode(ProjectNode*),
+         * returning an empty option if it can't rewrite the projects, for example because they rely on
+         * the output of the WindowNode.
+         * @param projects the nodes above the target, bottom first.
+         */
+        protected static Optional<WindowNode> pullWindowNodeAboveProjects(
+                WindowNode target,
+                List<ProjectNode> projects)
+        {
+            if (projects.isEmpty()) {
+                return Optional.of(target);
+            }
+
+            PlanNode targetChild = target.getSource();
+
+            Set<Symbol> targetInputs = ImmutableSet.copyOf(targetChild.getOutputSymbols());
+            Set<Symbol> targetOutputs = ImmutableSet.copyOf(target.getOutputSymbols());
+
+            PlanNode newTargetChild = targetChild;
+
+            for (ProjectNode project : projects) {
+                Set<Symbol> newTargetChildOutputs = ImmutableSet.copyOf(newTargetChild.getOutputSymbols());
+
+                // The only kind of use of the output of the target that we can safely ignore is a simple identity propagation.
+                // The target node, when hoisted above the projections, will provide the symbols directly.
+                Map<Symbol, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
+                        project.getAssignments().getMap(),
+                        output -> !(project.getAssignments().isIdentity(output) && targetOutputs.contains(output)));
+
+                if (targetInputs.stream().anyMatch(assignmentsWithoutTargetOutputIdentities::containsKey)) {
+                    // Redefinition of an input to the target -- can't handle this case.
+                    return Optional.empty();
+                }
+
+                Assignments newAssignments = Assignments.builder()
+                        .putAll(assignmentsWithoutTargetOutputIdentities)
+                        .putIdentities(targetInputs)
+                        .build();
+
+                if (!newTargetChildOutputs.containsAll(SymbolsExtractor.extractUnique(newAssignments.getExpressions()))) {
+                    // Projection uses an output of the target -- can't move the target above this projection.
+                    return Optional.empty();
+                }
+
+                newTargetChild = new ProjectNode(project.getId(), newTargetChild, newAssignments);
+            }
+
+            WindowNode newTarget = (WindowNode) target.replaceChildren(ImmutableList.of(newTargetChild));
+            Set<Symbol> newTargetOutputs = ImmutableSet.copyOf(newTarget.getOutputSymbols());
+            if (!newTargetOutputs.containsAll(projects.get(projects.size() - 1).getOutputSymbols())) {
+                // The new target node is hiding some of the projections, which makes this rewrite incorrect.
+                return Optional.empty();
+            }
+            return Optional.of(newTarget);
+        }
+    }
+
+    public static class MergeAdjacentWindowsOverProjects
+            extends ManipulateAdjacentWindowsOverProjects
+    {
+        public MergeAdjacentWindowsOverProjects(int numProjects)
+        {
+            super(numProjects);
+        }
+
+        @Override
+        protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
+        {
             if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child)) {
                 return Optional.empty();
             }
@@ -71,38 +188,37 @@ public class GatherAndMergeWindows
             functionsBuilder.putAll(parent.getWindowFunctions());
             functionsBuilder.putAll(child.getWindowFunctions());
 
-            return Optional.of(new WindowNode(
+            WindowNode mergedWindowNode = new WindowNode(
                     parent.getId(),
                     child.getSource(),
                     parent.getSpecification(),
                     functionsBuilder.build(),
                     parent.getHashSymbol(),
                     parent.getPrePartitionedInputs(),
-                    parent.getPreSortedOrderPrefix()));
+                    parent.getPreSortedOrderPrefix());
+
+            return Optional.of(
+                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputSymbols()))
+                            .orElse(mergedWindowNode));
         }
     }
 
     public static class SwapAdjacentWindowsBySpecifications
-            implements Rule<WindowNode>
+            extends ManipulateAdjacentWindowsOverProjects
     {
-        private static final Capture<WindowNode> CHILD = newCapture();
-
-        private static final Pattern<WindowNode> PATTERN = window()
-                .with(source().matching(window().capturedAs(CHILD)));
-
-        @Override
-        public Pattern<WindowNode> getPattern()
+        public SwapAdjacentWindowsBySpecifications(int numProjects)
         {
-            return PATTERN;
+            super(numProjects);
         }
 
         @Override
-        public Optional<PlanNode> apply(WindowNode parent, Captures captures, Context context)
+        protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            WindowNode windowNode = captures.get(CHILD);
-
-            if ((compare(parent, windowNode) < 0) && (!dependsOn(parent, windowNode))) {
-                return Optional.of(transpose(parent, windowNode));
+            if ((compare(parent, child) < 0) && (!dependsOn(parent, child))) {
+                PlanNode transposedWindows = transpose(parent, child);
+                return Optional.of(
+                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputSymbols()))
+                                .orElse(transposedWindows));
             }
             else {
                 return Optional.empty();
