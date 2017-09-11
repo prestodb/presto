@@ -39,7 +39,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.facebook.presto.sql.planner.SortExpressionExtractor;
+import com.facebook.presto.sql.planner.RowSortExpressionContext;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -109,7 +109,7 @@ public class JoinCompiler
                 }
             });
 
-    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
+    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<RowSortExpressionContext> sortExpressionContext)
     {
         return compileLookupSourceFactory(types, joinChannels, sortExpressionContext, Optional.empty());
     }
@@ -128,7 +128,7 @@ public class JoinCompiler
         return new CacheStatsMBean(hashStrategies);
     }
 
-    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext, Optional<List<Integer>> outputChannels)
+    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<RowSortExpressionContext> sortExpressionContext, Optional<List<Integer>> outputChannels)
     {
         try {
             return lookupSourceFactories.get(new CacheKey(
@@ -172,7 +172,7 @@ public class JoinCompiler
                 .collect(toImmutableList());
     }
 
-    private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
+    private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<RowSortExpressionContext> sortExpressionContext)
     {
         Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, outputChannels, joinChannels, sortExpressionContext);
 
@@ -201,7 +201,7 @@ public class JoinCompiler
         return instanceSize;
     }
 
-    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
+    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<RowSortExpressionContext> sortExpressionContext)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -712,7 +712,7 @@ public class JoinCompiler
             CallSiteBinder callSiteBinder,
             List<Type> types,
             List<FieldDefinition> channelFields,
-            Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
+            Optional<RowSortExpressionContext> sortExpressionContext)
     {
         Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
         Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
@@ -759,7 +759,7 @@ public class JoinCompiler
     private static void generateIsSortChannelPositionNull(
             ClassDefinition classDefinition,
             List<FieldDefinition> channelFields,
-            Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
+            Optional<RowSortExpressionContext> sortExpressionContext)
     {
         Parameter blockIndex = arg("blockIndex", int.class);
         Parameter blockPosition = arg("blockPosition", int.class);
@@ -889,9 +889,9 @@ public class JoinCompiler
         private final List<Type> types;
         private final List<Integer> outputChannels;
         private final List<Integer> joinChannels;
-        private final Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext;
+        private final Optional<RowSortExpressionContext> sortExpressionContext;
 
-        private CacheKey(List<? extends Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
+        private CacheKey(List<? extends Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<RowSortExpressionContext> sortExpressionContext)
         {
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
@@ -914,7 +914,7 @@ public class JoinCompiler
             return joinChannels;
         }
 
-        private Optional<SortExpressionExtractor.RowSortExpressionContext> getSortExpressionContext()
+        private Optional<RowSortExpressionContext> getSortExpressionContext()
         {
             return sortExpressionContext;
         }
