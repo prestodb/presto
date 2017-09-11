@@ -834,7 +834,7 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class);
+                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, Optional.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -847,11 +847,12 @@ public class JoinCompiler
                 List<List<Block>> channels,
                 Optional<Integer> hashChannel,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-                Optional<Integer> sortChannel)
+                Optional<Integer> sortChannel,
+                Optional<JoinFilterFunctionFactory> searchFunctionFactory)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactory);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
