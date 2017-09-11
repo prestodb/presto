@@ -113,6 +113,7 @@ public class DatabaseShardManager
     private final Ticker ticker;
     private final Duration startupGracePeriod;
     private final long startTime;
+    private final boolean isPostgreSql;
 
     private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
             .maximumSize(10_000)
@@ -143,9 +144,11 @@ public class DatabaseShardManager
             NodeSupplier nodeSupplier,
             AssignmentLimiter assignmentLimiter,
             Ticker ticker,
-            MetadataConfig config)
+            MetadataConfig config,
+            DatabaseConfig dbConfig)
     {
-        this(dbi, shardDaoSupplier, nodeSupplier, assignmentLimiter, ticker, config.getStartupGracePeriod());
+        this(dbi, shardDaoSupplier, nodeSupplier, assignmentLimiter, ticker, config.getStartupGracePeriod(),
+                "postgresql".equalsIgnoreCase(dbConfig.getDatabaseType()));
     }
 
     public DatabaseShardManager(
@@ -154,7 +157,8 @@ public class DatabaseShardManager
             NodeSupplier nodeSupplier,
             AssignmentLimiter assignmentLimiter,
             Ticker ticker,
-            Duration startupGracePeriod)
+            Duration startupGracePeriod,
+            boolean isPostgreSql)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.shardDaoSupplier = requireNonNull(shardDaoSupplier, "shardDaoSupplier is null");
@@ -164,6 +168,7 @@ public class DatabaseShardManager
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.startupGracePeriod = requireNonNull(startupGracePeriod, "startupGracePeriod is null");
         this.startTime = ticker.read();
+        this.isPostgreSql = isPostgreSql;
     }
 
     @Override
@@ -186,6 +191,8 @@ public class DatabaseShardManager
         temporalColumnId.ifPresent(id -> coveringIndexColumns.add(minColumn(id)));
 
         String sql;
+        String binaryType = isPostgreSql ? "BYTEA" : "BINARY(16)";
+        String varBinaryType = isPostgreSql ? "BYTEA" : "VARBINARY(128)";
         if (bucketed) {
             coveringIndexColumns
                     .add("bucket_number")
@@ -195,7 +202,7 @@ public class DatabaseShardManager
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
                     "  shard_id BIGINT NOT NULL,\n" +
-                    "  shard_uuid BINARY(16) NOT NULL,\n" +
+                    "  shard_uuid " + binaryType + " NOT NULL,\n" +
                     "  bucket_number INT NOT NULL\n," +
                     tableColumns +
                     "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
@@ -213,8 +220,8 @@ public class DatabaseShardManager
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
                     "  shard_id BIGINT NOT NULL,\n" +
-                    "  shard_uuid BINARY(16) NOT NULL,\n" +
-                    "  node_ids VARBINARY(128) NOT NULL,\n" +
+                    "  shard_uuid " + binaryType + " NOT NULL,\n" +
+                    "  node_ids " + varBinaryType + " NOT NULL,\n" +
                     tableColumns +
                     "  PRIMARY KEY (node_ids, shard_uuid),\n" +
                     "  UNIQUE (shard_id),\n" +
@@ -872,7 +879,7 @@ public class DatabaseShardManager
         return format("c%s_max", columnId);
     }
 
-    private static String sqlColumnType(Type type)
+    private String sqlColumnType(Type type)
     {
         JDBCType jdbcType = jdbcType(type);
         if (jdbcType != null) {
@@ -880,13 +887,15 @@ public class DatabaseShardManager
                 case BOOLEAN:
                     return "boolean";
                 case BIGINT:
+                case TIMESTAMP:
                     return "bigint";
                 case DOUBLE:
-                    return "double";
+                    return isPostgreSql ? "double precision" : "double";
                 case INTEGER:
+                case DATE:
                     return "int";
                 case VARBINARY:
-                    return format("varbinary(%s)", MAX_BINARY_INDEX_SIZE);
+                    return isPostgreSql ? "bytea" : format("varbinary(%s)", MAX_BINARY_INDEX_SIZE);
             }
         }
         return null;

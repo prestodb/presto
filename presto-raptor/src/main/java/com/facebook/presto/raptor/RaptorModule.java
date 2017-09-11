@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.metadata.DatabaseConfig;
 import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.TableColumn;
@@ -70,12 +71,12 @@ public class RaptorModule
     @ForMetadata
     @Singleton
     @Provides
-    public IDBI createDBI(@ForMetadata ConnectionFactory connectionFactory, TypeManager typeManager)
+    public IDBI createDBI(@ForMetadata ConnectionFactory connectionFactory, TypeManager typeManager, DatabaseConfig databaseConfig)
     {
         DBI dbi = new DBI(connectionFactory);
         dbi.registerMapper(new TableColumn.Mapper(typeManager));
         dbi.registerMapper(new Distribution.Mapper(typeManager));
-        createTablesWithRetry(dbi);
+        createTablesWithRetry(dbi, "postgresql".equalsIgnoreCase(databaseConfig.getDatabaseType()));
         return dbi;
     }
 

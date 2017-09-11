@@ -27,6 +27,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSource;
 import io.airlift.dbpool.MySqlDataSourceConfig;
+import io.airlift.dbpool.PostgreSqlDataSource;
+import io.airlift.dbpool.PostgreSqlDataSourceConfig;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
 import org.skife.jdbi.v2.IDBI;
@@ -57,6 +59,14 @@ public class DatabaseMetadataModule
                 binder -> {
                     binder.install(new MySqlDataSourceModule());
                     bindDaoSupplier(binder, ShardDao.class, MySqlShardDao.class);
+                }));
+
+        install(installModuleIf(
+                DatabaseConfig.class,
+                config -> "postgresql".equals(config.getDatabaseType()),
+                binder -> {
+                    binder.install(new PostgreSqlDataSourceModule());
+                    bindDaoSupplier(binder, ShardDao.class, PostgreSqlShardDao.class);
                 }));
 
         install(installModuleIf(
@@ -141,6 +151,32 @@ public class DatabaseMetadataModule
                     .addProperty("jdbc", config.getUrl())
                     .build();
             return new MySqlDataSource(new StaticServiceSelector(descriptor), mysqlConfig);
+        }
+    }
+
+    private static class PostgreSqlDataSourceModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            configBinder(binder).bindConfig(JdbcDatabaseConfig.class);
+            configBinder(binder).bindConfig(PostgreSqlDataSourceConfig.class, ForMetadata.class, "metadata");
+            configBinder(binder).bindConfigDefaults(PostgreSqlDataSourceConfig.class, ForMetadata.class, config -> {
+                config.setMaxConnections(100);
+                config.setDefaultFetchSize(1000);
+            });
+        }
+
+        @ForMetadata
+        @Singleton
+        @Provides
+        DataSource createDataSource(JdbcDatabaseConfig config, @ForMetadata PostgreSqlDataSourceConfig postgresqlConfig)
+        {
+            ServiceDescriptor descriptor = serviceDescriptor("postgresql")
+                    .addProperty("jdbc", config.getUrl())
+                    .build();
+            return new PostgreSqlDataSource(new StaticServiceSelector(descriptor), postgresqlConfig);
         }
     }
 }

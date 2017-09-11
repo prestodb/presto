@@ -112,6 +112,9 @@ public final class DatabaseUtil
         if (statement.isWrapperFor(com.mysql.jdbc.Statement.class)) {
             statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
         }
+        else if (statement.isWrapperFor(org.postgresql.jdbc.PgStatement.class)) {
+          // No-op
+        }
     }
 
     public static OptionalInt getOptionalInt(ResultSet rs, String name)

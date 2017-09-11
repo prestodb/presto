@@ -37,14 +37,11 @@ public class ColumnIndexStatsUtils
         if (type.equals(BIGINT) || type.equals(TIMESTAMP)) {
             return JDBCType.BIGINT;
         }
-        if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER) || type.equals(DATE)) {
             return JDBCType.INTEGER;
         }
         if (type.equals(DOUBLE)) {
             return JDBCType.DOUBLE;
-        }
-        if (type.equals(DATE)) {
-            return JDBCType.INTEGER;
         }
         if (type instanceof VarcharType) {
             return JDBCType.VARBINARY;
