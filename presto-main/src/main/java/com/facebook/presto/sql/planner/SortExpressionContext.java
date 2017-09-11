@@ -14,7 +14,9 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -23,12 +25,12 @@ import static java.util.Objects.requireNonNull;
 public class SortExpressionContext
 {
     private final Expression sortExpression;
-    private final Expression searchExpression;
+    private final List<Expression> searchExpressions;
 
-    public SortExpressionContext(Expression sortExpression, Expression searchExpression)
+    public SortExpressionContext(Expression sortExpression, List<Expression> searchExpressions)
     {
         this.sortExpression = requireNonNull(sortExpression, "sortExpression can not be null");
-        this.searchExpression = requireNonNull(searchExpression, "searchExpression can not be null");
+        this.searchExpressions = ImmutableList.copyOf(searchExpressions);
     }
 
     public Expression getSortExpression()
@@ -36,9 +38,9 @@ public class SortExpressionContext
         return sortExpression;
     }
 
-    public Expression getSearchExpression()
+    public List<Expression> getSearchExpressions()
     {
-        return searchExpression;
+        return searchExpressions;
     }
 
     @Override
@@ -52,13 +54,13 @@ public class SortExpressionContext
         }
         SortExpressionContext that = (SortExpressionContext) o;
         return Objects.equals(sortExpression, that.sortExpression) &&
-                Objects.equals(searchExpression, that.searchExpression);
+                Objects.equals(searchExpressions, that.searchExpressions);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(sortExpression, searchExpression);
+        return Objects.hash(sortExpression, searchExpressions);
     }
 
     @Override
@@ -66,7 +68,7 @@ public class SortExpressionContext
     {
         return toStringHelper(this)
                 .add("sortExpression", sortExpression)
-                .add("searchExpression", searchExpression)
+                .add("searchExpressions", searchExpressions)
                 .toString();
     }
 }

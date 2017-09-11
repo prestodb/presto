@@ -2314,6 +2314,18 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT b FROM nation n, (VALUES (0, NULL)) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a", "SELECT 1 WHERE FALSE");
         // test with function predicate in ON clause
         assertQuery("SELECT n.nationkey, r.regionkey FROM nation n JOIN region r ON n.regionkey = r.regionkey AND length(n.name) < length(substr(r.name, 5))");
+
+        assertQuery("SELECT * FROM " +
+                        "(VALUES (1,1),(2,1)) t1(a,b), " +
+                        "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
+                        "WHERE a=x and b<=y",
+                "VALUES (1,1,1,1), (1,1,1,2), (2,1,2,1)");
+
+        assertQuery("SELECT * FROM " +
+                        "(VALUES (1,1),(2,1)) t1(a,b), " +
+                        "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
+                        "WHERE a=x and b<y",
+                "VALUES (1,1,1,2)");
     }
 
     @Test
@@ -2335,6 +2347,44 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT b FROM nation n, (VALUES (0, NULL)) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a", "SELECT 1 WHERE FALSE");
         /// test with function predicate in ON clause
         assertQuery("SELECT n.nationkey, r.regionkey FROM nation n JOIN region r ON n.regionkey = r.regionkey AND length(n.name) > length(substr(r.name, 5))");
+
+        assertQuery("SELECT * FROM " +
+                        "(VALUES (1,1),(2,1)) t1(a,b), " +
+                        "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
+                        "WHERE a=x and b>=y",
+                "VALUES (1,1,1,1), (2,1,2,1)");
+
+        assertQuery("SELECT * FROM " +
+                        "(VALUES (1,1),(2,1)) t1(a,b), " +
+                        "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
+                        "WHERE a=x and b>y",
+                "SELECT 1 WHERE FALSE");
+    }
+
+    @Test
+    public void testJoinWithRangePredicatesinJoinClause()
+    {
+        assertQuery("SELECT COUNT(*) " +
+                "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem " +
+                "JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders " +
+                "ON lineitem.orderkey % 8 = orders.orderkey % 8 AND lineitem.linenumber % 2 = 0 " +
+                "AND orders.custkey % 8 < 7 AND lineitem.suppkey % 10 < orders.custkey % 7 AND lineitem.suppkey % 7 > orders.custkey % 7");
+
+        assertQuery("SELECT COUNT(*) " +
+                "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem " +
+                "JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders " +
+                "ON lineitem.orderkey % 8 = orders.orderkey % 8 AND lineitem.linenumber % 2 = 0 " +
+                "AND orders.custkey % 8 < lineitem.linenumber % 2 AND lineitem.suppkey % 10 < orders.custkey % 7 AND lineitem.suppkey % 7 > orders.custkey % 7");
+    }
+
+    @Test
+    public void testJoinWithMultipleLessThanPredicatesDifferentOrders()
+    {
+        // test that fast inequality join is not sensitive to order of search conjuncts.
+        assertQuery("SELECT count(*) FROM lineitem l JOIN nation n ON l.suppkey % 5 = n.nationkey % 5 AND l.partkey % 3 < n.regionkey AND l.partkey % 3 + 1 < n.regionkey AND l.partkey % 3 + 2 < n.regionkey");
+        assertQuery("SELECT count(*) FROM lineitem l JOIN nation n ON l.suppkey % 5 = n.nationkey % 5 AND l.partkey % 3 + 2 < n.regionkey AND l.partkey % 3 + 1 < n.regionkey AND l.partkey % 3 < n.regionkey");
+        assertQuery("SELECT count(*) FROM lineitem l JOIN nation n ON l.suppkey % 5 = n.nationkey % 5 AND l.partkey % 3 > n.regionkey AND l.partkey % 3 + 1 > n.regionkey AND l.partkey % 3 + 2 > n.regionkey");
+        assertQuery("SELECT count(*) FROM lineitem l JOIN nation n ON l.suppkey % 5 = n.nationkey % 5 AND l.partkey % 3 + 2 > n.regionkey AND l.partkey % 3 + 1 > n.regionkey AND l.partkey % 3 > n.regionkey");
     }
 
     @Test
@@ -2347,6 +2397,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT o.orderkey, o.orderdate, l.shipdate FROM lineitem l JOIN orders o ON l.orderkey = o.orderkey AND l.shipdate < DATE_ADD('DAY', 10, o.orderdate)",
                 "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate < DATEADD('DAY', 10, o.orderdate)");
+        assertQuery(
+                "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON o.orderkey=l.orderkey AND o.orderdate + INTERVAL '2' DAY <= l.shipdate AND l.shipdate < o.orderdate + INTERVAL '7' DAY",
+                "SELECT o.orderkey, o.orderdate, l.shipdate FROM orders o JOIN lineitem l ON o.orderkey=l.orderkey AND DATEADD('DAY', 2, o.orderdate) <= l.shipdate AND l.shipdate < DATEADD('DAY', 7, o.orderdate)");
     }
 
     @Test
