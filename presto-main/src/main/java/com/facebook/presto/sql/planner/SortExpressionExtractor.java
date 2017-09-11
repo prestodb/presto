@@ -59,14 +59,11 @@ public final class SortExpressionExtractor
 
     public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
     {
-        if (!DeterminismEvaluator.isDeterministic(filter)) {
-            return Optional.empty();
-        }
-
         List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
         List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
+                .filter(DeterminismEvaluator::isDeterministic)
                 .map(visitor::process)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
