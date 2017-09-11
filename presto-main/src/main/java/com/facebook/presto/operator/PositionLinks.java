@@ -46,10 +46,6 @@ public interface PositionLinks
          */
         int link(int left, int right);
 
-        /**
-         * JoinFilterFunction has to be created and supplied for each thread using PositionLinks
-         * since JoinFilterFunction is not thread safe...
-         */
         Factory build();
 
         /**
