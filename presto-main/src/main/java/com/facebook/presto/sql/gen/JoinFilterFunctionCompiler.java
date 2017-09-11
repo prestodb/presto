@@ -408,7 +408,7 @@ public class JoinFilterFunctionCompiler
                         new DynamicClassLoader(getClass().getClassLoader()),
                         JoinFilterFunction.class,
                         StandardJoinFilterFunction.class);
-                isolatedJoinFilterFunctionConstructor = isolatedJoinFilterFunction.getConstructor(InternalJoinFilterFunction.class, LongArrayList.class, List.class, Optional.class);
+                isolatedJoinFilterFunctionConstructor = isolatedJoinFilterFunction.getConstructor(InternalJoinFilterFunction.class, LongArrayList.class, List.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -420,7 +420,7 @@ public class JoinFilterFunctionCompiler
         {
             try {
                 InternalJoinFilterFunction internalJoinFilterFunction = internalJoinFilterFunctionConstructor.newInstance(session);
-                return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, addresses, channels, sortChannel);
+                return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, addresses, channels);
             }
             catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
