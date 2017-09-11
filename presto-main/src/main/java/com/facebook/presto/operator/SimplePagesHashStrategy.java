@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.SortExpressionExtractor;
+import com.facebook.presto.sql.planner.RowSortExpressionContext;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
@@ -38,7 +38,7 @@ public class SimplePagesHashStrategy
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
-    private final Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext;
+    private final Optional<RowSortExpressionContext> sortExpressionContext;
 
     public SimplePagesHashStrategy(
             List<Type> types,
@@ -46,7 +46,7 @@ public class SimplePagesHashStrategy
             List<List<Block>> channels,
             List<Integer> hashChannels,
             Optional<Integer> precomputedHashChannel,
-            Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
+            Optional<RowSortExpressionContext> sortExpressionContext)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));

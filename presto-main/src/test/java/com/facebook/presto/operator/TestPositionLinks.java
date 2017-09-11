@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.SortExpressionExtractor;
+import com.facebook.presto.sql.planner.RowSortExpressionContext;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
@@ -135,7 +135,7 @@ public class TestPositionLinks
                 ImmutableList.of(ImmutableList.of(TEST_PAGE.getBlock(0))),
                 ImmutableList.of(),
                 Optional.empty(),
-                Optional.of(new SortExpressionExtractor.RowSortExpressionContext(0)));
+                Optional.of(new RowSortExpressionContext(0)));
     }
 
     private static LongArrayList addresses()

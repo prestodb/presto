@@ -16,16 +16,12 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.SymbolReference;
 
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -126,53 +122,6 @@ public final class SortExpressionExtractor
         protected Boolean visitSymbolReference(SymbolReference symbolReference, Void context)
         {
             return buildSymbols.contains(symbolReference.getName());
-        }
-    }
-
-    public static class RowSortExpressionContext
-    {
-        private final int channel;
-
-        public RowSortExpressionContext(int channel)
-        {
-            this.channel = channel;
-        }
-
-        public int getChannel()
-        {
-            return channel;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            RowSortExpressionContext other = (RowSortExpressionContext) obj;
-            return Objects.equals(this.channel, other.channel);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(channel);
-        }
-
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("channel", channel)
-                    .toString();
-        }
-
-        public static RowSortExpressionContext fromExpression(Expression expression)
-        {
-            checkState(expression instanceof FieldReference, "Unsupported expression type [%s]", expression);
-            return new RowSortExpressionContext(((FieldReference) expression).getFieldIndex());
         }
     }
 }
