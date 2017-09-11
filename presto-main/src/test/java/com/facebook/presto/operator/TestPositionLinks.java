@@ -134,6 +134,13 @@ public class TestPositionLinks
                 pagesHashStrategy(),
                 addresses());
 
+        /*
+         * Built sorted positions links
+         *
+         * [0] -> [1,2,3,4,5,6]
+         * [10] -> [11,12]
+         */
+
         assertEquals(builder.link(4, 5), 4);
         assertEquals(builder.link(6, 4), 4);
         assertEquals(builder.link(2, 4), 2);
