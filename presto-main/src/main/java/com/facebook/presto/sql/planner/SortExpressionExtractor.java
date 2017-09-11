@@ -30,24 +30,25 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Currently this class handles only simple expressions like:
+ * Extracts sort expression to be used for creating {@link com.facebook.presto.operator.SortedPositionLinks} from join filter expression.
+ * Currently this class handles only filter function which is single conjunct of shape:
  * <p>
- * A.a < B.x
+ * {@code A.a < f(B.x, B.y, B.z)} or {@code f(B.x, B.y, B.z) < A.a}
  * <p>
- * It could be extended to handle any expressions like:
- * <p>
- * A.a * sin(A.b) / log(B.x) < cos(B.z)
- * <p>
- * by transforming it to:
- * <p>
- * f(A.a, A.b) < g(B.x, B.z)
- * <p>
- * Where f(...) and g(...) would be some functions/expressions. That
- * would allow us to perform binary search on arbitrary complex expressions
- * by sorting position links according to the result of f(...) function.
+ * where {@code a} is the build side symbol reference and {@code x,y,z} are probe
+ * side symbol references. Any of inequality operators ({@code <,<=,>,>=}) can be used.
  */
 public final class SortExpressionExtractor
 {
+    /* TODO:
+       This class could be extended to handle any expressions like:
+       A.a * sin(A.b) / log(B.x) < cos(B.z)
+       by transforming it to:
+       f(A.a, A.b) < g(B.x, B.z)
+       Where f(...) and g(...) would be some functions/expressions. That
+       would allow us to perform binary search on arbitrary complex expressions
+       by sorting position links according to the result of f(...) function.
+     */
     private SortExpressionExtractor() {}
 
     public static Optional<Expression> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
