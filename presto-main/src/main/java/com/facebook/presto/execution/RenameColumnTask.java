@@ -33,6 +33,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
@@ -68,6 +69,11 @@ public class RenameColumnTask
         if (columnHandles.containsKey(target)) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
         }
+
+        if (metadata.getColumnMetadata(session, tableHandle.get(), columnHandles.get(source)).isHidden()) {
+            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot rename hidden column");
+        }
+
         metadata.renameColumn(session, tableHandle.get(), columnHandles.get(source), target);
 
         return immediateFuture(null);
