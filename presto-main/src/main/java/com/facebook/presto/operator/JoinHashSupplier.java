@@ -49,7 +49,7 @@ public class JoinHashSupplier
 
         PositionLinks.FactoryBuilder positionLinksFactoryBuilder;
         if (filterFunctionFactory.isPresent() &&
-                filterFunctionFactory.get().getSortChannel().isPresent() &&
+                filterFunctionFactory.get().getSortExpressionContext().isPresent() &&
                 isFastInequalityJoin(session)) {
             positionLinksFactoryBuilder = SortedPositionLinks.builder(
                     addresses.size(),

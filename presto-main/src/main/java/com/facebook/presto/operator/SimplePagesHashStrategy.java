@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
+import com.facebook.presto.sql.planner.SortExpressionExtractor;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
@@ -38,7 +38,7 @@ public class SimplePagesHashStrategy
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
-    private final Optional<SortExpression> sortChannel;
+    private final Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext;
 
     public SimplePagesHashStrategy(
             List<Type> types,
@@ -46,7 +46,7 @@ public class SimplePagesHashStrategy
             List<List<Block>> channels,
             List<Integer> hashChannels,
             Optional<Integer> precomputedHashChannel,
-            Optional<SortExpression> sortChannel)
+            Optional<SortExpressionExtractor.RowSortExpressionContext> sortExpressionContext)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
@@ -60,7 +60,7 @@ public class SimplePagesHashStrategy
         else {
             this.precomputedHashChannel = null;
         }
-        this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
+        this.sortExpressionContext = requireNonNull(sortExpressionContext, "sortExpressionContext is null");
     }
 
     @Override
@@ -245,9 +245,9 @@ public class SimplePagesHashStrategy
 
     private int getSortChannel()
     {
-        if (!sortChannel.isPresent()) {
+        if (!sortExpressionContext.isPresent()) {
             throw new UnsupportedOperationException();
         }
-        return sortChannel.get().getChannel();
+        return sortExpressionContext.get().getChannel();
     }
 }
