@@ -17,7 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -45,7 +45,7 @@ public class TestPickTableLayout
             TestingTransactionHandle.create(),
             new TpchTableLayoutHandle(new TpchTableHandle("local", "nation", 1.0), Optional.empty()));
 
-    private RuleSet pickTableLayout;
+    private PickTableLayout pickTableLayout;
     private TableHandle nationTableHandle;
     private TableLayoutHandle nationTableLayoutHandle;
 
@@ -67,15 +67,17 @@ public class TestPickTableLayout
     @Test
     public void doesNotFireIfNoTableScan()
     {
-        tester().assertThat(pickTableLayout)
-                .on(p -> p.values(p.symbol("a", BIGINT)))
-                .doesNotFire();
+        for (Rule<?> rule : pickTableLayout.rules()) {
+            tester().assertThat(rule)
+                    .on(p -> p.values(p.symbol("a", BIGINT)))
+                    .doesNotFire();
+        }
     }
 
     @Test
     public void doesNotFireIfTableScanHasTableLayout()
     {
-        tester().assertThat(pickTableLayout)
+        tester().assertThat(pickTableLayout.pickTableLayoutWithoutPredicate())
                 .on(p -> p.tableScan(
                         nationTableHandle,
                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -88,7 +90,7 @@ public class TestPickTableLayout
     @Test
     public void doesNotFireIfTableScanHasConstraint()
     {
-        tester().assertThat(pickTableLayout)
+        tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -105,7 +107,7 @@ public class TestPickTableLayout
         // The TPCH connector returns a TableLayout, but that TableLayout doesn't handle any of the constraints.
         // However, we know that the rule fired because the constraints and TableLayout are included in the new plan.
         Map<String, Domain> emptyConstraint = ImmutableMap.<String, Domain>builder().build();
-        tester().assertThat(pickTableLayout)
+        tester().assertThat(pickTableLayout.pickTableLayoutWithoutPredicate())
                 .on(p -> p.tableScan(
                         nationTableHandle,
                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -122,7 +124,7 @@ public class TestPickTableLayout
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("nationkey", singleValue(BIGINT, 44L))
                 .build();
-        tester().assertThat(pickTableLayout)
+        tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -139,7 +141,7 @@ public class TestPickTableLayout
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("nationkey", singleValue(BIGINT, 44L))
                 .build();
-        tester().assertThat(pickTableLayout)
+        tester().assertThat(pickTableLayout.pickTableLayoutForPredicate())
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
