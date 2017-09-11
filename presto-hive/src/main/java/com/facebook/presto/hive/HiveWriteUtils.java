@@ -44,6 +44,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -423,7 +425,7 @@ public final class HiveWriteUtils
     public static boolean isS3FileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            return hdfsEnvironment.getFileSystem(context, path) instanceof PrestoS3FileSystem;
+            return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path)) instanceof PrestoS3FileSystem;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
@@ -434,12 +436,20 @@ public final class HiveWriteUtils
     {
         try {
             // Hadoop 1.x does not have the ViewFileSystem class
-            return hdfsEnvironment.getFileSystem(context, path)
+            return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path))
                     .getClass().getName().equals("org.apache.hadoop.fs.viewfs.ViewFileSystem");
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
+    }
+
+    private static FileSystem getRawFileSystem(FileSystem fileSystem)
+    {
+        if (fileSystem instanceof FilterFileSystem) {
+            return getRawFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
+        }
+        return fileSystem;
     }
 
     private static boolean isDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
