@@ -1585,7 +1585,7 @@ public class LocalExecutionPlanner
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(
                             filterExpression,
-                            node.getSortExpression(),
+                            node.getSortExpressionContext().map(SortExpressionContext::getSortExpression),
                             probeLayout,
                             buildSource.getLayout(),
                             context.getTypes(),
