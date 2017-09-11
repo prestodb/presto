@@ -13,26 +13,30 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.AND;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Collections.singletonList;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Extracts sort expression to be used for creating {@link com.facebook.presto.operator.SortedPositionLinks} from join filter expression.
- * Currently this class handles only filter function which consists of multiple conjunct of shape:
+ * Currently this class can extract sort and search expressions from filter function conjuncts of shape:
  * <p>
  * {@code A.a < f(B.x, B.y, B.z)} or {@code f(B.x, B.y, B.z) < A.a}
  * <p>
@@ -59,7 +63,32 @@ public final class SortExpressionExtractor
             return Optional.empty();
         }
 
-        return new SortExpressionVisitor(buildSymbols).process(filter);
+        List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
+        SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
+
+        List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
+                .map(visitor::process)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toMap(SortExpressionContext::getSortExpression, identity(), SortExpressionExtractor::merge))
+                .values()
+                .stream()
+                .collect(toImmutableList());
+
+        // For now heuristically pick sort expression which has most search expressions assigned to it.
+        // TODO: make it cost based decision based on symbol statistics
+        return sortExpressionCandidates.stream()
+                .sorted(comparing(context -> -1 * context.getSearchExpressions().size()))
+                .findFirst();
+    }
+
+    private static SortExpressionContext merge(SortExpressionContext left, SortExpressionContext right)
+    {
+        checkArgument(left.getSortExpression().equals(right.getSortExpression()));
+        ImmutableList.Builder<Expression> searchExpressions = ImmutableList.builder();
+        searchExpressions.addAll(left.getSearchExpressions());
+        searchExpressions.addAll(right.getSearchExpressions());
+        return new SortExpressionContext(left.getSortExpression(), searchExpressions.build());
     }
 
     private static class SortExpressionVisitor
@@ -76,30 +105,6 @@ public final class SortExpressionExtractor
         protected Optional<SortExpressionContext> visitExpression(Expression expression, Void context)
         {
             return Optional.empty();
-        }
-
-        @Override
-        protected Optional<SortExpressionContext> visitLogicalBinaryExpression(LogicalBinaryExpression binaryExpression, Void context)
-        {
-            if (binaryExpression.getType() != AND) {
-                return Optional.empty();
-            }
-            Optional<SortExpressionContext> leftProcessed = process(binaryExpression.getLeft());
-            Optional<SortExpressionContext> rightProcessed = process(binaryExpression.getRight());
-
-            if (!leftProcessed.isPresent() || !rightProcessed.isPresent() || !leftProcessed.get().getSortExpression().equals(rightProcessed.get().getSortExpression())) {
-                return Optional.empty();
-            }
-            return Optional.of(merge(leftProcessed.get(), rightProcessed.get()));
-        }
-
-        private SortExpressionContext merge(SortExpressionContext left, SortExpressionContext right)
-        {
-            checkArgument(left.getSortExpression().equals(right.getSortExpression()));
-            ImmutableList.Builder<Expression> searchExpressions = ImmutableList.builder();
-            searchExpressions.addAll(left.getSearchExpressions());
-            searchExpressions.addAll(right.getSearchExpressions());
-            return new SortExpressionContext(left.getSortExpression(), searchExpressions.build());
         }
 
         @Override

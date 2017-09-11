@@ -54,9 +54,13 @@ public class TestSortExpressionExtractor
 
         assertNoSortExpression("sin(b2) > p1 AND (b2 <= p1 OR b2 <= p1 + 10)");
 
-        assertNoSortExpression("sin(b2) > p1 AND (b2 <= p1 AND b2 <= p1 + 10)");
+        assertGetSortExpression("sin(b2) > p1 AND (b2 <= p1 AND b2 <= p1 + 10)", "b2", "b2 <= p1", "b2 <= p1 + 10");
 
         assertGetSortExpression("b1 > p1 AND b1 <= p1", "b1");
+
+        assertGetSortExpression("b1 > p1 AND b1 <= p1 AND b2 > p1", "b1", "b1 > p1", "b1 <= p1");
+
+        assertGetSortExpression("b1 > p1 AND b1 <= p1 AND b2 > p1 AND b2 < p1 + 10 AND b2 > p2", "b2", "b2 > p1", "b2 < p1 + 10", "b2 > p2");
     }
 
     private Expression expression(String sql)
