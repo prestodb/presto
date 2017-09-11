@@ -17,7 +17,6 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -48,7 +47,6 @@ import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
-        implements RuleSet
 {
     public interface ExpressionRewriter
     {
