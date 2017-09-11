@@ -60,14 +60,8 @@ public class TestPositionLinks
     @Test
     public void testSortedPositionLinks()
     {
-        JoinFilterFunction filterFunction = new JoinFilterFunction()
-        {
-            @Override
-            public boolean filter(int leftAddress, int rightPosition, Page rightPage)
-            {
-                return BIGINT.getLong(rightPage.getBlock(0), leftAddress) > 4;
-            }
-        };
+        JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
+                BIGINT.getLong(rightPage.getBlock(0), leftAddress) > 4;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
@@ -106,14 +100,8 @@ public class TestPositionLinks
     @Test
     public void testReverseSortedPositionLinks()
     {
-        JoinFilterFunction filterFunction = new JoinFilterFunction()
-        {
-            @Override
-            public boolean filter(int leftAddress, int rightPosition, Page rightPage)
-            {
-                return BIGINT.getLong(rightPage.getBlock(0), leftAddress) < 4;
-            }
-        };
+        JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
+                BIGINT.getLong(rightPage.getBlock(0), leftAddress) < 4;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
