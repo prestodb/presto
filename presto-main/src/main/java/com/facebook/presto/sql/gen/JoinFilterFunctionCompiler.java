@@ -30,7 +30,6 @@ import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import com.facebook.presto.sql.planner.RowSortExpressionContext;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -54,7 +53,6 @@ import javax.inject.Inject;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -93,7 +91,7 @@ public class JoinFilterFunctionCompiler
                 public JoinFilterFunctionFactory load(JoinFilterCacheKey key)
                         throws Exception
                 {
-                    return internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize(), key.getSortExpressionContext());
+                    return internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize());
                 }
             });
 
@@ -104,15 +102,15 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize, Optional<RowSortExpressionContext> sortExpressionContext)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
     {
-        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize, sortExpressionContext));
+        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize, Optional<RowSortExpressionContext> sortExpressionContext)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize)
     {
         Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, leftBlocksSize);
-        return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction, sortExpressionContext);
+        return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
     private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(RowExpression filterExpression, int leftBlocksSize)
@@ -311,11 +309,6 @@ public class JoinFilterFunctionCompiler
     public interface JoinFilterFunctionFactory
     {
         JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<List<Block>> channels);
-
-        default Optional<RowSortExpressionContext> getSortExpressionContext()
-        {
-            return Optional.empty();
-        }
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
@@ -336,13 +329,11 @@ public class JoinFilterFunctionCompiler
     {
         private final RowExpression filter;
         private final int leftBlocksSize;
-        private final Optional<RowSortExpressionContext> sortExpressionContext;
 
-        public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize, Optional<RowSortExpressionContext> sortExpressionContext)
+        public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize)
         {
             this.filter = requireNonNull(filter, "filter can not be null");
             this.leftBlocksSize = leftBlocksSize;
-            this.sortExpressionContext = requireNonNull(sortExpressionContext, "sortExpressionContext can not be null");
         }
 
         public RowExpression getFilter()
@@ -353,11 +344,6 @@ public class JoinFilterFunctionCompiler
         public int getLeftBlocksSize()
         {
             return leftBlocksSize;
-        }
-
-        public Optional<RowSortExpressionContext> getSortExpressionContext()
-        {
-            return sortExpressionContext;
         }
 
         @Override
@@ -371,14 +357,13 @@ public class JoinFilterFunctionCompiler
             }
             JoinFilterCacheKey that = (JoinFilterCacheKey) o;
             return leftBlocksSize == that.leftBlocksSize &&
-                    Objects.equals(filter, that.filter) &&
-                    Objects.equals(sortExpressionContext, that.sortExpressionContext);
+                    Objects.equals(filter, that.filter);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(leftBlocksSize, filter, sortExpressionContext);
+            return Objects.hash(leftBlocksSize, filter);
         }
 
         @Override
@@ -387,7 +372,6 @@ public class JoinFilterFunctionCompiler
             return toStringHelper(this)
                     .add("filter", filter)
                     .add("leftBlocksSize", leftBlocksSize)
-                    .add("sortExpressionContext", sortExpressionContext)
                     .toString();
         }
     }
@@ -397,11 +381,9 @@ public class JoinFilterFunctionCompiler
     {
         private final Constructor<? extends InternalJoinFilterFunction> internalJoinFilterFunctionConstructor;
         private final Constructor<? extends JoinFilterFunction> isolatedJoinFilterFunctionConstructor;
-        private final Optional<RowSortExpressionContext> sortExpressionContext;
 
-        public IsolatedJoinFilterFunctionFactory(Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction, Optional<RowSortExpressionContext> sortExpressionContext)
+        public IsolatedJoinFilterFunctionFactory(Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction)
         {
-            this.sortExpressionContext = sortExpressionContext;
             try {
                 internalJoinFilterFunctionConstructor = internalJoinFilterFunction
                         .getConstructor(ConnectorSession.class);
@@ -427,12 +409,6 @@ public class JoinFilterFunctionCompiler
             catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
             }
-        }
-
-        @Override
-        public Optional<RowSortExpressionContext> getSortExpressionContext()
-        {
-            return sortExpressionContext;
         }
     }
 }

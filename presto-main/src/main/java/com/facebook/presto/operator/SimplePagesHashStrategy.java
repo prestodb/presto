@@ -17,7 +17,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.RowSortExpressionContext;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
@@ -38,7 +37,7 @@ public class SimplePagesHashStrategy
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
-    private final Optional<RowSortExpressionContext> sortExpressionContext;
+    private final Optional<Integer> sortChannel;
 
     public SimplePagesHashStrategy(
             List<Type> types,
@@ -46,7 +45,7 @@ public class SimplePagesHashStrategy
             List<List<Block>> channels,
             List<Integer> hashChannels,
             Optional<Integer> precomputedHashChannel,
-            Optional<RowSortExpressionContext> sortExpressionContext)
+            Optional<Integer> sortChannel)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
@@ -60,7 +59,7 @@ public class SimplePagesHashStrategy
         else {
             this.precomputedHashChannel = null;
         }
-        this.sortExpressionContext = requireNonNull(sortExpressionContext, "sortExpressionContext is null");
+        this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
     }
 
     @Override
@@ -245,9 +244,6 @@ public class SimplePagesHashStrategy
 
     private int getSortChannel()
     {
-        if (!sortExpressionContext.isPresent()) {
-            throw new UnsupportedOperationException();
-        }
-        return sortExpressionContext.get().getChannel();
+        return sortChannel.get();
     }
 }
