@@ -129,11 +129,11 @@ public final class SortExpressionExtractor
         }
     }
 
-    public static class SortExpression
+    public static class RowSortExpressionContext
     {
         private final int channel;
 
-        public SortExpression(int channel)
+        public RowSortExpressionContext(int channel)
         {
             this.channel = channel;
         }
@@ -152,7 +152,7 @@ public final class SortExpressionExtractor
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            SortExpression other = (SortExpression) obj;
+            RowSortExpressionContext other = (RowSortExpressionContext) obj;
             return Objects.equals(this.channel, other.channel);
         }
 
@@ -169,10 +169,10 @@ public final class SortExpressionExtractor
                     .toString();
         }
 
-        public static SortExpression fromExpression(Expression expression)
+        public static RowSortExpressionContext fromExpression(Expression expression)
         {
             checkState(expression instanceof FieldReference, "Unsupported expression type [%s]", expression);
-            return new SortExpression(((FieldReference) expression).getFieldIndex());
+            return new RowSortExpressionContext(((FieldReference) expression).getFieldIndex());
         }
     }
 }

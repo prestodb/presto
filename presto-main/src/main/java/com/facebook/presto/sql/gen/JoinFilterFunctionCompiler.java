@@ -30,7 +30,7 @@ import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
+import com.facebook.presto.sql.planner.SortExpressionExtractor.RowSortExpressionContext;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -93,7 +93,7 @@ public class JoinFilterFunctionCompiler
                 public JoinFilterFunctionFactory load(JoinFilterCacheKey key)
                         throws Exception
                 {
-                    return internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize(), key.getSortChannel());
+                    return internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize(), key.getSortExpressionContext());
                 }
             });
 
@@ -104,15 +104,15 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize, Optional<SortExpression> sortChannel)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize, Optional<RowSortExpressionContext> sortExpressionContext)
     {
-        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize, sortChannel));
+        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize, sortExpressionContext));
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize, Optional<SortExpression> sortChannel)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize, Optional<RowSortExpressionContext> sortExpressionContext)
     {
         Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, leftBlocksSize);
-        return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction, sortChannel);
+        return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction, sortExpressionContext);
     }
 
     private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(RowExpression filterExpression, int leftBlocksSize)
@@ -312,7 +312,7 @@ public class JoinFilterFunctionCompiler
     {
         JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<List<Block>> channels);
 
-        default Optional<SortExpression> getSortChannel()
+        default Optional<RowSortExpressionContext> getSortExpressionContext()
         {
             return Optional.empty();
         }
@@ -336,13 +336,13 @@ public class JoinFilterFunctionCompiler
     {
         private final RowExpression filter;
         private final int leftBlocksSize;
-        private final Optional<SortExpression> sortChannel;
+        private final Optional<RowSortExpressionContext> sortExpressionContext;
 
-        public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize, Optional<SortExpression> sortChannel)
+        public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize, Optional<RowSortExpressionContext> sortExpressionContext)
         {
             this.filter = requireNonNull(filter, "filter can not be null");
             this.leftBlocksSize = leftBlocksSize;
-            this.sortChannel = requireNonNull(sortChannel, "sortChannel can not be null");
+            this.sortExpressionContext = requireNonNull(sortExpressionContext, "sortExpressionContext can not be null");
         }
 
         public RowExpression getFilter()
@@ -355,9 +355,9 @@ public class JoinFilterFunctionCompiler
             return leftBlocksSize;
         }
 
-        public Optional<SortExpression> getSortChannel()
+        public Optional<RowSortExpressionContext> getSortExpressionContext()
         {
-            return sortChannel;
+            return sortExpressionContext;
         }
 
         @Override
@@ -372,13 +372,13 @@ public class JoinFilterFunctionCompiler
             JoinFilterCacheKey that = (JoinFilterCacheKey) o;
             return leftBlocksSize == that.leftBlocksSize &&
                     Objects.equals(filter, that.filter) &&
-                    Objects.equals(sortChannel, that.sortChannel);
+                    Objects.equals(sortExpressionContext, that.sortExpressionContext);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(leftBlocksSize, filter, sortChannel);
+            return Objects.hash(leftBlocksSize, filter, sortExpressionContext);
         }
 
         @Override
@@ -387,7 +387,7 @@ public class JoinFilterFunctionCompiler
             return toStringHelper(this)
                     .add("filter", filter)
                     .add("leftBlocksSize", leftBlocksSize)
-                    .add("sortChannel", sortChannel)
+                    .add("sortExpressionContext", sortExpressionContext)
                     .toString();
         }
     }
@@ -397,11 +397,11 @@ public class JoinFilterFunctionCompiler
     {
         private final Constructor<? extends InternalJoinFilterFunction> internalJoinFilterFunctionConstructor;
         private final Constructor<? extends JoinFilterFunction> isolatedJoinFilterFunctionConstructor;
-        private final Optional<SortExpression> sortChannel;
+        private final Optional<RowSortExpressionContext> sortExpressionContext;
 
-        public IsolatedJoinFilterFunctionFactory(Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction, Optional<SortExpression> sortChannel)
+        public IsolatedJoinFilterFunctionFactory(Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction, Optional<RowSortExpressionContext> sortExpressionContext)
         {
-            this.sortChannel = sortChannel;
+            this.sortExpressionContext = sortExpressionContext;
             try {
                 internalJoinFilterFunctionConstructor = internalJoinFilterFunction
                         .getConstructor(ConnectorSession.class);
@@ -430,9 +430,9 @@ public class JoinFilterFunctionCompiler
         }
 
         @Override
-        public Optional<SortExpression> getSortChannel()
+        public Optional<RowSortExpressionContext> getSortExpressionContext()
         {
-            return sortChannel;
+            return sortExpressionContext;
         }
     }
 }
