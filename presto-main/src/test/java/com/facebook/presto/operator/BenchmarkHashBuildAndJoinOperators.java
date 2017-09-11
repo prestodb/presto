@@ -287,6 +287,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 false,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 10_000,
                 1,
                 new PagesIndex.TestingFactory());

@@ -128,6 +128,7 @@ public class TestJoinProbeCompiler
                 channels,
                 hashChannel,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty())
                 .get();
 

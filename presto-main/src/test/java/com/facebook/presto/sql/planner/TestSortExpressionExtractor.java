@@ -91,7 +91,7 @@ public class TestSortExpressionExtractor
 
     private static void assertGetSortExpression(Expression expression, String expectedSymbol)
     {
-        Optional<SortExpressionContext> expected = Optional.of(new SortExpressionContext(new SymbolReference(expectedSymbol)));
+        Optional<SortExpressionContext> expected = Optional.of(new SortExpressionContext(new SymbolReference(expectedSymbol), expression));
         Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
         assertEquals(actual, expected);
     }

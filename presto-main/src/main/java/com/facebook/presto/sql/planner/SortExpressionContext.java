@@ -23,15 +23,22 @@ import static java.util.Objects.requireNonNull;
 public class SortExpressionContext
 {
     private final Expression sortExpression;
+    private final Expression searchExpression;
 
-    public SortExpressionContext(Expression sortExpression)
+    public SortExpressionContext(Expression sortExpression, Expression searchExpression)
     {
         this.sortExpression = requireNonNull(sortExpression, "sortExpression can not be null");
+        this.searchExpression = requireNonNull(searchExpression, "searchExpression can not be null");
     }
 
     public Expression getSortExpression()
     {
         return sortExpression;
+    }
+
+    public Expression getSearchExpression()
+    {
+        return searchExpression;
     }
 
     @Override
@@ -44,13 +51,14 @@ public class SortExpressionContext
             return false;
         }
         SortExpressionContext that = (SortExpressionContext) o;
-        return Objects.equals(sortExpression, that.sortExpression);
+        return Objects.equals(sortExpression, that.sortExpression) &&
+                Objects.equals(searchExpression, that.searchExpression);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(sortExpression);
+        return Objects.hash(sortExpression, searchExpression);
     }
 
     @Override
@@ -58,6 +66,7 @@ public class SortExpressionContext
     {
         return toStringHelper(this)
                 .add("sortExpression", sortExpression)
+                .add("searchExpression", searchExpression)
                 .toString();
     }
 }
