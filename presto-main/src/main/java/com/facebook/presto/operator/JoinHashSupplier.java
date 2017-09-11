@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isFastInequalityJoin;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class JoinHashSupplier
@@ -39,7 +40,8 @@ public class JoinHashSupplier
             PagesHashStrategy pagesHashStrategy,
             LongArrayList addresses,
             List<List<Block>> channels,
-            Optional<JoinFilterFunctionFactory> filterFunctionFactory)
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            Optional<Integer> sortChannel)
     {
         this.session = requireNonNull(session, "session is null");
         this.addresses = requireNonNull(addresses, "addresses is null");
@@ -48,9 +50,9 @@ public class JoinHashSupplier
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
 
         PositionLinks.FactoryBuilder positionLinksFactoryBuilder;
-        if (filterFunctionFactory.isPresent() &&
-                filterFunctionFactory.get().getSortExpressionContext().isPresent() &&
+        if (sortChannel.isPresent() &&
                 isFastInequalityJoin(session)) {
+            checkArgument(filterFunctionFactory.isPresent(), "filterFunctionFactory not set while sortChannel set");
             positionLinksFactoryBuilder = SortedPositionLinks.builder(
                     addresses.size(),
                     pagesHashStrategy,
