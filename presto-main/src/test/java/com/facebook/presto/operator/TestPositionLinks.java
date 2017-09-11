@@ -68,12 +68,6 @@ public class TestPositionLinks
             {
                 return BIGINT.getLong(rightPage.getBlock(0), leftAddress) > 4;
             }
-
-            @Override
-            public Optional<Integer> getSortChannel()
-            {
-                throw new UnsupportedOperationException();
-            }
         };
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
@@ -98,12 +92,6 @@ public class TestPositionLinks
             public boolean filter(int leftAddress, int rightPosition, Page rightPage)
             {
                 return BIGINT.getLong(rightPage.getBlock(0), leftAddress) < 4;
-            }
-
-            @Override
-            public Optional<Integer> getSortChannel()
-            {
-                throw new UnsupportedOperationException();
             }
         };
 
