@@ -371,13 +371,14 @@ public class JoinFilterFunctionCompiler
             }
             JoinFilterCacheKey that = (JoinFilterCacheKey) o;
             return leftBlocksSize == that.leftBlocksSize &&
-                    Objects.equals(filter, that.filter);
+                    Objects.equals(filter, that.filter) &&
+                    Objects.equals(sortChannel, that.sortChannel);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(filter, leftBlocksSize);
+            return Objects.hash(leftBlocksSize, filter, sortChannel);
         }
 
         @Override
@@ -386,6 +387,7 @@ public class JoinFilterFunctionCompiler
             return toStringHelper(this)
                     .add("filter", filter)
                     .add("leftBlocksSize", leftBlocksSize)
+                    .add("sortChannel", sortChannel)
                     .toString();
         }
     }
