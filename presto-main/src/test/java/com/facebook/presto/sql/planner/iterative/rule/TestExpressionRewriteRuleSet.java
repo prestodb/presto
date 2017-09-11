@@ -39,11 +39,24 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
 {
+    private ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
+            (expression, context) -> new LongLiteral("0"));
+
+    private static final FunctionCall nowCall = new FunctionCall(QualifiedName.of("now"), ImmutableList.of());
+    private ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> nowCall);
+
+    private ExpressionRewriteRuleSet applyRewriter = new ExpressionRewriteRuleSet(
+            (expression, context) -> new InPredicate(
+                    new LongLiteral("0"),
+                    new InListExpression(ImmutableList.of(
+                            new LongLiteral("1"),
+                            new LongLiteral("2")))));
+
     @Test
     public void testProjectionExpressionRewrite()
     {
-        tester().assertThat(zeroRewriter).on(p ->
-                p.project(
+        tester().assertThat(zeroRewriter)
+                .on(p -> p.project(
                         Assignments.of(p.symbol("y"), PlanBuilder.expression("x IS NOT NULL")),
                         p.values(p.symbol("x"))))
                 .matches(
@@ -53,8 +66,8 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testProjectionExpressionNotRewritten()
     {
-        tester().assertThat(zeroRewriter).on(p ->
-                p.project(
+        tester().assertThat(zeroRewriter)
+                .on(p -> p.project(
                         Assignments.of(p.symbol("y"), PlanBuilder.expression("0")),
                         p.values(p.symbol("x"))))
                 .doesNotFire();
@@ -64,8 +77,8 @@ public class TestExpressionRewriteRuleSet
     public void testAggregationExpressionRewrite()
             throws Exception
     {
-        tester().assertThat(functionCallRewriter).on(p ->
-                p.aggregation(a -> a
+        tester().assertThat(functionCallRewriter)
+                .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("count_1", BigintType.BIGINT),
@@ -83,8 +96,8 @@ public class TestExpressionRewriteRuleSet
     public void testAggregationExpressionNotRewritten()
             throws Exception
     {
-        tester().assertThat(functionCallRewriter).on(p ->
-                p.aggregation(a -> a
+        tester().assertThat(functionCallRewriter)
+                .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("count_1", DateType.DATE),
@@ -98,8 +111,8 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testFilterExpressionRewrite()
     {
-        tester().assertThat(zeroRewriter).on(p ->
-                p.filter(new LongLiteral("1"), p.values()))
+        tester().assertThat(zeroRewriter)
+                .on(p -> p.filter(new LongLiteral("1"), p.values()))
                 .matches(
                         filter("0", values()));
     }
@@ -107,16 +120,16 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testFilterExpressionNotRewritten()
     {
-        tester().assertThat(zeroRewriter).on(p ->
-                p.filter(new LongLiteral("0"), p.values()))
+        tester().assertThat(zeroRewriter)
+                .on(p -> p.filter(new LongLiteral("0"), p.values()))
                 .doesNotFire();
     }
 
     @Test
     public void testValueExpressionRewrite()
     {
-        tester().assertThat(zeroRewriter).on(p -> p
-                .values(
+        tester().assertThat(zeroRewriter)
+                .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
                         ImmutableList.of((ImmutableList.of(PlanBuilder.expression("1"))))))
                 .matches(
@@ -126,8 +139,8 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testValueExpressionNotRewritten()
     {
-        tester().assertThat(zeroRewriter).on(p -> p
-                .values(
+        tester().assertThat(zeroRewriter)
+                .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
                         ImmutableList.of((ImmutableList.of(PlanBuilder.expression("0"))))))
                 .doesNotFire();
@@ -136,8 +149,8 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testApplyExpressionRewrite()
     {
-        tester().assertThat(applyRewriter).on(p -> p
-                .apply(
+        tester().assertThat(applyRewriter)
+                .on(p -> p.apply(
                         Assignments.of(
                                 p.symbol("a", BigintType.BIGINT),
                                 new InPredicate(
@@ -159,8 +172,8 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testApplyExpressionNotRewritten()
     {
-        tester().assertThat(applyRewriter).on(p -> p
-                .apply(
+        tester().assertThat(applyRewriter)
+                .on(p -> p.apply(
                         Assignments.of(
                                 p.symbol("a", BigintType.BIGINT),
                                 new InPredicate(
@@ -173,17 +186,4 @@ public class TestExpressionRewriteRuleSet
                         p.values()))
                 .doesNotFire();
     }
-
-    private ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
-            (expression, context) -> new LongLiteral("0"));
-
-    private static final FunctionCall nowCall = new FunctionCall(QualifiedName.of("now"), ImmutableList.of());
-    private ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> nowCall);
-
-    private ExpressionRewriteRuleSet applyRewriter = new ExpressionRewriteRuleSet(
-            (expression, context) -> new InPredicate(
-                    new LongLiteral("0"),
-                    new InListExpression(ImmutableList.of(
-                            new LongLiteral("1"),
-                            new LongLiteral("2")))));
 }
