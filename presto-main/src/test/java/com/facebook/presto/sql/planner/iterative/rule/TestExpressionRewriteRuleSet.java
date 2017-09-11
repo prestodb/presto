@@ -55,7 +55,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testProjectionExpressionRewrite()
     {
-        tester().assertThat(zeroRewriter)
+        tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.of(p.symbol("y"), PlanBuilder.expression("x IS NOT NULL")),
                         p.values(p.symbol("x"))))
@@ -66,7 +66,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testProjectionExpressionNotRewritten()
     {
-        tester().assertThat(zeroRewriter)
+        tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.of(p.symbol("y"), PlanBuilder.expression("0")),
                         p.values(p.symbol("x"))))
@@ -77,7 +77,7 @@ public class TestExpressionRewriteRuleSet
     public void testAggregationExpressionRewrite()
             throws Exception
     {
-        tester().assertThat(functionCallRewriter)
+        tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
@@ -96,7 +96,7 @@ public class TestExpressionRewriteRuleSet
     public void testAggregationExpressionNotRewritten()
             throws Exception
     {
-        tester().assertThat(functionCallRewriter)
+        tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
@@ -111,7 +111,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testFilterExpressionRewrite()
     {
-        tester().assertThat(zeroRewriter)
+        tester().assertThat(zeroRewriter.filterExpressionRewrite())
                 .on(p -> p.filter(new LongLiteral("1"), p.values()))
                 .matches(
                         filter("0", values()));
@@ -120,7 +120,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testFilterExpressionNotRewritten()
     {
-        tester().assertThat(zeroRewriter)
+        tester().assertThat(zeroRewriter.filterExpressionRewrite())
                 .on(p -> p.filter(new LongLiteral("0"), p.values()))
                 .doesNotFire();
     }
@@ -128,7 +128,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testValueExpressionRewrite()
     {
-        tester().assertThat(zeroRewriter)
+        tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
                         ImmutableList.of((ImmutableList.of(PlanBuilder.expression("1"))))))
@@ -139,7 +139,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testValueExpressionNotRewritten()
     {
-        tester().assertThat(zeroRewriter)
+        tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
                         ImmutableList.of((ImmutableList.of(PlanBuilder.expression("0"))))))
@@ -149,7 +149,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testApplyExpressionRewrite()
     {
-        tester().assertThat(applyRewriter)
+        tester().assertThat(applyRewriter.applyExpressionRewrite())
                 .on(p -> p.apply(
                         Assignments.of(
                                 p.symbol("a", BigintType.BIGINT),
@@ -172,7 +172,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testApplyExpressionNotRewritten()
     {
-        tester().assertThat(applyRewriter)
+        tester().assertThat(applyRewriter.applyExpressionRewrite())
                 .on(p -> p.apply(
                         Assignments.of(
                                 p.symbol("a", BigintType.BIGINT),

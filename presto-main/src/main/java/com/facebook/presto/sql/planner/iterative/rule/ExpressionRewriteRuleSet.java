@@ -46,6 +46,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
+import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
         implements RuleSet
@@ -59,19 +60,54 @@ public class ExpressionRewriteRuleSet
 
     public ExpressionRewriteRuleSet(ExpressionRewriter rewrite)
     {
-        this.rewriter = rewrite;
+        this.rewriter = requireNonNull(rewrite, "rewrite is null");
     }
 
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                new ProjectExpressionRewrite(rewriter),
-                new AggregationExpressionRewrite(rewriter),
-                new FilterExpressionRewrite(rewriter),
-                new TableScanExpressionRewrite(rewriter),
-                new JoinExpressionRewrite(rewriter),
-                new ValuesExpressionRewrite(rewriter),
-                new ApplyExpressionRewrite(rewriter));
+                projectExpressionRewrite(),
+                aggregationExpressionRewrite(),
+                filterExpressionRewrite(),
+                tableScanExpressionRewrite(),
+                joinExpressionRewrite(),
+                valuesExpressionRewrite(),
+                applyExpressionRewrite());
+    }
+
+    public Rule<?> projectExpressionRewrite()
+    {
+        return new ProjectExpressionRewrite(rewriter);
+    }
+
+    public Rule<?> aggregationExpressionRewrite()
+    {
+        return new AggregationExpressionRewrite(rewriter);
+    }
+
+    public Rule<?> filterExpressionRewrite()
+    {
+        return new FilterExpressionRewrite(rewriter);
+    }
+
+    public Rule<?> tableScanExpressionRewrite()
+    {
+        return new TableScanExpressionRewrite(rewriter);
+    }
+
+    public Rule<?> joinExpressionRewrite()
+    {
+        return new JoinExpressionRewrite(rewriter);
+    }
+
+    public Rule<?> valuesExpressionRewrite()
+    {
+        return new ValuesExpressionRewrite(rewriter);
+    }
+
+    public Rule<?> applyExpressionRewrite()
+    {
+        return new ApplyExpressionRewrite(rewriter);
     }
 
     public static final class ProjectExpressionRewrite
