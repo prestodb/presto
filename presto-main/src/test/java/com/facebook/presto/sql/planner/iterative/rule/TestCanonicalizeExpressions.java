@@ -24,10 +24,12 @@ import static java.util.Collections.emptyMap;
 public class TestCanonicalizeExpressions
         extends BaseRuleTest
 {
+    private static final CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions();
+
     @Test
     public void testDoesNotFireForExpressionsInCanonicalForm()
     {
-        tester().assertThat(new CanonicalizeExpressions())
+        tester().assertThat(canonicalizeExpressions.filterExpressionRewrite())
                 .on(p -> p.filter(FALSE_LITERAL, p.values()))
                 .doesNotFire();
     }
@@ -35,7 +37,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForUnfilteredJoin()
     {
-        tester().assertThat(new CanonicalizeExpressions())
+        tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
                 .on(p -> p.join(INNER, p.values(), p.values()))
                 .doesNotFire();
     }
@@ -43,7 +45,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForCanonicalExpressions()
     {
-        tester().assertThat(new CanonicalizeExpressions())
+        tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
                 .on(p -> p.join(INNER, p.values(), p.values(), FALSE_LITERAL))
                 .doesNotFire();
     }
@@ -51,7 +53,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForUnfilteredTableScan()
     {
-        tester().assertThat(new CanonicalizeExpressions())
+        tester().assertThat(canonicalizeExpressions.tableScanExpressionRewrite())
                 .on(p -> p.tableScan(emptyList(), emptyMap()))
                 .doesNotFire();
     }
@@ -59,7 +61,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForFilterInCanonicalForm()
     {
-        tester().assertThat(new CanonicalizeExpressions())
+        tester().assertThat(canonicalizeExpressions.tableScanExpressionRewrite())
                 .on(p -> p.tableScan(emptyList(), emptyMap(), FALSE_LITERAL))
                 .doesNotFire();
     }
