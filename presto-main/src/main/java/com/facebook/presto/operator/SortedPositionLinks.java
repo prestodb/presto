@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Maintains position links in sorted order by build side expression.
- * Then iteration over position links uses @{code lessThanFunction} which needs to be compatible
+ * Then iteration over position links uses @{code searchFunction} which needs to be compatible
  * with expression used for sorting.
  * The binary search is used to quickly skip positions which would not match filter function from join condition.
  */
@@ -131,12 +131,12 @@ public final class SortedPositionLinks
                 }
             }
 
-            return lessThanFunction -> {
-                checkState(lessThanFunction.isPresent(), "Using SortedPositionLinks without lessThanFunction");
+            return searchFunction -> {
+                checkState(searchFunction.isPresent(), "Using SortedPositionLinks without searchFunction");
                 return new SortedPositionLinks(
                         arrayPositionLinksFactoryBuilder.build().create(Optional.empty()),
                         sortedPositionLinks,
-                        lessThanFunction.get());
+                        searchFunction.get());
             };
         }
 
@@ -149,14 +149,14 @@ public final class SortedPositionLinks
 
     private final PositionLinks positionLinks;
     private final int[][] sortedPositionLinks;
-    private final JoinFilterFunction lessThanFunction;
+    private final JoinFilterFunction searchFunction;
     private final long sizeInBytes;
 
-    private SortedPositionLinks(PositionLinks positionLinks, int[][] sortedPositionLinks, JoinFilterFunction lessThanFunction)
+    private SortedPositionLinks(PositionLinks positionLinks, int[][] sortedPositionLinks, JoinFilterFunction searchFunction)
     {
         this.positionLinks = requireNonNull(positionLinks, "positionLinks is null");
         this.sortedPositionLinks = requireNonNull(sortedPositionLinks, "sortedPositionLinks is null");
-        this.lessThanFunction = requireNonNull(lessThanFunction, "lessThanFunction is null");
+        this.searchFunction = requireNonNull(searchFunction, "searchFunction is null");
         this.sizeInBytes = INSTANCE_SIZE + positionLinks.getSizeInBytes() + sizeOfPositionLinks(sortedPositionLinks);
     }
 
@@ -182,7 +182,7 @@ public final class SortedPositionLinks
             return -1;
         }
         // break a position links chain if next position should be filtered out
-        if (applyLessThanFunction(nextPosition, probePosition, allProbeChannelsPage)) {
+        if (applySearchFunction(nextPosition, probePosition, allProbeChannelsPage)) {
             return nextPosition;
         }
         return -1;
@@ -192,7 +192,7 @@ public final class SortedPositionLinks
     public int start(int startingPosition, int probePosition, Page allProbeChannelsPage)
     {
         // check if filtering function to startingPosition
-        if (applyLessThanFunction(startingPosition, probePosition, allProbeChannelsPage)) {
+        if (applySearchFunction(startingPosition, probePosition, allProbeChannelsPage)) {
             return startingPosition;
         }
 
@@ -208,7 +208,7 @@ public final class SortedPositionLinks
         if (offset < 0) {
             return -1;
         }
-        if (!applyLessThanFunction(startingPosition, offset, probePosition, allProbeChannelsPage)) {
+        if (!applySearchFunction(startingPosition, offset, probePosition, allProbeChannelsPage)) {
             return -1;
         }
         return sortedPositionLinks[startingPosition][offset];
@@ -225,7 +225,7 @@ public final class SortedPositionLinks
         while (count > 0) {
             step = count / 2;
             middle = first + step;
-            if (!applyLessThanFunction(startingPosition, middle, probePosition, allProbeChannelsPage)) {
+            if (!applySearchFunction(startingPosition, middle, probePosition, allProbeChannelsPage)) {
                 first = ++middle;
                 count -= step + 1;
             }
@@ -242,14 +242,14 @@ public final class SortedPositionLinks
         return sizeInBytes;
     }
 
-    private boolean applyLessThanFunction(int leftPosition, int leftOffset, int rightPosition, Page rightPage)
+    private boolean applySearchFunction(int leftPosition, int leftOffset, int rightPosition, Page rightPage)
     {
-        return applyLessThanFunction(sortedPositionLinks[leftPosition][leftOffset], rightPosition, rightPage);
+        return applySearchFunction(sortedPositionLinks[leftPosition][leftOffset], rightPosition, rightPage);
     }
 
-    private boolean applyLessThanFunction(long leftPosition, int rightPosition, Page rightPage)
+    private boolean applySearchFunction(long leftPosition, int rightPosition, Page rightPage)
     {
-        return lessThanFunction.filter((int) leftPosition, rightPosition, rightPage);
+        return searchFunction.filter((int) leftPosition, rightPosition, rightPage);
     }
 
     private static class PositionComparator
