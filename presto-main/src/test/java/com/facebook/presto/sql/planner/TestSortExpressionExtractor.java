@@ -19,10 +19,14 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
 public class TestSortExpressionExtractor
@@ -45,6 +49,14 @@ public class TestSortExpressionExtractor
         assertNoSortExpression("b1 > p1 + b2");
 
         assertNoSortExpression("sin(b1) > p1");
+
+        assertNoSortExpression("b1 <= p1 OR b2 <= p1");
+
+        assertNoSortExpression("sin(b2) > p1 AND (b2 <= p1 OR b2 <= p1 + 10)");
+
+        assertNoSortExpression("sin(b2) > p1 AND (b2 <= p1 AND b2 <= p1 + 10)");
+
+        assertGetSortExpression("b1 > p1 AND b1 <= p1", "b1");
     }
 
     private Expression expression(String sql)
@@ -70,13 +82,26 @@ public class TestSortExpressionExtractor
 
     private void assertGetSortExpression(Expression expression, String expectedSymbol)
     {
-        // for now we expect that search expressions is equal to whole filter expression
-        assertGetSortExpression(expression, expectedSymbol, expression);
+        // for now we expect that search expressions contain all the conjuncts from filterExpression as more complex cases are not supported yet.
+        assertGetSortExpression(expression, expectedSymbol, extractConjuncts(expression));
     }
 
-    private static void assertGetSortExpression(Expression expression, String expectedSymbol, Expression searchExpression)
+    private void assertGetSortExpression(String expression, String expectedSymbol, String... searchExpressions)
     {
-        Optional<SortExpressionContext> expected = Optional.of(new SortExpressionContext(new SymbolReference(expectedSymbol), searchExpression));
+        assertGetSortExpression(expression(expression), expectedSymbol, searchExpressions);
+    }
+
+    private void assertGetSortExpression(Expression expression, String expectedSymbol, String... searchExpressions)
+    {
+        List<Expression> searchExpressionList = Arrays.stream(searchExpressions)
+                .map(this::expression)
+                .collect(toImmutableList());
+        assertGetSortExpression(expression, expectedSymbol, searchExpressionList);
+    }
+
+    private static void assertGetSortExpression(Expression expression, String expectedSymbol, List<Expression> searchExpressions)
+    {
+        Optional<SortExpressionContext> expected = Optional.of(new SortExpressionContext(new SymbolReference(expectedSymbol), searchExpressions));
         Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(BUILD_SYMBOLS, expression);
         assertEquals(actual, expected);
     }

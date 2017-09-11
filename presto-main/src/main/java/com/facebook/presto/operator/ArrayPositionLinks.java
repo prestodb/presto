@@ -49,7 +49,7 @@ public final class ArrayPositionLinks
         @Override
         public Factory build()
         {
-            return searchFunction -> new ArrayPositionLinks(positionLinks);
+            return searchFunctions -> new ArrayPositionLinks(positionLinks);
         }
 
         @Override
