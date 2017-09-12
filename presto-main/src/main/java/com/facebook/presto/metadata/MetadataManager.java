@@ -777,13 +777,13 @@ public class MetadataManager
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace)
+    public void createView(Session session, String catalogName, ConnectorViewDefinition definition, boolean replace)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createView(session.toConnectorSession(connectorId), viewName.asSchemaTableName(), viewData, replace);
+        metadata.createView(session.toConnectorSession(connectorId), definition, replace);
     }
 
     @Override

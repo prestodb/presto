@@ -1002,7 +1002,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorViewDefinition definition, boolean replace)
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, "Presto View")
@@ -1013,6 +1013,8 @@ public class HiveMetadata
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
 
+        SchemaTableName viewName = definition.getName();
+        String viewData = definition.getViewData();
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())

@@ -179,8 +179,10 @@ public class TestingMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorViewDefinition definition, boolean replace)
     {
+        SchemaTableName viewName = definition.getName();
+        String viewData = definition.getViewData();
         if (replace) {
             views.put(viewName, viewData);
         }

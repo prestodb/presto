@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -263,7 +264,7 @@ public interface Metadata
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace);
+    void createView(Session session, String catalogName, ConnectorViewDefinition definition, boolean replace);
 
     /**
      * Drops the specified view.

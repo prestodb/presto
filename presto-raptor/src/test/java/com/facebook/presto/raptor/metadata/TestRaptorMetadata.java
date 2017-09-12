@@ -616,8 +616,8 @@ public class TestRaptorMetadata
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
 
         // create views
-        metadata.createView(SESSION, test1, "test1", false);
-        metadata.createView(SESSION, test2, "test2", false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test1, Optional.empty(), "test1"), false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test2, Optional.empty(), "test2"), false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, "test");
@@ -651,13 +651,13 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
         try {
-            metadata.createView(SESSION, test, "test", false);
+            metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "test"), false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
 
-        metadata.createView(SESSION, test, "test", false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "test"), false);
     }
 
     @Test
@@ -665,8 +665,8 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
-        metadata.createView(SESSION, test, "aaa", true);
-        metadata.createView(SESSION, test, "bbb", true);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "aaa"), true);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "bbb"), true);
 
         assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
     }

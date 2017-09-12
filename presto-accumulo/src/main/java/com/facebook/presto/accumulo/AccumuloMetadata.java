@@ -142,8 +142,10 @@ public class AccumuloMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorViewDefinition definition, boolean replace)
     {
+        SchemaTableName viewName = definition.getName();
+        String viewData = definition.getViewData();
         if (replace) {
             client.createOrReplaceView(viewName, viewData);
         }

@@ -244,8 +244,10 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public synchronized void createView(ConnectorSession session, ConnectorViewDefinition definition, boolean replace)
     {
+        SchemaTableName viewName = definition.getName();
+        String viewData = definition.getViewData();
         if (getTableHandle(session, viewName) != null) {
             throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
         }
