@@ -1004,12 +1004,13 @@ public class HiveMetadata
     @Override
     public void createView(ConnectorSession session, ConnectorViewDefinition definition, boolean replace)
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(TABLE_COMMENT, "Presto View")
-                .put(PRESTO_VIEW_FLAG, "true")
+        Builder<String, String> properties = ImmutableMap.builder();
+        properties.put(PRESTO_VIEW_FLAG, "true")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                .build();
+                .put(PRESTO_QUERY_ID_NAME, session.getQueryId());
+        if (definition.getComment().isPresent()) {
+            properties.put(TABLE_COMMENT, definition.getComment().get());
+        }
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
 
@@ -1022,7 +1023,7 @@ public class HiveMetadata
                 .setTableType(TableType.VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
-                .setParameters(properties)
+                .setParameters(properties.build())
                 .setViewOriginalText(Optional.of(encodeViewData(viewData)))
                 .setViewExpandedText(Optional.of("/* Presto View */"));
 
@@ -1097,7 +1098,7 @@ public class HiveMetadata
                         schemaTableName,
                         Optional.ofNullable(table.get().getOwner()),
                         decodeViewData(table.get().getViewOriginalText().get()),
-                        Optional.empty()));
+                        Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT))));
             }
         }
 

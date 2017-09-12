@@ -1657,6 +1657,62 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testShowCreateView()
+            throws Exception
+    {
+        String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   c1 bigint,\n" +
+                        "   c2 double,\n" +
+                        "   \"c 3\" varchar,\n" +
+                        "   \"c'4\" array(bigint),\n" +
+                        "   c5 map(bigint, varchar)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'RCBINARY'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "table_for_test_show_create_view");
+
+        assertUpdate(createTableSql);
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE table_for_test_show_create_view");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+
+        String createViewSql = format("" +
+                        "CREATE VIEW %s.%s.%s AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  %s",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_show_create_view",
+                "table_for_test_show_create_view");
+
+        assertUpdate(createViewSql);
+        actualResult = computeActual("SHOW CREATE VIEW test_show_create_view");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createViewSql);
+
+        createViewSql = format("" +
+                        "CREATE VIEW %s.%s.%s\n" +
+                        "COMMENT 'a simple comment'\n" +
+                        "AS\n" +
+                        "SELECT\n" +
+                        "  c1\n" +
+                        ", c2\n" +
+                        "FROM\n" +
+                        "  %s",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "\"test_show_create_view'2\"",
+                "table_for_test_show_create_view");
+
+        assertUpdate(createViewSql);
+        actualResult = computeActual("SHOW CREATE VIEW \"test_show_create_view'2\"");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createViewSql);
+    }
+
+    @Test
     public void testPathHiddenColumn()
             throws Exception
     {
