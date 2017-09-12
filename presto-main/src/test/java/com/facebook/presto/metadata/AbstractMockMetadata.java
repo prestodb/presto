@@ -327,7 +327,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, String viewData, Optional<String> comment, boolean replace)
     {
         throw new UnsupportedOperationException();
     }

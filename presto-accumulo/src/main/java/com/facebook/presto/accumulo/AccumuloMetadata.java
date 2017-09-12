@@ -142,13 +142,13 @@ public class AccumuloMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorViewDefinition connectorViewDefinition, boolean replace)
     {
         if (replace) {
-            client.createOrReplaceView(viewName, viewData);
+            client.createOrReplaceView(connectorViewDefinition.getName(), connectorViewDefinition.getViewData());
         }
         else {
-            client.createView(viewName, viewData);
+            client.createView(connectorViewDefinition.getName(), connectorViewDefinition.getViewData());
         }
     }
 
@@ -165,7 +165,7 @@ public class AccumuloMetadata
         for (SchemaTableName stName : listViews(session, prefix.getSchemaName())) {
             AccumuloView view = client.getView(stName);
             if (view != null) {
-                builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), view.getData()));
+                builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), view.getData(), Optional.empty()));
             }
         }
         return builder.build();

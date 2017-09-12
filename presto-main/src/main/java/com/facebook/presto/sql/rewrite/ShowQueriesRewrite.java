@@ -29,6 +29,7 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -440,8 +441,14 @@ final class ShowQueriesRewrite
                     throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", objectName);
                 }
 
+                Optional<String> comment = Optional.empty();
+                ConnectorViewDefinition connectorViewDefinition = metadata.getConnectorViewDefinition(session, objectName);
+                if (connectorViewDefinition != null) {
+                    comment = connectorViewDefinition.getComment();
+                }
+
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false), Optional.of(parameters)).trim();
+                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, comment, false), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 

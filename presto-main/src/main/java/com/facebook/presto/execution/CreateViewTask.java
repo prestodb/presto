@@ -89,7 +89,7 @@ public class CreateViewTask
 
         String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, Optional.of(session.getUser())));
 
-        metadata.createView(session, name, data, statement.isReplace());
+        metadata.createView(session, name, data, statement.getComment(), statement.isReplace());
 
         return immediateFuture(null);
     }

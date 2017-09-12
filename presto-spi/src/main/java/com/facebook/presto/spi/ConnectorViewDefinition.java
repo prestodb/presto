@@ -22,12 +22,14 @@ public class ConnectorViewDefinition
     private final SchemaTableName name;
     private final Optional<String> owner;
     private final String viewData;
+    private final Optional<String> comment;
 
-    public ConnectorViewDefinition(SchemaTableName name, Optional<String> owner, String viewData)
+    public ConnectorViewDefinition(SchemaTableName name, Optional<String> owner, String viewData, Optional<String> comment)
     {
         this.name = requireNonNull(name, "name is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.viewData = requireNonNull(viewData, "viewData is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public SchemaTableName getName()
@@ -45,12 +47,18 @@ public class ConnectorViewDefinition
         return viewData;
     }
 
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ConnectorViewDefinition{");
         sb.append("name=").append(name);
         sb.append(", owner=").append(owner);
+        sb.append(", comment=").append(comment);
         sb.append('}');
         return sb.toString();
     }
