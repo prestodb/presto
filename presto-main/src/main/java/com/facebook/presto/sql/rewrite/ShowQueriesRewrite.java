@@ -23,7 +23,7 @@ import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
-import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.metadata.ViewInfo;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
@@ -430,23 +430,23 @@ final class ShowQueriesRewrite
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-            Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
+            Optional<ViewInfo> viewInfo = metadata.getView(session, objectName);
 
             if (node.getType() == VIEW) {
-                if (!viewDefinition.isPresent()) {
+                if (!viewInfo.isPresent()) {
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
                         throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
                     }
                     throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", objectName);
                 }
 
-                Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false), Optional.of(parameters)).trim();
+                Query query = parseView(viewInfo.get().getViewDefinition().getOriginalSql(), objectName, node);
+                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, viewInfo.get().getComment(), false), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 
             if (node.getType() == TABLE) {
-                if (viewDefinition.isPresent()) {
+                if (viewInfo.isPresent()) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
 

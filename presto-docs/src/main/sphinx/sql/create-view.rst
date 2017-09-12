@@ -7,7 +7,9 @@ Synopsis
 
 .. code-block:: none
 
-    CREATE [ OR REPLACE ] VIEW view_name AS query
+    CREATE [ OR REPLACE ] VIEW view_name
+    [COMMENT view_comment]
+    AS query
 
 Description
 -----------
@@ -29,9 +31,11 @@ Create a simple view ``test`` over the ``orders`` table::
     SELECT orderkey, orderstatus, totalprice / 2 AS half
     FROM orders
 
-Create a view ``orders_by_date`` that summarizes ``orders``::
+Create a view ``orders_by_date`` that summarizes ``orders`` with a comment::
 
-    CREATE VIEW orders_by_date AS
+    CREATE VIEW orders_by_date
+    COMMENT 'a view to track orders by date'
+    AS
     SELECT orderdate, sum(totalprice) AS price
     FROM orders
     GROUP BY orderdate

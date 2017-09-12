@@ -1562,7 +1562,8 @@ public class TestAnalyzer
         ConnectorViewDefinition definition1 = new ConnectorViewDefinition(
                 new SchemaTableName("s1", "v1"),
                 Optional.of("user"),
-                viewData1);
+                viewData1,
+                Optional.empty());
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, definition1, false));
 
         // stale view (different column type)
@@ -1576,7 +1577,8 @@ public class TestAnalyzer
         ConnectorViewDefinition definition2 = new ConnectorViewDefinition(
                 new SchemaTableName("s1", "v2"),
                 Optional.of("user"),
-                viewData2);
+                viewData2,
+                Optional.empty());
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, definition2, false));
 
         // view referencing table in different schema from itself and session
@@ -1590,7 +1592,8 @@ public class TestAnalyzer
         ConnectorViewDefinition definition3 = new ConnectorViewDefinition(
                 new SchemaTableName("s3", "v3"),
                 Optional.of("user"),
-                viewData3);
+                viewData3,
+                Optional.empty());
         inSetupTransaction(session -> metadata.createView(session, THIRD_CATALOG, definition3, false));
 
         // valid view with uppercase column name
@@ -1604,7 +1607,8 @@ public class TestAnalyzer
         ConnectorViewDefinition definition4 = new ConnectorViewDefinition(
                 new SchemaTableName("s1", "v4"),
                 Optional.of("user"),
-                viewData4);
+                viewData4,
+                Optional.empty());
         inSetupTransaction(session -> metadata.createView(session, "tpch", definition4, false));
 
         // recursive view referencing to itself
@@ -1618,7 +1622,8 @@ public class TestAnalyzer
         ConnectorViewDefinition definition5 = new ConnectorViewDefinition(
                 new SchemaTableName("s1", "v5"),
                 Optional.of("user"),
-                viewData5);
+                viewData5,
+                Optional.empty());
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, definition5, false));
 
         this.metadata = metadata;

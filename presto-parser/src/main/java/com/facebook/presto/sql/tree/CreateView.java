@@ -27,23 +27,25 @@ public class CreateView
 {
     private final QualifiedName name;
     private final Query query;
+    private final Optional<String> comment;
     private final boolean replace;
 
-    public CreateView(QualifiedName name, Query query, boolean replace)
+    public CreateView(QualifiedName name, Query query, Optional<String> comment, boolean replace)
     {
-        this(Optional.empty(), name, query, replace);
+        this(Optional.empty(), name, query, comment, replace);
     }
 
-    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace)
+    public CreateView(NodeLocation location, QualifiedName name, Query query, Optional<String> comment, boolean replace)
     {
-        this(Optional.of(location), name, query, replace);
+        this(Optional.of(location), name, query, comment, replace);
     }
 
-    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean replace)
+    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, Optional<String> comment, boolean replace)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
+        this.comment = requireNonNull(comment, "comment is null");
         this.replace = replace;
     }
 
@@ -55,6 +57,11 @@ public class CreateView
     public Query getQuery()
     {
         return query;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 
     public boolean isReplace()
@@ -77,7 +84,7 @@ public class CreateView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, replace);
+        return Objects.hash(name, query, comment, replace);
     }
 
     @Override
@@ -92,6 +99,7 @@ public class CreateView
         CreateView o = (CreateView) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
+                && Objects.equals(comment, o.comment)
                 && Objects.equals(replace, o.replace);
     }
 
@@ -101,6 +109,7 @@ public class CreateView
         return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
+                .add("comment", comment)
                 .add("replace", replace)
                 .toString();
     }

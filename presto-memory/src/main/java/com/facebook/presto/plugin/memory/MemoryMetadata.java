@@ -283,7 +283,7 @@ public class MemoryMetadata
                 .filter(entry -> prefix.matches(entry.getKey()))
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue())));
+                        entry -> new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue(), Optional.empty())));
     }
 
     private void updateRowsOnHosts(MemoryTableHandle table, Collection<Slice> fragments)

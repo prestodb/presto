@@ -167,7 +167,7 @@ public class AccumuloMetadata
         for (SchemaTableName stName : listViews(session, prefix.getSchemaName())) {
             AccumuloView view = client.getView(stName);
             if (view != null) {
-                builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), view.getData()));
+                builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), view.getData(), Optional.empty()));
             }
         }
         return builder.build();

@@ -616,8 +616,8 @@ public class TestRaptorMetadata
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
 
         // create views
-        metadata.createView(SESSION, new ConnectorViewDefinition(test1, Optional.empty(), "test1"), false);
-        metadata.createView(SESSION, new ConnectorViewDefinition(test2, Optional.empty(), "test2"), false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test1, Optional.empty(), "test1", Optional.empty()), false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test2, Optional.empty(), "test2", Optional.empty()), false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, "test");
@@ -651,13 +651,13 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
         try {
-            metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "test"), false);
+            metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "test", Optional.empty()), false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
 
-        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "test"), false);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "test", Optional.empty()), false);
     }
 
     @Test
@@ -665,8 +665,8 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
-        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "aaa"), true);
-        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "bbb"), true);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "aaa", Optional.empty()), true);
+        metadata.createView(SESSION, new ConnectorViewDefinition(test, Optional.empty(), "bbb", Optional.empty()), true);
 
         assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
     }

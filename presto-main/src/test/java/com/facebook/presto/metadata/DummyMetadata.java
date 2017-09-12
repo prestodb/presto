@@ -332,7 +332,7 @@ public class DummyMetadata
     }
 
     @Override
-    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    public Optional<ViewInfo> getView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }

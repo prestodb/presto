@@ -860,7 +860,7 @@ public class RaptorMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
         for (ViewResult view : dao.getViews(prefix.getSchemaName(), prefix.getTableName())) {
-            map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData()));
+            map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData(), Optional.empty()));
         }
         return map.build();
     }

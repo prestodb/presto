@@ -322,7 +322,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    public Optional<ViewInfo> getView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }

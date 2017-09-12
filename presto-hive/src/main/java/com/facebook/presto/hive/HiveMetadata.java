@@ -1096,7 +1096,8 @@ public class HiveMetadata
                 views.put(schemaTableName, new ConnectorViewDefinition(
                         schemaTableName,
                         Optional.ofNullable(table.get().getOwner()),
-                        decodeViewData(table.get().getViewOriginalText().get())));
+                        decodeViewData(table.get().getViewOriginalText().get()),
+                        Optional.empty()));
             }
         }
 
