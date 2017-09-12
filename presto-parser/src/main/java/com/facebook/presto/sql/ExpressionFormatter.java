@@ -682,7 +682,7 @@ public final class ExpressionFormatter
         PrimitiveIterator.OfInt iterator = s.codePoints().iterator();
         while (iterator.hasNext()) {
             int codePoint = iterator.nextInt();
-            checkArgument(codePoint >= 0, "Invalid UTF-8 encoding in characters: " + s);
+            checkArgument(codePoint >= 0, "Invalid UTF-8 encoding in characters: %s", s);
             if (isAsciiPrintable(codePoint)) {
                 char ch = (char) codePoint;
                 if (ch == '\\') {
