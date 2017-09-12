@@ -150,12 +150,10 @@ public final class MapConcatFunction
 
         // the last map
         Block map = maps[lastMapIndex];
-        int total = 0;
         for (int i = 0; i < map.getPositionCount(); i += 2) {
             typedSet.add(map, i);
             keyType.appendTo(map, i, blockBuilder);
             valueType.appendTo(map, i + 1, blockBuilder);
-            total++;
         }
         // the map between the last and the first
         for (int idx = lastMapIndex - 1; idx > firstMapIndex; idx--) {
@@ -165,7 +163,6 @@ public final class MapConcatFunction
                     typedSet.add(map, i);
                     keyType.appendTo(map, i, blockBuilder);
                     valueType.appendTo(map, i + 1, blockBuilder);
-                    total++;
                 }
             }
         }
@@ -175,7 +172,6 @@ public final class MapConcatFunction
             if (!typedSet.contains(map, i)) {
                 keyType.appendTo(map, i, blockBuilder);
                 valueType.appendTo(map, i + 1, blockBuilder);
-                total++;
             }
         }
 
