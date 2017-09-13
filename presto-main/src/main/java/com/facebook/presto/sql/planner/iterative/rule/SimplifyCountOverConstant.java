@@ -22,7 +22,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -35,7 +34,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
@@ -59,7 +57,7 @@ public class SimplifyCountOverConstant
     }
 
     @Override
-    public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
+    public Result apply(AggregationNode parent, Captures captures, Context context)
     {
         ProjectNode child = captures.get(CHILD);
 
@@ -80,10 +78,10 @@ public class SimplifyCountOverConstant
         }
 
         if (!changed) {
-            return Optional.empty();
+            return Result.empty();
         }
 
-        return Optional.of(new AggregationNode(
+        return Result.ofPlanNode(new AggregationNode(
                 parent.getId(),
                 child,
                 aggregations,

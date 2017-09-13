@@ -18,9 +18,6 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-
-import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -42,11 +39,11 @@ public class MergeFilters
     }
 
     @Override
-    public Optional<PlanNode> apply(FilterNode parent, Captures captures, Context context)
+    public Result apply(FilterNode parent, Captures captures, Context context)
     {
         FilterNode child = captures.get(CHILD);
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new FilterNode(
                         parent.getId(),
                         child.getSource(),

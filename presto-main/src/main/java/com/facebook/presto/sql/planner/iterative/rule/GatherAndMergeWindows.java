@@ -95,7 +95,7 @@ public class GatherAndMergeWindows
         }
 
         @Override
-        public Optional<PlanNode> apply(WindowNode parent, Captures captures, Context context)
+        public Result apply(WindowNode parent, Captures captures, Context context)
         {
             // Pulling the descendant WindowNode above projects is done as a part of this rule, as opposed in a
             // separate rule, because that pullup is not useful on its own, and could be undone by other rules.
@@ -106,7 +106,9 @@ public class GatherAndMergeWindows
                     .collect(toImmutableList());
 
             return pullWindowNodeAboveProjects(captures.get(childCapture), projects)
-                    .flatMap(newChild -> manipulateAdjacentWindowNodes(parent, newChild, context));
+                    .flatMap(newChild -> manipulateAdjacentWindowNodes(parent, newChild, context))
+                    .map(Result::ofPlanNode)
+                    .orElse(Result.empty());
         }
 
         protected abstract Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context);

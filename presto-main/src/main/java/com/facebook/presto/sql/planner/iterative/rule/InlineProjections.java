@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
@@ -31,7 +30,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -62,13 +60,13 @@ public class InlineProjections
     }
 
     @Override
-    public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
+    public Result apply(ProjectNode parent, Captures captures, Context context)
     {
         ProjectNode child = captures.get(CHILD);
 
         Sets.SetView<Symbol> targets = extractInliningTargets(parent, child);
         if (targets.isEmpty()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         // inline the expressions
@@ -100,7 +98,7 @@ public class InlineProjections
             childAssignments.putIdentity(input);
         }
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new ProjectNode(
                         parent.getId(),
                         new ProjectNode(

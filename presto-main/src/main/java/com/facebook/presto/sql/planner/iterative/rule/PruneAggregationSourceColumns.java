@@ -19,10 +19,8 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Streams;
 
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -42,7 +40,7 @@ public class PruneAggregationSourceColumns
     }
 
     @Override
-    public Optional<PlanNode> apply(AggregationNode aggregationNode, Captures captures, Context context)
+    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
         Set<Symbol> requiredInputs = Streams.concat(
                 aggregationNode.getGroupingKeys().stream(),
@@ -51,7 +49,9 @@ public class PruneAggregationSourceColumns
                         .flatMap(PruneAggregationSourceColumns::getAggregationInputs))
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs);
+        return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)
+                .map(Result::ofPlanNode)
+                .orElse(Result.empty());
     }
 
     private static Stream<Symbol> getAggregationInputs(AggregationNode.Aggregation aggregation)

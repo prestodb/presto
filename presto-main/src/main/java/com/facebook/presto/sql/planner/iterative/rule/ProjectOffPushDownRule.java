@@ -56,13 +56,15 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
     }
 
     @Override
-    public Optional<PlanNode> apply(ProjectNode parent, Captures captures, Context context)
+    public Result apply(ProjectNode parent, Captures captures, Context context)
     {
         N targetNode = captures.get(targetCapture);
 
         return pruneInputs(targetNode.getOutputSymbols(), parent.getAssignments().getExpressions())
                 .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), targetNode, prunedOutputs))
-                .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)));
+                .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)))
+                .map(Result::ofPlanNode)
+                .orElse(Result.empty());
     }
 
     protected abstract Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, N targetNode, Set<Symbol> referencedOutputs);

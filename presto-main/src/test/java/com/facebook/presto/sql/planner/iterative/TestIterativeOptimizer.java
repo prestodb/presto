@@ -31,8 +31,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -98,13 +96,13 @@ public class TestIterativeOptimizer
         // In that case, it will be removed.
         // Thanks to that approach, it never converges and always produces different node.
         @Override
-        public Optional<PlanNode> apply(ProjectNode project, Captures captures, Context context)
+        public Result apply(ProjectNode project, Captures captures, Context context)
         {
             if (isIdentityProjection(project)) {
-                return Optional.of(project.getSource());
+                return Result.ofPlanNode(project.getSource());
             }
             PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, Assignments.identity(project.getOutputSymbols()));
-            return Optional.of(projectNode);
+            return Result.ofPlanNode(projectNode);
         }
 
         private static boolean isIdentityProjection(ProjectNode project)

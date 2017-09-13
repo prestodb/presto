@@ -31,13 +31,11 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.empty;
 import static java.util.stream.Collectors.toSet;
 
 public class RuleTester
@@ -115,7 +113,7 @@ public class RuleTester
         }
 
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Captures captures, Context context)
+        public Result apply(PlanNode node, Captures captures, Context context)
         {
             PlanNodeMatcher planNodeMatcher = new PlanNodeMatcher(context.getLookup());
             Set<RuleMatch> matching = ruleSet.rules().stream()
@@ -124,7 +122,7 @@ public class RuleTester
                     .collect(toSet());
 
             if (matching.size() == 0) {
-                return empty();
+                return Result.empty();
             }
 
             return getOnlyElement(matching).apply(context);
@@ -141,7 +139,7 @@ public class RuleTester
                 this.match = requireNonNull(match, "match is null");
             }
 
-            private Optional<PlanNode> apply(Context context)
+            private Result apply(Context context)
             {
                 return rule.apply(match.value(), match.captures(), context);
             }

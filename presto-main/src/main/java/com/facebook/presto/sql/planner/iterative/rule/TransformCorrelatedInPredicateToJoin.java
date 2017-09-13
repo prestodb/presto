@@ -108,15 +108,15 @@ public class TransformCorrelatedInPredicateToJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(ApplyNode apply, Captures captures, Context context)
+    public Result apply(ApplyNode apply, Captures captures, Context context)
     {
         Assignments subqueryAssignments = apply.getSubqueryAssignments();
         if (subqueryAssignments.size() != 1) {
-            return Optional.empty();
+            return Result.empty();
         }
         Expression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
         if (!(assignmentExpression instanceof InPredicate)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         InPredicate inPredicate = (InPredicate) assignmentExpression;
@@ -125,7 +125,7 @@ public class TransformCorrelatedInPredicateToJoin
         return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
-    private Optional<PlanNode> apply(
+    private Result apply(
             ApplyNode apply,
             InPredicate inPredicate,
             Symbol inPredicateOutputSymbol,
@@ -137,7 +137,7 @@ public class TransformCorrelatedInPredicateToJoin
                 .decorrelate(apply.getSubquery());
 
         if (!decorrelated.isPresent()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode projection = buildInPredicateEquivalent(
@@ -148,7 +148,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator,
                 symbolAllocator);
 
-        return Optional.of(projection);
+        return Result.ofPlanNode(projection);
     }
 
     private PlanNode buildInPredicateEquivalent(

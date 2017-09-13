@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -78,7 +77,7 @@ public class SingleMarkDistinctToGroupBy
     }
 
     @Override
-    public Optional<PlanNode> apply(AggregationNode parent, Captures captures, Context context)
+    public Result apply(AggregationNode parent, Captures captures, Context context)
     {
         MarkDistinctNode child = captures.get(CHILD);
 
@@ -96,16 +95,16 @@ public class SingleMarkDistinctToGroupBy
         Set<Symbol> uniqueMasks = ImmutableSet.copyOf(masks);
 
         if (uniqueMasks.size() != 1 || masks.size() != aggregations.size()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         Symbol mask = Iterables.getOnlyElement(uniqueMasks);
 
         if (!child.getMarkerSymbol().equals(mask)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new AggregationNode(
                         context.getIdAllocator().getNextId(),
                         new AggregationNode(

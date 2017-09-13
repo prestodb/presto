@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -82,16 +81,16 @@ public class PickTableLayout
         }
 
         @Override
-        public Optional<PlanNode> apply(FilterNode filterNode, Captures captures, Context context)
+        public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
             TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
             PlanNode rewrittenTableScan = tableLayoutRewriter.planTableScan(captures.get(TABLE_SCAN), filterNode.getPredicate());
 
             if (rewrittenTableScan instanceof TableScanNode || rewrittenTableScan instanceof ValuesNode || (((FilterNode) rewrittenTableScan).getPredicate() != filterNode.getPredicate())) {
-                return Optional.of(rewrittenTableScan);
+                return Result.ofPlanNode(rewrittenTableScan);
             }
 
-            return Optional.empty();
+            return Result.empty();
         }
     }
 
@@ -114,14 +113,14 @@ public class PickTableLayout
         }
 
         @Override
-        public Optional<PlanNode> apply(TableScanNode tableScanNode, Captures captures, Context context)
+        public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
         {
             if (tableScanNode.getLayout().isPresent()) {
-                return Optional.empty();
+                return Result.empty();
             }
 
             TableLayoutRewriter tableLayoutRewriter = new TableLayoutRewriter(metadata, context.getSession(), context.getSymbolAllocator(), context.getIdAllocator());
-            return Optional.of(tableLayoutRewriter.planTableScan(tableScanNode, BooleanLiteral.TRUE_LITERAL));
+            return Result.ofPlanNode(tableLayoutRewriter.planTableScan(tableScanNode, BooleanLiteral.TRUE_LITERAL));
         }
     }
 }

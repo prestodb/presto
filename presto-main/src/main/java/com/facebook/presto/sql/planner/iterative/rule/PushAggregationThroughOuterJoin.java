@@ -110,7 +110,7 @@ public class PushAggregationThroughOuterJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(AggregationNode aggregation, Captures captures, Context context)
+    public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
         JoinNode join = captures.get(JOIN);
 
@@ -118,7 +118,7 @@ public class PushAggregationThroughOuterJoin
                 || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
                 || !groupsOnAllOuterTableColumns(aggregation, context.getLookup().resolve(getOuterTable(join)))
                 || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         List<Symbol> groupingKeys = join.getCriteria().stream()
@@ -167,7 +167,7 @@ public class PushAggregationThroughOuterJoin
                     join.getDistributionType());
         }
 
-        return Optional.of(coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup()));
+        return Result.ofPlanNode(coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup()));
     }
 
     private static PlanNode getInnerTable(JoinNode join)

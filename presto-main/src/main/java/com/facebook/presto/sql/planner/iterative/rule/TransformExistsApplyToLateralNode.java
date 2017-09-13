@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -76,21 +75,21 @@ public class TransformExistsApplyToLateralNode
     }
 
     @Override
-    public Optional<PlanNode> apply(ApplyNode parent, Captures captures, Context context)
+    public Result apply(ApplyNode parent, Captures captures, Context context)
     {
         if (parent.getSubqueryAssignments().size() != 1) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         Expression expression = getOnlyElement(parent.getSubqueryAssignments().getExpressions());
         if (!(expression instanceof ExistsPredicate)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new LateralJoinNode(
                         parent.getId(),
                         parent.getInput(),
