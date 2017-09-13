@@ -107,12 +107,12 @@ public class ExpressionRewriteRuleSet
         return new ApplyExpressionRewrite(rewriter);
     }
 
-    public static final class ProjectExpressionRewrite
+    private static final class ProjectExpressionRewrite
             implements Rule<ProjectNode>
     {
         private final ExpressionRewriter rewriter;
 
-        public ProjectExpressionRewrite(ExpressionRewriter rewriter)
+        ProjectExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
         }
@@ -134,12 +134,12 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    public static final class AggregationExpressionRewrite
+    private static final class AggregationExpressionRewrite
             implements Rule<AggregationNode>
     {
         private final ExpressionRewriter rewriter;
 
-        public AggregationExpressionRewrite(ExpressionRewriter rewriter)
+        AggregationExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
         }
@@ -176,12 +176,12 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    public static final class FilterExpressionRewrite
+    private static final class FilterExpressionRewrite
             implements Rule<FilterNode>
     {
         private final ExpressionRewriter rewriter;
 
-        public FilterExpressionRewrite(ExpressionRewriter rewriter)
+        FilterExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
         }
@@ -203,12 +203,12 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    public static final class TableScanExpressionRewrite
+    private static final class TableScanExpressionRewrite
             implements Rule<TableScanNode>
     {
         private final ExpressionRewriter rewriter;
 
-        public TableScanExpressionRewrite(ExpressionRewriter rewriter)
+        TableScanExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
         }
@@ -240,12 +240,12 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    public static final class JoinExpressionRewrite
+    private static final class JoinExpressionRewrite
             implements Rule<JoinNode>
     {
         private final ExpressionRewriter rewriter;
 
-        public JoinExpressionRewrite(ExpressionRewriter rewriter)
+        JoinExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
         }
@@ -277,12 +277,12 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    public static final class ValuesExpressionRewrite
+    private static final class ValuesExpressionRewrite
             implements Rule<ValuesNode>
     {
         private final ExpressionRewriter rewriter;
 
-        public ValuesExpressionRewrite(ExpressionRewriter rewriter)
+        ValuesExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
         }
@@ -316,12 +316,12 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    public static final class ApplyExpressionRewrite
+    private static final class ApplyExpressionRewrite
             implements Rule<ApplyNode>
     {
         private final ExpressionRewriter rewriter;
 
-        public ApplyExpressionRewrite(ExpressionRewriter rewriter)
+        ApplyExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
         }
