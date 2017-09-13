@@ -125,7 +125,7 @@ public class AllAtOnceExecutionSchedule
         public void processFragment(PlanFragmentId planFragmentId)
         {
             PlanFragment planFragment = fragments.get(planFragmentId);
-            checkArgument(planFragment != null, "Fragment not found: " + planFragmentId);
+            checkArgument(planFragment != null, "Fragment not found: %s", planFragmentId);
 
             planFragment.getRoot().accept(this, null);
             schedulerOrder.add(planFragmentId);
