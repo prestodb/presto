@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -73,7 +72,7 @@ public class ImplementFilteredAggregations
     }
 
     @Override
-    public Optional<PlanNode> apply(AggregationNode aggregation, Captures captures, Context context)
+    public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
         Assignments.Builder newAssignments = Assignments.builder();
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
@@ -100,7 +99,7 @@ public class ImplementFilteredAggregations
         // identity projection for all existing inputs
         newAssignments.putIdentities(aggregation.getSource().getOutputSymbols());
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new AggregationNode(
                         context.getIdAllocator().getNextId(),
                         new ProjectNode(

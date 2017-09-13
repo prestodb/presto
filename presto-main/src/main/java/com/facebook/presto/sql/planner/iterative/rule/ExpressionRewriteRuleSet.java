@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -91,13 +90,13 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Optional<PlanNode> apply(ProjectNode projectNode, Captures captures, Context context)
+        public Result apply(ProjectNode projectNode, Captures captures, Context context)
         {
             Assignments assignments = projectNode.getAssignments().rewrite(x -> rewriter.rewrite(x, context));
             if (projectNode.getAssignments().equals(assignments)) {
-                return Optional.empty();
+                return Result.empty();
             }
-            return Optional.of(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments));
+            return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments));
         }
     }
 
@@ -118,7 +117,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Optional<PlanNode> apply(AggregationNode aggregationNode, Captures captures, Context context)
+        public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
         {
             boolean anyRewritten = false;
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
@@ -130,7 +129,7 @@ public class ExpressionRewriteRuleSet
                 }
             }
             if (anyRewritten) {
-                return Optional.of(new AggregationNode(
+                return Result.ofPlanNode(new AggregationNode(
                         aggregationNode.getId(),
                         aggregationNode.getSource(),
                         aggregations.build(),
@@ -139,7 +138,7 @@ public class ExpressionRewriteRuleSet
                         aggregationNode.getHashSymbol(),
                         aggregationNode.getGroupIdSymbol()));
             }
-            return Optional.empty();
+            return Result.empty();
         }
     }
 
@@ -160,13 +159,13 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Optional<PlanNode> apply(FilterNode filterNode, Captures captures, Context context)
+        public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
             Expression rewritten = rewriter.rewrite(filterNode.getPredicate(), context);
             if (filterNode.getPredicate().equals(rewritten)) {
-                return Optional.empty();
+                return Result.empty();
             }
-            return Optional.of(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+            return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
         }
     }
 
@@ -187,14 +186,14 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Optional<PlanNode> apply(TableScanNode tableScanNode, Captures captures, Context context)
+        public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
         {
             if (tableScanNode.getOriginalConstraint() == null) {
-                return Optional.empty();
+                return Result.empty();
             }
             Expression rewrittenOriginalContraint = rewriter.rewrite(tableScanNode.getOriginalConstraint(), context);
             if (!tableScanNode.getOriginalConstraint().equals(rewrittenOriginalContraint)) {
-                return Optional.of(new TableScanNode(
+                return Result.ofPlanNode(new TableScanNode(
                         tableScanNode.getId(),
                         tableScanNode.getTable(),
                         tableScanNode.getOutputSymbols(),
@@ -203,7 +202,7 @@ public class ExpressionRewriteRuleSet
                         tableScanNode.getCurrentConstraint(),
                         rewrittenOriginalContraint));
             }
-            return Optional.empty();
+            return Result.empty();
         }
     }
 
@@ -224,11 +223,11 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Optional<PlanNode> apply(JoinNode joinNode, Captures captures, Context context)
+        public Result apply(JoinNode joinNode, Captures captures, Context context)
         {
             Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(x, context));
             if (!joinNode.getFilter().equals(filter)) {
-                return Optional.of(new JoinNode(
+                return Result.ofPlanNode(new JoinNode(
                         joinNode.getId(),
                         joinNode.getType(),
                         joinNode.getLeft(),
@@ -240,7 +239,7 @@ public class ExpressionRewriteRuleSet
                         joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType()));
             }
-            return Optional.empty();
+            return Result.empty();
         }
     }
 
@@ -261,7 +260,7 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Optional<PlanNode> apply(ValuesNode valuesNode, Captures captures, Context context)
+        public Result apply(ValuesNode valuesNode, Captures captures, Context context)
         {
             boolean anyRewritten = false;
             ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
@@ -277,9 +276,9 @@ public class ExpressionRewriteRuleSet
                 rows.add(newRow.build());
             }
             if (anyRewritten) {
-                return Optional.of(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
+                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
             }
-            return Optional.empty();
+            return Result.empty();
         }
     }
 
@@ -300,13 +299,13 @@ public class ExpressionRewriteRuleSet
         }
 
         @Override
-        public Optional<PlanNode> apply(ApplyNode applyNode, Captures captures, Context context)
+        public Result apply(ApplyNode applyNode, Captures captures, Context context)
         {
             Assignments subqueryAssignments = applyNode.getSubqueryAssignments().rewrite(x -> rewriter.rewrite(x, context));
             if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {
-                return Optional.empty();
+                return Result.empty();
             }
-            return Optional.of(new ApplyNode(
+            return Result.ofPlanNode(new ApplyNode(
                     applyNode.getId(),
                     applyNode.getInput(),
                     applyNode.getSubquery(),

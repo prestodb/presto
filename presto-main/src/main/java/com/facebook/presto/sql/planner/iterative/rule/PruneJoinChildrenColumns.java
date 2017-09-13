@@ -19,10 +19,8 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
@@ -45,7 +43,7 @@ public class PruneJoinChildrenColumns
     }
 
     @Override
-    public Optional<PlanNode> apply(JoinNode joinNode, Captures captures, Context context)
+    public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         Set<Symbol> globallyUsableInputs = ImmutableSet.<Symbol>builder()
                 .addAll(joinNode.getOutputSymbols())
@@ -73,6 +71,8 @@ public class PruneJoinChildrenColumns
                 .addAll(joinNode.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();
 
-        return restrictChildOutputs(context.getIdAllocator(), joinNode, leftUsableInputs, rightUsableInputs);
+        return restrictChildOutputs(context.getIdAllocator(), joinNode, leftUsableInputs, rightUsableInputs)
+                .map(Result::ofPlanNode)
+                .orElse(Result.empty());
     }
 }

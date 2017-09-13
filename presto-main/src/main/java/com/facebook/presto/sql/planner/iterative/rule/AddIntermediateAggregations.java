@@ -89,7 +89,7 @@ public class AddIntermediateAggregations
     }
 
     @Override
-    public Optional<PlanNode> apply(AggregationNode aggregation, Captures captures, Context context)
+    public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
         Lookup lookup = context.getLookup();
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
@@ -98,7 +98,7 @@ public class AddIntermediateAggregations
         Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator);
 
         if (!rewrittenSource.isPresent()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode source = rewrittenSource.get();
@@ -120,7 +120,7 @@ public class AddIntermediateAggregations
             source = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, source);
         }
 
-        return Optional.of(aggregation.replaceChildren(ImmutableList.of(source)));
+        return Result.ofPlanNode(aggregation.replaceChildren(ImmutableList.of(source)));
     }
 
     /**
