@@ -30,7 +30,6 @@ import com.google.common.collect.Streams;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -61,37 +60,37 @@ public class PushPartialAggregationThroughJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(AggregationNode aggregationNode, Captures captures, Context context)
+    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
         if (aggregationNode.getStep() != PARTIAL || aggregationNode.getGroupingSets().size() != 1) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         if (aggregationNode.getHashSymbol().isPresent()) {
             // TODO: add support for hash symbol in aggregation node
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
         if (!(childNode instanceof JoinNode)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         JoinNode joinNode = (JoinNode) childNode;
 
         if (joinNode.getType() != JoinNode.Type.INNER) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         // TODO: leave partial aggregation above Join?
         if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputSymbols())) {
-            return Optional.of(pushPartialToLeftChild(aggregationNode, joinNode, context));
+            return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
         else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputSymbols())) {
-            return Optional.of(pushPartialToRightChild(aggregationNode, joinNode, context));
+            return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
-        return Optional.empty();
+        return Result.empty();
     }
 
     private boolean allAggregationsOn(Map<Symbol, AggregationNode.Aggregation> aggregations, List<Symbol> symbols)

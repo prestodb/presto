@@ -36,7 +36,6 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -117,7 +116,7 @@ public class RuleAssert
                     formatPlan(plan, types)));
         }
 
-        PlanNode actual = ruleApplication.getResult();
+        PlanNode actual = ruleApplication.getTransformedPlan();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
             fail(String.format(
@@ -159,9 +158,9 @@ public class RuleAssert
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
         Match<T> match = matcher.match(rule.getPattern(), planNode);
 
-        Optional<PlanNode> result;
+        Rule.Result result;
         if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
-            result = Optional.empty();
+            result = Rule.Result.empty();
         }
         else {
             result = rule.apply(match.value(), match.captures(), context);
@@ -220,9 +219,9 @@ public class RuleAssert
     {
         private final Lookup lookup;
         private final Map<Symbol, Type> types;
-        private final Optional<PlanNode> result;
+        private final Rule.Result result;
 
-        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
@@ -231,12 +230,12 @@ public class RuleAssert
 
         private boolean wasRuleApplied()
         {
-            return result.isPresent();
+            return !result.isEmpty();
         }
 
-        public PlanNode getResult()
+        public PlanNode getTransformedPlan()
         {
-            return result.orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+            return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
         }
     }
 }

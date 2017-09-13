@@ -25,8 +25,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 
-import java.util.Optional;
-
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -61,7 +59,7 @@ public class PushTableWriteThroughUnion
     }
 
     @Override
-    public Optional<PlanNode> apply(TableWriterNode tableWriterNode, Captures captures, Context context)
+    public Result apply(TableWriterNode tableWriterNode, Captures captures, Context context)
     {
         UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
@@ -86,6 +84,6 @@ public class PushTableWriteThroughUnion
                     tableWriterNode.getPartitioningScheme()));
         }
 
-        return Optional.of(new UnionNode(context.getIdAllocator().getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
+        return Result.ofPlanNode(new UnionNode(context.getIdAllocator().getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
     }
 }

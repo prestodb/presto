@@ -28,8 +28,6 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
@@ -109,9 +107,9 @@ public class TestRuleIndex
         }
 
         @Override
-        public Optional<PlanNode> apply(PlanNode node, Captures captures, Context context)
+        public Result apply(PlanNode node, Captures captures, Context context)
         {
-            return Optional.empty();
+            return Result.empty();
         }
 
         @Override
