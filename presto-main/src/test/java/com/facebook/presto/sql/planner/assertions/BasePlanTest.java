@@ -131,6 +131,15 @@ public class BasePlanTest
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
+    protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
+    {
+        queryRunner.inTransaction(session, transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
+            return null;
+        });
+    }
+
     protected Plan plan(String sql)
     {
         return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);

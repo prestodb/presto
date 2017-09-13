@@ -73,6 +73,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
+    public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -318,7 +319,12 @@ public final class SystemSessionProperties
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
                         false,
-                        false));
+                        false),
+                booleanSessionProperty(
+                        FORCE_SINGLE_NODE_OUTPUT,
+                        "Force single node output",
+                        featuresConfig.isForceSingleNodeOutput(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -498,5 +504,10 @@ public final class SystemSessionProperties
     public static boolean isPushAggregationThroughJoin(Session session)
     {
         return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
+    }
+
+    public static boolean isForceSingleNodeOutput(Session session)
+    {
+        return session.getSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.class);
     }
 }

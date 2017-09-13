@@ -609,7 +609,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session));
         }
 
-        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan);
+        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan, true);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
