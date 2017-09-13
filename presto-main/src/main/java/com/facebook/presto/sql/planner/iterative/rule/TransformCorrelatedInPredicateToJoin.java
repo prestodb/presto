@@ -291,7 +291,7 @@ public class TransformCorrelatedInPredicateToJoin
     }
 
     /**
-     * TODO consult comon parts with {@link com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin.Rewriter#decorrelateFilters}
+     * TODO consult common parts with {@link com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin.Rewriter}
      */
     private static class DecorrelatingVisitor
             extends PlanVisitor<Optional<Decorrelated>, PlanNode>
