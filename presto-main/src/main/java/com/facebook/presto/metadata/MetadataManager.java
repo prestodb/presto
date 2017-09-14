@@ -493,12 +493,12 @@ public class MetadataManager
     }
 
     @Override
-    public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.createTable(session.toConnectorSession(connectorId), tableMetadata);
+        metadata.createTable(session.toConnectorSession(connectorId), tableMetadata, ignoreExisting);
     }
 
     @Override
