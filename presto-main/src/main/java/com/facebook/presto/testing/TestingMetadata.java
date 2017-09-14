@@ -166,10 +166,12 @@ public class TestingMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         ConnectorTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
-        checkArgument(existingTable == null, "Table %s already exists", tableMetadata.getTable());
+        if (existingTable != null && !ignoreExisting) {
+            throw new IllegalArgumentException("Target table already exists: " + tableMetadata.getTable());
+        }
     }
 
     @Override
@@ -224,7 +226,7 @@ public class TestingMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        createTable(session, tableMetadata);
+        createTable(session, tableMetadata, false);
         return TestingHandle.INSTANCE;
     }
 

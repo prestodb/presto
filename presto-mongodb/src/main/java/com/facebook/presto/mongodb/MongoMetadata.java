@@ -187,7 +187,7 @@ public class MongoMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata));
     }
