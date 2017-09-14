@@ -153,7 +153,7 @@ public class QueryMonitor
                         input.getSchema(),
                         input.getTable(),
                         input.getColumns().stream()
-                                .map(Column::toString).collect(Collectors.toList()),
+                                .map(Column::getName).collect(Collectors.toList()),
                         input.getConnectorInfo()));
             }
 
