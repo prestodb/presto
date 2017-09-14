@@ -359,6 +359,7 @@ public class SqlQueryManager
         checkArgument(!query.isEmpty(), "query must not be empty string");
 
         QueryId queryId = queryIdGenerator.createNextQueryId();
+        stats.querySubmitted();
 
         Session session = null;
         QueryExecution queryExecution;
