@@ -143,10 +143,12 @@ public class TestCreateTableTask
         }
 
         @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
         {
             createTableCallCount.incrementAndGet();
-            throw new PrestoException(ALREADY_EXISTS, "Table already exists");
+            if (!ignoreExisting) {
+                throw new PrestoException(ALREADY_EXISTS, "Table already exists");
+            }
         }
 
         @Override
