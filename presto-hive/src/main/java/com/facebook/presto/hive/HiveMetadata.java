@@ -463,7 +463,12 @@ public class HiveMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        createHiveTable(session, tableMetadata, ignoreExisting);
+    }
+
+    private void createHiveTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
@@ -506,7 +511,7 @@ public class HiveMetadata
                 external,
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
-        metastore.createTable(session, table, principalPrivileges, Optional.empty());
+        metastore.createTable(session, table, principalPrivileges, Optional.empty(), ignoreExisting);
     }
 
     private Map<String, String> getTableProperties(ConnectorTableMetadata tableMetadata)
@@ -753,7 +758,7 @@ public class HiveMetadata
             }
         }
 
-        metastore.createTable(session, table, principalPrivileges, Optional.of(writePath));
+        metastore.createTable(session, table, principalPrivileges, Optional.of(writePath), false);
 
         if (!handle.getPartitionedBy().isEmpty()) {
             if (respectTableFormat) {
@@ -1041,7 +1046,7 @@ public class HiveMetadata
         }
 
         try {
-            metastore.createTable(session, table, principalPrivileges, Optional.empty());
+            metastore.createTable(session, table, principalPrivileges, Optional.empty(), false);
         }
         catch (TableAlreadyExistsException e) {
             throw new ViewAlreadyExistsException(e.getTableName());

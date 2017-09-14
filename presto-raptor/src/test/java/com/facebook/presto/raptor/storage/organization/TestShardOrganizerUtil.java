@@ -110,7 +110,8 @@ public class TestShardOrganizerUtil
                 .column("orderstatus", createVarcharType(3))
                 .property("ordering", ImmutableList.of("orderstatus", "orderkey"))
                 .property("temporal_column", "orderdate")
-                .build());
+                .build(),
+                false);
         Table tableInfo = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
         List<TableColumn> tableColumns = metadataDao.listTableColumns(tableInfo.getTableId());
         Map<String, TableColumn> tableColumnMap = Maps.uniqueIndex(tableColumns, TableColumn::getColumnName);
