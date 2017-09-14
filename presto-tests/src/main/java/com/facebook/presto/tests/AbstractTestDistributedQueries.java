@@ -735,7 +735,7 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testQueryLoggingCount()
+    public void testQueryLogitggingCount()
             throws Exception
     {
         QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
@@ -749,7 +749,8 @@ public abstract class AbstractTestDistributedQueries
                             ImmutableList.of()),
                     new Duration(1, MINUTES));
 
-            long beforeQueryCount = queryManager.getStats().getCompletedQueries().getTotalCount();
+            long beforeSubmitQueryCount = queryManager.getStats().getSubmittedQueries().getTotalCount();
+            long beforeCompleteQueryCount = queryManager.getStats().getCompletedQueries().getTotalCount();
             assertUpdate("CREATE TABLE test_query_logging_count AS SELECT 1 foo_1, 2 foo_2_4", 1);
             assertQuery("SELECT foo_1, foo_2_4 FROM test_query_logging_count", "SELECT 1, 2");
             assertUpdate("DROP TABLE test_query_logging_count");
@@ -757,7 +758,10 @@ public abstract class AbstractTestDistributedQueries
 
             // TODO: Figure out a better way of synchronization
             assertUntilTimeout(
-                    () -> assertEquals(queryManager.getStats().getCompletedQueries().getTotalCount() - beforeQueryCount, 4),
+                    () -> assertEquals(queryManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmitQueryCount, 4),
+                    new Duration(1, MINUTES));
+            assertUntilTimeout(
+                    () -> assertEquals(queryManager.getStats().getCompletedQueries().getTotalCount() - beforeCompleteQueryCount, 4),
                     new Duration(1, MINUTES));
         });
     }
