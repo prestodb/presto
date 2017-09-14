@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -3798,6 +3799,20 @@ public abstract class AbstractTestQueries
     public void testOrderByMultipleFields()
     {
         assertQueryOrdered("SELECT custkey, orderstatus FROM orders ORDER BY custkey DESC, orderstatus");
+    }
+
+    @Test
+    public void testDuplicateColumnsInOrderByClause()
+    {
+        MaterializedResult actual = computeActual("SELECT * FROM (VALUES INTEGER '3', INTEGER '2', INTEGER '1') t(a) ORDER BY a ASC, a DESC");
+
+        MaterializedResult expected = resultBuilder(getSession(), INTEGER)
+                .row(1)
+                .row(2)
+                .row(3)
+                .build();
+
+        assertEquals(actual, expected);
     }
 
     @Test
