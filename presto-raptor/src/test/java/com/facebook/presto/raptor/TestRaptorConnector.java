@@ -172,7 +172,8 @@ public class TestRaptorConnector
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_COMMITTED, false);
         connector.getMetadata(transaction).createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("test", name),
-                ImmutableList.of(new ColumnMetadata("id", BIGINT))));
+                ImmutableList.of(new ColumnMetadata("id", BIGINT))),
+                false);
         connector.commit(transaction);
 
         transaction = connector.beginTransaction(READ_COMMITTED, false);

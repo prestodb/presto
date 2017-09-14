@@ -80,10 +80,10 @@ public class TestMemoryMetadata
 
         SchemaTableName test1Table = new SchemaTableName("default", "test1");
         SchemaTableName test2Table = new SchemaTableName("default", "test2");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()));
+        metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
 
         try {
-            metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()));
+            metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
             fail("Should fail because table already exists");
         }
         catch (PrestoException ex) {
@@ -92,7 +92,7 @@ public class TestMemoryMetadata
         }
 
         ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table);
-        metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()));
+        metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()), false);
 
         try {
             metadata.renameTable(SESSION, test1TableHandle, test2Table);
@@ -110,7 +110,7 @@ public class TestMemoryMetadata
         assertNoTables();
 
         SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()));
+        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
         Long firstTableId = firstTableHandle.getTableId();
@@ -118,7 +118,7 @@ public class TestMemoryMetadata
         assertTrue(metadata.beginInsert(SESSION, firstTableHandle).getActiveTableIds().contains(firstTableId));
 
         SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()));
+        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
         MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName);
         Long secondTableId = secondTableHandle.getTableId();
@@ -168,7 +168,8 @@ public class TestMemoryMetadata
                 new ConnectorTableMetadata(
                         tableName,
                         ImmutableList.of(),
-                        ImmutableMap.of()));
+                        ImmutableMap.of()),
+                false);
 
         assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(tableName));
         assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of(tableName));

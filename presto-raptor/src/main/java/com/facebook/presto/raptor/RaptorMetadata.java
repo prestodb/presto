@@ -415,7 +415,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of());

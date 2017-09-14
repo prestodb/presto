@@ -177,7 +177,8 @@ public class TestJdbcMetadata
     {
         metadata.createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", VARCHAR))));
+                ImmutableList.of(new ColumnMetadata("text", VARCHAR))),
+                false);
     }
 
     @Test

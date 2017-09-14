@@ -164,8 +164,10 @@ public interface ConnectorMetadata
 
     /**
      * Creates a table using the specified table metadata.
+     *
+     * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
      */
-    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
