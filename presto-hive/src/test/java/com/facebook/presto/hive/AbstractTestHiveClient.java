@@ -156,7 +156,9 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
+import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
@@ -1729,6 +1731,90 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testTableCreationIgnoreExisting()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty()));
+        SchemaTableName schemaTableName = temporaryTable("create");
+        ConnectorSession session = newSession();
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+        PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+        Path targetPath;
+        try {
+            try (Transaction transaction = newTransaction()) {
+                LocationService locationService = getLocationService(schemaName);
+                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName);
+                targetPath = locationService.targetPathRoot(locationHandle);
+                Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
+                transaction.getMetastore(schemaName)
+                        .createTable(session, table, privileges, Optional.empty(), false);
+                Optional<Table> tableHandle = transaction.getMetastore(schemaName).getTable(schemaName, tableName);
+                assertTrue(tableHandle.isPresent());
+                transaction.commit();
+            }
+
+            // try creating it again from another transaction with ignoreExisting=false
+            try (Transaction transaction = newTransaction()) {
+                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_2"), "q2");
+                transaction.getMetastore(schemaName)
+                        .createTable(session, table, privileges, Optional.empty(), false);
+                transaction.commit();
+                fail("Expected exception");
+            }
+            catch (PrestoException e) {
+                assertInstanceOf(e, TableAlreadyExistsException.class);
+            }
+
+            // try creating it again from another transaction with ignoreExisting=true
+            try (Transaction transaction = newTransaction()) {
+                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_3"), "q3");
+                transaction.getMetastore(schemaName)
+                        .createTable(session, table, privileges, Optional.empty(), true);
+                transaction.commit();
+            }
+
+            // at this point the table should exist, now try creating the table again with a different table definition
+            columns = ImmutableList.of(new Column("new_column", HiveType.valueOf("string"), Optional.empty()));
+            try (Transaction transaction = newTransaction()) {
+                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_4"), "q4");
+                transaction.getMetastore(schemaName)
+                        .createTable(session, table, privileges, Optional.empty(), true);
+                transaction.commit();
+                fail("Expected exception");
+            }
+            catch (PrestoException e) {
+                assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+                assertEquals(e.getMessage(), format("Table already exists with a different schema: '%s'", schemaTableName.getTableName()));
+            }
+        }
+        finally {
+            dropTable(schemaTableName);
+        }
+    }
+
+    private Table createSimpleTable(SchemaTableName schemaTableName, List<Column> columns, ConnectorSession session, Path targetPath, String queryId)
+    {
+        String tableOwner = session.getUser();
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+        return Table.builder()
+                .setDatabaseName(schemaName)
+                .setTableName(tableName)
+                .setOwner(tableOwner)
+                .setTableType(TableType.MANAGED_TABLE.name())
+                .setParameters(ImmutableMap.of(
+                        PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
+                        PRESTO_QUERY_ID_NAME, queryId))
+                .setDataColumns(columns)
+                .withStorage(storage -> storage
+                        .setLocation(targetPath.toString())
+                        .setStorageFormat(fromHiveStorageFormat(ORC))
+                .setSerdeParameters(ImmutableMap.of()))
+                .build();
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {
@@ -1998,7 +2084,7 @@ public abstract class AbstractTestHiveClient
             queryId = session.getQueryId();
 
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, createTableColumns, createTableProperties(storageFormat, partitionedBy));
-            metadata.createTable(session, tableMetadata);
+            metadata.createTable(session, tableMetadata, false);
             transaction.commit();
         }
 
@@ -3117,7 +3203,7 @@ public abstract class AbstractTestHiveClient
                             .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true))
                             .build(),
                     ImmutableMultimap.of());
-            transaction.getMetastore(schemaName).createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty());
+            transaction.getMetastore(schemaName).createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true);
 
             transaction.commit();
         }

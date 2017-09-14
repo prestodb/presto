@@ -163,16 +163,15 @@ public class CreateTableTask
         Map<String, Object> finalProperties = combineProperties(statement.getProperties().keySet(), properties, inheritedProperties);
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
-
         try {
-            metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
+            metadata.createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
         }
         catch (PrestoException e) {
+            // connectors are not required to handle the ignoreExisting flag
             if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || !statement.isNotExists()) {
                 throw e;
             }
         }
-
         return immediateFuture(null);
     }
 

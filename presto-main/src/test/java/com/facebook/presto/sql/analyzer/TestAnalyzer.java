@@ -1505,33 +1505,38 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
                         new ColumnMetadata("c", BIGINT),
-                        new ColumnMetadata("d", BIGINT)))));
+                        new ColumnMetadata("d", BIGINT))),
+                false));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table2,
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", BIGINT)))));
+                        new ColumnMetadata("b", BIGINT))),
+                false));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table3,
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
-                        new ColumnMetadata("x", BIGINT, null, true)))));
+                        new ColumnMetadata("x", BIGINT, null, true))),
+                false));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
         inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG, new ConnectorTableMetadata(table4,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT)))));
+                        new ColumnMetadata("a", BIGINT))),
+                false));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table5,
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", BIGINT, null, true)))));
+                        new ColumnMetadata("b", BIGINT, null, true))),
+                false));
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
@@ -1540,7 +1545,8 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", VARCHAR),
                         new ColumnMetadata("c", BIGINT),
-                        new ColumnMetadata("d", BIGINT)))));
+                        new ColumnMetadata("d", BIGINT))),
+                false));
 
         // table with bigint, double, array of bigints and array of doubles column
         SchemaTableName table7 = new SchemaTableName("s1", "t7");
@@ -1549,7 +1555,8 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", DOUBLE),
                         new ColumnMetadata("c", new ArrayType(BIGINT)),
-                        new ColumnMetadata("d", new ArrayType(DOUBLE))))));
+                        new ColumnMetadata("d", new ArrayType(DOUBLE)))),
+                false));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
