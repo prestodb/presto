@@ -533,6 +533,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "kittens");
         assertFunction("ARRAY_MIN(ARRAY [TRUE, FALSE])", BOOLEAN, false);
         assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, null);
+        assertFunction("ARRAY_MIN(ARRAY [1, nan()])", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -554,6 +555,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "puppies");
         assertFunction("ARRAY_MAX(ARRAY [TRUE, FALSE])", BOOLEAN, true);
         assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, null);
+        assertFunction("ARRAY_MAX(ARRAY [1, nan()])", DOUBLE, Double.NaN);
     }
 
     @Test
