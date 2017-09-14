@@ -15,7 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -40,9 +41,10 @@ import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_R
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveView
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractTestQueryFramework
 {
     private static final TestQueryRunnerUtil util = new TestQueryRunnerUtil(ORDERS);
 
@@ -61,12 +63,65 @@ public class TestHiveView
         assertUpdate("DROP TABLE test_hive_view");
     }
 
-    @Test(expectedExceptions = RuntimeException.class,
-            expectedExceptionsMessageRegExp = "Access Denied: Cannot select from view tpch.test_hive_view1")
+    @Test
     public void testSelectOnViewWithoutPrivilege() throws Exception
     {
-        util.addView("test_hive_view1", buildInitialPrivilegeSet("user1"));
-        computeActual("SELECT * from test_hive_view1");
+        util.addView("test_hiveview_accessdeny", buildInitialPrivilegeSet("user1"));
+        assertQueryFails("SELECT * from test_hiveview_accessdeny",
+                "Access Denied: Cannot select from view tpch.test_hiveview_accessdeny");
+        assertUpdate("DROP TABLE IF EXISTS test_hiveview_accessdeny");
+    }
+
+    @Test
+    public void testCatalogQuery() throws Exception
+    {
+        util.addView("test_hiveview_cat1", buildInitialPrivilegeSet("user"));
+        util.addIncompatibleView("test_incompat_hiveview1", buildInitialPrivilegeSet("user"));
+        computeActual("SELECT c.table_name,\n" +
+                "       c.table_schema,\n" +
+                "       c.column_name,\n" +
+                "       c.data_type,\n" +
+                "       'hive' AS catalog,\n" +
+                "       CASE WHEN c.is_nullable = 'NO'\n" +
+                "            THEN FALSE\n" +
+                "            ELSE TRUE\n" +
+                "             END AS is_nullable,\n" +
+                "       FALSE AS primary_key\n" +
+                "  FROM hive.information_schema.columns c\n" +
+                " WHERE c.table_schema != 'information_schema'\n" +
+                " ORDER BY c.table_name, c.table_schema, c.column_name");
+        assertUpdate("DROP TABLE test_hiveview_cat1");
+        assertUpdate("DROP TABLE test_incompat_hiveview1");
+    }
+
+    @Test
+    public void testShowTables() throws Exception
+    {
+        MaterializedResult results = computeActual("show tables");
+        int initTables = results.getRowCount();
+        util.addView("test_compat_hiveview", buildInitialPrivilegeSet("user"));
+        util.addIncompatibleView("test_incompat_hiveview", buildInitialPrivilegeSet("user"));
+        results = computeActual("show tables");
+        assertEquals(results.getRowCount(), initTables + 2);
+        assertUpdate("DROP TABLE test_compat_hiveview");
+        assertUpdate("DROP TABLE test_incompat_hiveview");
+    }
+
+    @Test
+    public void testShowColumnsOnIncompatibleView() throws Exception
+    {
+        util.addIncompatibleView("test_incompat_hiveview1", buildInitialPrivilegeSet("user"));
+        MaterializedResult results = computeActual("show columns from test_incompat_hiveview1");
+        assertEquals(results.getRowCount(), 0);
+        assertUpdate("DROP TABLE test_incompat_hiveview1");
+    }
+
+    @Test
+    public void testSelectOnIncompatibleView() throws Exception
+    {
+        util.addIncompatibleView("test_incompat_hiveview3", buildInitialPrivilegeSet("user"));
+        assertQueryFails("select * from test_incompat_hiveview3", "Table 'tpch.test_incompat_hiveview3' not found");
+        assertUpdate("DROP TABLE test_incompat_hiveview3");
     }
 
     private static class TestQueryRunnerUtil
@@ -118,7 +173,7 @@ public class TestHiveView
                 queryRunner.close();
             }
         }
-        private static Database createDatabaseMetastoreObject(File baseDir, String name)
+        protected static Database createDatabaseMetastoreObject(File baseDir, String name)
         {
             Database database = new Database(name, null, new File(baseDir, name).toURI().toString(), null);
             database.setOwnerName("public");
@@ -129,6 +184,11 @@ public class TestHiveView
         {
             metastore.createTable(toMetastoreApiView("tpch", name, "user",
                     "select * from orders", privSet));
+        }
+        public void addIncompatibleView(String name, PrincipalPrivilegeSet privSet)
+        {
+            metastore.createTable(toMetastoreApiView("tpch", name, "user",
+                    "select greatest(shippriority, orderpriority) from orders", privSet));
         }
         private static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiView(String databaseName, String viewName, String owner, String sql, PrincipalPrivilegeSet privileges)
         {

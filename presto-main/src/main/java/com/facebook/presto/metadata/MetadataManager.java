@@ -440,11 +440,17 @@ public class MetadataManager
                             entry.getKey().getTableName());
 
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : deserializeView(session, entry.getValue()).getColumns()) {
-                        columns.add(new ColumnMetadata(column.getName(), column.getType()));
-                    }
+                    try {
+                        for (ViewColumn column : deserializeView(session, entry.getValue()).getColumns()) {
+                            columns.add(new ColumnMetadata(column.getName(), column.getType()));
+                        }
 
-                    tableColumns.put(tableName, columns.build());
+                        tableColumns.put(tableName, columns.build());
+                    }
+                    catch (PrestoException e) {
+                        // Ignore the incompatible views
+                        continue;
+                    }
                 }
             }
         }
@@ -763,7 +769,13 @@ public class MetadataManager
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
                             entry.getKey().getTableName());
-                    views.put(viewName, deserializeView(session, entry.getValue()));
+                    try {
+                        views.put(viewName, deserializeView(session, entry.getValue()));
+                    }
+                    catch (PrestoException e) {
+                        // Ignore incompatible views
+                        continue;
+                    }
                 }
             }
         }
@@ -784,7 +796,12 @@ public class MetadataManager
                     viewName.asSchemaTableName().toSchemaTablePrefix());
             ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
-                return Optional.of(deserializeView(session, view));
+                try {
+                    return Optional.of(deserializeView(session, view));
+                }
+                catch (PrestoException e) {
+                    return Optional.empty();
+                }
             }
         }
         return Optional.empty();
@@ -943,7 +960,7 @@ public class MetadataManager
                     .collect(toImmutableList());
             return new ViewDefinition(data, session.getCatalog(), session.getSchema(), columns, Optional.of(owner));
         }
-        catch (IllegalArgumentException e) {
+        catch (Exception e) {
             throw new PrestoException(INVALID_VIEW, "Invalid View with SQL: " + data, e);
         }
     }
