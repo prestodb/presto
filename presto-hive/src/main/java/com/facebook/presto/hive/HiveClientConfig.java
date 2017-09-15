@@ -97,6 +97,7 @@ public class HiveClientConfig
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
+    private boolean orcLazyReadSmallRanges = true;
     private boolean orcOptimizedWriterEnabled;
 
     private boolean rcfileOptimizedWriterEnabled = true;
@@ -663,6 +664,22 @@ public class HiveClientConfig
     public HiveClientConfig setOrcMaxReadBlockSize(DataSize orcMaxReadBlockSize)
     {
         this.orcMaxReadBlockSize = orcMaxReadBlockSize;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcLazyReadSmallRanges()
+    {
+        return orcLazyReadSmallRanges;
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    @Config("hive.orc.lazy-read-small-ranges")
+    @ConfigDescription("ORC read small disk ranges lazily")
+    public HiveClientConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
+    {
+        this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
         return this;
     }
 

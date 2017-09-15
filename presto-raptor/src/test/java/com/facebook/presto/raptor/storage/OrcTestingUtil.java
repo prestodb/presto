@@ -44,7 +44,7 @@ final class OrcTestingUtil
     public static OrcDataSource fileOrcDataSource(File file)
             throws FileNotFoundException
     {
-        return new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        return new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
     }
 
     public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)

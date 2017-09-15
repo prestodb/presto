@@ -364,7 +364,7 @@ public class OrcStorageManager
     private static FileOrcDataSource fileOrcDataSource(ReaderAttributes readerAttributes, File file)
             throws FileNotFoundException
     {
-        return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize());
+        return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize(), readerAttributes.isLazyReadSmallRanges());
     }
 
     private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, File file, Set<String> nodes, long rowCount, long uncompressedSize)

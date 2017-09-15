@@ -39,10 +39,11 @@ public class HdfsOrcDataSource
             DataSize maxMergeDistance,
             DataSize maxReadSize,
             DataSize streamBufferSize,
+            boolean lazyReadSmallRanges,
             FSDataInputStream inputStream,
             FileFormatDataSourceStats stats)
     {
-        super(id, size, maxMergeDistance, maxReadSize, streamBufferSize);
+        super(id, size, maxMergeDistance, maxReadSize, streamBufferSize, lazyReadSmallRanges);
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
         this.stats = requireNonNull(stats, "stats is null");
     }

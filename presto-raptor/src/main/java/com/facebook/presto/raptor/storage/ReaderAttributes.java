@@ -26,18 +26,20 @@ public class ReaderAttributes
     private final DataSize maxMergeDistance;
     private final DataSize maxReadSize;
     private final DataSize streamBufferSize;
+    private final boolean lazyReadSmallRanges;
 
     @Inject
     public ReaderAttributes(StorageManagerConfig config)
     {
-        this(config.getOrcMaxMergeDistance(), config.getOrcMaxReadSize(), config.getOrcStreamBufferSize());
+        this(config.getOrcMaxMergeDistance(), config.getOrcMaxReadSize(), config.getOrcStreamBufferSize(), config.isOrcLazyReadSmallRanges());
     }
 
-    public ReaderAttributes(DataSize maxMergeDistance, DataSize maxReadSize, DataSize streamBufferSize)
+    public ReaderAttributes(DataSize maxMergeDistance, DataSize maxReadSize, DataSize streamBufferSize, boolean lazyReadSmallRanges)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxReadSize = requireNonNull(maxReadSize, "maxReadSize is null");
         this.streamBufferSize = requireNonNull(streamBufferSize, "streamBufferSize is null");
+        this.lazyReadSmallRanges = lazyReadSmallRanges;
     }
 
     public DataSize getMaxMergeDistance()
@@ -55,11 +57,17 @@ public class ReaderAttributes
         return streamBufferSize;
     }
 
+    public boolean isLazyReadSmallRanges()
+    {
+        return lazyReadSmallRanges;
+    }
+
     public static ReaderAttributes from(ConnectorSession session)
     {
         return new ReaderAttributes(
                 RaptorSessionProperties.getReaderMaxMergeDistance(session),
                 RaptorSessionProperties.getReaderMaxReadSize(session),
-                RaptorSessionProperties.getReaderStreamBufferSize(session));
+                RaptorSessionProperties.getReaderStreamBufferSize(session),
+                RaptorSessionProperties.isReaderLazyReadSmallRanges(session));
     }
 }

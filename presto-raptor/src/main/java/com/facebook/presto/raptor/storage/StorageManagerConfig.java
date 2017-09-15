@@ -48,6 +48,7 @@ public class StorageManagerConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
+    private boolean orcLazyReadSmallRanges = true;
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
@@ -123,6 +124,21 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
     {
         this.orcStreamBufferSize = orcStreamBufferSize;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcLazyReadSmallRanges()
+    {
+        return orcLazyReadSmallRanges;
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    @Config("storage.orc.lazy-read-small-ranges")
+    public StorageManagerConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
+    {
+        this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
         return this;
     }
 
