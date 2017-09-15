@@ -137,6 +137,7 @@ public class OrcFileWriterFactory
                                 getOrcMaxMergeDistance(session),
                                 getOrcMaxBufferSize(session),
                                 getOrcStreamBufferSize(session),
+                                false,
                                 fileSystem.open(path),
                                 stats);
                     }

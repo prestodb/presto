@@ -179,13 +179,13 @@ public class TestCachingOrcDataSource
     {
         // tiny file
         TestingOrcDataSource orcDataSource = new TestingOrcDataSource(
-                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE)));
+                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
         doIntegration(orcDataSource, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
         assertEquals(orcDataSource.getReadCount(), 1); // read entire file at once
 
         // tiny stripes
         orcDataSource = new TestingOrcDataSource(
-                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE)));
+                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
         doIntegration(orcDataSource, new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE));
         assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
     }
