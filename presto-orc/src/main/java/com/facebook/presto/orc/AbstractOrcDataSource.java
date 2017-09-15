@@ -174,7 +174,7 @@ public abstract class AbstractOrcDataSource
 
         ImmutableMap.Builder<K, FixedLengthSliceInput> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new HdfsSliceLoader(entry.getValue()), toIntExact(streamBufferSize.toBytes()));
+            ChunkedSliceInput sliceInput = new ChunkedSliceInput(new ChunkedSliceLoader(entry.getValue()), toIntExact(streamBufferSize.toBytes()));
             slices.put(entry.getKey(), sliceInput);
         }
         return slices.build();
@@ -186,12 +186,12 @@ public abstract class AbstractOrcDataSource
         return id.toString();
     }
 
-    private class HdfsSliceLoader
+    private class ChunkedSliceLoader
             implements SliceLoader<SliceBufferReference>
     {
         private final DiskRange diskRange;
 
-        public HdfsSliceLoader(DiskRange diskRange)
+        public ChunkedSliceLoader(DiskRange diskRange)
         {
             this.diskRange = diskRange;
         }
