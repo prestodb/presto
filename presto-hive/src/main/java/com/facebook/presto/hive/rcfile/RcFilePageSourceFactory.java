@@ -140,7 +140,7 @@ public class RcFilePageSourceFactory
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
                     start,
                     length,
-                    new DataSize(1, Unit.MEGABYTE));
+                    new DataSize(8, Unit.MEGABYTE));
 
             return Optional.of(new RcFilePageSource(
                     rcFileReader,

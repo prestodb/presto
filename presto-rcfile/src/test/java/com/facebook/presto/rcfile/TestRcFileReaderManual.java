@@ -242,7 +242,7 @@ public class TestRcFileReaderManual
                 new BogusRcFileCodecFactory(),
                 offset,
                 length,
-                new DataSize(1, MEGABYTE));
+                new DataSize(8, MEGABYTE));
 
         ImmutableList.Builder<Integer> values = ImmutableList.builder();
         while (reader.advance() >= 0) {

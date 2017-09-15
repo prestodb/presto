@@ -524,7 +524,7 @@ public class RcFileReader
                 codecFactory,
                 0,
                 input.getSize(),
-                new DataSize(1, Unit.MEGABYTE),
+                new DataSize(8, Unit.MEGABYTE),
                 Optional.of(writeValidation))) {
             while (rcFileReader.advance() >= 0) {
                 // ignored
