@@ -207,7 +207,7 @@ public class TestShardCleaner
         Set<UUID> shards = ImmutableSet.of(shard1, shard2, shard3);
 
         for (UUID shard : shards) {
-            shardDao.insertShard(shard, tableId, null, 0, 0, 0);
+            shardDao.insertShard(shard, tableId, null, 0, 0, 0, 0);
             createShardFile(shard);
             assertTrue(shardFileExists(shard));
         }
