@@ -19,6 +19,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
@@ -36,9 +37,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
@@ -67,6 +70,7 @@ public final class HttpRequestSessionContext
     private final String remoteUserAddress;
     private final String timeZoneId;
     private final String language;
+    private final Set<String> clientTags;
 
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogSessionProperties;
@@ -94,6 +98,7 @@ public final class HttpRequestSessionContext
         timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
         language = servletRequest.getHeader(PRESTO_LANGUAGE);
         clientInfo = servletRequest.getHeader(PRESTO_CLIENT_INFO);
+        clientTags = parseClientTags(servletRequest);
 
         // parse session properties
         ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
@@ -170,6 +175,12 @@ public final class HttpRequestSessionContext
         return clientInfo;
     }
 
+    @Override
+    public Set<String> getClientTags()
+    {
+        return clientTags;
+    }
+
     public String getTimeZoneId()
     {
         return timeZoneId;
@@ -223,6 +234,12 @@ public final class HttpRequestSessionContext
             sessionProperties.put(nameValue.get(0), nameValue.get(1));
         }
         return sessionProperties;
+    }
+
+    private Set<String> parseClientTags(HttpServletRequest servletRequest)
+    {
+        Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
+        return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
     }
 
     private static void assertRequest(boolean expression, String format, Object... args)

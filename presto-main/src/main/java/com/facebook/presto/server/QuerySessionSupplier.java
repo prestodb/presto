@@ -62,7 +62,8 @@ public class QuerySessionSupplier
                 .setSchema(context.getSchema())
                 .setRemoteUserAddress(context.getRemoteUserAddress())
                 .setUserAgent(context.getUserAgent())
-                .setClientInfo(context.getClientInfo());
+                .setClientInfo(context.getClientInfo())
+                .setClientTags(context.getClientTags());
 
         if (context.getTimeZoneId() != null) {
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
