@@ -26,6 +26,7 @@ import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import java.security.Principal;
@@ -34,6 +35,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -57,6 +59,7 @@ public final class Session
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
+    private final Set<String> clientTags;
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> connectorProperties;
@@ -77,6 +80,7 @@ public final class Session
             Optional<String> remoteUserAddress,
             Optional<String> userAgent,
             Optional<String> clientInfo,
+            Set<String> clientTags,
             long startTime,
             Map<String, String> systemProperties,
             Map<ConnectorId, Map<String, String>> connectorProperties,
@@ -96,6 +100,7 @@ public final class Session
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -170,6 +175,11 @@ public final class Session
     public Optional<String> getClientInfo()
     {
         return clientInfo;
+    }
+
+    public Set<String> getClientTags()
+    {
+        return clientTags;
     }
 
     public long getStartTime()
@@ -285,6 +295,7 @@ public final class Session
                 remoteUserAddress,
                 userAgent,
                 clientInfo,
+                clientTags,
                 startTime,
                 systemProperties,
                 connectorProperties.build(),
@@ -330,6 +341,7 @@ public final class Session
                 remoteUserAddress,
                 userAgent,
                 clientInfo,
+                clientTags,
                 startTime,
                 systemProperties,
                 connectorProperties,
@@ -352,6 +364,7 @@ public final class Session
                 .add("remoteUserAddress", remoteUserAddress.orElse(null))
                 .add("userAgent", userAgent.orElse(null))
                 .add("clientInfo", clientInfo.orElse(null))
+                .add("clientTags", clientTags)
                 .add("startTime", startTime)
                 .omitNullValues()
                 .toString();
@@ -382,6 +395,7 @@ public final class Session
         private String remoteUserAddress;
         private String userAgent;
         private String clientInfo;
+        private Set<String> clientTags = ImmutableSet.of();
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
@@ -410,6 +424,7 @@ public final class Session
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
             this.userAgent = session.userAgent.orElse(null);
             this.clientInfo = session.clientInfo.orElse(null);
+            this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.startTime = session.startTime;
             this.systemProperties.putAll(session.systemProperties);
             this.catalogSessionProperties.putAll(session.unprocessedCatalogProperties);
@@ -495,6 +510,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setClientTags(Set<String> clientTags)
+        {
+            this.clientTags = ImmutableSet.copyOf(clientTags);
+            return this;
+        }
+
         /**
          * Sets a system property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
@@ -537,6 +558,7 @@ public final class Session
                     Optional.ofNullable(remoteUserAddress),
                     Optional.ofNullable(userAgent),
                     Optional.ofNullable(clientInfo),
+                    clientTags,
                     startTime,
                     systemProperties,
                     ImmutableMap.of(),

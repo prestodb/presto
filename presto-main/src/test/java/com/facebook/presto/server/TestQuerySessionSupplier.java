@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import javax.servlet.http.HttpServletRequest;
@@ -31,6 +32,7 @@ import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
@@ -57,6 +59,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
                         .put(PRESTO_CLIENT_INFO, "client-info")
+                        .put(PRESTO_CLIENT_TAGS, "tag1,tag2 ,tag3, tag2")
                         .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
                         .put(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
                         .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
@@ -79,6 +82,7 @@ public class TestQuerySessionSupplier
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
         assertEquals(session.getRemoteUserAddress().get(), "testRemote");
         assertEquals(session.getClientInfo().get(), "client-info");
+        assertEquals(session.getClientTags(), ImmutableSet.of("tag1", "tag2", "tag3"));
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(DISTRIBUTED_JOIN, "true")
@@ -88,6 +92,27 @@ public class TestQuerySessionSupplier
                 .put("query1", "select * from foo")
                 .put("query2", "select * from bar")
                 .build());
+    }
+
+    @Test
+    public void testEmptyClientTags()
+    {
+        HttpServletRequest request1 = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .build(),
+                "remoteAddress");
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1);
+        assertEquals(context1.getClientTags(), ImmutableSet.of());
+
+        HttpServletRequest request2 = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_CLIENT_TAGS, "")
+                        .build(),
+                "remoteAddress");
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2);
+        assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
     @Test(expectedExceptions = PrestoException.class)

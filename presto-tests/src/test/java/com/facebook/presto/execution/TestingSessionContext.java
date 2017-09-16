@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -76,6 +77,12 @@ public class TestingSessionContext
     public String getClientInfo()
     {
         return session.getClientInfo().orElse(null);
+    }
+
+    @Override
+    public Set<String> getClientTags()
+    {
+        return session.getClientTags();
     }
 
     @Override
