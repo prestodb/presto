@@ -42,16 +42,19 @@ public class DeflateCompressor
         }
 
         Deflater deflater = new Deflater(COMPRESSION_LEVEL, true);
+        try {
+            deflater.setInput(input, inputOffset, inputLength);
+            deflater.finish();
 
-        deflater.setInput(input, inputOffset, inputLength);
-        deflater.finish();
-
-        int compressedDataLength = deflater.deflate(output, outputOffset, maxOutputLength, FULL_FLUSH);
-        if (!deflater.finished()) {
-            throw new IllegalStateException("maxCompressedLength formula is incorrect, because deflate produced more data");
+            int compressedDataLength = deflater.deflate(output, outputOffset, maxOutputLength, FULL_FLUSH);
+            if (!deflater.finished()) {
+                throw new IllegalStateException("maxCompressedLength formula is incorrect, because deflate produced more data");
+            }
+            return compressedDataLength;
         }
-        deflater.end();
-        return compressedDataLength;
+        finally {
+            deflater.end();
+        }
     }
 
     @Override
