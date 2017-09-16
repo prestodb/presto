@@ -115,13 +115,11 @@ String
 
         Binary strings with length are not yet supported: ``varbinary(n)``
 
-JSON
-----
-
 ``JSON``
 ^^^^^^^^
 
-    Variable length JSON data.
+    JSON value type, which can be a JSON object, a JSON array, a JSON number, a JSON string,
+    ``true``, ``false`` or ``null``.
 
 Date and Time
 -------------

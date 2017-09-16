@@ -112,17 +112,74 @@ JSON Functions
 
 .. function:: json_format(json) -> varchar
 
-    Returns ``json`` as a string::
+    Returns the JSON text serialized from the input JSON value.
+    This is inverse function to :func:`json_parse`::
 
         SELECT json_format(JSON '[1, 2, 3]'); -- '[1,2,3]'
         SELECT json_format(JSON '"a"'); -- '"a"'
 
+.. note::
+    :func:`json_format` and ``CAST(json AS VARCHAR)`` have completely
+    different semantics.
+
+    :func:`json_format` serializes the input JSON value to JSON text conforming to
+    :rfc:`7159`. The JSON value can be a JSON object, a JSON array, a JSON string,
+    a JSON number, ``true``, ``false`` or ``null``::
+
+        SELECT json_format(JSON '{"a": 1, "b": 2}'); -- '{"a":1,"b":2}'
+        SELECT json_format(JSON '[1, 2, 3]'); -- '[1,2,3]'
+        SELECT json_format(JSON '"abc"'); -- '"abc"'
+        SELECT json_format(JSON '42'); -- '42'
+        SELECT json_format(JSON 'true'); -- 'true'
+        SELECT json_format(JSON 'null'); -- 'null'
+
+    ``CAST(json AS VARCHAR)`` casts the JSON value to the corresponding SQL VARCHAR value.
+    For JSON string, JSON number, ``true``, ``false`` or ``null``, the cast
+    behavior is same as the corresponding SQL type. JSON object and JSON array
+    cannot be cast to VARCHAR::
+
+        SELECT CAST(JSON '{"a": 1, "b": 2}' AS VARCHAR); -- ERROR!
+        SELECT CAST(JSON '[1, 2, 3]' AS VARCHAR); -- ERROR!
+        SELECT CAST(JSON '"abc"' AS VARCHAR); -- 'abc'; Note the double quote is gone
+        SELECT CAST(JSON '42' AS VARCHAR); -- '42'
+        SELECT CAST(JSON 'true' AS VARCHAR); -- 'true'
+        SELECT CAST(JSON 'null' AS VARCHAR); -- NULL
+
 .. function:: json_parse(string) -> json
 
-    Parse ``string`` as a json::
+    Returns the JSON value deserialized from the input JSON text.
+    This is inverse function to :func:`json_format`::
 
         SELECT json_parse('[1, 2, 3]'); -- JSON '[1,2,3]'
-        SELECT json_parse('"a"'); -- JSON '"a"'
+        SELECT json_parse('"abc"'); -- JSON '"abc"'
+
+.. note::
+    :func:`json_parse` and ``CAST(string AS JSON)`` have completely
+    different semantics.
+
+    :func:`json_parse` expects a JSON text conforming to :rfc:`7159`, and returns
+    the JSON value deserialized from the JSON text.
+    The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number,
+    ``true``, ``false`` or ``null``::
+
+        SELECT json_parse('not_json'); -- ERROR!
+        SELECT json_parse('["a": 1, "b": 2]'); -- JSON '["a": 1, "b": 2]'
+        SELECT json_parse('[1, 2, 3]'); -- JSON '[1,2,3]'
+        SELECT json_parse('"abc"'); -- JSON '"abc"'
+        SELECT json_parse('42'); -- JSON '42'
+        SELECT json_parse('true'); -- JSON 'true'
+        SELECT json_parse('null'); -- JSON 'null'
+
+    ``CAST(string AS JSON)`` takes any VARCHAR value as input, and returns
+    a JSON string with its value set to input string::
+
+        SELECT CAST('not_json' AS JSON); -- JSON '"not_json"'
+        SELECT CAST('["a": 1, "b": 2]' AS JSON); -- JSON '"[\"a\": 1, \"b\": 2]"'
+        SELECT CAST('[1, 2, 3]' AS JSON); -- JSON '"[1, 2, 3]"'
+        SELECT CAST('"abc"' AS JSON); -- JSON '"\"abc\""'
+        SELECT CAST('42' AS JSON); -- JSON '"42"'
+        SELECT CAST('true' AS JSON); -- JSON '"true"'
+        SELECT CAST('null' AS JSON); -- JSON '"null"'
 
 .. function:: json_size(json, json_path) -> bigint
 
