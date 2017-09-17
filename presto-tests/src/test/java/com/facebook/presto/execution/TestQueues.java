@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -163,12 +164,12 @@ public class TestQueues
 
     private QueryId createBackfill(DistributedQueryRunner queryRunner)
     {
-        return createQuery(queryRunner, newSession("backfill"), LONG_LASTING_QUERY);
+        return createQuery(queryRunner, newSession("backfill", ImmutableSet.of()), LONG_LASTING_QUERY);
     }
 
     private QueryId createScheduledQuery(DistributedQueryRunner queryRunner)
     {
-        return createQuery(queryRunner, newSession("scheduled"), LONG_LASTING_QUERY);
+        return createQuery(queryRunner, newSession("scheduled", ImmutableSet.of()), LONG_LASTING_QUERY);
     }
 
     @Test(timeOut = 240_000)
@@ -266,6 +267,20 @@ public class TestQueues
     }
 
     @Test(timeOut = 240_000)
+    public void testClientTagsBasedSelection()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_client_tags_based_config.json")));
+            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a")), LONG_LASTING_QUERY, "global.a.default");
+            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("b")), LONG_LASTING_QUERY, "global.b");
+            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a", "c")), LONG_LASTING_QUERY, "global.a.c");
+        }
+    }
+
+    @Test(timeOut = 240_000)
     public void testQueryTypeBasedSelection()
             throws Exception
     {
@@ -273,18 +288,18 @@ public class TestQueues
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
                     .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));
-            assertResourceGroup(queryRunner, LONG_LASTING_QUERY, "global.select");
-            assertResourceGroup(queryRunner, "SHOW TABLES", "global.describe");
-            assertResourceGroup(queryRunner, "EXPLAIN " + LONG_LASTING_QUERY, "global.explain");
-            assertResourceGroup(queryRunner, "DESCRIBE lineitem", "global.describe");
-            assertResourceGroup(queryRunner, "RESET SESSION " + HASH_PARTITION_COUNT, "global.data_definition");
+            assertResourceGroup(queryRunner, newAdhocSession(), LONG_LASTING_QUERY, "global.select");
+            assertResourceGroup(queryRunner, newAdhocSession(), "SHOW TABLES", "global.describe");
+            assertResourceGroup(queryRunner, newAdhocSession(), "EXPLAIN " + LONG_LASTING_QUERY, "global.explain");
+            assertResourceGroup(queryRunner, newAdhocSession(), "DESCRIBE lineitem", "global.describe");
+            assertResourceGroup(queryRunner, newAdhocSession(), "RESET SESSION " + HASH_PARTITION_COUNT, "global.data_definition");
         }
     }
 
-    private void assertResourceGroup(DistributedQueryRunner queryRunner, String query, String expectedResourceGroup)
+    private void assertResourceGroup(DistributedQueryRunner queryRunner, Session session, String query, String expectedResourceGroup)
             throws InterruptedException
     {
-        QueryId queryId = createQuery(queryRunner, newAdhocSession(), query);
+        QueryId queryId = createQuery(queryRunner, session, query);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
         Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
         assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
@@ -321,7 +336,7 @@ public class TestQueues
 
     private QueryId createDashboardQuery(DistributedQueryRunner queryRunner)
     {
-        return createQuery(queryRunner, newSession("dashboard"), LONG_LASTING_QUERY);
+        return createQuery(queryRunner, newSession("dashboard", ImmutableSet.of()), LONG_LASTING_QUERY);
     }
 
     private QueryId createAdHocQuery(DistributedQueryRunner queryRunner)
@@ -331,20 +346,26 @@ public class TestQueues
 
     private static Session newAdhocSession()
     {
-        return newSession("adhoc");
+        return newSession("adhoc", ImmutableSet.of());
     }
 
     private static Session newRejectionSession()
     {
-        return newSession("reject");
+        return newSession("reject", ImmutableSet.of());
     }
 
-    private static Session newSession(String source)
+    private static Session newSessionWithTags(Set<String> clientTags)
+    {
+        return newSession("sessionWithTags", clientTags);
+    }
+
+    private static Session newSession(String source, Set<String> clientTags)
     {
         return testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("sf100000")
                 .setSource(source)
+                .setClientTags(clientTags)
                 .build();
     }
 }

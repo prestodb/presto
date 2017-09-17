@@ -18,6 +18,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -53,7 +54,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         ResourceGroup missing = new TestingResourceGroup(new ResourceGroupId("missing"));
-        manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), 1, Optional.empty()));
+        manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
     }
 
     @Test
@@ -61,13 +62,13 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
         List<ResourceGroupSelector> selectors = manager.getSelectors();
-        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("select")), "global.select");
-        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("explain")), "global.explain");
-        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("insert")), "global.insert");
-        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("delete")), "global.delete");
-        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("describe")), "global.describe");
-        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("data_definition")), "global.data_definition");
-        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), 1, Optional.of("sth_else")), "global.other");
+        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("select")), "global.select");
+        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("explain")), "global.explain");
+        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("insert")), "global.insert");
+        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("delete")), "global.delete");
+        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("describe")), "global.describe");
+        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("data_definition")), "global.data_definition");
+        assertMatch(selectors, new SelectionContext(true, "test_user", Optional.empty(), ImmutableSet.of(), 1, Optional.of("sth_else")), "global.other");
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector specifies an invalid query type: invalid_query_type")
@@ -99,7 +100,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         ResourceGroup global = new TestingResourceGroup(new ResourceGroupId("global"));
-        manager.configure(global, new SelectionContext(true, "user", Optional.empty(), 1, Optional.empty()));
+        manager.configure(global, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
         assertEquals(global.getHardCpuLimit(), new Duration(1, DAYS));
@@ -113,7 +114,7 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getRunningTimeLimit(), new Duration(1, HOURS));
 
         ResourceGroup sub = new TestingResourceGroup(new ResourceGroupId(new ResourceGroupId("global"), "sub"));
-        manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), 1, Optional.empty()));
+        manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getHardConcurrencyLimit(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
@@ -129,7 +130,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config_legacy.json");
         ResourceGroup global = new TestingResourceGroup(new ResourceGroupId("global"));
-        manager.configure(global, new SelectionContext(true, "user", Optional.empty(), 1, Optional.empty()));
+        manager.configure(global, new SelectionContext(true, "user", Optional.empty(), ImmutableSet.of(), 1, Optional.empty()));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(3, MEGABYTE));
         assertEquals(global.getMaxQueuedQueries(), 99);
         assertEquals(global.getHardConcurrencyLimit(), 42);

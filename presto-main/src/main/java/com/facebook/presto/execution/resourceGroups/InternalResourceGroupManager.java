@@ -243,6 +243,7 @@ public final class InternalResourceGroupManager
                 session.getIdentity().getPrincipal().isPresent(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 getQueryPriority(session),
                 determineQueryType(queryExecution));
         if (!groups.containsKey(id)) {
@@ -286,6 +287,7 @@ public final class InternalResourceGroupManager
                 session.getIdentity().getPrincipal().isPresent(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 getQueryPriority(session),
                 determineQueryType(queryExecution));
         for (ResourceGroupSelector selector : configurationManager.get().getSelectors()) {
