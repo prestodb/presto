@@ -243,6 +243,7 @@ public class DbResourceGroupConfigurationManager
                 new SelectorSpec(
                         selectorRecord.getUserRegex(),
                         selectorRecord.getSourceRegex(),
+                        selectorRecord.getClientTags(),
                         Optional.empty(),
                         resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
         ).collect(Collectors.toList());

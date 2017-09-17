@@ -62,7 +62,7 @@ public interface ResourceGroupsDao
     @Mapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
-    @SqlQuery("SELECT resource_group_id, user_regex, source_regex from selectors")
+    @SqlQuery("SELECT resource_group_id, user_regex, source_regex, client_tags from selectors")
     @Mapper(SelectorRecord.Mapper.class)
     List<SelectorRecord> getSelectors();
 
@@ -70,6 +70,7 @@ public interface ResourceGroupsDao
             "  resource_group_id BIGINT NOT NULL,\n" +
             "  user_regex VARCHAR(512),\n" +
             "  source_regex VARCHAR(512),\n" +
+            "  client_tags VARCHAR(512),\n" +
             "  FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id)\n" +
             ")")
     void createSelectorsTable();

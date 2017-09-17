@@ -14,7 +14,9 @@
 package com.facebook.presto.spi.resourceGroups;
 
 import java.util.Optional;
+import java.util.Set;
 
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public final class SelectionContext
@@ -22,14 +24,16 @@ public final class SelectionContext
     private final boolean authenticated;
     private final String user;
     private final Optional<String> source;
+    private final Set<String> clientTags;
     private final int queryPriority;
     private final Optional<String> queryType;
 
-    public SelectionContext(boolean authenticated, String user, Optional<String> source, int queryPriority, Optional<String> queryType)
+    public SelectionContext(boolean authenticated, String user, Optional<String> source, Set<String> clientTags, int queryPriority, Optional<String> queryType)
     {
         this.authenticated = authenticated;
         this.user = requireNonNull(user, "user is null");
         this.source = requireNonNull(source, "source is null");
+        this.clientTags = unmodifiableSet(requireNonNull(clientTags, "tags is null"));
         this.queryPriority = queryPriority;
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
@@ -47,6 +51,11 @@ public final class SelectionContext
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    public Set<String> getTags()
+    {
+        return clientTags;
     }
 
     public int getQueryPriority()

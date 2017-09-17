@@ -22,14 +22,18 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
@@ -49,8 +53,10 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Assertions.assertContains;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 // run single threaded to avoid creating multiple query runners at once
 @Test(singleThreaded = true)
@@ -191,13 +197,13 @@ public class TestQueues
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
         int selectorCount = getSelectors(queryRunner).size();
-        dao.insertSelector(4, "user.*", "(?i).*reject.*");
+        dao.insertSelector(4, "user.*", "(?i).*reject.*", null);
         dbConfigurationManager.load();
         assertEquals(getSelectors(queryRunner).size(), selectorCount + 1);
         // Verify the query can be submitted
         queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, RUNNING);
-        dao.deleteSelector(4, "user.*", "(?i).*reject.*");
+        dao.deleteSelector(4, "user.*", "(?i).*reject.*", null);
         dbConfigurationManager.load();
         // Verify the query cannot be submitted
         queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
@@ -258,5 +264,29 @@ public class TestQueues
         queryManager.cancelQuery(firstQuery);
         // wait until the second one is FAILED
         waitForQueryState(queryRunner, secondQuery, FAILED);
+    }
+
+    @Test
+    public void testClientTagsBasedSelection()
+            throws InterruptedException
+    {
+        assertResourceGroupWithClientTags(ImmutableSet.of("tag1"), "global.bi-user");
+        assertResourceGroupWithClientTags(ImmutableSet.of("tag1", "tag2"), "global.user-user.adhoc-user");
+    }
+
+    private void assertResourceGroupWithClientTags(Set<String> clientTags, String expectedResourceGroup)
+            throws InterruptedException
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setSource("client_tags")
+                .setClientTags(clientTags)
+                .build();
+        QueryId queryId = createQuery(queryRunner, session, LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
+        Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
+        assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
+        assertEquals(resourceGroupName.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupName.get()));
     }
 }

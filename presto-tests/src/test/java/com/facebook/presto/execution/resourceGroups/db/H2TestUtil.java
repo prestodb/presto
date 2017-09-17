@@ -24,8 +24,10 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
 
 import java.util.List;
 import java.util.Random;
@@ -34,6 +36,7 @@ import java.util.Set;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class H2TestUtil
@@ -41,6 +44,7 @@ class H2TestUtil
     private static final String CONFIGURATION_MANAGER_TYPE = "h2";
     public static final String TEST_ENVIRONMENT = "test_environment";
     public static final String TEST_ENVIRONMENT_2 = "test_environment_2";
+    public static final JsonCodec<List<String>> CLIENT_TAGS_CODEC = listJsonCodec(String.class);
 
     private H2TestUtil() {}
 
@@ -159,12 +163,14 @@ class H2TestUtil
         dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dao.insertResourceGroup(6, "no-queueing", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT_2);
-        dao.insertSelector(2, "user.*", "test");
-        dao.insertSelector(4, "user.*", "(?i).*adhoc.*");
-        dao.insertSelector(5, "user.*", "(?i).*dashboard.*");
-        dao.insertSelector(6, ".*", ".*");
+        dao.insertSelector(2, "user.*", "test", null);
+        dao.insertSelector(4, "user.*", "(?i).*adhoc.*", null);
+        dao.insertSelector(5, "user.*", "(?i).*dashboard.*", null);
+        dao.insertSelector(4, "user.*", null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1", "tag2")));
+        dao.insertSelector(2, "user.*", null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1")));
+        dao.insertSelector(6, ".*", ".*", null);
 
-        int expectedSelectors = 3;
+        int expectedSelectors = 5;
         if (environment.equals(TEST_ENVIRONMENT_2)) {
             expectedSelectors = 1;
         }
