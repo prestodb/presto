@@ -55,8 +55,8 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
-import static com.facebook.presto.verifier.PrestoVerifier.statementToQueryType;
 import static com.facebook.presto.verifier.QueryType.READ;
+import static com.facebook.presto.verifier.VerifyCommand.statementToQueryType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
