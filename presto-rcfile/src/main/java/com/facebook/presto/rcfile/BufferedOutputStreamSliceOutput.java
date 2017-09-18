@@ -103,7 +103,7 @@ public class BufferedOutputStreamSliceOutput
     }
 
     @Override
-    public int getRetainedSize()
+    public long getRetainedSize()
     {
         return slice.getRetainedSize() + INSTANCE_SIZE;
     }

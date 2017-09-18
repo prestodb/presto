@@ -55,7 +55,7 @@ public interface RcFileCompressor
         }
 
         @Override
-        public int getRetainedSize()
+        public long getRetainedSize()
         {
             return super.getRetainedSize() + bufferedOutput.getRetainedSize();
         }

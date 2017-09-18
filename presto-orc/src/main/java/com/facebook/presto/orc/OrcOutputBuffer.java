@@ -144,9 +144,9 @@ public class OrcOutputBuffer
     }
 
     @Override
-    public int getRetainedSize()
+    public long getRetainedSize()
     {
-        return toIntExact(INSTANCE_SIZE + compressedOutputStream.getRetainedSize() + slice.getRetainedSize() + SizeOf.sizeOf(compressionBuffer));
+        return INSTANCE_SIZE + compressedOutputStream.getRetainedSize() + slice.getRetainedSize() + SizeOf.sizeOf(compressionBuffer);
     }
 
     @Override
