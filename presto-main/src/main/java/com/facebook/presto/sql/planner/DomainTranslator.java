@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
@@ -42,6 +43,7 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
@@ -688,6 +690,25 @@ public final class DomainTranslator
 
             InListExpression valueList = (InListExpression) node.getValueList();
             checkState(!valueList.getValues().isEmpty(), "InListExpression should never be empty");
+
+            Symbol symbol = Symbol.from(node.getValue());
+            Type type = checkedTypeLookup(symbol);
+
+            // Check if we can bypass all the processing. If all the values in the IN clause are literals,
+            // and the type is orderable, we can just directly construct the SortedRangeSet.
+            if (type.isOrderable() && valueList.getValues().stream().allMatch(v -> v instanceof Literal)) {
+                ArrayList<Range> ranges = new ArrayList<>(valueList.getValues().size());
+                ConnectorSession connectorSession = this.session.toConnectorSession();
+                for (Expression value : valueList.getValues()) {
+                    Object obj = LiteralInterpreter.evaluate(metadata, connectorSession, value);
+                    ranges.add(Range.equal(type, obj));
+                }
+
+                ValueSet rangeSet = complementIfNecessary(SortedRangeSet.copyOf(type, ranges), complement);
+                return new ExtractionResult(
+                        TupleDomain.withColumnDomains(ImmutableMap.of(symbol, Domain.create(rangeSet, false))),
+                        TRUE_LITERAL);
+            }
 
             ImmutableList.Builder<Expression> disjuncts = ImmutableList.builder();
             for (Expression expression : valueList.getValues()) {
