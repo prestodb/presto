@@ -149,33 +149,34 @@ public class WindowFilterPushDown
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            TupleDomain<Symbol> tupleDomain = fromPredicate(metadata, session, node.getPredicate(), types).getTupleDomain();
-
+            // fromPredicate can be a very expensive operation. We should only call it if it's actually necessary.
+            // Hence why it's inside the if/else if statements.
             if (source instanceof RowNumberNode) {
+                ExtractionResult extractionResult = fromPredicate(metadata, session, node.getPredicate(), types);
                 Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
-                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
+                OptionalInt upperBound = extractUpperBound(extractionResult.getTupleDomain(), rowNumberSymbol);
 
                 if (upperBound.isPresent()) {
                     source = mergeLimit(((RowNumberNode) source), upperBound.getAsInt());
-                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
+                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt(), extractionResult);
                 }
             }
             else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source)) {
+                ExtractionResult extractionResult = fromPredicate(metadata, session, node.getPredicate(), types);
                 WindowNode windowNode = (WindowNode) source;
                 Symbol rowNumberSymbol = getOnlyElement(windowNode.getWindowFunctions().entrySet()).getKey();
-                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
+                OptionalInt upperBound = extractUpperBound(extractionResult.getTupleDomain(), rowNumberSymbol);
 
                 if (upperBound.isPresent()) {
                     source = convertToTopNRowNumber(windowNode, upperBound.getAsInt());
-                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
+                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt(), extractionResult);
                 }
             }
             return replaceChildren(node, ImmutableList.of(source));
         }
 
-        private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound)
+        private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound, ExtractionResult extractionResult)
         {
-            ExtractionResult extractionResult = fromPredicate(metadata, session, filterNode.getPredicate(), types);
             TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
             if (!isEqualRange(tupleDomain, rowNumberSymbol, upperBound)) {
