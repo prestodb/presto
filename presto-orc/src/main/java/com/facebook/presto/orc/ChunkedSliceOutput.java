@@ -105,9 +105,9 @@ public final class ChunkedSliceOutput
     }
 
     @Override
-    public int getRetainedSize()
+    public long getRetainedSize()
     {
-        return toIntExact(slice.getRetainedSize() + closedSlicesRetainedSize + INSTANCE_SIZE);
+        return slice.getRetainedSize() + closedSlicesRetainedSize + INSTANCE_SIZE;
     }
 
     @Override

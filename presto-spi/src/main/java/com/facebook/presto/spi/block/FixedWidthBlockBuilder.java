@@ -103,8 +103,8 @@ public class FixedWidthBlockBuilder
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        consumer.accept(sliceOutput, (long) sliceOutput.getRetainedSize());
-        consumer.accept(valueIsNull, (long) valueIsNull.getRetainedSize());
+        consumer.accept(sliceOutput, sliceOutput.getRetainedSize());
+        consumer.accept(valueIsNull, valueIsNull.getRetainedSize());
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
