@@ -36,7 +36,7 @@ public class BufferedOutputStreamSliceOutput
         extends SliceOutput
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferedOutputStreamSliceOutput.class).instanceSize();
-    private static final int MINIMUM_CHUNK_SIZE = 4096;
+    private static final int CHUNK_SIZE = 4096;
 
     private final OutputStream outputStream;
 
@@ -52,15 +52,14 @@ public class BufferedOutputStreamSliceOutput
      */
     private int bufferPosition;
 
-    public BufferedOutputStreamSliceOutput(OutputStream outputStream, int bufferSize)
+    public BufferedOutputStreamSliceOutput(OutputStream outputStream)
     {
-        checkArgument(bufferSize >= MINIMUM_CHUNK_SIZE, "minimum buffer size of " + MINIMUM_CHUNK_SIZE + " required");
         if (outputStream == null) {
             throw new NullPointerException("outputStream is null");
         }
 
         this.outputStream = outputStream;
-        this.buffer = new byte[bufferSize];
+        this.buffer = new byte[CHUNK_SIZE];
         this.slice = Slices.wrappedBuffer(buffer);
     }
 
@@ -173,13 +172,28 @@ public class BufferedOutputStreamSliceOutput
     @Override
     public void writeBytes(Slice source, int sourceIndex, int length)
     {
-        // Write huge chunks direct to OutputStream
-        if (length >= MINIMUM_CHUNK_SIZE) {
-            flushBufferToOutputStream();
-            writeToOutputStream(source, sourceIndex, length);
-            bufferOffset += length;
+        if (length >= CHUNK_SIZE) {
+            if (bufferPosition > 0) {
+                // fill up the current buffer
+                int flushLength = getFreeBufferLength();
+                slice.setBytes(bufferPosition, source, sourceIndex, flushLength);
+                bufferPosition = CHUNK_SIZE;
+                flushBufferToOutputStream();
+                sourceIndex += flushLength;
+                length -= flushLength;
+            }
+
+            // line up the chunk to chunk size and flush directly to OutputStream
+            while (length >= CHUNK_SIZE) {
+                writeToOutputStream(source, sourceIndex, CHUNK_SIZE);
+                sourceIndex += CHUNK_SIZE;
+                length -= CHUNK_SIZE;
+                bufferOffset += CHUNK_SIZE;
+            }
         }
-        else {
+
+        if (length > 0) {
+            // buffer the remaining data
             ensureWritableBytes(length);
             slice.setBytes(bufferPosition, source, sourceIndex, length);
             bufferPosition += length;
@@ -195,13 +209,28 @@ public class BufferedOutputStreamSliceOutput
     @Override
     public void writeBytes(byte[] source, int sourceIndex, int length)
     {
-        // Write huge chunks direct to OutputStream
-        if (length >= MINIMUM_CHUNK_SIZE) {
-            flushBufferToOutputStream();
-            writeToOutputStream(source, sourceIndex, length);
-            bufferOffset += length;
+        if (length >= CHUNK_SIZE) {
+            if (bufferPosition > 0) {
+                // fill up the current buffer
+                int flushLength = getFreeBufferLength();
+                slice.setBytes(bufferPosition, source, sourceIndex, flushLength);
+                bufferPosition = CHUNK_SIZE;
+                flushBufferToOutputStream();
+                sourceIndex += flushLength;
+                length -= flushLength;
+            }
+
+            // line up the chunk to chunk size and flush directly to OutputStream
+            while (length >= CHUNK_SIZE) {
+                writeToOutputStream(source, sourceIndex, CHUNK_SIZE);
+                sourceIndex += CHUNK_SIZE;
+                length -= CHUNK_SIZE;
+                bufferOffset += CHUNK_SIZE;
+            }
         }
-        else {
+
+        if (length > 0) {
+            // buffer the remaining data
             ensureWritableBytes(length);
             slice.setBytes(bufferPosition, source, sourceIndex, length);
             bufferPosition += length;
@@ -317,17 +346,22 @@ public class BufferedOutputStreamSliceOutput
         return builder.toString();
     }
 
+    private int getFreeBufferLength()
+    {
+        return CHUNK_SIZE - bufferPosition;
+    }
+
     private void ensureWritableBytes(int minWritableBytes)
     {
-        if (bufferPosition + minWritableBytes > slice.length()) {
+        if (minWritableBytes > getFreeBufferLength()) {
             flushBufferToOutputStream();
         }
     }
 
     private int ensureBatchSize(int length)
     {
-        ensureWritableBytes(Math.min(MINIMUM_CHUNK_SIZE, length));
-        return Math.min(length, slice.length() - bufferPosition);
+        ensureWritableBytes(Math.min(CHUNK_SIZE, length));
+        return Math.min(length, CHUNK_SIZE - bufferPosition);
     }
 
     private void flushBufferToOutputStream()
