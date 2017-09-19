@@ -27,7 +27,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class CodeCacheGcConfig
 {
     private Duration codeCacheCheckInterval = new Duration(20, SECONDS);
-    private int codeCacheCollectionThreshold = 40;
+    private int codeCacheCollectionThreshold = 70;
 
     @NotNull
     @MinDuration("1s")
