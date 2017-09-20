@@ -118,6 +118,15 @@
                                 </rule>
 
                                 <rule>
+                                    <destination>/usr/lib/presto/bin</destination>
+                                    <base>${server.tar.package}/bin</base>
+                                    <!-- copy sub folders -->
+                                    <includes>
+                                        <include>*/**</include>
+                                    </includes>
+                                </rule>
+
+                                <rule>
                                     <destination>/etc/init.d</destination>
                                     <base>dist/etc/init.d</base>
                                     <!-- make sure init.d scripts are executable -->
