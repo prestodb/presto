@@ -90,7 +90,6 @@ public class DictionaryAwarePageProjection
             lastDictionaryUsageCount += selectedPositions.size();
             // if dictionary was processed, produce a dictionary block; otherwise do normal processing
             if (projectedDictionary.isPresent()) {
-                lastDictionaryUsageCount += selectedPositions.size();
                 int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
                 return new DictionaryBlock(selectedPositions.size(), projectedDictionary.get(), outputIds, false, sourceIdFunction.apply(dictionaryBlock));
             }
