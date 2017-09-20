@@ -460,7 +460,10 @@ public class StripeReader
         long stripeOffset = 0;
         for (Stream stream : streams) {
             int streamLength = toIntExact(stream.getLength());
-            streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));
+            // ignore zero byte streams
+            if (streamLength > 0) {
+                streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));
+            }
             stripeOffset += streamLength;
         }
         return streamDiskRanges.build();
