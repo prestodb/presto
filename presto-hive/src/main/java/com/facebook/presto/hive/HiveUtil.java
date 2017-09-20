@@ -82,6 +82,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
@@ -139,6 +140,16 @@ public final class HiveUtil
     private static final int DECIMAL_SCALE_GROUP = 2;
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
+
+    private static final Pattern BUCKET_ORIGINAL_PATTERN =
+            Pattern.compile("[0-9]+_[0-9]+");
+
+    private static final String BUCKET_COPY_KEYWORD = "_copy_"; // copy keyword
+
+    private static final Pattern BUCKET_ORIGINAL_PATTERN_COPY =
+            Pattern.compile("[0-9]+_[0-9]+" + BUCKET_COPY_KEYWORD + "[0-9]+");
+
+    private static final String BUCKET_PREFIX = "bucket_";
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -820,6 +831,23 @@ public final class HiveUtil
             if (throwable != e) {
                 throwable.addSuppressed(e);
             }
+        }
+    }
+
+    public static int parseBucketNum(Path path)
+    {
+        String filename = path.getName();
+        if (BUCKET_ORIGINAL_PATTERN.matcher(filename).matches()) {
+            return Integer.parseInt(filename.substring(0, filename.indexOf('_')));
+        }
+        else if (BUCKET_ORIGINAL_PATTERN_COPY.matcher(filename).matches()) {
+            return Integer.parseInt(filename.substring(0, filename.indexOf('_')));
+        }
+        else if (filename.startsWith(BUCKET_PREFIX)) {
+            return Integer.parseInt(filename.substring(filename.indexOf('_') + 1));
+        }
+        else {
+            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("Not a bucket file: %s", path));
         }
     }
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.acid.AcidUtil;
+import com.facebook.presto.hive.acid.ValidReadTxnList;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
@@ -106,6 +108,7 @@ public class BackgroundHiveSplitLoader
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<HiveFileIterator> fileIterators = new ConcurrentLinkedDeque<>();
     private final AtomicInteger remainingInitialSplits;
+    private final boolean isAcidTable;
 
     // Purpose of this lock:
     // * When write lock is acquired, except the holder, no one can do any of the following:
@@ -153,6 +156,7 @@ public class BackgroundHiveSplitLoader
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
+        this.isAcidTable = AcidUtil.isAcidTable(table);
     }
 
     @Override
@@ -325,6 +329,32 @@ public class BackgroundHiveSplitLoader
             return;
         }
 
+        if (isAcidTable) {
+            if (!AcidUtil.isAcid(path, configuration)) {
+                if (!AcidUtil.isEmpty(path, configuration)) {
+                    throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s The table is declared as ACID table, but does not match ACID partition structure for partition: %s", CORRUPT_BUCKETING, path.toString()));
+                }
+            }
+            ValidReadTxnList txnList = new ValidReadTxnList();
+            AcidUtil.Directory acidState = AcidUtil.getAcidState(path, configuration, txnList, true, true);
+
+            List<Path> bucketPaths = new ArrayList<>(Arrays.asList(
+                    AcidUtil.getPaths(acidState.getCurrentDirectories())));
+            if (acidState.getBaseDirectory() != null) {
+                bucketPaths.add(acidState.getBaseDirectory());
+            }
+
+            int bucketCount = bucketHandle.get().getBucketCount();
+            for (Path bucketPath : bucketPaths) {
+                HiveFileIterator iterator = new HiveFileIterator(bucketPath, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions());
+                List<LocatedFileStatus> list = listAndSortBucketFiles(iterator, bucketCount);
+                List<Iterator<HiveSplit>> iteratorList = createBucketSplitIterators(
+                        list, inputFormat, schema, partitionName, partitionKeys, effectivePredicate, partition.getColumnCoercions());
+                addToHiveSplitSourceRoundRobin(iteratorList);
+            }
+            return;
+        }
+
         // If only one bucket could match: load that one file
         HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions());
         if (!buckets.isEmpty()) {
@@ -361,32 +391,50 @@ public class BackgroundHiveSplitLoader
             // HiveFileIterator skips hidden files automatically.
             int bucketCount = bucketHandle.get().getBucketCount();
             List<LocatedFileStatus> list = listAndSortBucketFiles(iterator, bucketCount);
-            List<Iterator<HiveSplit>> iteratorList = new ArrayList<>();
-
-            for (int bucketIndex = 0; bucketIndex < bucketCount; bucketIndex++) {
-                LocatedFileStatus file = list.get(bucketIndex);
-                boolean splittable = isSplittable(iterator.getInputFormat(), hdfsEnvironment.getFileSystem(session.getUser(), file.getPath()), file.getPath());
-
-                iteratorList.add(createHiveSplitIterator(
-                        iterator.getPartitionName(),
-                        file.getPath().toString(),
-                        file.getBlockLocations(),
-                        0,
-                        file.getLen(),
-                        iterator.getSchema(),
-                        iterator.getPartitionKeys(),
-                        splittable,
-                        session,
-                        OptionalInt.of(bucketIndex),
-                        iterator.getEffectivePredicate(),
-                        partition.getColumnCoercions()));
-            }
-
+            List<Iterator<HiveSplit>> iteratorList = createBucketSplitIterators(
+                    list, inputFormat, schema, partitionName, partitionKeys, effectivePredicate, partition.getColumnCoercions());
             addToHiveSplitSourceRoundRobin(iteratorList);
             return;
         }
 
         fileIterators.addLast(iterator);
+    }
+
+    private List<Iterator<HiveSplit>> createBucketSplitIterators(
+            List<LocatedFileStatus> list,
+            InputFormat<?, ?> inputFormat,
+            Properties schema,
+            String partitionName,
+            List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Map<Integer, HiveType> columnCoercions)
+            throws IOException
+    {
+        int bucketCount = bucketHandle.get().getBucketCount();
+        List<Iterator<HiveSplit>> iteratorList = new ArrayList<>();
+
+        for (int bucketIndex = 0; bucketIndex < bucketCount; bucketIndex++) {
+            if (list.get(bucketIndex) == null) {
+                continue;
+            }
+            LocatedFileStatus file = list.get(bucketIndex);
+            boolean splittable = isSplittable(inputFormat, hdfsEnvironment.getFileSystem(session.getUser(), file.getPath()), file.getPath());
+
+            iteratorList.add(createHiveSplitIterator(
+                    partitionName,
+                    file.getPath().toString(),
+                    file.getBlockLocations(),
+                    0,
+                    file.getLen(),
+                    schema,
+                    partitionKeys,
+                    splittable,
+                    session,
+                    OptionalInt.of(bucketIndex),
+                    effectivePredicate,
+                    columnCoercions));
+        }
+        return iteratorList;
     }
 
     private boolean addSplitsToSource(
@@ -448,7 +496,7 @@ public class BackgroundHiveSplitLoader
 
     private static List<LocatedFileStatus> listAndSortBucketFiles(HiveFileIterator hiveFileIterator, int bucketCount)
     {
-        ArrayList<LocatedFileStatus> list = new ArrayList<>(bucketCount);
+        LocatedFileStatus[] list = new LocatedFileStatus[bucketCount];
 
         while (hiveFileIterator.hasNext()) {
             LocatedFileStatus next = hiveFileIterator.next();
@@ -456,16 +504,16 @@ public class BackgroundHiveSplitLoader
                 // Fail here to be on the safe side. This seems to be the same as what Hive does
                 throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s Found sub-directory in bucket directory for partition: %s", CORRUPT_BUCKETING, hiveFileIterator.getPartitionName()));
             }
-            list.add(next);
+            if (!AcidUtil.isBucketFile(next.getPath())) {
+                continue; // Ignore non bucket file
+            }
+            int bucket = HiveUtil.parseBucketNum(next.getPath());
+            if (bucket < 0 || bucket >= bucketCount) {
+                throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s Invalid bucket numbering of partition: %s", CORRUPT_BUCKETING, hiveFileIterator.getPartitionName()));
+            }
+            list[bucket] = next;
         }
-
-        if (list.size() != bucketCount) {
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s", CORRUPT_BUCKETING, list.size(), bucketCount, hiveFileIterator.getPartitionName()));
-        }
-
-        // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
-        list.sort(null);
-        return list;
+        return Arrays.asList(list);
     }
 
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)
