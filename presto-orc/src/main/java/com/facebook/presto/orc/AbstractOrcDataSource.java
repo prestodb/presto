@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
 import io.airlift.slice.ChunkedSliceInput.SliceLoader;
@@ -27,6 +28,7 @@ import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
@@ -159,7 +161,7 @@ public abstract class AbstractOrcDataSource
                 for (Entry<K, DiskRange> diskRangeEntry : diskRanges.entrySet()) {
                     DiskRange diskRange = diskRangeEntry.getValue();
                     if (mergedRange.contains(diskRange)) {
-                        slices.put(diskRangeEntry.getKey(), new ChunkedSliceInput(new LazySliceLoader(diskRange, mergedRangeLazyLoader), diskRange.getLength()));
+                        slices.put(diskRangeEntry.getKey(), new LazySliceInput(diskRange.getLength(), new LazySliceLoader(diskRange, mergedRangeLazyLoader)));
                     }
                 }
             }
@@ -207,32 +209,31 @@ public abstract class AbstractOrcDataSource
     private final class LazyBufferLoader
     {
         private final DiskRange diskRange;
-        private final byte[] buffer;
-        private final Slice bufferSlice;
-        private boolean loaded;
+        private Slice bufferSlice;
 
         public LazyBufferLoader(DiskRange diskRange)
         {
             this.diskRange = requireNonNull(diskRange, "diskRange is null");
-            this.buffer = new byte[diskRange.getLength()];
-            this.bufferSlice = Slices.wrappedBuffer(buffer);
         }
 
-        public Slice getNestedDiskRangeBuffer(DiskRange nestedDiskRange)
+        public Slice loadNestedDiskRangeBuffer(DiskRange nestedDiskRange)
         {
+            load();
+
             checkArgument(diskRange.contains(nestedDiskRange));
             int offset = toIntExact(nestedDiskRange.getOffset() - diskRange.getOffset());
             return bufferSlice.slice(offset, nestedDiskRange.getLength());
         }
 
-        public void load()
+        private void load()
         {
-            if (loaded) {
+            if (bufferSlice != null) {
                 return;
             }
             try {
+                byte[] buffer = new byte[diskRange.getLength()];
                 readFully(diskRange.getOffset(), buffer);
-                loaded = true;
+                bufferSlice = Slices.wrappedBuffer(buffer);
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -241,43 +242,22 @@ public abstract class AbstractOrcDataSource
     }
 
     private final class LazySliceLoader
-            implements SliceLoader<BufferReference>
+            implements Supplier<FixedLengthSliceInput>
     {
         private final DiskRange diskRange;
         private final LazyBufferLoader lazyBufferLoader;
-        private final Slice buffer;
 
         public LazySliceLoader(DiskRange diskRange, LazyBufferLoader lazyBufferLoader)
         {
             this.diskRange = requireNonNull(diskRange, "diskRange is null");
             this.lazyBufferLoader = requireNonNull(lazyBufferLoader, "lazyBufferLoader is null");
-            this.buffer = lazyBufferLoader.getNestedDiskRangeBuffer(diskRange);
         }
 
         @Override
-        public BufferReference createBuffer(int bufferSize)
+        public FixedLengthSliceInput get()
         {
-            checkArgument(bufferSize == buffer.length(), "Buffer size must be same size as the existing buffer");
-            return () -> buffer;
-        }
-
-        @Override
-        public long getSize()
-        {
-            return diskRange.getLength();
-        }
-
-        @Override
-        public void load(long position, BufferReference bufferReference, int length)
-        {
-            checkArgument(position == 0, "Invalid read request");
-            checkArgument(length == getSize(), "Invalid read request");
-            lazyBufferLoader.load();
-        }
-
-        @Override
-        public void close()
-        {
+            Slice buffer = lazyBufferLoader.loadNestedDiskRangeBuffer(diskRange);
+            return new BasicSliceInput(buffer);
         }
     }
 
