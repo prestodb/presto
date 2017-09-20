@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -281,7 +282,9 @@ public class UnaliasSymbolReferences
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
                     node.getPartitioningScheme().getBucketToPartition());
 
-            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs);
+            Optional<OrderingScheme> orderingScheme = node.getOrderingScheme().map(this::canonicalize);
+
+            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs, orderingScheme);
         }
 
         private void mapExchangeNodeSymbols(ExchangeNode node)
@@ -333,7 +336,11 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<Void> context)
         {
-            return new RemoteSourceNode(node.getId(), node.getSourceFragmentIds(), canonicalizeAndDistinct(node.getOutputSymbols()));
+            return new RemoteSourceNode(
+                    node.getId(),
+                    node.getSourceFragmentIds(),
+                    canonicalizeAndDistinct(node.getOutputSymbols()),
+                    node.getOrderingScheme().map(this::canonicalize));
         }
 
         @Override
@@ -741,6 +748,21 @@ public class UnaliasSymbolReferences
                     canonicalize(scheme.getHashColumn()),
                     scheme.isReplicateNullsAndAny(),
                     scheme.getBucketToPartition());
+        }
+
+        private OrderingScheme canonicalize(OrderingScheme orderingScheme)
+        {
+            Set<Symbol> added = new HashSet<>();
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+            for (Symbol symbol : orderingScheme.getOrderBy()) {
+                Symbol canonical = canonicalize(symbol);
+                if (added.add(canonical)) {
+                    symbols.add(canonical);
+                    orderings.put(canonical, orderingScheme.getOrderings().get(symbol));
+                }
+            }
+            return new OrderingScheme(symbols.build(), orderings.build());
         }
     }
 }

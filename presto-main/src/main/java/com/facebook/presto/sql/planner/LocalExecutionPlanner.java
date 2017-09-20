@@ -43,6 +43,7 @@ import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
+import com.facebook.presto.operator.MergeOperator.MergeOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
 import com.facebook.presto.operator.OperatorFactory;
@@ -68,6 +69,9 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
+import com.facebook.presto.operator.exchange.LocalMergeExchange;
+import com.facebook.presto.operator.exchange.LocalMergeSinkOperator.LocalMergeSinkOperatorFactory;
+import com.facebook.presto.operator.exchange.LocalMergeSourceOperator.LocalMergeSourceOperatorFactory;
 import com.facebook.presto.operator.exchange.PageChannelSelector;
 import com.facebook.presto.operator.index.DynamicTupleFilterFactory;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
@@ -102,6 +106,7 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -180,6 +185,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
@@ -251,6 +257,7 @@ public class LocalExecutionPlanner
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
     private final LookupJoinOperators lookupJoinOperators;
+    private final OrderingCompiler orderingCompiler;
 
     @Inject
     public LocalExecutionPlanner(
@@ -273,7 +280,8 @@ public class LocalExecutionPlanner
             BlockEncodingSerde blockEncodingSerde,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            LookupJoinOperators lookupJoinOperators)
+            LookupJoinOperators lookupJoinOperators,
+            OrderingCompiler orderingCompiler)
     {
         requireNonNull(compilerConfig, "compilerConfig is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
@@ -297,6 +305,7 @@ public class LocalExecutionPlanner
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
+        this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
 
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
     }
@@ -597,6 +606,44 @@ public class LocalExecutionPlanner
 
         @Override
         public PhysicalOperation visitRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
+        {
+            if (node.getOrderingScheme().isPresent()) {
+                return createMergeSource(node, context);
+            }
+            else {
+                return createRemoteSource(node, context);
+            }
+        }
+
+        private PhysicalOperation createMergeSource(RemoteSourceNode node, LocalExecutionPlanContext context)
+        {
+            checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
+            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            Map<Symbol, Integer> sourceLayout = makeLayoutFromOutputSymbols(node.getOutputSymbols());
+            List<Symbol> orderBySymbols = orderingScheme.getOrderBy();
+            List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, sourceLayout);
+            List<SortOrder> sortOrder = orderBySymbols.stream()
+                    .map(symbol -> orderingScheme.getOrderings().get(symbol))
+                    .collect(toImmutableList());
+
+            ImmutableList<Integer> outputChannels = IntStream.range(0, types.size()).boxed().collect(toImmutableList());
+
+            OperatorFactory operatorFactory = new MergeOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    exchangeClientSupplier,
+                    new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)),
+                    orderingCompiler,
+                    types,
+                    outputChannels,
+                    sortChannels,
+                    sortOrder);
+
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
+        }
+
+        private PhysicalOperation createRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
 
@@ -1290,9 +1337,14 @@ public class LocalExecutionPlanner
 
         private ImmutableMap<Symbol, Integer> makeLayout(PlanNode node)
         {
+            return makeLayoutFromOutputSymbols(node.getOutputSymbols());
+        }
+
+        private ImmutableMap<Symbol, Integer> makeLayoutFromOutputSymbols(List<Symbol> outputSymbols)
+        {
             Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             int channel = 0;
-            for (Symbol symbol : node.getOutputSymbols()) {
+            for (Symbol symbol : outputSymbols) {
                 outputMappings.put(symbol, channel);
                 channel++;
             }
@@ -1860,6 +1912,52 @@ public class LocalExecutionPlanner
         {
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
 
+            if (node.getOrderingScheme().isPresent()) {
+                return createLocalMerge(node, context);
+            }
+            else {
+                return createLocalExchange(node, context);
+            }
+        }
+
+        private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
+        {
+            checkState(node.getSources().size() == 1, "single source is expected");
+
+            PlanNode sourceNode = getOnlyElement(node.getSources());
+            LocalExecutionPlanContext subContext = context.createSubContext();
+            PhysicalOperation source = sourceNode.accept(this, subContext);
+
+            int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
+            LocalMergeExchange exchange = new LocalMergeExchange(operatorsCount);
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+
+            List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
+            operatorFactories.add(new LocalMergeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), types, exchange, operatorsCount));
+            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
+            // the main driver is not an input... the exchange sources are the input for the plan
+            context.setInputDriver(false);
+
+            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            List<Integer> sortChannels = orderingScheme.getOrderBy().stream()
+                    .map(argument -> node.getOutputSymbols().indexOf(argument))
+                    .collect(toImmutableList());
+            List<SortOrder> orderings = orderingScheme.getOrderBy().stream()
+                    .map(argument -> orderingScheme.getOrderings().get(argument))
+                    .collect(toImmutableList());
+            OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    exchange,
+                    types,
+                    orderingCompiler,
+                    sortChannels,
+                    orderings);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
+        }
+
+        private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context)
+        {
             int driverInstanceCount;
             if (node.getType() == ExchangeNode.Type.GATHER) {
                 driverInstanceCount = 1;
