@@ -52,7 +52,7 @@ public abstract class AbstractOrcDataSource
         this.id = requireNonNull(id, "id is null");
 
         this.size = size;
-        checkArgument(size >= 0, "size is negative");
+        checkArgument(size > 0, "size must be at least 1");
 
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
