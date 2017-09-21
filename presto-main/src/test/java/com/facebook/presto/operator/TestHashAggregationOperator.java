@@ -93,8 +93,8 @@ public class TestHashAggregationOperator
 
     private static final InternalAggregationFunction LONG_AVERAGE = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_MIN = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+            new Signature("min", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
     private static final InternalAggregationFunction COUNT = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
 
@@ -164,7 +164,7 @@ public class TestHashAggregationOperator
                 Step.SINGLE,
                 false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
+                        LONG_MIN.bind(ImmutableList.of(3), Optional.empty()),
                         LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty()),
                         maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
                         countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
@@ -183,15 +183,15 @@ public class TestHashAggregationOperator
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
-                .row("1", 3L, 3L, 1.0, "301", 3L, 3L)
-                .row("2", 3L, 6L, 2.0, "302", 3L, 3L)
-                .row("3", 3L, 9L, 3.0, "303", 3L, 3L)
-                .row("4", 3L, 12L, 4.0, "304", 3L, 3L)
-                .row("5", 3L, 15L, 5.0, "305", 3L, 3L)
-                .row("6", 3L, 18L, 6.0, "306", 3L, 3L)
-                .row("7", 3L, 21L, 7.0, "307", 3L, 3L)
-                .row("8", 3L, 24L, 8.0, "308", 3L, 3L)
-                .row("9", 3L, 27L, 9.0, "309", 3L, 3L)
+                .row("1", 3L, 1L, 1.0, "301", 3L, 3L)
+                .row("2", 3L, 2L, 2.0, "302", 3L, 3L)
+                .row("3", 3L, 3L, 3.0, "303", 3L, 3L)
+                .row("4", 3L, 4L, 4.0, "304", 3L, 3L)
+                .row("5", 3L, 5L, 5.0, "305", 3L, 3L)
+                .row("6", 3L, 6L, 6.0, "306", 3L, 3L)
+                .row("7", 3L, 7L, 7.0, "307", 3L, 3L)
+                .row("8", 3L, 8L, 8.0, "308", 3L, 3L)
+                .row("9", 3L, 9L, 9.0, "309", 3L, 3L)
                 .build();
 
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(hashChannels.size()));
@@ -225,7 +225,7 @@ public class TestHashAggregationOperator
                 Step.SINGLE,
                 true,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(4), Optional.empty()),
+                        LONG_MIN.bind(ImmutableList.of(4), Optional.empty()),
                         LONG_AVERAGE.bind(ImmutableList.of(4), Optional.empty()),
                         maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
                         countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
@@ -319,7 +319,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
+                        LONG_MIN.bind(ImmutableList.of(3), Optional.empty()),
                         LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty()),
                         maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
@@ -458,7 +458,7 @@ public class TestHashAggregationOperator
                 hashChannels,
                 ImmutableList.of(),
                 Step.PARTIAL,
-                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(LONG_MIN.bind(ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -538,7 +538,7 @@ public class TestHashAggregationOperator
                 ImmutableList.of(),
                 Step.SINGLE,
                 false,
-                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(LONG_MIN.bind(ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 1,
@@ -592,7 +592,7 @@ public class TestHashAggregationOperator
                 Step.SINGLE,
                 false,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
+                        LONG_MIN.bind(ImmutableList.of(3), Optional.empty()),
                         LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty()),
                         maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
