@@ -289,14 +289,15 @@ public class ExpressionAnalyzer
             this.scope = requireNonNull(scope, "scope is null");
         }
 
-        @SuppressWarnings("SuspiciousMethodCalls")
         @Override
         public Type process(Node node, @Nullable StackableAstVisitorContext<Context> context)
         {
-            // don't double process a node
-            Type type = expressionTypes.get(NodeRef.of(node));
-            if (type != null) {
-                return type;
+            if (node instanceof Expression) {
+                // don't double process a node
+                Type type = expressionTypes.get(NodeRef.of(((Expression) node)));
+                if (type != null) {
+                    return type;
+                }
             }
             return super.process(node, context);
         }
