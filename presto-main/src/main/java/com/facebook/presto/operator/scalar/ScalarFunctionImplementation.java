@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -97,6 +98,17 @@ public final class ScalarFunctionImplementation
         if (instanceFactory.isPresent()) {
             Class<?> instanceType = instanceFactory.get().type().returnType();
             checkArgument(instanceType.equals(methodHandle.type().parameterType(0)), "methodHandle is not an instance method");
+        }
+
+        List<Class<?>> parameterList = methodHandle.type().parameterList();
+        if (parameterList.contains(ConnectorSession.class)) {
+            checkArgument(parameterList.stream().filter(ConnectorSession.class::equals).count() == 1, "function implementation should have exactly one ConnectorSession parameter");
+            if (!instanceFactory.isPresent()) {
+                checkArgument(parameterList.get(0) == ConnectorSession.class, "ConnectorSession must be the first argument when instanceFactory is not present");
+            }
+            else {
+                checkArgument(parameterList.get(1) == ConnectorSession.class, "ConnectorSession must be the second argument when instanceFactory is present");
+            }
         }
 
         checkCondition(nullFlags.size() == nullableArguments.size(), FUNCTION_IMPLEMENTATION_ERROR, "size of nullFlags is not equal to size of nullableArguments: %s", methodHandle);
