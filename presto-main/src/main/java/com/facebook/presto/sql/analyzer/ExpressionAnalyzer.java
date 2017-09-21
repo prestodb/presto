@@ -388,17 +388,17 @@ public class ExpressionAnalyzer
         {
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
 
-            if (!context.getContext().isInLambda()) {
-                // If this Dereference looks like column reference, try match it to column first.
-                if (qualifiedName != null) {
-                    Scope scope = context.getContext().getScope();
-                    Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
-                    if (resolvedField.isPresent()) {
+            // If this Dereference looks like column reference, try match it to column first.
+            if (qualifiedName != null) {
+                Scope scope = context.getContext().getScope();
+                Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
+                if (resolvedField.isPresent()) {
+                    if (!context.getContext().isInLambda() || !context.getContext().getFieldToLambdaArgumentDeclaration().containsKey(FieldId.from(resolvedField.get()))) {
                         return handleResolvedField(node, resolvedField.get(), context);
                     }
-                    if (!scope.isColumnReference(qualifiedName)) {
-                        throw missingAttributeException(node, qualifiedName);
-                    }
+                }
+                if (!scope.isColumnReference(qualifiedName)) {
+                    throw missingAttributeException(node, qualifiedName);
                 }
             }
 
