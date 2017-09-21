@@ -313,7 +313,7 @@ public class BroadcastOutputBuffer
 
             // update state
             if (!state.canAddPages()) {
-                // BE CAREFUL: set no more pages only if not FAILED, because this allows clients to FINISH 
+                // BE CAREFUL: set no more pages only if not FAILED, because this allows clients to FINISH
                 buffer.setNoMorePages();
             }
 
