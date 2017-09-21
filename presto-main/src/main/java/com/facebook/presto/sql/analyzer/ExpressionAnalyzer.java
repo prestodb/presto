@@ -255,12 +255,12 @@ public class ExpressionAnalyzer
     public Type analyze(Expression expression, Scope scope)
     {
         Visitor visitor = new Visitor(scope);
-        return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda()));
+        return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)));
     }
 
-    private Type analyze(Expression expression, Scope scope, Context context)
+    private Type analyze(Expression expression, Scope baseScope, Context context)
     {
-        Visitor visitor = new Visitor(scope);
+        Visitor visitor = new Visitor(baseScope);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
@@ -282,11 +282,11 @@ public class ExpressionAnalyzer
     private class Visitor
             extends StackableAstVisitor<Type, Context>
     {
-        private final Scope scope;
+        private final Scope baseScope;
 
-        private Visitor(Scope scope)
+        public Visitor(Scope baseScope)
         {
-            this.scope = requireNonNull(scope, "scope is null");
+            this.baseScope = requireNonNull(baseScope, "baseScope is null");
         }
 
         @SuppressWarnings("SuspiciousMethodCalls")
@@ -368,7 +368,7 @@ public class ExpressionAnalyzer
                     return setExpressionType(node, result);
                 }
             }
-            return handleResolvedField(node, scope.resolveField(node, QualifiedName.of(node.getValue())));
+            return handleResolvedField(node, context.getContext().getScope().resolveField(node, QualifiedName.of(node.getValue())));
         }
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField)
@@ -391,6 +391,7 @@ public class ExpressionAnalyzer
             if (!context.getContext().isInLambda()) {
                 // If this Dereference looks like column reference, try match it to column first.
                 if (qualifiedName != null) {
+                    Scope scope = context.getContext().getScope();
                     Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                     if (resolvedField.isPresent()) {
                         return handleResolvedField(node, resolvedField.get());
@@ -796,7 +797,7 @@ public class ExpressionAnalyzer
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
                                     }
                                 }
-                                return innerExpressionAnalyzer.analyze(expression, scope, context.getContext().expectingLambda(types)).getTypeSignature();
+                                return innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types)).getTypeSignature();
                             }));
                 }
                 else {
@@ -969,7 +970,7 @@ public class ExpressionAnalyzer
             }
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             Scope subqueryScope = Scope.builder()
-                    .withParent(scope)
+                    .withParent(context.getContext().getScope())
                     .build();
             Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
 
@@ -1000,7 +1001,7 @@ public class ExpressionAnalyzer
         protected Type visitExists(ExistsPredicate node, StackableAstVisitorContext<Context> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            Scope subqueryScope = Scope.builder().withParent(scope).build();
+            Scope subqueryScope = Scope.builder().withParent(context.getContext().getScope()).build();
             analyzer.analyze(node.getSubquery(), subqueryScope);
 
             existsSubqueries.add(NodeRef.of(node));
@@ -1044,8 +1045,8 @@ public class ExpressionAnalyzer
         @Override
         public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<Context> context)
         {
-            Type type = scope.getRelationType().getFieldByIndex(node.getFieldIndex()).getType();
-            return handleResolvedField(node, new FieldId(scope.getRelationId(), node.getFieldIndex()), type);
+            Type type = baseScope.getRelationType().getFieldByIndex(node.getFieldIndex()).getType();
+            return handleResolvedField(node, new FieldId(baseScope.getRelationId(), node.getFieldIndex()), type);
         }
 
         @Override
@@ -1073,7 +1074,7 @@ public class ExpressionAnalyzer
                 nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName().getValue(), lambdaArgument);
                 setExpressionType(lambdaArgument, types.get(i));
             }
-            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(nameToLambdaArgumentDeclarationMap)));
+            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(context.getContext().getScope(), nameToLambdaArgumentDeclarationMap)));
             FunctionType functionType = new FunctionType(types, returnType);
             return setExpressionType(node, functionType);
         }
@@ -1252,6 +1253,8 @@ public class ExpressionAnalyzer
 
     private static class Context
     {
+        private final Scope scope;
+
         // functionInputTypes and nameToLambdaDeclarationMap can be null or non-null independently. All 4 combinations are possible.
 
         // The list of types when expecting a lambda (i.e. processing lambda parameters of a function); null otherwise.
@@ -1262,31 +1265,38 @@ public class ExpressionAnalyzer
         private final Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap;
 
         private Context(
+                Scope scope,
                 List<Type> functionInputTypes,
                 Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
         {
+            this.scope = requireNonNull(scope, "scope is null");
             this.functionInputTypes = functionInputTypes;
             this.nameToLambdaArgumentDeclarationMap = nameToLambdaArgumentDeclarationMap;
         }
 
-        static Context notInLambda()
+        static Context notInLambda(Scope scope)
         {
-            return new Context(null, null);
+            return new Context(scope, null, null);
         }
 
-        static Context inLambda(Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
+        static Context inLambda(Scope scope, Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
         {
-            return new Context(null, requireNonNull(nameToLambdaArgumentDeclarationMap, "nameToLambdaArgumentDeclarationMap is null"));
+            return new Context(scope, null, requireNonNull(nameToLambdaArgumentDeclarationMap, "nameToLambdaArgumentDeclarationMap is null"));
         }
 
         Context expectingLambda(List<Type> functionInputTypes)
         {
-            return new Context(requireNonNull(functionInputTypes, "functionInputTypes is null"), this.nameToLambdaArgumentDeclarationMap);
+            return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.nameToLambdaArgumentDeclarationMap);
         }
 
         Context notExpectingLambda()
         {
-            return new Context(null, this.nameToLambdaArgumentDeclarationMap);
+            return new Context(scope, null, this.nameToLambdaArgumentDeclarationMap);
+        }
+
+        Scope getScope()
+        {
+            return scope;
         }
 
         boolean isInLambda()
