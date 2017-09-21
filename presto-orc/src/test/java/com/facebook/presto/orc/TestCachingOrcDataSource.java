@@ -14,11 +14,11 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcTester.Format;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.FixedLengthSliceInput;

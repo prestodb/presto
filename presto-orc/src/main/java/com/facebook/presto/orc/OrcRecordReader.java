@@ -15,8 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksum;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
-import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -30,6 +28,7 @@ import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
@@ -98,7 +97,7 @@ public class OrcRecordReader
 
     private final Map<String, Slice> userMetadata;
 
-    private final AbstractAggregatedMemoryContext systemMemoryUsage;
+    private final AggregatedMemoryContext systemMemoryUsage;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
@@ -123,7 +122,7 @@ public class OrcRecordReader
             DataSize maxReadSize,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AbstractAggregatedMemoryContext systemMemoryUsage,
+            AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
