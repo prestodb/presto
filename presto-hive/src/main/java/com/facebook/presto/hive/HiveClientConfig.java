@@ -33,7 +33,6 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 @DefunctConfig({
         "hive.file-system-cache-ttl",
@@ -117,8 +116,6 @@ public class HiveClientConfig
 
     private boolean writesToNonManagedTablesEnabled;
     private boolean tableStatisticsEnabled = true;
-
-    private Duration kerberosTgtMaxCacheDuration = new Duration(1, HOURS);
 
     public int getMaxInitialSplits()
     {
@@ -906,19 +903,5 @@ public class HiveClientConfig
     public boolean isTableStatisticsEnabled()
     {
         return tableStatisticsEnabled;
-    }
-
-    @NotNull
-    public Duration getKerberosTgtMaxCacheDuration()
-    {
-        return kerberosTgtMaxCacheDuration;
-    }
-
-    @Config("hive.kerberos-tgt-max-cache-duration")
-    @ConfigDescription("Kerberos ticket granting ticket max cache duration")
-    public HiveClientConfig setKerberosTgtMaxCacheDuration(Duration kerberosTgtMaxCacheDuration)
-    {
-        this.kerberosTgtMaxCacheDuration = kerberosTgtMaxCacheDuration;
-        return this;
     }
 }

@@ -29,8 +29,6 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
-import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestHiveClientConfig
 {
@@ -95,8 +93,7 @@ public class TestHiveClientConfig
                 .setBucketWritingEnabled(true)
                 .setFileSystemMaxCacheSize(1000)
                 .setTableStatisticsEnabled(true)
-                .setWritesToNonManagedTablesEnabled(false)
-                .setKerberosTgtMaxCacheDuration(new Duration(1, HOURS)));
+                .setWritesToNonManagedTablesEnabled(false));
     }
 
     @Test
@@ -161,7 +158,6 @@ public class TestHiveClientConfig
                 .put("hive.fs.cache.max-size", "1010")
                 .put("hive.table-statistics-enabled", "false")
                 .put("hive.non-managed-table-writes-enabled", "true")
-                .put("hive.kerberos-tgt-max-cache-duration", "1s")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -171,7 +167,7 @@ public class TestHiveClientConfig
                 .setMaxOutstandingSplits(10)
                 .setMaxSplitIteratorThreads(10)
                 .setAllowCorruptWritesForTesting(true)
-                .setMetastoreCacheTtl(new Duration(2, HOURS))
+                .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
                 .setMetastoreCacheMaximumSize(5000)
                 .setPerTransactionMetastoreCacheMaximumSize(500)
@@ -222,8 +218,7 @@ public class TestHiveClientConfig
                 .setBucketWritingEnabled(false)
                 .setFileSystemMaxCacheSize(1010)
                 .setTableStatisticsEnabled(false)
-                .setWritesToNonManagedTablesEnabled(true)
-                .setKerberosTgtMaxCacheDuration(new Duration(1, SECONDS));
+                .setWritesToNonManagedTablesEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

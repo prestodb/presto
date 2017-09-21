@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.authentication;
 
-import io.airlift.units.Duration;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -22,7 +21,6 @@ import javax.security.auth.kerberos.KerberosTicket;
 
 import static com.facebook.presto.hive.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.Long.min;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.getSubject;
 
@@ -30,7 +28,6 @@ public class CachingKerberosHadoopAuthentication
         implements HadoopAuthentication
 {
     private final KerberosHadoopAuthentication delegate;
-    private final long maxCacheDurationMillis;
 
     private final Object lock = new Object();
     @GuardedBy("lock")
@@ -38,10 +35,9 @@ public class CachingKerberosHadoopAuthentication
     @GuardedBy("lock")
     private long nextRefreshTime = Long.MIN_VALUE;
 
-    public CachingKerberosHadoopAuthentication(KerberosHadoopAuthentication delegate, Duration maxCacheDuration)
+    public CachingKerberosHadoopAuthentication(KerberosHadoopAuthentication delegate)
     {
         this.delegate = requireNonNull(delegate, "hadoopAuthentication is null");
-        this.maxCacheDurationMillis = requireNonNull(maxCacheDuration, "maxCacheDuration is null").toMillis();
     }
 
     @Override
@@ -58,7 +54,7 @@ public class CachingKerberosHadoopAuthentication
     private void refreshUgi()
     {
         userGroupInformation = delegate.getUserGroupInformation();
-        nextRefreshTime = min(calculateNextRefreshTime(userGroupInformation), System.currentTimeMillis() + maxCacheDurationMillis);
+        nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
     }
 
     private boolean refreshIsNeeded()
