@@ -769,6 +769,51 @@ public class TestArbitraryOutputBuffer
     }
 
     @Test
+    public void testAddBufferAfterFail()
+            throws Exception
+    {
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY)
+                .withBuffer(FIRST, BROADCAST_PARTITION_ID);
+        ArbitraryOutputBuffer buffer = createArbitraryBuffer(outputBuffers, sizeOfPages(5));
+        assertFalse(buffer.isFinished());
+
+        // attempt to get a page
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+
+        // verify we are waiting for a page
+        assertFalse(future.isDone());
+
+        // add one page
+        addPage(buffer, createPage(0));
+
+        // verify we got one page
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
+
+        // fail the buffer
+        buffer.fail();
+
+        // add a buffer
+        outputBuffers = outputBuffers.withBuffer(SECOND, BROADCAST_PARTITION_ID);
+        buffer.setOutputBuffers(outputBuffers);
+
+        // attempt to get page, and verify we are blocked
+        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        assertFalse(future.isDone());
+        future = buffer.get(SECOND, 0, sizeOfPages(10));
+        assertFalse(future.isDone());
+
+        // set no more buffers
+        outputBuffers = outputBuffers.withNoMoreBufferIds();
+        buffer.setOutputBuffers(outputBuffers);
+
+        // attempt to get page, and verify we are blocked
+        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        assertFalse(future.isDone());
+        future = buffer.get(SECOND, 0, sizeOfPages(10));
+        assertFalse(future.isDone());
+    }
+
+    @Test
     public void testBufferCompletion()
             throws Exception
     {
