@@ -91,6 +91,7 @@ public class AccumulatorCompiler
                 metadata.getStateSerializer(),
                 metadata.getStateFactory(),
                 accumulatorClass,
+                metadata.getRemoveInputFunction().isPresent(),
                 groupedAccumulatorClass);
     }
 
@@ -130,7 +131,9 @@ public class AccumulatorCompiler
 
         // Generate methods
         generateAddInput(definition, stateField, inputChannelsField, maskChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder, grouped);
-        generateAddInputWindowIndex(definition, stateField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder);
+        generateAddOrRemoveInputWindowIndex(definition, stateField, metadata.getInputMetadata(), metadata.getInputFunction(), "addInput", callSiteBinder);
+        metadata.getRemoveInputFunction().ifPresent(
+                removeInputFunction -> generateAddOrRemoveInputWindowIndex(definition, stateField, metadata.getInputMetadata(), removeInputFunction, "removeInput", callSiteBinder));
         generateGetEstimatedSize(definition, stateField);
         generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
         generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
@@ -243,11 +246,12 @@ public class AccumulatorCompiler
         body.ret();
     }
 
-    private static void generateAddInputWindowIndex(
+    private static void generateAddOrRemoveInputWindowIndex(
             ClassDefinition definition,
             FieldDefinition stateField,
             List<ParameterMetadata> parameterMetadatas,
             MethodHandle inputFunction,
+            String generatedFunctionName,
             CallSiteBinder callSiteBinder)
     {
         // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
@@ -257,7 +261,11 @@ public class AccumulatorCompiler
         Parameter startPosition = arg("startPosition", int.class);
         Parameter endPosition = arg("endPosition", int.class);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channels, startPosition, endPosition));
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC),
+                generatedFunctionName,
+                type(void.class),
+                ImmutableList.of(index, channels, startPosition, endPosition));
         Scope scope = method.getScope();
 
         Variable position = scope.declareVariable(int.class, "position");
@@ -266,7 +274,7 @@ public class AccumulatorCompiler
         BytecodeExpression invokeInputFunction = invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(binding.getBindingId()),
-                "input",
+                generatedFunctionName,
                 binding.getType(),
                 getInvokeFunctionOnWindowIndexParameters(
                         scope,

@@ -33,6 +33,8 @@ public interface Accumulator
 
     void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
 
+    void removeInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
+
     void addIntermediate(Block block);
 
     void evaluateIntermediate(BlockBuilder blockBuilder);

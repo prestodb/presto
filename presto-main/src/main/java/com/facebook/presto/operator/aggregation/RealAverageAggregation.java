@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.RemoveInputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
@@ -37,6 +38,13 @@ public final class RealAverageAggregation
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + intBitsToFloat((int) value));
+    }
+
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.REAL) long value)
+    {
+        state.setLong(state.getLong() - 1);
+        state.setDouble(state.getDouble() - intBitsToFloat((int) value));
     }
 
     @CombineFunction

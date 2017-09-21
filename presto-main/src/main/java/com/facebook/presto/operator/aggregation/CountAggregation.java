@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.RemoveInputFunction;
 import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -35,6 +36,12 @@ public final class CountAggregation
     public static void input(@AggregationState LongState state)
     {
         state.setLong(state.getLong() + 1);
+    }
+
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongState state)
+    {
+        state.setLong(state.getLong() - 1);
     }
 
     @CombineFunction

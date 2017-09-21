@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableMap;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -124,6 +125,7 @@ public abstract class AbstractMinMaxBy
                 generateAggregationName(getSignature().getName(), valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(valueType, keyType),
                 inputMethod,
+                Optional.empty(),
                 combineMethod,
                 outputMethod,
                 stateClazz,

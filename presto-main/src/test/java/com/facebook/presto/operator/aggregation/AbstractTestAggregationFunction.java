@@ -170,11 +170,30 @@ public abstract class AbstractTestAggregationFunction
         pagesIndex.addPage(inputPage);
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
 
+        Accumulator aggregation = accumulatorFactory.createAccumulator();
+        int oldStart = 0;
+        int oldWidth = 0;
         for (int start = 0; start < totalPositions; ++start) {
             int width = windowWidths[start];
-            // Note that addInput's interval is inclusive on both ends
-            Accumulator aggregation = accumulatorFactory.createAccumulator();
-            aggregation.addInput(windowIndex, channels, start, start + width - 1);
+            // Note that add/removeInput's interval is inclusive on both ends
+            if (accumulatorFactory.hasRemoveInput()) {
+                for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
+                    if (oldi < start || oldi >= start + width) {
+                        aggregation.removeInput(windowIndex, channels, oldi, oldi);
+                    }
+                }
+                for (int newi = start; newi < start + width; ++newi) {
+                    if (newi < oldStart || newi >= oldStart + oldWidth) {
+                        aggregation.addInput(windowIndex, channels, newi, newi);
+                    }
+                }
+            }
+            else {
+                aggregation = accumulatorFactory.createAccumulator();
+                aggregation.addInput(windowIndex, channels, start, start + width - 1);
+            }
+            oldStart = start;
+            oldWidth = width;
             Block block = getFinalBlock(aggregation);
             makeValidityAssertion(expectedValues[start]).accept(
                     BlockAssertions.getOnlyValue(aggregation.getFinalType(), block));

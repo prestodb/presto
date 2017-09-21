@@ -25,6 +25,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -43,6 +44,7 @@ public class AggregationMetadata
     private final String name;
     private final List<ParameterMetadata> inputMetadata;
     private final MethodHandle inputFunction;
+    private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
     private final AccumulatorStateSerializer<?> stateSerializer;
@@ -53,6 +55,7 @@ public class AggregationMetadata
             String name,
             List<ParameterMetadata> inputMetadata,
             MethodHandle inputFunction,
+            Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             Class<?> stateInterface,
@@ -64,6 +67,7 @@ public class AggregationMetadata
         this.inputMetadata = ImmutableList.copyOf(requireNonNull(inputMetadata, "inputMetadata is null"));
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
+        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
@@ -92,6 +96,11 @@ public class AggregationMetadata
     public MethodHandle getInputFunction()
     {
         return inputFunction;
+    }
+
+    public Optional<MethodHandle> getRemoveInputFunction()
+    {
+        return removeInputFunction;
     }
 
     public MethodHandle getCombineFunction()

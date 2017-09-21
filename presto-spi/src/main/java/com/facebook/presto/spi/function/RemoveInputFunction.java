@@ -11,21 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.spi.function;
 
-import java.util.List;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-public interface AccumulatorFactory
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target(METHOD)
+public @interface RemoveInputFunction
 {
-    List<Integer> getInputChannels();
-
-    boolean hasRemoveInput();
-
-    Accumulator createAccumulator();
-
-    Accumulator createIntermediateAccumulator();
-
-    GroupedAccumulator createGroupedAccumulator();
-
-    GroupedAccumulator createGroupedIntermediateAccumulator();
 }

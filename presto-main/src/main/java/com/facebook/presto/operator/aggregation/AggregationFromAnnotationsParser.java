@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.AggregationStateSerializerFactory;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.RemoveInputFunction;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +39,7 @@ import java.util.Set;
 import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -76,8 +78,9 @@ public class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
+                    Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, stateClass, inputFunction);
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
                         builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
                     }
@@ -98,7 +101,8 @@ public class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
             Method inputFunction = getOnlyElement(getInputFunctions(aggregationDefinition, stateClass));
-            AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+            Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, stateClass, inputFunction);
+            AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
             implementationsBuilder.addImplementation(implementation);
         }
 
@@ -195,6 +199,23 @@ public class AggregationFromAnnotationsParser
 
         checkArgument(!inputFunctions.isEmpty(), "Aggregation has no input functions");
         return inputFunctions;
+    }
+
+    private static Optional<Method> getRemoveInputFunction(Class<?> clazz, Class<?> stateClass, Method inputFunction)
+    {
+        // Only include methods which take the same parameters as the corresponding input function
+        List<Method> removeInputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, RemoveInputFunction.class).stream()
+                .filter(method ->
+                        Arrays.equals(method.getParameterTypes(), inputFunction.getParameterTypes())
+                                && Arrays.deepEquals(method.getParameterAnnotations(), inputFunction.getParameterAnnotations()))
+                .collect(toImmutableList());
+
+        // Note that a missing removeInput function is not an error -- they are optional.
+        checkState(removeInputFunctions.size() <= 1, "Ambiguous aggregation removeInput functions");
+        if (removeInputFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(removeInputFunctions.get(0));
     }
 
     private static Set<Class<?>> getStateClasses(Class<?> clazz)

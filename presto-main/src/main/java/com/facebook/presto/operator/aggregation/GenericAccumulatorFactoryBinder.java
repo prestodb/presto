@@ -30,12 +30,14 @@ public class GenericAccumulatorFactoryBinder
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
+    private final boolean accumulatorHasRemoveInput;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
 
     public GenericAccumulatorFactoryBinder(
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
             Class<? extends Accumulator> accumulatorClass,
+            boolean accumulatorHasRemoveInput,
             Class<? extends GroupedAccumulator> groupedAccumulatorClass)
     {
         this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
@@ -47,6 +49,8 @@ public class GenericAccumulatorFactoryBinder
                     AccumulatorStateFactory.class,
                     List.class,
                     Optional.class);
+
+            this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
 
             groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
                     AccumulatorStateSerializer.class,
@@ -62,7 +66,7 @@ public class GenericAccumulatorFactoryBinder
     @Override
     public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel)
     {
-        return new GenericAccumulatorFactory(stateSerializer, stateFactory, accumulatorConstructor, groupedAccumulatorConstructor, argumentChannels, maskChannel);
+        return new GenericAccumulatorFactory(stateSerializer, stateFactory, accumulatorConstructor, accumulatorHasRemoveInput, groupedAccumulatorConstructor, argumentChannels, maskChannel);
     }
 
     @VisibleForTesting

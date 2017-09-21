@@ -34,11 +34,13 @@ public class GenericAccumulatorFactory
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
     private final Optional<Integer> maskChannel;
     private final List<Integer> inputChannels;
+    private final boolean accumulatorHasRemoveInput;
 
     public GenericAccumulatorFactory(
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
             Constructor<? extends Accumulator> accumulatorConstructor,
+            boolean accumulatorHasRemoveInput,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
             List<Integer> inputChannels,
             Optional<Integer> maskChannel)
@@ -46,6 +48,7 @@ public class GenericAccumulatorFactory
         this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
+        this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
@@ -55,6 +58,12 @@ public class GenericAccumulatorFactory
     public List<Integer> getInputChannels()
     {
         return inputChannels;
+    }
+
+    @Override
+    public boolean hasRemoveInput()
+    {
+        return accumulatorHasRemoveInput;
     }
 
     @Override
