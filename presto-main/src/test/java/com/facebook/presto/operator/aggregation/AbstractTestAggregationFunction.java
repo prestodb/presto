@@ -13,13 +13,18 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.window.PagesWindowIndex;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -27,6 +32,7 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -34,7 +40,11 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createArgs;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static java.util.Optional.empty;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -136,6 +146,39 @@ public abstract class AbstractTestAggregationFunction
     public void testPositiveOnlyValues()
     {
         testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
+    }
+
+    @Test
+    public void testSlidingWindow()
+    {
+        // Builds trailing windows of length 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0
+        int totalPositions = 12;
+        int[] windowWidths = new int[totalPositions];
+        Object[] expectedValues = new Object[totalPositions];
+
+        for (int i = 0; i < totalPositions; ++i) {
+            int windowWidth = Integer.min(i, totalPositions - 1 - i);
+            windowWidths[i] = windowWidth;
+            expectedValues[i] = getExpectedValue(i, windowWidth);
+        }
+        Page inputPage = new Page(totalPositions, getSequenceBlocks(0, totalPositions));
+
+        InternalAggregationFunction function = getFunction();
+        List<Integer> channels = Ints.asList(createArgs(function));
+        AccumulatorFactory accumulatorFactory = function.bind(channels, empty());
+        PagesIndex pagesIndex = new PagesIndex.TestingFactory().newPagesIndex(function.getParameterTypes(), totalPositions);
+        pagesIndex.addPage(inputPage);
+        WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
+
+        for (int start = 0; start < totalPositions; ++start) {
+            int width = windowWidths[start];
+            // Note that addInput's interval is inclusive on both ends
+            Accumulator aggregation = accumulatorFactory.createAccumulator();
+            aggregation.addInput(windowIndex, channels, start, start + width - 1);
+            Block block = getFinalBlock(aggregation);
+            makeValidityAssertion(expectedValues[start]).accept(
+                    BlockAssertions.getOnlyValue(aggregation.getFinalType(), block));
+        }
     }
 
     public Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)

@@ -34,7 +34,7 @@ public class TestVarBinaryMaxAggregation
     public Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), length);
-        for (int i = 0; i < length; i++) {
+        for (int i = start; i < start + length; i++) {
             VARBINARY.writeSlice(blockBuilder, Slices.wrappedBuffer(Ints.toByteArray(i)));
         }
         return new Block[] {blockBuilder.build()};
@@ -47,7 +47,7 @@ public class TestVarBinaryMaxAggregation
             return null;
         }
         Slice max = null;
-        for (int i = 0; i < length; i++) {
+        for (int i = start; i < start + length; i++) {
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
             max = (max == null) ? slice : Ordering.natural().max(max, slice);
         }

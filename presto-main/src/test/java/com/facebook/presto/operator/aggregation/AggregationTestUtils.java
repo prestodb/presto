@@ -25,7 +25,7 @@ import com.google.common.primitives.Ints;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -90,26 +90,31 @@ public final class AggregationTestUtils
         return blockBuilder.build();
     }
 
-    private static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page... pages)
+    public static Consumer<Object> makeValidityAssertion(Object expectedValue)
     {
-        BiConsumer<Object, Object> equalAssertion = (actual, expected) -> {
-            assertEquals(actual, expected);
-        };
+        Consumer<Object> equalAssertion = actual -> assertEquals(actual, expectedValue);
+
         if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
-            equalAssertion = (actual, expected) -> assertEquals((double) actual, (double) expected, 1e-10);
+            equalAssertion = actual -> assertEquals((double) actual, (double) expectedValue, 1e-10);
         }
         if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
-            equalAssertion = (actual, expected) -> assertEquals((float) actual, (float) expected, 1e-10f);
+            equalAssertion = actual -> assertEquals((float) actual, (float) expectedValue, 1e-10f);
         }
+        return equalAssertion;
+    }
+
+    private static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page... pages)
+    {
+        Consumer<Object> equalAssertion = makeValidityAssertion(expectedValue);
 
         // This assertAggregation does not try to split up the page to test the correctness of combine function.
         // Do not use this directly. Always use the other assertAggregation.
-        equalAssertion.accept(aggregation(function, pages), expectedValue);
-        equalAssertion.accept(partialAggregation(function, pages), expectedValue);
+        equalAssertion.accept(aggregation(function, pages));
+        equalAssertion.accept(partialAggregation(function, pages));
         if (pages.length > 0) {
-            equalAssertion.accept(groupedAggregation(function, pages), expectedValue);
-            equalAssertion.accept(groupedPartialAggregation(function, pages), expectedValue);
-            equalAssertion.accept(distinctAggregation(function, pages), expectedValue);
+            equalAssertion.accept(groupedAggregation(function, pages));
+            equalAssertion.accept(groupedPartialAggregation(function, pages));
+            equalAssertion.accept(distinctAggregation(function, pages));
         }
     }
 
@@ -312,7 +317,7 @@ public final class AggregationTestUtils
         return new GroupByIdBlock(groupId, blockBuilder.build());
     }
 
-    private static int[] createArgs(InternalAggregationFunction function)
+    public static int[] createArgs(InternalAggregationFunction function)
     {
         int[] args = new int[function.getParameterTypes().size()];
         for (int i = 0; i < args.length; i++) {

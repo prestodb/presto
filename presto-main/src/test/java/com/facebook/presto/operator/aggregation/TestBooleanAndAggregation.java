@@ -45,7 +45,7 @@ public class TestBooleanAndAggregation
         if (length == 0) {
             return null;
         }
-        return length > 1 ? FALSE : TRUE;
+        return (length > 1 || (start % 2 == 1)) ? FALSE : TRUE;
     }
 
     @Override
