@@ -1035,7 +1035,7 @@ public class ExpressionAnalyzer
                     }
                     break;
                 default:
-                    checkState(false, "Unexpected comparison type: %s", node.getComparisonType());
+                    throw new IllegalStateException(format("Unexpected comparison type: %s", node.getComparisonType()));
             }
 
             return setExpressionType(node, BOOLEAN);
@@ -1063,7 +1063,6 @@ public class ExpressionAnalyzer
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node,
                         format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
             }
-            verify(types.size() == lambdaArguments.size());
 
             Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap = new HashMap<>();
             if (context.getContext().isInLambda()) {
@@ -1074,7 +1073,7 @@ public class ExpressionAnalyzer
                 nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName().getValue(), lambdaArgument);
                 setExpressionType(lambdaArgument, types.get(i));
             }
-            Type returnType = process(node.getBody(), new StackableAstVisitorContext<Context>(Context.inLambda(nameToLambdaArgumentDeclarationMap)));
+            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(nameToLambdaArgumentDeclarationMap)));
             FunctionType functionType = new FunctionType(types, returnType);
             return setExpressionType(node, functionType);
         }
@@ -1117,6 +1116,7 @@ public class ExpressionAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
         }
 
+        @Override
         public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
         {
             if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT) {
@@ -1269,43 +1269,43 @@ public class ExpressionAnalyzer
             this.nameToLambdaArgumentDeclarationMap = nameToLambdaArgumentDeclarationMap;
         }
 
-        public static Context notInLambda()
+        static Context notInLambda()
         {
             return new Context(null, null);
         }
 
-        public static Context inLambda(Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
+        static Context inLambda(Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
         {
             return new Context(null, requireNonNull(nameToLambdaArgumentDeclarationMap, "nameToLambdaArgumentDeclarationMap is null"));
         }
 
-        public Context expectingLambda(List<Type> functionInputTypes)
+        Context expectingLambda(List<Type> functionInputTypes)
         {
             return new Context(requireNonNull(functionInputTypes, "functionInputTypes is null"), this.nameToLambdaArgumentDeclarationMap);
         }
 
-        public Context notExpectingLambda()
+        Context notExpectingLambda()
         {
             return new Context(null, this.nameToLambdaArgumentDeclarationMap);
         }
 
-        public boolean isInLambda()
+        boolean isInLambda()
         {
             return nameToLambdaArgumentDeclarationMap != null;
         }
 
-        public boolean isExpectingLambda()
+        boolean isExpectingLambda()
         {
             return functionInputTypes != null;
         }
 
-        public Map<String, LambdaArgumentDeclaration> getNameToLambdaArgumentDeclarationMap()
+        Map<String, LambdaArgumentDeclaration> getNameToLambdaArgumentDeclarationMap()
         {
             checkState(isInLambda());
             return nameToLambdaArgumentDeclarationMap;
         }
 
-        public List<Type> getFunctionInputTypes()
+        List<Type> getFunctionInputTypes()
         {
             checkState(isExpectingLambda());
             return functionInputTypes;
