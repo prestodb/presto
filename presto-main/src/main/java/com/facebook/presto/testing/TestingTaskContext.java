@@ -46,10 +46,22 @@ public final class TestingTaskContext
                 .build();
     }
 
+    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session, TaskStateMachine taskStateMachine)
+    {
+        return builder(notificationExecutor, yieldExecutor, session)
+                .setTaskStateMachine(taskStateMachine)
+                .build();
+    }
+
     public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session)
     {
+        return createTaskContext(queryContext, session, new TaskStateMachine(new TaskId("query", 0, 0), executor));
+    }
+
+    private static TaskContext createTaskContext(QueryContext queryContext, Session session, TaskStateMachine taskStateMachine)
+    {
         return queryContext.addTaskContext(
-                new TaskStateMachine(new TaskId("query", 0, 0), executor),
+                taskStateMachine,
                 session,
                 true,
                 true);
@@ -65,6 +77,7 @@ public final class TestingTaskContext
         private final Executor notificationExecutor;
         private final ScheduledExecutorService yieldExecutor;
         private final Session session;
+        private TaskStateMachine taskStateMachine;
         private DataSize queryMaxMemory = new DataSize(256, MEGABYTE);
         private DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
         private DataSize systemMemoryPoolSize = new DataSize(1, GIGABYTE);
@@ -76,6 +89,13 @@ public final class TestingTaskContext
             this.notificationExecutor = notificationExecutor;
             this.yieldExecutor = yieldExecutor;
             this.session = session;
+            this.taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0), notificationExecutor);
+        }
+
+        public Builder setTaskStateMachine(TaskStateMachine taskStateMachine)
+        {
+            this.taskStateMachine = taskStateMachine;
+            return this;
         }
 
         public Builder setQueryMaxMemory(DataSize queryMaxMemory)
@@ -123,7 +143,7 @@ public final class TestingTaskContext
                     queryMaxSpillSize,
                     spillSpaceTracker);
 
-            return createTaskContext(queryContext, notificationExecutor, session);
+            return createTaskContext(queryContext, session, taskStateMachine);
         }
     }
 }
