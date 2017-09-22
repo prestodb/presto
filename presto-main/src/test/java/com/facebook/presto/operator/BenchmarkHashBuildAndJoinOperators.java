@@ -17,6 +17,7 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -42,6 +43,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -50,6 +52,7 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.String.format;
@@ -290,7 +293,9 @@ public class BenchmarkHashBuildAndJoinOperators
                 ImmutableList.of(),
                 10_000,
                 1,
-                new PagesIndex.TestingFactory());
+                new PagesIndex.TestingFactory(),
+                false,
+                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
 
         Operator operator = hashBuilderOperatorFactory.createOperator(driverContext);
         for (Page page : buildContext.getBuildPages()) {
@@ -317,7 +322,9 @@ public class BenchmarkHashBuildAndJoinOperators
                 joinContext.getTypes(),
                 joinContext.getHashChannels(),
                 joinContext.getHashChannel(),
-                Optional.of(joinContext.getOutputChannels()));
+                Optional.of(joinContext.getOutputChannels()),
+                OptionalInt.empty(),
+                unsupportedPartitioningSpillerFactory());
 
         DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true).addDriverContext();
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);

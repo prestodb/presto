@@ -94,6 +94,8 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.PartitioningSpillerFactory;
+import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
@@ -247,6 +249,8 @@ public class LocalExecutionPlanner
     private final DataSize maxPartialAggregationMemorySize;
     private final DataSize maxPagePartitioningBufferSize;
     private final SpillerFactory spillerFactory;
+    private final SingleStreamSpillerFactory singleStreamSpillerFactory;
+    private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final BlockEncodingSerde blockEncodingSerde;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
@@ -270,6 +274,8 @@ public class LocalExecutionPlanner
             CompilerConfig compilerConfig,
             TaskManagerConfig taskManagerConfig,
             SpillerFactory spillerFactory,
+            SingleStreamSpillerFactory singleStreamSpillerFactory,
+            PartitioningSpillerFactory partitioningSpillerFactory,
             BlockEncodingSerde blockEncodingSerde,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
@@ -291,6 +297,8 @@ public class LocalExecutionPlanner
         this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxIndexMemoryUsage();
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
+        this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
+        this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.maxPagePartitioningBufferSize = taskManagerConfig.getMaxPagePartitioningBufferSize();
@@ -1465,12 +1473,13 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory lookupJoinOperatorFactory;
+            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);
             switch (node.getType()) {
                 case INNER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceFactory, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty());
+                    lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceFactory, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty(), totalOperatorsCount, partitioningSpillerFactory);
                     break;
                 case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceFactory, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty());
+                    lookupJoinOperatorFactory = lookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceFactory, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty(), totalOperatorsCount, partitioningSpillerFactory);
                     break;
                 default:
                     throw new AssertionError("Unknown type: " + node.getType());
@@ -1624,7 +1633,9 @@ public class LocalExecutionPlanner
                     searchFunctionFactories,
                     10_000,
                     buildContext.getDriverInstanceCount().orElse(1),
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    false,
+                    singleStreamSpillerFactory);
 
             context.addDriverFactory(
                     buildContext.isInputDriver(),
@@ -1689,19 +1700,29 @@ public class LocalExecutionPlanner
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(probeOutputSymbols, probeSource.getLayout()));
             List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
             Optional<Integer> probeHashChannel = probeHashSymbol.map(channelGetter(probeSource));
+            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);
 
             switch (node.getType()) {
                 case INNER:
-                    return lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels));
+                    return lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
                 case LEFT:
-                    return lookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels));
+                    return lookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
                 case RIGHT:
-                    return lookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels));
+                    return lookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
                 case FULL:
-                    return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels));
+                    return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+        }
+
+        private OptionalInt getJoinOperatorsCountForSpill(LocalExecutionPlanContext context, Session session)
+        {
+            OptionalInt driverInstanceCount = context.getDriverInstanceCount();
+            if (isSpillEnabled(session)) {
+                checkState(driverInstanceCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
+            }
+            return driverInstanceCount;
         }
 
         private Map<Symbol, Integer> createJoinSourcesLayout(Map<Symbol, Integer> lookupSourceLayout, Map<Symbol, Integer> probeSourceLayout)

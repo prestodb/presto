@@ -96,8 +96,10 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.split.PageSinkManager;
@@ -223,6 +225,7 @@ public class LocalQueryRunner
     private final TransactionManager transactionManager;
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
+    private final PartitioningSpillerFactory partitioningSpillerFactory;
 
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
@@ -388,6 +391,7 @@ public class LocalQueryRunner
 
         SpillerStats spillerStats = new SpillerStats();
         this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
+        this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }
 
@@ -632,6 +636,8 @@ public class LocalQueryRunner
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
                 new TaskManagerConfig().setTaskConcurrency(4),
                 spillerFactory,
+                singleStreamSpillerFactory,
+                partitioningSpillerFactory,
                 blockEncodingSerde,
                 new PagesIndex.TestingFactory(),
                 new JoinCompiler(),
