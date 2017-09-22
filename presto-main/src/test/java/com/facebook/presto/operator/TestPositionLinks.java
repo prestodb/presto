@@ -20,6 +20,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -310,7 +311,7 @@ public class TestPositionLinks
                 ImmutableList.of(),
                 ImmutableList.of(ImmutableList.of(TEST_PAGE.getBlock(0))),
                 ImmutableList.of(),
-                Optional.empty(),
+                OptionalInt.empty(),
                 Optional.of(0));
     }
 
