@@ -22,7 +22,7 @@ public interface JoinProbe
 
     boolean advanceNextPosition();
 
-    long getCurrentJoinPosition();
+    long getCurrentJoinPosition(LookupSource lookupSource);
 
     void appendTo(PageBuilder pageBuilder);
 
