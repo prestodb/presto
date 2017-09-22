@@ -58,6 +58,74 @@ General Properties
     enough that the JVM does not fail with ``OutOfMemoryError``.
 
 
+.. _tuning-spilling:
+
+Properties controlling spilling
+-------------------------------
+
+``experimental.spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``Boolean``
+    * **Default value:** ``false``
+    * **Description:** Try spilling memory to disk to avoid exceeding memory limits for the query.
+
+    Spilling works by offloading memory to disk. This process can allow a query with a large memory
+    footprint to pass at the cost of slower execution times. Currently, spilling is supported only for
+    aggregations and joins (inner and outer), so this property will not reduce memory usage required for
+    window functions, sorting and other join types.
+
+    Be aware that this is an experimental feature and should be used with care.
+
+    This config property can be overridden by the ``spill_enabled`` session property.
+
+``experimental.spiller-spill-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``String``
+    * **No default value.** Must be set when spilling is enabled
+    * **Description:** Directory where spilled content will be written. It can be a comma separated list to
+
+    spill simultaneously to multiple directories, which helps to utilize multiple drives installed in the system.
+    It is not recommended to spill to system drives. Especially do not spill on a drive, to which are
+    written JVM logs, as disk overutilization might cause JVM to pause for lengthy periods causing queries to fail.
+
+``experimental.spiller-minimum-free-space-threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Double``
+ * **Default value:** ``0.9``
+ * **Description:** If disk space usage of a given spill path is above this threshold, this spill path will not be eligible for spilling.
+
+``experimental.spiller-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``4``
+ * **Description:** Number of spiller threads. Increase this value if the default is not able to saturate the underlying spilling device (for example, when using a RAID matrix with multiple disks)
+
+``experimental.max-spill-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``100 GB``
+ * **Description:** Max spill space to be used by all queries on a single node.
+
+``experimental.query-max-spill-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``100 GB``
+ * **Description:** Max spill space to be used by a single query on a single node.
+
+``experimental.aggregation-operator-unspill-memory-limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``4 MB``
+ * **Description:** Limit for memory used for unspilling a single aggregation operator instance.
+
+
 Exchange Properties
 -------------------
 
