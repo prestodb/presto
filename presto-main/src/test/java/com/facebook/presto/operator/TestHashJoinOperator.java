@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -68,6 +69,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.unmodifiableIterator;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -852,11 +854,13 @@ public class TestHashJoinOperator
                     buildOperatorFactory.createOperator(buildDriverContext));
         }
 
-        while (!buildOperatorFactory.getLookupSourceFactory().createLookupSource().isDone()) {
+        Future<LookupSourceProvider> lookupSourceProvider = buildOperatorFactory.getLookupSourceFactory().createLookupSourceProvider();
+        while (!lookupSourceProvider.isDone()) {
             for (Driver buildDriver : buildDrivers) {
                 buildDriver.process();
             }
         }
+        getFutureValue(lookupSourceProvider).close();
 
         return buildOperatorFactory.getLookupSourceFactory();
     }

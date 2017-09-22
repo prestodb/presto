@@ -28,7 +28,7 @@ import java.util.OptionalInt;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class LookupJoinOperator
@@ -37,7 +37,6 @@ public class LookupJoinOperator
     private final OperatorContext operatorContext;
     private final List<Type> allTypes;
     private final List<Type> probeTypes;
-    private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
     private final JoinProbeFactory joinProbeFactory;
     private final Runnable onClose;
     private final OptionalInt lookupJoinsCount;
@@ -50,7 +49,8 @@ public class LookupJoinOperator
 
     private final boolean probeOnOuterSide;
 
-    private LookupSource lookupSource;
+    private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
+    private LookupSourceProvider lookupSourceProvider;
     private JoinProbe probe;
 
     private boolean closed;
@@ -65,7 +65,7 @@ public class LookupJoinOperator
             List<Type> allTypes,
             List<Type> probeTypes,
             JoinType joinType,
-            ListenableFuture<LookupSource> lookupSourceFuture,
+            ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture,
             JoinProbeFactory joinProbeFactory,
             Runnable onClose,
             OptionalInt lookupJoinsCount,
@@ -80,12 +80,12 @@ public class LookupJoinOperator
         // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
         probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
 
-        this.lookupSourceFuture = requireNonNull(lookupSourceFuture, "lookupSourceFuture is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.onClose = requireNonNull(onClose, "onClose is null");
         this.lookupJoinsCount = requireNonNull(lookupJoinsCount, "lookupJoinsCount is null");
         this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
+        this.lookupSourceProviderFuture = requireNonNull(lookupSourceProviderFuture, "lookupSourceProviderFuture is null");
 
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         operatorContext.setInfoSupplier(this.statisticsCounter);
@@ -126,23 +126,15 @@ public class LookupJoinOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return lookupSourceFuture;
+        return lookupSourceProviderFuture;
     }
 
     @Override
     public boolean needsInput()
     {
-        if (finishing) {
-            return false;
-        }
-
-        if (lookupSource == null) {
-            lookupSource = tryGetFutureValue(lookupSourceFuture).orElse(null);
-            if (lookupSource != null) {
-                statisticsCounter.setLookupSourcePositions(lookupSource.getJoinPositionCount());
-            }
-        }
-        return lookupSource != null && probe == null;
+        return !finishing
+                && lookupSourceProviderFuture.isDone()
+                && probe == null;
     }
 
     @Override
@@ -150,8 +142,13 @@ public class LookupJoinOperator
     {
         requireNonNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
-        checkState(lookupSource != null, "Lookup source has not been built yet");
         checkState(probe == null, "Current page has not been completely processed yet");
+
+        if (lookupSourceProvider == null) {
+            checkState(lookupSourceProviderFuture.isDone(), "Not ready to handle input yet");
+            lookupSourceProvider = requireNonNull(getFutureValue(lookupSourceProviderFuture));
+            statisticsCounter.setLookupSourcePositions(lookupSourceProvider.withLease(lookupSourceLease -> lookupSourceLease.getLookupSource().getJoinPositionCount()));
+        }
 
         // create probe
         probe = joinProbeFactory.createJoinProbe(page);
@@ -163,27 +160,37 @@ public class LookupJoinOperator
     @Override
     public Page getOutput()
     {
-        if (lookupSource == null) {
+        if (probe == null && pageBuilder.isEmpty()) {
+            // Fast exit path when lookup source is still being build
             return null;
         }
 
+        checkState(lookupSourceProvider != null, "Input has been accepted before lookup source provided");
+
+        return lookupSourceProvider.withLease(lookupSourceLease -> {
+            return getOutput(lookupSourceLease.getLookupSource());
+        });
+    }
+
+    private Page getOutput(LookupSource lookupSource)
+    {
         // join probe page with the lookup source
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (probe != null) {
             while (!yieldSignal.isSet()) {
                 if (probe.getPosition() >= 0) {
-                    if (!joinCurrentPosition(yieldSignal)) {
+                    if (!joinCurrentPosition(lookupSource, yieldSignal)) {
                         break;
                     }
                     if (!currentProbePositionProducedRow) {
                         currentProbePositionProducedRow = true;
-                        if (!outerJoinCurrentPosition()) {
+                        if (!outerJoinCurrentPosition(lookupSource)) {
                             break;
                         }
                     }
                 }
                 currentProbePositionProducedRow = false;
-                if (!advanceProbePosition()) {
+                if (!advanceProbePosition(lookupSource)) {
                     break;
                 }
                 statisticsCounter.recordProbe(joinSourcePositions);
@@ -212,8 +219,8 @@ public class LookupJoinOperator
         probe = null;
         pageBuilder.reset();
         // closing lookup source is only here for index join
-        if (lookupSource != null) {
-            lookupSource.close();
+        if (lookupSourceProvider != null) {
+            lookupSourceProvider.close();
         }
         onClose.run();
     }
@@ -225,7 +232,7 @@ public class LookupJoinOperator
      *
      * @return true if all eligible rows have been produced; false otherwise (because pageBuilder became full)
      */
-    private boolean joinCurrentPosition(DriverYieldSignal yieldSignal)
+    private boolean joinCurrentPosition(LookupSource lookupSource, DriverYieldSignal yieldSignal)
     {
         // while we have a position on lookup side to join against...
         while (joinPosition >= 0) {
@@ -253,7 +260,7 @@ public class LookupJoinOperator
     /**
      * @return whether there are more positions on probe side
      */
-    private boolean advanceProbePosition()
+    private boolean advanceProbePosition(LookupSource lookupSource)
     {
         if (!probe.advanceNextPosition()) {
             probe = null;
@@ -270,7 +277,7 @@ public class LookupJoinOperator
      *
      * @return whether pageBuilder became full
      */
-    private boolean outerJoinCurrentPosition()
+    private boolean outerJoinCurrentPosition(LookupSource lookupSource)
     {
         if (probeOnOuterSide && joinPosition < 0) {
             // write probe columns

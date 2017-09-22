@@ -90,9 +90,11 @@ public class LookupJoinOperatorFactory
         }
         else {
             // when all join operators finish (and lookup source is ready), set the outer position future to start the outer operator
-            ListenableFuture<LookupSource> lookupSourceAfterProbeFinished = transformAsync(probeReferenceCount.getFreeFuture(), ignored -> lookupSourceFactory.createLookupSource());
-            ListenableFuture<OuterPositionIterator> outerPositionsFuture = transform(lookupSourceAfterProbeFinished, lookupSource -> {
-                lookupSource.close();
+            ListenableFuture<LookupSourceProvider> lookupSourceAfterProbeFinished = transformAsync(
+                    probeReferenceCount.getFreeFuture(),
+                    ignored -> lookupSourceFactory.createLookupSourceProvider());
+            ListenableFuture<OuterPositionIterator> outerPositionsFuture = transform(lookupSourceAfterProbeFinished, lookupSourceProvider -> {
+                lookupSourceProvider.close();
                 return lookupSourceFactory.getOuterPositionIterator();
             });
 
@@ -166,7 +168,7 @@ public class LookupJoinOperatorFactory
                 getTypes(),
                 probeTypes,
                 joinType,
-                lookupSourceFactory.createLookupSource(),
+                lookupSourceFactory.createLookupSourceProvider(),
                 joinProbeFactory,
                 probeReferenceCount::release,
                 totalOperatorsCount,
