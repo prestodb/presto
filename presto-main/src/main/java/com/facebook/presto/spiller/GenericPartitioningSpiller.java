@@ -39,7 +39,6 @@ import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.memory.SynchronizedAggregatedMemoryContext.synchronizedMemoryContext;
-import static com.facebook.presto.spi.Page.mask;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -118,7 +117,7 @@ public class GenericPartitioningSpiller
         IntArrayList unspilledPositions = partitionPage(page, spillPartitionMask);
         ListenableFuture<?> future = flushFullBuilders();
 
-        return new PartitioningSpillResult(future, mask(page, unspilledPositions.toIntArray()));
+        return new PartitioningSpillResult(future, page.mask(unspilledPositions.toIntArray()));
     }
 
     private synchronized IntArrayList partitionPage(Page page, IntPredicate spillPartitionMask)
