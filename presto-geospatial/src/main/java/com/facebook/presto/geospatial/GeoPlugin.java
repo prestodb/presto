@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static com.facebook.presto.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.geospatial.GeometryType.GEOMETRY;
 
 public class GeoPlugin
@@ -28,7 +29,7 @@ public class GeoPlugin
     @Override
     public Iterable<Type> getTypes()
     {
-        return ImmutableList.of(GEOMETRY);
+        return ImmutableList.of(GEOMETRY, BING_TILE);
     }
 
     @Override
@@ -36,6 +37,8 @@ public class GeoPlugin
     {
         return ImmutableSet.<Class<?>>builder()
                 .add(GeoFunctions.class)
+                .add(BingTileOperators.class)
+                .add(BingTileFunctions.class)
                 .build();
     }
 }

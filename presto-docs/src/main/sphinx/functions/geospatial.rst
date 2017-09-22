@@ -187,3 +187,45 @@ Accessors
 .. function:: ST_NumInteriorRing(Geometry) -> bigint
 
     Returns the cardinality of the collection of interior rings of a polygon.
+
+===================
+Bing Tile Functions
+===================
+
+A set of functions to convert between geometries and `Bing tiles <https://msdn.microsoft.com/en-us/library/bb259689.aspx>`_.
+
+.. function:: bing_tile(x, y, zoom_level) => BingTile
+
+    Creates a Bing tile object from XY coordinates and a zoom level.
+    Zoom levels from 1 to 23 are supported.
+
+.. function:: bing_tile(quadKey) => BingTile
+
+    Creates a Bing tile object from a quadkey.
+
+.. function:: bing_tile_at(latitude, longitude, zoom_level) => BingTile
+
+    Returns a Bing tile at a given zoom level containing a point at a given latitude
+    and longitude. Latitude must be within ``[-85.05112878, 85.05112878]`` range.
+    Longitude must be within ``[-180, 180]`` range. Zoom levels from 1 to 23 are supported.
+
+.. function:: bing_tile_coordinates(tile) => row(x, y)
+
+    Returns the XY coordinates of a given Bing tile.
+
+.. function:: bing_tile_polygon(tile) => Geometry
+
+    Returns the polygon representation of a given Bing tile.
+
+.. function:: bing_tile_quadkey(tile) => varchar
+
+    Returns the quadkey of a given Bing tile.
+
+.. function:: bing_tile_zoom_level(tile) => tinyint
+
+    Returns the zoom level of a given Bing tile.
+
+.. function:: geometry_to_bing_tiles(geometry, zoom_level) => array(BingTile)
+
+    Returns the minimum set of Bing tiles that fully covers a given geometry at
+    a given zoom level. Zoom levels from 1 to 23 are supported.
