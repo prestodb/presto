@@ -115,12 +115,8 @@ public class Histogram
 
     public static void input(Type type, HistogramState state, Block key, int position)
     {
+        state.initHisogramIfNeeded(type, EXPECTED_SIZE_FOR_HASHING);
         TypedHistogram typedHistogram = state.get();
-        if (typedHistogram == null) {
-            typedHistogram = new TypedHistogram(type, EXPECTED_SIZE_FOR_HASHING);
-            state.set(typedHistogram);
-        }
-
         long startSize = typedHistogram.getEstimatedSize();
         try {
             typedHistogram.add(position, key, 1L);
@@ -144,8 +140,11 @@ public class Histogram
             }
             state.addMemoryUsage(typedHistogram.getEstimatedSize() - startSize);
         }
-        else if (state.get() == null) {
-            state.set(otherState.get());
+        else if (state.get() == null && otherState.get() != null) {
+            TypedHistogram otherTypedHistogram = otherState.get();
+            state.set(otherTypedHistogram);
+//            state.initHisogramIfNeeded(otherTypedHistogram.getType(), otherTypedHistogram.getExpectedSize());
+//            state.get().addAll(otherTypedHistogram);
         }
     }
 

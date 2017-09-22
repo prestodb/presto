@@ -14,11 +14,17 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.operator.aggregation.GroupedTypedHistogramSharedValues;
+import com.facebook.presto.operator.aggregation.SingleTypedHistogram;
 import com.facebook.presto.operator.aggregation.TypedHistogram;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
-import static java.util.Objects.requireNonNull;
+import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static java.lang.String.format;
 
 public class HistogramStateFactory
         implements AccumulatorStateFactory<HistogramState>
@@ -51,9 +57,11 @@ public class HistogramStateFactory
             extends AbstractGroupedAccumulatorState
             implements HistogramState
     {
+        private static final float FILL_RATIO = 0.9f;
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
         private final ObjectBigArray<TypedHistogram> typedHistogram = new ObjectBigArray<>();
         private long size;
+        private BlockBuilder blockBuilder;
 
         @Override
         public void ensureCapacity(long size)
@@ -64,21 +72,48 @@ public class HistogramStateFactory
         @Override
         public TypedHistogram get()
         {
-            return typedHistogram.get(getGroupId());
+            long groupId = getGroupId();
+            return typedHistogram.get(groupId);
         }
 
         @Override
         public void set(TypedHistogram value)
         {
-            requireNonNull(value, "value is null");
-
-            TypedHistogram previous = get();
-            if (previous != null) {
-                size -= previous.getEstimatedSize();
+            if (value instanceof GroupedTypedHistogramSharedValues) {
+                typedHistogram.set(getGroupId(), (GroupedTypedHistogramSharedValues) value);
             }
+            else {
+                GroupedTypedHistogramSharedValues groupedTypedHistogramSharedValues = new GroupedTypedHistogramSharedValues(value.getType(), value.getExpectedSize());
 
-            typedHistogram.set(getGroupId(), value);
-            size += value.getEstimatedSize();
+                groupedTypedHistogramSharedValues.addAll(value);
+                typedHistogram.set(getGroupId(), groupedTypedHistogramSharedValues);
+            }
+        }
+
+        @Override
+        public void deserialize(Block block, Type type, int expectedSize)
+        {
+            typedHistogram.set(getGroupId(), new GroupedTypedHistogramSharedValues(block, type, expectedSize));
+        }
+
+        @Override
+        public void initHisogramIfNeeded(Type type, int expectedSize)
+        {
+            long groupId = getGroupId();
+            TypedHistogram value = typedHistogram.get(groupId);
+
+            if (value == null) {
+                int hashCapacity = computeHashCapacity(expectedSize);
+
+                if (blockBuilder == null) {
+                    blockBuilder = type.createBlockBuilder(null, hashCapacity);
+                }
+
+                TypedHistogram newValue = new GroupedTypedHistogramSharedValues(type, expectedSize, hashCapacity, blockBuilder);
+
+                typedHistogram.set(groupId, newValue);
+                size += newValue.getEstimatedSize();
+            }
         }
 
         @Override
@@ -92,13 +127,18 @@ public class HistogramStateFactory
         {
             return INSTANCE_SIZE + size + typedHistogram.sizeOf();
         }
+
+        private static int computeHashCapacity(int expectedSize)
+        {
+            return arraySize(expectedSize, FILL_RATIO);
+        }
     }
 
     public static class SingleState
             implements HistogramState
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
-        private TypedHistogram typedHistogram;
+        private SingleTypedHistogram typedHistogram = null;
 
         @Override
         public TypedHistogram get()
@@ -109,7 +149,26 @@ public class HistogramStateFactory
         @Override
         public void set(TypedHistogram value)
         {
-            typedHistogram = value;
+            if (value instanceof SingleTypedHistogram) {
+                typedHistogram = (SingleTypedHistogram) value;
+            }
+            else {
+                throw new IllegalArgumentException(format("can't set %s to %s", this.getClass(), value.getClass()));
+            }
+        }
+
+        @Override
+        public void deserialize(Block block, Type type, int expectedSize)
+        {
+            typedHistogram = new SingleTypedHistogram(block, type, expectedSize);
+        }
+
+        @Override
+        public void initHisogramIfNeeded(Type type, int expectedSize)
+        {
+            if (typedHistogram == null) {
+                typedHistogram = new SingleTypedHistogram(type, expectedSize);
+            }
         }
 
         @Override

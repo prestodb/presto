@@ -14,8 +14,10 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.operator.aggregation.TypedHistogram;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import com.facebook.presto.spi.type.Type;
 
 @AccumulatorStateMetadata(stateFactoryClass = HistogramStateFactory.class, stateSerializerClass = HistogramStateSerializer.class)
 public interface HistogramState
@@ -25,5 +27,9 @@ public interface HistogramState
 
     void set(TypedHistogram value);
 
+    void initHisogramIfNeeded(Type type, int expectedSize);
+
     void addMemoryUsage(long memory);
+
+    void deserialize(Block block, Type type, int expectedSize);
 }
