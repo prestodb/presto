@@ -72,6 +72,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -727,6 +728,18 @@ public class TestHashJoinOperator
             RowPagesBuilder buildPages,
             Optional<InternalJoinFilterFunction> filterFunction)
     {
+        BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, hashChannels, buildPages, filterFunction);
+        buildLookupSource(buildSideSetup);
+        return buildSideSetup.getLookupSourceFactory();
+    }
+
+    private BuildSideSetup setupBuildSide(
+            boolean parallelBuild,
+            TaskContext taskContext,
+            List<Integer> hashChannels,
+            RowPagesBuilder buildPages,
+            Optional<InternalJoinFilterFunction> filterFunction)
+    {
         Optional<JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
                 .map(function -> (session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels));
 
@@ -739,14 +752,14 @@ public class TestHashJoinOperator
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
         ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.getTypes(), buildPages.build());
         LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperatorFactory(1, new PlanNodeId("sink"), sinkFactory, Function.identity());
-        Driver driver = new Driver(collectDriverContext,
+        Driver sourceDriver = new Driver(collectDriverContext,
                 valuesOperatorFactory.createOperator(collectDriverContext),
                 sinkOperatorFactory.createOperator(collectDriverContext));
         valuesOperatorFactory.close();
         sinkOperatorFactory.close();
 
-        while (!driver.isFinished()) {
-            driver.process();
+        while (!sourceDriver.isFinished()) {
+            sourceDriver.process();
         }
 
         // build hash tables
@@ -770,16 +783,26 @@ public class TestHashJoinOperator
                 SINGLE_STREAM_SPILLER_FACTORY);
         PipelineContext buildPipeline = taskContext.addPipelineContext(1, true, true);
 
-        Driver[] buildDrivers = new Driver[partitionCount];
+        List<Driver> buildDrivers = new ArrayList<>();
         for (int i = 0; i < partitionCount; i++) {
             DriverContext buildDriverContext = buildPipeline.addDriverContext();
-            buildDrivers[i] = new Driver(
+            Driver driver = new Driver(
                     buildDriverContext,
                     sourceOperatorFactory.createOperator(buildDriverContext),
                     buildOperatorFactory.createOperator(buildDriverContext));
+            buildDrivers.add(driver);
         }
 
-        Future<LookupSourceProvider> lookupSourceProvider = buildOperatorFactory.getLookupSourceFactory().createLookupSourceProvider();
+        return new BuildSideSetup(buildOperatorFactory.getLookupSourceFactory(), buildDrivers);
+    }
+
+    private void buildLookupSource(BuildSideSetup buildSideSetup)
+    {
+        requireNonNull(buildSideSetup, "buildSideSetup is null");
+
+        Future<LookupSourceProvider> lookupSourceProvider = buildSideSetup.getLookupSourceFactory().createLookupSourceProvider();
+        List<Driver> buildDrivers = buildSideSetup.getBuildDrivers();
+
         while (!lookupSourceProvider.isDone()) {
             for (Driver buildDriver : buildDrivers) {
                 buildDriver.process();
@@ -790,8 +813,6 @@ public class TestHashJoinOperator
         for (Driver buildDriver : buildDrivers) {
             runDriverInThread(executor, buildDriver);
         }
-
-        return buildOperatorFactory.getLookupSourceFactory();
     }
 
     /**
@@ -812,6 +833,28 @@ public class TestHashJoinOperator
         return IntStream.range(0, endExclusive)
                 .boxed()
                 .collect(toImmutableList());
+    }
+
+    private static class BuildSideSetup
+    {
+        private final LookupSourceFactory lookupSourceFactory;
+        private final List<Driver> buildDrivers;
+
+        BuildSideSetup(LookupSourceFactory lookupSourceFactory, List<Driver> buildDrivers)
+        {
+            this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
+            this.buildDrivers = ImmutableList.copyOf(buildDrivers);
+        }
+
+        LookupSourceFactory getLookupSourceFactory()
+        {
+            return lookupSourceFactory;
+        }
+
+        List<Driver> getBuildDrivers()
+        {
+            return buildDrivers;
+        }
     }
 
     private static class TestInternalJoinFilterFunction
