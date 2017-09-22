@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.CaseSensitiveMappedSchemaTableName;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
@@ -91,16 +92,14 @@ public class MySqlClient
         return statement;
     }
 
-    protected List<String[]> getOriginalTablesWithSchema(Connection connection, String schema)
+    protected List<CaseSensitiveMappedSchemaTableName> getOriginalTablesWithSchema(Connection connection, String schema)
     {
         try (ResultSet resultSet = getTables(connection, schema, null)) {
-            ImmutableList.Builder<String[]> list = ImmutableList.builder();
-            String[] arr;
+            ImmutableList.Builder<CaseSensitiveMappedSchemaTableName> list = ImmutableList.builder();
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_CAT");
                 String tableName = resultSet.getString("TABLE_NAME");
-                arr = new String[] {schemaName, tableName};
-                list.add(arr);
+                list.add(new CaseSensitiveMappedSchemaTableName(schemaName, tableName));
             }
             return list.build();
         }

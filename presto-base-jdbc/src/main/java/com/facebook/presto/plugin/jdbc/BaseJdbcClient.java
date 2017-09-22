@@ -223,16 +223,14 @@ public class BaseJdbcClient
      * @param schema the schema to list the tables for, or NULL for all
      * @return the schema + table names
      */
-    protected List<String[]> getOriginalTablesWithSchema(Connection connection, String schema)
+    protected List<CaseSensitiveMappedSchemaTableName> getOriginalTablesWithSchema(Connection connection, String schema)
     {
         try (ResultSet resultSet = getTables(connection, schema, null)) {
-            ImmutableList.Builder<String[]> list = ImmutableList.builder();
-            String[] arr;
+            ImmutableList.Builder<CaseSensitiveMappedSchemaTableName> list = ImmutableList.builder();
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_SCHEM");
                 String tableName = resultSet.getString("TABLE_NAME");
-                arr = new String[] {schemaName, tableName};
-                list.add(arr);
+                list.add(new CaseSensitiveMappedSchemaTableName(schemaName, tableName));
             }
             return list.build();
         }
@@ -250,13 +248,10 @@ public class BaseJdbcClient
             schema = finalizeSchemaName(metadata, schema);
             Map<String, Map<String, String>> schemaMappedNames = new HashMap<>();
             ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
-            for (String[] arr : getOriginalTablesWithSchema(connection, schema)) {
-                String schemaName = arr[0];
-                String tableName = arr[1];
-                String tableNameLower = tableName.toLowerCase(ENGLISH);
-                Map<String, String> mappedNames = schemaMappedNames.computeIfAbsent(schemaName, s -> new HashMap<>());
-                mappedNames.put(tableNameLower, tableName);
-                list.add(new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableNameLower));
+            for (CaseSensitiveMappedSchemaTableName table : getOriginalTablesWithSchema(connection, schema)) {
+                Map<String, String> mappedNames = schemaMappedNames.computeIfAbsent(table.getSchemaName(), s -> new HashMap<>());
+                mappedNames.put(table.getSchemaNameLower(), table.getTableName());
+                list.add(new SchemaTableName(table.getSchemaNameLower(), table.getTableNameLower()));
             }
             // if someone is listing all of the table names, throw them all into the cache as a refresh since we already spent the time pulling them from the DB
             for (Map.Entry<String, Map<String, String>> entry : schemaMappedNames.entrySet()) {
@@ -293,7 +288,7 @@ public class BaseJdbcClient
      */
     private LoadingCache<String, Optional<String>> getTableMapping(String jdbcSchema)
     {
-        return schemaTableMapping.computeIfAbsent(jdbcSchema, s ->
+        return schemaTableMapping.computeIfAbsent(jdbcSchema, (String s) ->
                 CacheBuilder.newBuilder().build(new CacheLoader<String, Optional<String>>()
                 {
                     @Override
@@ -304,12 +299,12 @@ public class BaseJdbcClient
                             DatabaseMetaData metadata = connection.getMetaData();
                             String jdbcSchemaName = finalizeSchemaName(metadata, jdbcSchema);
 
-                            for (String[] arr : getOriginalTablesWithSchema(connection, jdbcSchemaName)) {
-                                String tableName = arr[1];
+                            for (CaseSensitiveMappedSchemaTableName table : getOriginalTablesWithSchema(connection, jdbcSchemaName)) {
+                                String tableName = table.getTableName();
                                 if (tableName.equals(key)) {
                                     return Optional.of(tableName);
                                 }
-                                String tableNameLower = tableName.toLowerCase(ENGLISH);
+                                String tableNameLower = table.getTableNameLower();
                                 if (tableNameLower.equals(key)) {
                                     return Optional.of(tableName);
                                 }
