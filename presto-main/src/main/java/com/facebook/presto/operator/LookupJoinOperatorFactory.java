@@ -168,7 +168,7 @@ public class LookupJoinOperatorFactory
                 getTypes(),
                 probeTypes,
                 joinType,
-                lookupSourceFactory.createLookupSourceProvider(),
+                lookupSourceFactory,
                 joinProbeFactory,
                 probeReferenceCount::release,
                 totalOperatorsCount,

@@ -56,6 +56,12 @@ public class IndexLookupSource
     }
 
     @Override
+    public long joinPositionWithinPartition(long joinPosition)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
         // TODO update to take advantage of precomputed hash
