@@ -24,7 +24,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -123,11 +123,9 @@ public class SqlQueryManager
     private final Metadata metadata;
     private final TransactionManager transactionManager;
 
-    private final AccessControl accessControl;
-
     private final QueryIdGenerator queryIdGenerator;
 
-    private final SessionPropertyManager sessionPropertyManager;
+    private final SessionSupplier sessionSupplier;
 
     private final InternalNodeManager internalNodeManager;
 
@@ -147,9 +145,8 @@ public class SqlQueryManager
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
             TransactionManager transactionManager,
-            AccessControl accessControl,
             QueryIdGenerator queryIdGenerator,
-            SessionPropertyManager sessionPropertyManager,
+            SessionSupplier sessionSupplier,
             InternalNodeManager internalNodeManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             Metadata metadata)
@@ -172,11 +169,9 @@ public class SqlQueryManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "transactionManager is null");
 
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
-
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
 
-        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
 
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
 
@@ -352,9 +347,9 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(SessionSupplier sessionSupplier, String query)
+    public QueryInfo createQuery(SessionContext sessionContext, String query)
     {
-        requireNonNull(sessionSupplier, "sessionFactory is null");
+        requireNonNull(sessionContext, "sessionFactory is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
 
@@ -377,7 +372,7 @@ public class SqlQueryManager
                 acceptQueries.set(true);
             }
 
-            session = sessionSupplier.createSession(queryId, transactionManager, accessControl, sessionPropertyManager);
+            session = sessionSupplier.createSession(queryId, sessionContext);
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
                 query = query.substring(0, maxQueryLength);
@@ -409,7 +404,7 @@ public class SqlQueryManager
             if (session == null) {
                 session = Session.builder(new SessionPropertyManager())
                         .setQueryId(queryId)
-                        .setIdentity(sessionSupplier.getIdentity())
+                        .setIdentity(sessionContext.getIdentity())
                         .build();
             }
             Optional<ResourceGroupId> resourceGroup = Optional.empty();

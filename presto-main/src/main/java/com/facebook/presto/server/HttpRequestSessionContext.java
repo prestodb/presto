@@ -13,16 +13,10 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.Session.SessionBuilder;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 
@@ -39,7 +33,6 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -54,7 +47,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -62,8 +54,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
 
-final class HttpRequestSessionFactory
-        implements SessionSupplier
+public final class HttpRequestSessionContext
+        implements SessionContext
 {
     private final String catalog;
     private final String schema;
@@ -85,7 +77,7 @@ final class HttpRequestSessionFactory
     private final boolean clientTransactionSupport;
     private final String clientInfo;
 
-    public HttpRequestSessionFactory(HttpServletRequest servletRequest)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -143,63 +135,74 @@ final class HttpRequestSessionFactory
         transactionId = parseTransactionId(transactionIdHeader);
     }
 
-    @Override
     public Identity getIdentity()
     {
         return identity;
     }
 
-    @Override
-    public Session createSession(
-            QueryId queryId,
-            TransactionManager transactionManager,
-            AccessControl accessControl,
-            SessionPropertyManager sessionPropertyManager)
+    public String getCatalog()
     {
-        accessControl.checkCanSetUser(identity.getPrincipal().orElse(null), identity.getUser());
+        return catalog;
+    }
 
-        SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
-                .setQueryId(queryId)
-                .setIdentity(identity)
-                .setSource(source)
-                .setCatalog(catalog)
-                .setSchema(schema)
-                .setRemoteUserAddress(remoteUserAddress)
-                .setUserAgent(userAgent)
-                .setClientInfo(clientInfo);
+    public String getSchema()
+    {
+        return schema;
+    }
 
-        if (timeZoneId != null) {
-            sessionBuilder.setTimeZoneKey(getTimeZoneKey(timeZoneId));
-        }
+    public String getSource()
+    {
+        return source;
+    }
 
-        if (language != null) {
-            sessionBuilder.setLocale(Locale.forLanguageTag(language));
-        }
+    public String getRemoteUserAddress()
+    {
+        return remoteUserAddress;
+    }
 
-        for (Entry<String, String> entry : systemProperties.entrySet()) {
-            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
-        }
-        for (Entry<String, Map<String, String>> catalogProperties : catalogSessionProperties.entrySet()) {
-            String catalog = catalogProperties.getKey();
-            for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
-                sessionBuilder.setCatalogSessionProperty(catalog, entry.getKey(), entry.getValue());
-            }
-        }
+    public String getUserAgent()
+    {
+        return userAgent;
+    }
 
-        for (Entry<String, String> preparedStatement : preparedStatements.entrySet()) {
-            sessionBuilder.addPreparedStatement(preparedStatement.getKey(), preparedStatement.getValue());
-        }
+    public String getClientInfo()
+    {
+        return clientInfo;
+    }
 
-        if (clientTransactionSupport) {
-            sessionBuilder.setClientTransactionSupport();
-        }
+    public String getTimeZoneId()
+    {
+        return timeZoneId;
+    }
 
-        Session session = sessionBuilder.build();
-        if (transactionId.isPresent()) {
-            session = session.beginTransactionId(transactionId.get(), transactionManager, accessControl);
-        }
+    public String getLanguage()
+    {
+        return language;
+    }
 
-        return session;
+    public Map<String, String> getSystemProperties()
+    {
+        return systemProperties;
+    }
+
+    public Map<String, Map<String, String>> getCatalogSessionProperties()
+    {
+        return catalogSessionProperties;
+    }
+
+    public Map<String, String> getPreparedStatements()
+    {
+        return preparedStatements;
+    }
+
+    public Optional<TransactionId> getTransactionId()
+    {
+        return transactionId;
+    }
+
+    public boolean supportClientTransaction()
+    {
+        return clientTransactionSupport;
     }
 
     private static List<String> splitSessionHeader(Enumeration<String> headers)

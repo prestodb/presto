@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.TestingSessionFactory;
+import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.QueryId;
 import org.intellij.lang.annotations.Language;
@@ -81,7 +81,7 @@ public class TestMetadataManager
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        QueryId queryId = queryManager.createQuery(new TestingSessionFactory(TEST_SESSION),
+        QueryId queryId = queryManager.createQuery(new TestingSessionContext(TEST_SESSION),
                 "SELECT * FROM lineitem").getQueryId();
 
         // wait until query starts running

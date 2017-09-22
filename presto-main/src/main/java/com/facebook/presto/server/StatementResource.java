@@ -167,11 +167,11 @@ public class StatementResource
                     .build());
         }
 
-        SessionSupplier sessionSupplier = new HttpRequestSessionFactory(servletRequest);
+        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> {});
         Query query = new Query(
-                sessionSupplier,
+                sessionContext,
                 statement,
                 queryManager,
                 sessionPropertyManager,
@@ -312,21 +312,21 @@ public class StatementResource
         private Long updateCount;
 
         public Query(
-                SessionSupplier sessionSupplier,
+                SessionContext sessionContext,
                 String query,
                 QueryManager queryManager,
                 SessionPropertyManager sessionPropertyManager,
                 ExchangeClient exchangeClient,
                 BlockEncodingSerde blockEncodingSerde)
         {
-            requireNonNull(sessionSupplier, "sessionFactory is null");
+            requireNonNull(sessionContext, "sessionFactory is null");
             requireNonNull(query, "query is null");
             requireNonNull(queryManager, "queryManager is null");
             requireNonNull(exchangeClient, "exchangeClient is null");
 
             this.queryManager = queryManager;
 
-            QueryInfo queryInfo = queryManager.createQuery(sessionSupplier, query);
+            QueryInfo queryInfo = queryManager.createQuery(sessionContext, query);
             queryId = queryInfo.getQueryId();
             session = queryInfo.getSession().toSession(sessionPropertyManager);
             this.exchangeClient = exchangeClient;

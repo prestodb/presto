@@ -14,19 +14,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.transaction.TransactionManager;
 
 public interface SessionSupplier
 {
-    Identity getIdentity();
-
-    Session createSession(
-            QueryId queryId,
-            TransactionManager transactionManager,
-            AccessControl accessControl,
-            SessionPropertyManager sessionPropertyManager);
+    Session createSession(QueryId queryId, SessionContext context);
 }
