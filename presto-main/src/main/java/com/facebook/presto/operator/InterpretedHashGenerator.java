@@ -32,6 +32,11 @@ public class InterpretedHashGenerator
     private final List<Type> hashChannelTypes;
     private final int[] hashChannels;
 
+    public InterpretedHashGenerator(List<Type> hashChannelTypes, List<Integer> hashChannels)
+    {
+        this(hashChannelTypes, requireNonNull(hashChannels).stream().mapToInt(i -> i).toArray());
+    }
+
     public InterpretedHashGenerator(List<Type> hashChannelTypes, int[] hashChannels)
     {
         this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");

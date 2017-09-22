@@ -16,16 +16,19 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -46,6 +49,9 @@ public class LookupJoinOperatorFactory
     private final Optional<OperatorFactory> outerOperatorFactory;
     private final ReferenceCount probeReferenceCount;
     private final ReferenceCount lookupSourceFactoryUsersCount;
+    private final OptionalInt totalOperatorsCount;
+    private final HashGenerator probeHashGenerator;
+    private final PartitioningSpillerFactory partitioningSpillerFactory;
     private boolean closed;
 
     public LookupJoinOperatorFactory(int operatorId,
@@ -54,7 +60,11 @@ public class LookupJoinOperatorFactory
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
             JoinType joinType,
-            JoinProbeFactory joinProbeFactory)
+            JoinProbeFactory joinProbeFactory,
+            OptionalInt totalOperatorsCount,
+            List<Integer> probeJoinChannels,
+            OptionalInt probeHashChannel,
+            PartitioningSpillerFactory partitioningSpillerFactory)
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -89,6 +99,21 @@ public class LookupJoinOperatorFactory
             lookupSourceFactoryUsersCount.retain();
             this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(operatorId, planNodeId, outerPositionsFuture, probeOutputTypes, buildOutputTypes, lookupSourceFactoryUsersCount));
         }
+        this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
+
+        requireNonNull(probeHashChannel, "probeHashChannel is null");
+        if (probeHashChannel.isPresent()) {
+            this.probeHashGenerator = new PrecomputedHashGenerator(probeHashChannel.getAsInt());
+        }
+        else {
+            requireNonNull(probeJoinChannels, "probeJoinChannels is null");
+            List<Type> hashTypes = probeJoinChannels.stream()
+                    .map(probeTypes::get)
+                    .collect(toImmutableList());
+            this.probeHashGenerator = new InterpretedHashGenerator(hashTypes, probeJoinChannels);
+        }
+
+        this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
     }
 
     private LookupJoinOperatorFactory(LookupJoinOperatorFactory other)
@@ -106,6 +131,9 @@ public class LookupJoinOperatorFactory
         probeReferenceCount = other.probeReferenceCount;
         lookupSourceFactoryUsersCount = other.lookupSourceFactoryUsersCount;
         outerOperatorFactory = other.outerOperatorFactory;
+        totalOperatorsCount = other.totalOperatorsCount;
+        probeHashGenerator = other.probeHashGenerator;
+        partitioningSpillerFactory = other.partitioningSpillerFactory;
 
         probeReferenceCount.retain();
     }
@@ -136,10 +164,14 @@ public class LookupJoinOperatorFactory
         return new LookupJoinOperator(
                 operatorContext,
                 getTypes(),
+                probeTypes,
                 joinType,
                 lookupSourceFactory.createLookupSource(),
                 joinProbeFactory,
-                probeReferenceCount::release);
+                probeReferenceCount::release,
+                totalOperatorsCount,
+                probeHashGenerator,
+                partitioningSpillerFactory);
     }
 
     @Override
