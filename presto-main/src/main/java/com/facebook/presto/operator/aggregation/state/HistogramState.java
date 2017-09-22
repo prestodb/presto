@@ -23,11 +23,17 @@ import com.facebook.presto.spi.type.Type;
 public interface HistogramState
         extends AccumulatorState
 {
+    /**
+     * will create an empty histogram if none exists
+     * @return histogram based on the type of state (single, grouped)
+     */
     TypedHistogram get();
 
-    void set(TypedHistogram value);
-
-    void initHisogramIfNeeded(Type type, int expectedSize);
+    /**
+     * used only in combine() for efficiency
+     * @param typedHistogram
+     */
+    void set(TypedHistogram typedHistogram);
 
     void addMemoryUsage(long memory);
 

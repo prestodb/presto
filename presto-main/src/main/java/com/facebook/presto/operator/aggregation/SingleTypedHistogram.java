@@ -70,10 +70,10 @@ public class SingleTypedHistogram
 
     public SingleTypedHistogram(Type type, int expectedSize)
     {
-        this(type, expectedSize, computeHashCapacity(expectedSize), type.createBlockBuilder(null, computeHashCapacity(expectedSize)));
+        this(type, expectedSize, computeBucketCount(expectedSize), type.createBlockBuilder(null, computeBucketCount(expectedSize)));
     }
 
-    private static int computeHashCapacity(int expectedSize)
+    private static int computeBucketCount(int expectedSize)
     {
         return arraySize(expectedSize, FILL_RATIO);
     }
@@ -96,13 +96,18 @@ public class SingleTypedHistogram
     @Override
     public void serialize(BlockBuilder out)
     {
-        Block valuesBlock = values.build();
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-        for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
-            type.appendTo(valuesBlock, i, blockBuilder);
-            BIGINT.writeLong(blockBuilder, counts.get(i));
+        if (values.getPositionCount() == 0) {
+            out.appendNull();
         }
-        out.closeEntry();
+        else {
+            Block valuesBlock = values.build();
+            BlockBuilder blockBuilder = out.beginBlockEntry();
+            for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
+                type.appendTo(valuesBlock, i, blockBuilder);
+                BIGINT.writeLong(blockBuilder, counts.get(i));
+            }
+            out.closeEntry();
+        }
     }
 
     @Override
@@ -156,6 +161,12 @@ public class SingleTypedHistogram
     public int getExpectedSize()
     {
         return expectedSize;
+    }
+
+    @Override
+    public boolean isEmpty()
+    {
+        return values.getPositionCount() == 0;
     }
 
     private void addNewGroup(int hashPosition, int position, Block block, long count)

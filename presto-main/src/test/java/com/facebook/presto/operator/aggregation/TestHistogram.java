@@ -106,6 +106,54 @@ public class TestHistogram
                 ImmutableMap.of(true, 1L, false, 1L),
                 createBooleansBlock(true, false));
     }
+    @Test
+    public void testSharedGroupBy()
+            throws Exception
+    {
+        MapType mapType = mapType(VARCHAR, BIGINT);
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.VARCHAR)));
+        assertAggregation(
+                aggregationFunction,
+                ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
+                createStringsBlock("a", "b", "c"));
+
+        mapType = mapType(BIGINT, BIGINT);
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.BIGINT)));
+        assertAggregation(
+                aggregationFunction,
+                ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
+                createLongsBlock(100L, 200L, 300L));
+
+        mapType = mapType(DOUBLE, BIGINT);
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.DOUBLE)));
+        assertAggregation(
+                aggregationFunction,
+                ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
+                createDoublesBlock(0.1, 0.3, 0.2));
+
+        mapType = mapType(BOOLEAN, BIGINT);
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature(NAME,
+                        AGGREGATE,
+                        mapType.getTypeSignature(),
+                        parseTypeSignature(StandardTypes.BOOLEAN)));
+        assertAggregation(
+                aggregationFunction,
+                ImmutableMap.of(true, 1L, false, 1L),
+                createBooleansBlock(true, false));
+    }
 
     @Test
     public void testDuplicateKeysValues()

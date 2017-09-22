@@ -99,7 +99,7 @@ public class Histogram
                 outputFunction,
                 HistogramState.class,
                 stateSerializer,
-                new HistogramStateFactory(),
+                new HistogramStateFactory(keyType, EXPECTED_SIZE_FOR_HASHING),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
@@ -115,7 +115,6 @@ public class Histogram
 
     public static void input(Type type, HistogramState state, Block key, int position)
     {
-        state.initHisogramIfNeeded(type, EXPECTED_SIZE_FOR_HASHING);
         TypedHistogram typedHistogram = state.get();
         long startSize = typedHistogram.getEstimatedSize();
         try {
@@ -143,8 +142,6 @@ public class Histogram
         else if (state.get() == null && otherState.get() != null) {
             TypedHistogram otherTypedHistogram = otherState.get();
             state.set(otherTypedHistogram);
-//            state.initHisogramIfNeeded(otherTypedHistogram.getType(), otherTypedHistogram.getExpectedSize());
-//            state.get().addAll(otherTypedHistogram);
         }
     }
 

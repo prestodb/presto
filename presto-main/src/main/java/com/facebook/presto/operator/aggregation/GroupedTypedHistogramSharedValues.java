@@ -15,11 +15,13 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.operator.aggregation.state.GroupedHistogramState;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
@@ -29,7 +31,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RES
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.util.Objects.requireNonNull;
 
@@ -56,11 +57,11 @@ public class GroupedTypedHistogramSharedValues
     private final IntBigArray valuePositions;
     private final DataNodeFactory dataNodeFactory;
 
-    public GroupedTypedHistogramSharedValues(Type type, int expectedEntriesCount, int bucketCount, BlockBuilder values)
+    public GroupedTypedHistogramSharedValues(Type type, int expectedEntriesCount, BlockBuilder values)
     {
         this.type = type;
         this.expectedEntriesCount = expectedEntriesCount;
-        this.bucketCount = bucketCount;
+        this.bucketCount = GroupedHistogramState.computeBucketCount(expectedEntriesCount, FILL_RATIO);
         this.values = values;
 
         checkArgument(expectedEntriesCount > 0, "expectedSize must be greater than zero");
@@ -78,14 +79,11 @@ public class GroupedTypedHistogramSharedValues
         dataNodeFactory = this.new DataNodeFactory();
     }
 
-    public GroupedTypedHistogramSharedValues(Type type, int expectedEntriesCount)
+    @Deprecated
+    @VisibleForTesting
+    GroupedTypedHistogramSharedValues(Type type, int expectedEntriesCount)
     {
-        this(type, expectedEntriesCount, computeHashCapacity(expectedEntriesCount), type.createBlockBuilder(null, computeHashCapacity(expectedEntriesCount)));
-    }
-
-    private static int computeHashCapacity(int expectedSize)
-    {
-        return arraySize(expectedSize, FILL_RATIO);
+        this(type, expectedEntriesCount, type.createBlockBuilder(null, GroupedHistogramState.computeBucketCount(expectedEntriesCount, FILL_RATIO)));
     }
 
     /**
@@ -93,47 +91,45 @@ public class GroupedTypedHistogramSharedValues
      * @param type
      * @param expectedEntriesCount
      */
-    public GroupedTypedHistogramSharedValues(Block block, Type type, int expectedEntriesCount)
+    public GroupedTypedHistogramSharedValues(Block block, Type type, int expectedEntriesCount, BlockBuilder valuesBlockBlockbuilder)
     {
-        this(type, expectedEntriesCount);
+        this(type, expectedEntriesCount, valuesBlockBlockbuilder);
         requireNonNull(block, "block is null");
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             add(i, block, BIGINT.getLong(block, i + 1));
         }
     }
 
-    /**
-     * @return how many items are in the histogram (nominally the size of the respective count and data arrays)
-     */
-    public int getElementCount()
-    {
-        return nextNodePointer;
-    }
-
+    @Override
     public long getEstimatedSize()
     {
         return INSTANCE_SIZE + values.getRetainedSizeInBytes() + counts.sizeOf() + buckets.sizeOf() + valuePositions.sizeOf();
     }
 
+    @Override
     public void serialize(BlockBuilder out)
     {
-        // do we need to build this?
-        Block valuesBlock = values;
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-
-        for (int i = 0; i < nextNodePointer; i++) {
-            ValueNode valueNode = dataNodeFactory.createValueNode(i);
-            valueNode.writeNodeAsRow(valuesBlock, blockBuilder);
+        if (nextNodePointer == 0) {
+            out.appendNull();
         }
+        else {
+            // do we need to build this?
+            Block valuesBlock = values;
+            BlockBuilder blockBuilder = out.beginBlockEntry();
 
-        out.closeEntry();
+            for (int i = 0; i < nextNodePointer; i++) {
+                ValueNode valueNode = dataNodeFactory.createValueNode(i);
+                valueNode.writeNodeAsRow(valuesBlock, blockBuilder);
+            }
+
+            out.closeEntry();
+        }
     }
 
+    @Override
     public void addAll(TypedHistogram other)
     {
-        other.readAllValues((block, position, count) -> {
-            add(position, block, count);
-        });
+        other.readAllValues((block, position, count) -> add(position, block, count));
     }
 
     @Override
@@ -145,6 +141,7 @@ public class GroupedTypedHistogramSharedValues
         }
     }
 
+    @Override
     public void add(int position, Block block, long count)
     {
         BucketDataNode bucketDataNode = dataNodeFactory.createBucketDataNode(block, position);
@@ -157,6 +154,8 @@ public class GroupedTypedHistogramSharedValues
         }
     }
 
+
+    @Override
     public Type getType()
     {
         return type;
@@ -166,6 +165,12 @@ public class GroupedTypedHistogramSharedValues
     public int getExpectedSize()
     {
         return expectedEntriesCount;
+    }
+
+    @Override
+    public boolean isEmpty()
+    {
+        return nextNodePointer == 0;
     }
 
     private void rehash()

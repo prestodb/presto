@@ -32,4 +32,11 @@ public interface TypedHistogram
     Type getType();
 
     int getExpectedSize();
+
+    // no-op on non-grouped
+    default TypedHistogram setGroupId(long groupId) { return this;}
+
+    default void ensureCapacity(long size) {}
+
+    boolean isEmpty();
 }

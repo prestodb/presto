@@ -41,12 +41,7 @@ public class HistogramStateSerializer
     @Override
     public void serialize(HistogramState state, BlockBuilder out)
     {
-        if (state.get() == null) {
-            out.appendNull();
-        }
-        else {
-            state.get().serialize(out);
-        }
+        state.get().serialize(out);
     }
 
     @Override
