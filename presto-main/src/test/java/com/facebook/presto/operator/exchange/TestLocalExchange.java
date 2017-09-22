@@ -412,7 +412,7 @@ public class TestLocalExchange
 
         LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(new InterpretedHashGenerator(TYPES, new int[] {0}), partitionCount);
         for (int position = 0; position < page.getPositionCount(); position++) {
-            assertEquals(partitionGenerator.getPartition(position, page), partition);
+            assertEquals(partitionGenerator.getPartition(page, position), partition);
         }
     }
 
