@@ -43,6 +43,12 @@ public final class SortingProperty<E>
         this.order = order;
     }
 
+    @Override
+    public boolean isOrderSensitive()
+    {
+        return true;
+    }
+
     @JsonProperty
     public E getColumn()
     {
