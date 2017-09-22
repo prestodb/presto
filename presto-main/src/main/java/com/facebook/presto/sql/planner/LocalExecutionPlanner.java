@@ -1392,7 +1392,8 @@ public class LocalExecutionPlanner
             // Plan probe side
             PhysicalOperation probeSource = node.getProbeSource().accept(this, context);
             List<Integer> probeChannels = getChannelsForSymbols(probeSymbols, probeSource.getLayout());
-            Optional<Integer> probeHashChannel = node.getProbeHashSymbol().map(channelGetter(probeSource));
+            OptionalInt probeHashChannel = node.getProbeHashSymbol().map(channelGetter(probeSource))
+                    .map(OptionalInt::of).orElse(OptionalInt.empty());
 
             // The probe key channels will be handed to the index according to probeSymbol order
             Map<Symbol, Integer> probeKeyLayout = new HashMap<>();
@@ -1406,7 +1407,8 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext indexContext = context.createIndexSourceSubContext(new IndexSourceContext(indexLookupToProbeInput));
             PhysicalOperation indexSource = node.getIndexSource().accept(this, indexContext);
             List<Integer> indexOutputChannels = getChannelsForSymbols(indexSymbols, indexSource.getLayout());
-            Optional<Integer> indexHashChannel = node.getIndexHashSymbol().map(channelGetter(indexSource));
+            OptionalInt indexHashChannel = node.getIndexHashSymbol().map(channelGetter(indexSource))
+                    .map(OptionalInt::of).orElse(OptionalInt.empty());
 
             // Identify just the join keys/channels needed for lookup by the index source (does not have to use all of them).
             Set<Symbol> indexSymbolsNeededBySource = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), ImmutableSet.copyOf(indexSymbols)).keySet();
@@ -1588,7 +1590,8 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(buildOutputSymbols, buildSource.getLayout()));
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
-            Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
+            OptionalInt buildHashChannel = buildHashSymbol.map(channelGetter(buildSource))
+                    .map(OptionalInt::of).orElse(OptionalInt.empty());
 
             boolean spillEnabled = isSpillEnabled(context.getSession());
             boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
@@ -1703,7 +1706,8 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(probeOutputSymbols, probeSource.getLayout()));
             List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
-            Optional<Integer> probeHashChannel = probeHashSymbol.map(channelGetter(probeSource));
+            OptionalInt probeHashChannel = probeHashSymbol.map(channelGetter(probeSource))
+                    .map(OptionalInt::of).orElse(OptionalInt.empty());
             OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);
 
             switch (node.getType()) {
