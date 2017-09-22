@@ -41,8 +41,8 @@ import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -91,14 +91,14 @@ public class TestHashJoinOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeClass
+    @BeforeMethod
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
@@ -800,7 +800,12 @@ public class TestHashJoinOperator
         return hashChannels.build();
     }
 
-    private static LookupSourceFactory buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<InternalJoinFilterFunction> filterFunction)
+    private LookupSourceFactory buildHash(
+            boolean parallelBuild,
+            TaskContext taskContext,
+            List<Integer> hashChannels,
+            RowPagesBuilder buildPages,
+            Optional<InternalJoinFilterFunction> filterFunction)
     {
         Optional<JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
                 .map(function -> (session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels));
@@ -862,7 +867,24 @@ public class TestHashJoinOperator
         }
         getFutureValue(lookupSourceProvider).close();
 
+        for (Driver buildDriver : buildDrivers) {
+            runDriverInThread(executor, buildDriver);
+        }
+
         return buildOperatorFactory.getLookupSourceFactory();
+    }
+
+    /**
+     * Runs Driver in another thread until it is finished
+     */
+    private static void runDriverInThread(ExecutorService executor, Driver driver)
+    {
+        executor.execute(() -> {
+            if (!driver.isFinished()) {
+                driver.process();
+                runDriverInThread(executor, driver);
+            }
+        });
     }
 
     private static List<Integer> rangeList(int endExclusive)
