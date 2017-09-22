@@ -161,14 +161,19 @@ final class StreamPropertyDerivations
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties leftProperties = inputProperties.get(0);
+            boolean unordered = PropertyDerivations.spillPossible(session, node.getType());
 
             switch (node.getType()) {
                 case INNER:
-                    return leftProperties.translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
+                    return leftProperties
+                            .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
+                            .unordered(unordered);
                 case LEFT:
                     // the left can contain nulls in any stream so we can't say anything about the
                     // partitioning but the other properties of the left will be maintained.
-                    return leftProperties.withUnspecifiedPartitioning();
+                    return leftProperties
+                            .withUnspecifiedPartitioning()
+                            .unordered(unordered);
                 case RIGHT:
                     // since this is a right join, none of the matched output rows will contain nulls
                     // in the left partitioning columns, and all of the unmatched rows will have
@@ -582,6 +587,24 @@ final class StreamPropertyDerivations
         private static StreamProperties ordered()
         {
             return new StreamProperties(SINGLE, Optional.of(ImmutableSet.of()), true);
+        }
+
+        private StreamProperties unordered(boolean unordered)
+        {
+            if (unordered) {
+                ActualProperties updatedProperies = null;
+                if (otherActualProperties != null) {
+                    updatedProperies = ActualProperties.builderFrom(otherActualProperties)
+                            .unordered(true)
+                            .build();
+                }
+                return new StreamProperties(
+                        distribution,
+                        partitioningColumns,
+                        false,
+                        updatedProperies);
+            }
+            return this;
         }
 
         public boolean isSingleStream()

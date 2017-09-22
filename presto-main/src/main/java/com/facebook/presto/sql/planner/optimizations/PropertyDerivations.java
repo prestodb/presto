@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.NodePartitioning;
@@ -359,6 +360,8 @@ class PropertyDerivations
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties buildProperties = inputProperties.get(1);
 
+            boolean unordered = spillPossible(session, node.getType());
+
             switch (node.getType()) {
                 case INNER:
                     probeProperties = probeProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
@@ -370,21 +373,25 @@ class PropertyDerivations
 
                     return ActualProperties.builderFrom(probeProperties)
                             .constants(constants)
+                            .unordered(unordered)
                             .build();
                 case LEFT:
                     return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                            .unordered(unordered)
                             .build();
                 case RIGHT:
                     buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
 
                     return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .local(ImmutableList.of())
+                            .unordered(unordered)
                             .build();
                 case FULL:
                     // We can't say anything about the partitioning scheme because any partition of
                     // a hash-partitioned join can produce nulls in case of a lack of matches
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                            .unordered(unordered)
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -684,6 +691,24 @@ class PropertyDerivations
                 }
             }
             return inputToOutput;
+        }
+    }
+
+    static boolean spillPossible(Session session, JoinNode.Type joinType)
+    {
+        if (!SystemSessionProperties.isSpillEnabled(session)) {
+            return false;
+        }
+        switch (joinType) {
+            case INNER:
+            case LEFT:
+                return true;
+            case RIGHT:
+            case FULL:
+                // Currently there is no spill support for outer on the build side.
+                return false;
+            default:
+                throw new IllegalStateException("Unknown join type: " + joinType);
         }
     }
 
