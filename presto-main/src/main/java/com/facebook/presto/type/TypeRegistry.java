@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.ParametricType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -55,6 +56,7 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.RowType.RowField;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -82,6 +84,7 @@ import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -279,6 +282,9 @@ public final class TypeRegistry
                 return Optional.of(getCommonSuperTypeForVarchar(
                         (VarcharType) firstType, (VarcharType) secondType));
             }
+            if (firstTypeBaseName.equals(StandardTypes.ROW)) {
+                return getCommonSuperTypeForRow((RowType) firstType, (RowType) secondType);
+            }
 
             if (isCovariantParametrizedType(firstType)) {
                 return getCommonSuperTypeForCovariantParametrizedType(firstType, secondType);
@@ -317,12 +323,50 @@ public final class TypeRegistry
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 
+    private Optional<Type> getCommonSuperTypeForRow(RowType firstType, RowType secondType)
+    {
+        List<RowField> firstFields = firstType.getFields();
+        List<RowField> secondFields = secondType.getFields();
+        if (firstFields.size() != secondFields.size()) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<Type> commonParameterTypes = ImmutableList.builder();
+        List<Optional<String>> commonParameterNames = new ArrayList<>();
+        for (int i = 0; i < firstFields.size(); i++) {
+            Optional<Type> commonParameterType = getCommonSuperType(firstFields.get(i).getType(), secondFields.get(i).getType());
+            if (!commonParameterType.isPresent()) {
+                return Optional.empty();
+            }
+            commonParameterTypes.add(commonParameterType.get());
+
+            Optional<String> firstParameterName = firstFields.get(i).getName();
+            Optional<String> secondParameterName = secondFields.get(i).getName();
+            if (firstParameterName.equals(secondParameterName)) {
+                commonParameterNames.add(firstParameterName);
+            }
+            else {
+                commonParameterNames.add(Optional.empty());
+            }
+        }
+
+        List<String> names = null;
+        if (commonParameterNames.stream().allMatch(Optional::isPresent)) {
+            names = commonParameterNames.stream()
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+        }
+
+        return Optional.of(new RowType(commonParameterTypes.build(), Optional.ofNullable(names)));
+    }
+
     private Optional<Type> getCommonSuperTypeForCovariantParametrizedType(Type firstType, Type secondType)
     {
         checkState(firstType.getClass().equals(secondType.getClass()));
         ImmutableList.Builder<TypeSignatureParameter> commonParameterTypes = ImmutableList.builder();
         List<Type> firstTypeParameters = firstType.getTypeParameters();
         List<Type> secondTypeParameters = secondType.getTypeParameters();
+
         checkState(firstTypeParameters.size() == secondTypeParameters.size());
         for (int i = 0; i < firstTypeParameters.size(); i++) {
             Optional<Type> commonParameterType = getCommonSuperType(firstTypeParameters.get(i), secondTypeParameters.get(i));
