@@ -67,6 +67,12 @@ public final class JoinHash
     }
 
     @Override
+    public long joinPositionWithinPartition(long joinPosition)
+    {
+        return joinPosition;
+    }
+
+    @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
         int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage);
