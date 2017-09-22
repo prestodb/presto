@@ -199,18 +199,16 @@ class ActualProperties
         private List<LocalProperty<Symbol>> localProperties;
         private Map<Symbol, NullableValue> constants;
 
-        public Builder(Global global, List<LocalProperty<Symbol>> localProperties, Map<Symbol, NullableValue> constants)
-        {
-            this.global = global;
-            this.localProperties = localProperties;
-            this.constants = constants;
-        }
-
         public Builder()
         {
-            this.global = Global.arbitraryPartition();
-            this.localProperties = ImmutableList.of();
-            this.constants = ImmutableMap.of();
+            this(Global.arbitraryPartition(), ImmutableList.of(), ImmutableMap.of());
+        }
+
+        public Builder(Global global, List<LocalProperty<Symbol>> localProperties, Map<Symbol, NullableValue> constants)
+        {
+            this.global = requireNonNull(global, "global is null");
+            this.localProperties = ImmutableList.copyOf(localProperties);
+            this.constants = ImmutableMap.copyOf(constants);
         }
 
         public Builder global(Global global)
