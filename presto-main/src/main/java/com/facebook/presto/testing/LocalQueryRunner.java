@@ -301,6 +301,7 @@ public class LocalQueryRunner
 
         this.splitManager = new SplitManager(new QueryManagerConfig());
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
+        this.accessControl = new TestingAccessControlManager(transactionManager);
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
@@ -308,9 +309,9 @@ public class LocalQueryRunner
                 new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), featuresConfig)),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
-                transactionManager);
+                transactionManager,
+                accessControl);
         this.costCalculator = new CoefficientBasedCostCalculator(metadata);
-        this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
         this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);

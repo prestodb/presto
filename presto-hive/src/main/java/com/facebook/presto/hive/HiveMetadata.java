@@ -1032,7 +1032,8 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !HiveUtil.isPrestoView(existing.get())) {
+            if (!replace || !HiveUtil.isPrestoView(existing.get())
+                    || !HiveUtil.isHiveView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -1090,11 +1091,27 @@ public class HiveMetadata
 
         for (SchemaTableName schemaTableName : tableNames) {
             Optional<Table> table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            if (table.isPresent() && HiveUtil.isPrestoView(table.get())) {
-                views.put(schemaTableName, new ConnectorViewDefinition(
-                        schemaTableName,
-                        Optional.ofNullable(table.get().getOwner()),
-                        decodeViewData(table.get().getViewOriginalText().get())));
+            if (table.isPresent()
+                    && (HiveUtil.isPrestoView(table.get())
+                    || HiveUtil.isHiveView(table.get()))) {
+                ConnectorViewDefinition viewDefn;
+                if (HiveUtil.isPrestoView(table.get())) {
+                    String viewData = table.get().getViewOriginalText().get();
+                    viewDefn = new ConnectorViewDefinition(schemaTableName,
+                        Optional.ofNullable(table.get().getOwner()), decodeViewData(viewData));
+                }
+                else {
+                    String sql = table.get().getViewExpandedText().get();
+                    sql = sql.replace('`', '"');
+                    String owner = table.get().getOwner();
+                    if (owner != null) {
+                        int domainIndex = owner.indexOf('@');
+                        owner = (domainIndex < 0) ? owner : owner.substring(0, domainIndex);
+                    }
+                    viewDefn = new ConnectorViewDefinition(schemaTableName,
+                        Optional.ofNullable(owner), null, sql);
+                }
+                views.put(schemaTableName, viewDefn);
             }
         }
 

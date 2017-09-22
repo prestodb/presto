@@ -22,12 +22,20 @@ public class ConnectorViewDefinition
     private final SchemaTableName name;
     private final Optional<String> owner;
     private final String viewData;
+    private final String originalSql;
 
     public ConnectorViewDefinition(SchemaTableName name, Optional<String> owner, String viewData)
     {
+        this(name, owner, viewData, null);
+    }
+
+    public ConnectorViewDefinition(SchemaTableName name, Optional<String> owner, String viewData,
+                                   String originalSql)
+    {
         this.name = requireNonNull(name, "name is null");
         this.owner = requireNonNull(owner, "owner is null");
-        this.viewData = requireNonNull(viewData, "viewData is null");
+        this.viewData = viewData;
+        this.originalSql = originalSql;
     }
 
     public SchemaTableName getName()
@@ -43,6 +51,11 @@ public class ConnectorViewDefinition
     public String getViewData()
     {
         return viewData;
+    }
+
+    public String getOriginalSql()
+    {
+        return originalSql;
     }
 
     @Override

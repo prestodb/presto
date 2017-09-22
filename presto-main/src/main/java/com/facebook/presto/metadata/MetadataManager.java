@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnIdentity;
@@ -48,8 +49,14 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
@@ -114,6 +121,7 @@ public class MetadataManager
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
 
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -123,7 +131,8 @@ public class MetadataManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            AccessControl accessControl)
     {
         this(featuresConfig,
                 typeManager,
@@ -132,7 +141,8 @@ public class MetadataManager
                 sessionPropertyManager,
                 schemaPropertyManager,
                 tablePropertyManager,
-                transactionManager);
+                transactionManager,
+                accessControl);
     }
 
     @Inject
@@ -143,7 +153,8 @@ public class MetadataManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            AccessControl accessControl)
     {
         functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig);
         procedures = new ProcedureRegistry(typeManager);
@@ -154,6 +165,7 @@ public class MetadataManager
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = accessControl;
 
         verifyComparableOrderableContract();
     }
@@ -166,6 +178,7 @@ public class MetadataManager
     public static MetadataManager createTestMetadataManager(CatalogManager catalogManager)
     {
         TypeManager typeManager = new TypeRegistry();
+        TransactionManager transManager = createTestTransactionManager(catalogManager);
         return new MetadataManager(
                 new FeaturesConfig(),
                 typeManager,
@@ -173,7 +186,8 @@ public class MetadataManager
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
-                createTestTransactionManager(catalogManager));
+                createTestTransactionManager(catalogManager),
+                new TestingAccessControlManager(transManager));
     }
 
     @Override
@@ -426,7 +440,7 @@ public class MetadataManager
                             entry.getKey().getTableName());
 
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : deserializeView(entry.getValue().getViewData()).getColumns()) {
+                    for (ViewColumn column : deserializeView(session, entry.getValue()).getColumns()) {
                         columns.add(new ColumnMetadata(column.getName(), column.getType()));
                     }
 
@@ -749,7 +763,7 @@ public class MetadataManager
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
                             entry.getKey().getTableName());
-                    views.put(viewName, deserializeView(entry.getValue().getViewData()));
+                    views.put(viewName, deserializeView(session, entry.getValue()));
                 }
             }
         }
@@ -770,7 +784,7 @@ public class MetadataManager
                     viewName.asSchemaTableName().toSchemaTablePrefix());
             ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
-                return Optional.of(deserializeView(view.getViewData()));
+                return Optional.of(deserializeView(session, view));
             }
         }
         return Optional.empty();
@@ -892,13 +906,45 @@ public class MetadataManager
         return tablePropertyManager;
     }
 
-    private ViewDefinition deserializeView(String data)
+    private ViewDefinition deserializeView(Session session, ConnectorViewDefinition view)
+    {
+        if (view.getViewData() != null) {
+            return deserializeJsonViewData(view.getViewData());
+        }
+        else if (view.getOriginalSql() != null) {
+            return deserializeSqlViewData(session, view.getOriginalSql(), view.getOwner().get());
+        }
+        else {
+            throw new PrestoException(INVALID_VIEW, "Invalid view name: " + view.getName());
+        }
+    }
+
+    private ViewDefinition deserializeJsonViewData(String viewJson)
     {
         try {
-            return viewCodec.fromJson(data);
+            return viewCodec.fromJson(viewJson);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_VIEW, "Invalid view JSON: " + data, e);
+            throw new PrestoException(INVALID_VIEW, "Invalid view JSON: " + viewJson, e);
+        }
+    }
+
+    private ViewDefinition deserializeSqlViewData(Session session, String data, String owner)
+    {
+        try {
+            SqlParser sqlParser = new SqlParser();
+            Analyzer analyzer = new Analyzer(session, this, sqlParser, accessControl,
+                    Optional.<QueryExplainer>empty(), new ArrayList());
+            Statement statement = sqlParser.createStatement(data);
+            Analysis analysis = analyzer.analyze(statement);
+            List<ViewColumn> columns = analysis.getOutputDescriptor()
+                    .getVisibleFields().stream()
+                    .map(field -> new ViewColumn(field.getName().get(), field.getType()))
+                    .collect(toImmutableList());
+            return new ViewDefinition(data, session.getCatalog(), session.getSchema(), columns, Optional.of(owner));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_VIEW, "Invalid View with SQL: " + data, e);
         }
     }
 
