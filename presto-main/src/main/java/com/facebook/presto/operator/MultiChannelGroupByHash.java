@@ -30,6 +30,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -59,7 +60,7 @@ public class MultiChannelGroupByHash
     private final List<ObjectArrayList<Block>> channelBuilders;
     private final Optional<Integer> inputHashChannel;
     private final HashGenerator hashGenerator;
-    private final Optional<Integer> precomputedHashChannel;
+    private final OptionalInt precomputedHashChannel;
     private final boolean processDictionary;
     private PageBuilder currentPageBuilder;
 
@@ -111,11 +112,11 @@ public class MultiChannelGroupByHash
             channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
         }
         if (inputHashChannel.isPresent()) {
-            this.precomputedHashChannel = Optional.of(hashChannels.length);
+            this.precomputedHashChannel = OptionalInt.of(hashChannels.length);
             channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
         }
         else {
-            this.precomputedHashChannel = Optional.empty();
+            this.precomputedHashChannel = OptionalInt.empty();
         }
         this.channelBuilders = channelBuilders.build();
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(this.types, outputChannels.build());
@@ -294,7 +295,7 @@ public class MultiChannelGroupByHash
             type.appendTo(page.getBlock(hashChannel), position, currentPageBuilder.getBlockBuilder(i));
         }
         if (precomputedHashChannel.isPresent()) {
-            BIGINT.writeLong(currentPageBuilder.getBlockBuilder(precomputedHashChannel.get()), rawHash);
+            BIGINT.writeLong(currentPageBuilder.getBlockBuilder(precomputedHashChannel.getAsInt()), rawHash);
         }
         currentPageBuilder.declarePosition();
         int pageIndex = channelBuilders.get(0).size() - 1;
@@ -398,7 +399,7 @@ public class MultiChannelGroupByHash
 
     private long getRawHash(int sliceIndex, int position)
     {
-        return channelBuilders.get(precomputedHashChannel.get()).get(sliceIndex).getLong(position, 0);
+        return channelBuilders.get(precomputedHashChannel.getAsInt()).get(sliceIndex).getLong(position, 0);
     }
 
     private boolean positionEqualsCurrentRow(long address, int hashPosition, int position, Page page, byte rawHash, int[] hashChannels)

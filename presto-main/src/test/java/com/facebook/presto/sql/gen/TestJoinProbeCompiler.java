@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -108,7 +109,7 @@ public class TestJoinProbeCompiler
             }
         }
 
-        Optional<Integer> hashChannel = Optional.empty();
+        OptionalInt hashChannel = OptionalInt.empty();
         List<List<Block>> channels = ImmutableList.of(varcharChannel, extraUnusedDoubleChannel);
 
         if (hashEnabled) {
@@ -117,7 +118,7 @@ public class TestJoinProbeCompiler
                 hashChannelBuilder.add(TypeUtils.getHashBlock(ImmutableList.<Type>of(VARCHAR), block));
             }
             types = ImmutableList.of(VARCHAR, DOUBLE, BigintType.BIGINT);
-            hashChannel = Optional.of(2);
+            hashChannel = OptionalInt.of(2);
             channels = ImmutableList.of(varcharChannel, extraUnusedDoubleChannel, hashChannelBuilder.build());
             outputChannels = ImmutableList.of(0, 2);
             outputTypes = ImmutableList.of(VARCHAR, BigintType.BIGINT);

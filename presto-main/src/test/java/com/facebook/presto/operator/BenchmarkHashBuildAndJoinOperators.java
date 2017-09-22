@@ -97,7 +97,7 @@ public class BenchmarkHashBuildAndJoinOperators
         protected ExecutorService executor;
         protected ScheduledExecutorService scheduledExecutor;
         protected List<Page> buildPages;
-        protected Optional<Integer> hashChannel;
+        protected OptionalInt hashChannel;
         protected List<Type> types;
         protected List<Integer> hashChannels;
 
@@ -128,7 +128,7 @@ public class BenchmarkHashBuildAndJoinOperators
             return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(2, GIGABYTE));
         }
 
-        public Optional<Integer> getHashChannel()
+        public OptionalInt getHashChannel()
         {
             return hashChannel;
         }
@@ -163,7 +163,8 @@ public class BenchmarkHashBuildAndJoinOperators
 
             types = buildPagesBuilder.getTypes();
             buildPages = buildPagesBuilder.build();
-            hashChannel = buildPagesBuilder.getHashChannel();
+            hashChannel = buildPagesBuilder.getHashChannel()
+                    .map(OptionalInt::of).orElse(OptionalInt.empty());
         }
     }
 

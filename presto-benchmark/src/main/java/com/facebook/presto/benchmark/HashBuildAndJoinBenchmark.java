@@ -71,11 +71,11 @@ public class HashBuildAndJoinBenchmark
         ImmutableList.Builder<OperatorFactory> driversBuilder = ImmutableList.builder();
         driversBuilder.add(ordersTableScan);
         OperatorFactory source = ordersTableScan;
-        Optional<Integer> hashChannel = Optional.empty();
+        OptionalInt hashChannel = OptionalInt.empty();
         if (hashEnabled) {
             source = createHashProjectOperator(1, new PlanNodeId("test"), ImmutableList.of(BIGINT, DOUBLE));
             driversBuilder.add(source);
-            hashChannel = Optional.of(2);
+            hashChannel = OptionalInt.of(2);
         }
 
         // hash build
@@ -105,11 +105,11 @@ public class HashBuildAndJoinBenchmark
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
         joinDriversBuilder.add(lineItemTableScan);
         source = lineItemTableScan;
-        hashChannel = Optional.empty();
+        hashChannel = OptionalInt.empty();
         if (hashEnabled) {
             source = createHashProjectOperator(1, new PlanNodeId("test"), ImmutableList.of(BIGINT, BIGINT));
             joinDriversBuilder.add(source);
-            hashChannel = Optional.of(2);
+            hashChannel = OptionalInt.of(2);
         }
 
         OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(2, new PlanNodeId("test"), hashBuilder.getLookupSourceFactory(), source.getTypes(), Ints.asList(0), hashChannel, Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());

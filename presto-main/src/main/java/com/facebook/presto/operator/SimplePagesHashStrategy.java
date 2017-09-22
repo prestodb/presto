@@ -23,6 +23,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -44,7 +45,7 @@ public class SimplePagesHashStrategy
             List<Integer> outputChannels,
             List<List<Block>> channels,
             List<Integer> hashChannels,
-            Optional<Integer> precomputedHashChannel,
+            OptionalInt precomputedHashChannel,
             Optional<Integer> sortChannel)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -54,7 +55,7 @@ public class SimplePagesHashStrategy
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
         if (precomputedHashChannel.isPresent()) {
-            this.precomputedHashChannel = channels.get(precomputedHashChannel.get());
+            this.precomputedHashChannel = channels.get(precomputedHashChannel.getAsInt());
         }
         else {
             this.precomputedHashChannel = null;

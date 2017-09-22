@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
@@ -32,9 +33,9 @@ public class SimpleJoinProbe
         private List<Type> types;
         private List<Integer> probeOutputChannels;
         private List<Integer> probeJoinChannels;
-        private final Optional<Integer> probeHashChannel;
+        private final OptionalInt probeHashChannel;
 
-        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeOutputChannels, List<Integer> probeJoinChannels, Optional<Integer> probeHashChannel)
+        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
         {
             this.types = types;
             this.probeOutputChannels = probeOutputChannels;
@@ -60,7 +61,7 @@ public class SimpleJoinProbe
 
     private int position = -1;
 
-    private SimpleJoinProbe(List<Type> types, List<Integer> probeOutputChannels, Page page, List<Integer> probeJoinChannels, Optional<Integer> hashChannel)
+    private SimpleJoinProbe(List<Type> types, List<Integer> probeOutputChannels, Page page, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
     {
         this.types = types;
         this.probeOutputChannels = probeOutputChannels;
@@ -77,7 +78,7 @@ public class SimpleJoinProbe
         }
         this.page = page;
         this.probePage = new Page(page.getPositionCount(), probeBlocks);
-        this.probeHashBlock = hashChannel.isPresent() ? Optional.of(page.getBlock(hashChannel.get())) : Optional.empty();
+        this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt())) : Optional.empty();
     }
 
     @Override

@@ -60,7 +60,7 @@ public class HashBuildBenchmark
                 ImmutableList.of(0, 1),
                 ImmutableMap.of(),
                 Ints.asList(0),
-                Optional.empty(),
+                OptionalInt.empty(),
                 false,
                 Optional.empty(),
                 Optional.empty(),
@@ -81,7 +81,7 @@ public class HashBuildBenchmark
                 hashBuilder.getLookupSourceFactory(),
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
-                Optional.empty(),
+                OptionalInt.empty(),
                 Optional.empty(),
                 OptionalInt.empty(),
                 unsupportedPartitioningSpillerFactory());
