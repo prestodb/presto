@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
@@ -32,6 +33,7 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Queue;
 
 import static com.facebook.presto.operator.Operators.checkSuccess;
@@ -228,6 +230,9 @@ public class HashBuilderOperator
     private Optional<SingleStreamSpiller> spiller = Optional.empty();
     private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
     private Optional<ListenableFuture<List<Page>>> unspillInProgress = Optional.empty();
+    @Nullable
+    private LookupSourceSupplier lookupSourceSupplier;
+    private OptionalLong lookupSourceChecksum = OptionalLong.empty();
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
@@ -371,10 +376,6 @@ public class HashBuilderOperator
     {
         checkState(spillEnabled, "Spill not enabled, no revokable memory should be reserved");
 
-        if (state == State.LOOKUP_SOURCE_BUILT) {
-            // TODO compute checksum of lookupSource's position links for validation when lookupSource is rebuilt
-        }
-
         if (state == State.CONSUMING_INPUT || state == State.LOOKUP_SOURCE_BUILT) {
             checkState(!spiller.isPresent(), "Spiller already created");
             spiller = Optional.of(singleStreamSpillerFactory.create(
@@ -409,6 +410,8 @@ public class HashBuilderOperator
             index.clear();
             operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
             operatorContext.setRevocableMemoryReservation(0L);
+            lookupSourceChecksum = OptionalLong.of(lookupSourceSupplier.checksum());
+            lookupSourceSupplier = null;
             state = State.INPUT_SPILLED;
             return;
         }
@@ -503,6 +506,7 @@ public class HashBuilderOperator
         index.clear();
         operatorContext.setRevocableMemoryReservation(0L);
         operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+        lookupSourceSupplier = null;
         state = State.DISPOSED;
     }
 
@@ -560,6 +564,8 @@ public class HashBuilderOperator
         }
 
         LookupSourceSupplier partition = buildLookupSource();
+        lookupSourceChecksum.ifPresent(checksum ->
+                checkState(partition.checksum() == checksum, "Unspilled lookupSource checksum does not match original one"));
         operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
 
         spilledLookupSourceHandle.setLookupSource(partition);
@@ -584,6 +590,8 @@ public class HashBuilderOperator
     {
         LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
         hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
+        checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
+        this.lookupSourceSupplier = partition;
         return partition;
     }
 
@@ -609,6 +617,7 @@ public class HashBuilderOperator
     {
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
 
+        lookupSourceSupplier = null;
         state = State.DISPOSED;
 
         try (Closer closer = Closer.create()) {

@@ -131,10 +131,26 @@ public final class SortedPositionLinks
                 }
             }
 
-            return searchFunctions -> new SortedPositionLinks(
-                    arrayPositionLinksFactoryBuilder.build().create(ImmutableList.of()),
-                    sortedPositionLinks,
-                    searchFunctions);
+            Factory arrayPositionLinksFactory = arrayPositionLinksFactoryBuilder.build();
+
+            return new Factory()
+            {
+                @Override
+                public PositionLinks create(List<JoinFilterFunction> searchFunctions)
+                {
+                    return new SortedPositionLinks(
+                            arrayPositionLinksFactory.create(ImmutableList.of()),
+                            sortedPositionLinks,
+                            searchFunctions);
+                }
+
+                @Override
+                public long checksum()
+                {
+                    // For spill/unspill state restoration, sorted position links do not matter
+                    return arrayPositionLinksFactory.checksum();
+                }
+            };
         }
 
         @Override

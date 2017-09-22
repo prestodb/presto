@@ -66,5 +66,10 @@ public interface PositionLinks
          * since JoinFilterFunction is not thread safe...
          */
         PositionLinks create(List<JoinFilterFunction> searchFunctions);
+
+        /**
+         * @return a checksum for this {@link PositionLinks}, useful when entity is restored from spilled data
+         */
+        long checksum();
     }
 }
