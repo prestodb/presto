@@ -66,8 +66,7 @@ public class MapHashCodeOperator
     {
         long result = 0;
         for (int position = 0; position < block.getPositionCount(); position += 2) {
-            result += hashPosition(keyHashCodeFunction, keyType, block, position);
-            result += hashPosition(valueHashCodeFunction, valueType, block, position + 1);
+            result += hashPosition(keyHashCodeFunction, keyType, block, position) ^ hashPosition(valueHashCodeFunction, valueType, block, position + 1);
         }
         return result;
     }
