@@ -96,7 +96,7 @@ public class TestHashJoinOperator
 {
     private static final int PARTITION_COUNT = 4;
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
-    private static final SingleStreamSpillerFactory SINGLE_STREAM_SPILLER_FACTORY = new DummySpillerFactory();
+    private static final DummySpillerFactory SINGLE_STREAM_SPILLER_FACTORY = new DummySpillerFactory();
     private static final PartitioningSpillerFactory PARTITIONING_SPILLER_FACTORY = new GenericPartitioningSpillerFactory(SINGLE_STREAM_SPILLER_FACTORY);
 
     private ExecutorService executor;
@@ -146,7 +146,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
@@ -281,7 +281,7 @@ public class TestHashJoinOperator
                 .addSequencePage(30, 0, 123_000)
                 .addSequencePage(10, 30, 123_000);
 
-        try (OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
+        try (OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY);
                 Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(0, true, true).addDriverContext())) {
             // build LookupSource
 
@@ -396,7 +396,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -432,7 +432,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -469,7 +469,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY);
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -858,7 +858,7 @@ public class TestHashJoinOperator
                 PARTITIONING_SPILLER_FACTORY);
     }
 
-    private OperatorFactory innerJoinOperatorFactory(LookupSourceFactory lookupSourceFactory, RowPagesBuilder probePages)
+    private OperatorFactory innerJoinOperatorFactory(LookupSourceFactory lookupSourceFactory, RowPagesBuilder probePages, PartitioningSpillerFactory partitioningSpillerFactory)
     {
         return LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
@@ -869,7 +869,7 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+                partitioningSpillerFactory);
     }
 
     private LookupSourceFactory buildHash(
