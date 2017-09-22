@@ -147,12 +147,6 @@ public class ShardMetadataRecordCursor
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return 0;
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return completedBytes;

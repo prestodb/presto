@@ -40,18 +40,11 @@ public class InMemoryRecordSet
 {
     private final List<Type> types;
     private final Iterable<? extends List<?>> records;
-    private final long totalBytes;
 
     public InMemoryRecordSet(Collection<? extends Type> types, Collection<? extends List<?>> records)
     {
         this.types = Collections.unmodifiableList(new ArrayList<>(types));
         this.records = records;
-
-        long totalBytes = 0;
-        for (List<?> record : records) {
-            totalBytes += sizeOf(record);
-        }
-        this.totalBytes = totalBytes;
     }
 
     @Override
@@ -63,7 +56,7 @@ public class InMemoryRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new InMemoryRecordCursor(types, records.iterator(), totalBytes);
+        return new InMemoryRecordCursor(types, records.iterator());
     }
 
     private static class InMemoryRecordCursor
@@ -71,23 +64,13 @@ public class InMemoryRecordSet
     {
         private final List<Type> types;
         private final Iterator<? extends List<?>> records;
-        private final long totalBytes;
         private List<?> record;
         private long completedBytes;
 
-        private InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records, long totalBytes)
+        private InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records)
         {
             this.types = types;
-
             this.records = records;
-
-            this.totalBytes = totalBytes;
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return totalBytes;
         }
 
         @Override

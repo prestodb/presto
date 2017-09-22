@@ -45,7 +45,6 @@ import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +64,6 @@ public class ParquetPageSource
     private final Block[] constantBlocks;
     private final int[] hiveColumnIndexes;
 
-    private final long totalBytes;
     private int batchId;
     private boolean closed;
     private long readTimeNanos;
@@ -78,7 +76,6 @@ public class ParquetPageSource
             ParquetDataSource dataSource,
             MessageType fileSchema,
             MessageType requestedSchema,
-            long totalBytes,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -86,7 +83,6 @@ public class ParquetPageSource
             boolean useParquetColumnNames,
             AggregatedMemoryContext systemMemoryContext)
     {
-        checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(effectivePredicate, "effectivePredicate is null");
@@ -95,7 +91,6 @@ public class ParquetPageSource
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.fileSchema = requireNonNull(fileSchema, "fileSchema is null");
         this.requestedSchema = requireNonNull(requestedSchema, "requestedSchema is null");
-        this.totalBytes = totalBytes;
         this.useParquetColumnNames = useParquetColumnNames;
 
         int size = columns.size();
@@ -123,12 +118,6 @@ public class ParquetPageSource
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
     }
 
     @Override

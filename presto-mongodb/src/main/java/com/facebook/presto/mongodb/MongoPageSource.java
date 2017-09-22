@@ -80,12 +80,6 @@ public class MongoPageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return totalCount;
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return count;

@@ -163,12 +163,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         if (!closed) {

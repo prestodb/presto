@@ -50,12 +50,6 @@ public class RecordPageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return cursor.getTotalBytes();
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return cursor.getCompletedBytes();

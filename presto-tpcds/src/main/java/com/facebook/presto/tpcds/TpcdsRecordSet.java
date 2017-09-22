@@ -89,12 +89,6 @@ public class TpcdsRecordSet
         }
 
         @Override
-        public long getTotalBytes()
-        {
-            return 0;
-        }
-
-        @Override
         public long getCompletedBytes()
         {
             return 0;

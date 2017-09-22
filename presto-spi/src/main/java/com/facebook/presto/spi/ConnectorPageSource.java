@@ -23,13 +23,6 @@ public interface ConnectorPageSource
     CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
-     * Gets the total input bytes that will be processed by this page source.
-     * This is normally the same size as the split.  If size is not available,
-     * this method should return zero.
-     */
-    long getTotalBytes();
-
-    /**
      * Gets the number of input bytes processed by this page source so far.
      * If size is not available, this method should return zero.
      */
