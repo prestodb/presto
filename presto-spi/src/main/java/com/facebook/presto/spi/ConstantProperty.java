@@ -35,6 +35,12 @@ public final class ConstantProperty<E>
         this.column = requireNonNull(column, "column is null");
     }
 
+    @Override
+    public boolean isOrderSensitive()
+    {
+        return false;
+    }
+
     @JsonProperty
     public E getColumn()
     {
