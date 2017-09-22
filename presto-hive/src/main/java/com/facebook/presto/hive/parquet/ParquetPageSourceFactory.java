@@ -187,7 +187,6 @@ public class ParquetPageSourceFactory
                     dataSource,
                     fileSchema,
                     requestedSchema,
-                    length,
                     schema,
                     columns,
                     effectivePredicate,

@@ -125,12 +125,6 @@ public class OrcPageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return recordReader.getSplitLength();
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return orcDataSource.getReadBytes();

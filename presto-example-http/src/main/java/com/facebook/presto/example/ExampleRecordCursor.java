@@ -68,12 +68,6 @@ public class ExampleRecordCursor
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return totalBytes;

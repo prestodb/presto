@@ -66,12 +66,6 @@ public class PageRecordSet
         }
 
         @Override
-        public long getTotalBytes()
-        {
-            return page.getSizeInBytes();
-        }
-
-        @Override
         public long getCompletedBytes()
         {
             return 0;

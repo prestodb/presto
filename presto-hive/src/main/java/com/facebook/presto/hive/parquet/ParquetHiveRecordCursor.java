@@ -172,12 +172,6 @@ public class ParquetHiveRecordCursor
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         if (!closed) {

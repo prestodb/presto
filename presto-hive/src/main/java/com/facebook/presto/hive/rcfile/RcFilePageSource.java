@@ -105,12 +105,6 @@ public class RcFilePageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return rcFileReader.getLength();
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return rcFileReader.getBytesRead();

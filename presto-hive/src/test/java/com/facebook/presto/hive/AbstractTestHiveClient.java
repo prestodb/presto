@@ -1496,7 +1496,6 @@ public abstract class AbstractTestHiveClient
                     assertPageSourceType(pageSource, TEXTFILE);
                     MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
 
-                    assertEquals(pageSource.getTotalBytes(), hiveSplit.getLength());
                     for (MaterializedRow row : result) {
                         rowNumber++;
 
