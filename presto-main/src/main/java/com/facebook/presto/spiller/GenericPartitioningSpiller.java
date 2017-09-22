@@ -14,7 +14,7 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.memory.AggregatedMemoryContext;
-import com.facebook.presto.memory.LocalMemoryContext;
+import com.facebook.presto.memory.SynchronizedAggregatedMemoryContext;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.Page;
@@ -33,10 +33,10 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.IntPredicate;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.memory.SynchronizedAggregatedMemoryContext.synchronizedMemoryContext;
 import static com.facebook.presto.spi.Page.mask;
@@ -51,10 +51,15 @@ public class GenericPartitioningSpiller
         implements PartitioningSpiller
 {
     private final List<Type> types;
-    private final PageBuilder[] pageBuilders;
     private final PartitionFunction partitionFunction;
-    private final SingleStreamSpiller[] spillers;
     private final Closer closer = Closer.create();
+    private final SingleStreamSpillerFactory spillerFactory;
+    private final SpillContext spillContext;
+    private final SynchronizedAggregatedMemoryContext memoryContext;
+
+    private final PageBuilder[] pageBuilders;
+    private final Optional<SingleStreamSpiller>[] spillers;
+
     private boolean readingStarted;
     private Set<Integer> spilledPartitions = new HashSet<>();
 
@@ -69,18 +74,21 @@ public class GenericPartitioningSpiller
 
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
+        this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
+        this.spillContext = closer.register(requireNonNull(spillContext, "spillContext is null"));
 
         requireNonNull(memoryContext, "memoryContext is null");
         closer.register(memoryContext::close);
-        Supplier<LocalMemoryContext> childMemoryContextSupplier = synchronizedMemoryContext(memoryContext)::newLocalMemoryContext;
+        this.memoryContext = synchronizedMemoryContext(memoryContext);
 
         int partitionCount = partitionFunction.getPartitionCount();
-        this.spillers = new SingleStreamSpiller[partitionCount];
         this.pageBuilders = new PageBuilder[partitionCount];
+        //noinspection unchecked
+        this.spillers = new Optional[partitionCount];
 
         for (int partition = 0; partition < partitionCount; partition++) {
             pageBuilders[partition] = new PageBuilder(types);
-            spillers[partition] = closer.register(spillerFactory.create(types, spillContext, childMemoryContextSupplier.get()));
+            spillers[partition] = Optional.empty();
         }
     }
 
@@ -90,7 +98,7 @@ public class GenericPartitioningSpiller
         readingStarted = true;
         getFutureValue(flush(partition));
         spilledPartitions.remove(partition);
-        return spillers[partition].getSpilledPages();
+        return getSpiller(partition).getSpilledPages();
     }
 
     @Override
@@ -171,7 +179,17 @@ public class GenericPartitioningSpiller
         }
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return spillers[partition].spill(page);
+        return getSpiller(partition).spill(page);
+    }
+
+    private synchronized SingleStreamSpiller getSpiller(int partition)
+    {
+        Optional<SingleStreamSpiller> spiller = spillers[partition];
+        if (!spiller.isPresent()) {
+            spiller = Optional.of(closer.register(spillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext())));
+            spillers[partition] = spiller;
+        }
+        return spiller.get();
     }
 
     @Override
