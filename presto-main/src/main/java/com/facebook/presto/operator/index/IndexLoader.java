@@ -409,6 +409,12 @@ public class IndexLoader
         }
 
         @Override
+        public long joinPositionWithinPartition(long joinPosition)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public long getJoinPosition(int position, Page page, Page allChannelsPage, long rawHash)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;

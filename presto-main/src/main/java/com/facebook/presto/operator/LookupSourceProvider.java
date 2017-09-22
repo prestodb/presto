@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import java.util.function.Function;
+import java.util.function.IntPredicate;
 
 public interface LookupSourceProvider
         extends AutoCloseable
@@ -26,5 +27,11 @@ public interface LookupSourceProvider
     interface LookupSourceLease
     {
         LookupSource getLookupSource();
+
+        boolean hasSpilled();
+
+        long spillEpoch();
+
+        IntPredicate getSpillMask();
     }
 }

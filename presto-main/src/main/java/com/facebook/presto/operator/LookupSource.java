@@ -30,6 +30,8 @@ public interface LookupSource
 
     long getJoinPositionCount();
 
+    long joinPositionWithinPartition(long joinPosition);
+
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash);
 
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage);
