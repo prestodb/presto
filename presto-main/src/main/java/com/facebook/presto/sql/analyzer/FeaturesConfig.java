@@ -56,6 +56,7 @@ public class FeaturesConfig
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
     private boolean optimizeMixedDistinctAggregations;
+    private boolean forceSingleNodeOutput;
 
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
@@ -456,6 +457,18 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationThroughJoin(boolean value)
     {
         this.pushAggregationThroughJoin = value;
+        return this;
+    }
+
+    public boolean isForceSingleNodeOutput()
+    {
+        return forceSingleNodeOutput;
+    }
+
+    @Config("optimizer.force-single-node-output")
+    public FeaturesConfig setForceSingleNodeOutput(boolean value)
+    {
+        this.forceSingleNodeOutput = value;
         return this;
     }
 }

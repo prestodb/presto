@@ -23,7 +23,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -39,10 +38,12 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
@@ -113,7 +114,8 @@ public class OrcFileWriterFactory
 
         CompressionKind compression = getCompression(schema, configuration);
 
-        // existing tables may have columns in a different order
+        // existing tables and partitions may have columns in a different order than the writer is providing, so build
+        // an index to rearrange columns in the proper order
         List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
         List<Type> fileColumnTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, "")).stream()
                 .map(hiveType -> hiveType.getType(typeManager))
@@ -137,18 +139,25 @@ public class OrcFileWriterFactory
                                 getOrcMaxMergeDistance(session),
                                 getOrcMaxBufferSize(session),
                                 getOrcStreamBufferSize(session),
+                                false,
                                 fileSystem.open(path),
                                 stats);
                     }
                     catch (IOException e) {
-                        throw Throwables.propagate(e);
+                        throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
                     }
                 });
             }
 
+            Callable<Void> rollbackAction = () -> {
+                fileSystem.delete(path, false);
+                return null;
+            };
+
             return Optional.of(new OrcFileWriter(
-                    isDwrf,
                     outputStream,
+                    rollbackAction,
+                    isDwrf,
                     fileColumnNames,
                     fileColumnTypes,
                     compression,
@@ -161,7 +170,7 @@ public class OrcFileWriterFactory
                     validationInputFactory));
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating DWRF file", e);
+            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e);
         }
     }
 

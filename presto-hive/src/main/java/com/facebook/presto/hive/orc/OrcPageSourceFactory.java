@@ -58,6 +58,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
@@ -126,6 +127,7 @@ public class OrcPageSourceFactory
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
                 getOrcMaxReadBlockSize(session),
+                getOrcLazyReadSmallRanges(session),
                 isOrcBloomFiltersEnabled(session),
                 stats));
     }
@@ -148,6 +150,7 @@ public class OrcPageSourceFactory
             DataSize maxBufferSize,
             DataSize streamBufferSize,
             DataSize maxReadBlockSize,
+            boolean lazyReadSmallRanges,
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats)
     {
@@ -155,7 +158,15 @@ public class OrcPageSourceFactory
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             FSDataInputStream inputStream = fileSystem.open(path);
-            orcDataSource = new HdfsOrcDataSource(new OrcDataSourceId(path.toString()), fileSize, maxMergeDistance, maxBufferSize, streamBufferSize, inputStream, stats);
+            orcDataSource = new HdfsOrcDataSource(
+                    new OrcDataSourceId(path.toString()),
+                    fileSize,
+                    maxMergeDistance,
+                    maxBufferSize,
+                    streamBufferSize,
+                    lazyReadSmallRanges,
+                    inputStream,
+                    stats);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

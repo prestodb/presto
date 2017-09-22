@@ -134,9 +134,9 @@ public final class RcFileDecoderUtils
         sync.setLong(SIZE_OF_INT, syncFirst);
         sync.setLong(SIZE_OF_INT + SIZE_OF_LONG, syncSecond);
 
-        // read 1 MB chunks at a time, but only skip ahead 1 MB - SYNC_SEQUENCE_LENGTH bytes
+        // read 4 MB chunks at a time, but only skip ahead 4 MB - SYNC_SEQUENCE_LENGTH bytes
         // this causes a re-read of SYNC_SEQUENCE_LENGTH bytes each time, but is much simpler code
-        byte[] buffer = new byte[toIntExact(min(1 << 20, length + (SYNC_SEQUENCE_LENGTH - 1)))];
+        byte[] buffer = new byte[toIntExact(min(1 << 22, length + (SYNC_SEQUENCE_LENGTH - 1)))];
         Slice bufferSlice = Slices.wrappedBuffer(buffer);
         for (long position = 0; position < length; position += bufferSlice.length() - (SYNC_SEQUENCE_LENGTH - 1)) {
             // either fill the buffer entirely, or read enough to allow all bytes in offset + length to be a start sequence

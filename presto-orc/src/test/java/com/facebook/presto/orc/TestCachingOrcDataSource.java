@@ -164,7 +164,7 @@ public class TestCachingOrcDataSource
         cachingOrcDataSource = new CachingOrcDataSource(
                 testingOrcDataSource,
                 createTinyStripesRangeFinder(
-                        ImmutableList.of(new StripeInformation(123, 3, 1, 0, 0), new StripeInformation(123, 4, 1048576, 1048576, 1048576 * 3), new StripeInformation(123, 4 + 1048576 * 5, 1048576, 1048576, 1048576)),
+                        ImmutableList.of(new StripeInformation(123, 3, 1, 1, 1), new StripeInformation(123, 4, 1048576, 1048576, 1048576 * 3), new StripeInformation(123, 4 + 1048576 * 5, 1048576, 1048576, 1048576)),
                         maxMergeDistance,
                         maxReadSize));
         cachingOrcDataSource.readCacheAt(3);
@@ -179,13 +179,13 @@ public class TestCachingOrcDataSource
     {
         // tiny file
         TestingOrcDataSource orcDataSource = new TestingOrcDataSource(
-                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE)));
+                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
         doIntegration(orcDataSource, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
         assertEquals(orcDataSource.getReadCount(), 1); // read entire file at once
 
         // tiny stripes
         orcDataSource = new TestingOrcDataSource(
-                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE)));
+                new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
         doIntegration(orcDataSource, new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE));
         assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
     }

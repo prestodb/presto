@@ -48,7 +48,7 @@ public interface RcFileCompressor
          */
         public CompressedSliceOutput(OutputStream compressionStream, ChunkedSliceOutput bufferedOutput, Supplier<CompressedSliceOutput> resetFactory, Runnable onDestroy)
         {
-            super(compressionStream, 4096);
+            super(compressionStream);
             this.bufferedOutput = requireNonNull(bufferedOutput, "bufferedOutput is null");
             this.resetFactory = requireNonNull(resetFactory, "resetFactory is null");
             this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");

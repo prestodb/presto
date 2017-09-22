@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -66,14 +67,21 @@ public class PlanFragmenter
 
     public static SubPlan createSubPlans(Session session, Metadata metadata, Plan plan)
     {
+        return createSubPlans(session, metadata, plan, false);
+    }
+
+    public static SubPlan createSubPlans(Session session, Metadata metadata, Plan plan, boolean forceSingleNode)
+    {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes());
 
-        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()))
-                .setSingleNodeDistribution();
+        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
+        if (forceSingleNode || isForceSingleNodeOutput(session)) {
+            properties = properties.setSingleNodeDistribution();
+        }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan result = fragmenter.buildRootFragment(root, properties);
-        checkState(result.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
+        checkState(!isForceSingleNodeOutput(session) || result.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
         result.sanityCheck();
 
         return result;
@@ -128,7 +136,9 @@ public class PlanFragmenter
         @Override
         public PlanNode visitOutput(OutputNode node, RewriteContext<FragmentProperties> context)
         {
-            context.get().setSingleNodeDistribution(); // TODO: add support for distributed output
+            if (isForceSingleNodeOutput(session)) {
+                context.get().setSingleNodeDistribution();
+            }
 
             return context.defaultRewrite(node, context.get());
         }
