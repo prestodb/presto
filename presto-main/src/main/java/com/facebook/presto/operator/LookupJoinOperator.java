@@ -43,7 +43,6 @@ import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUT
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.facebook.presto.operator.Operators.checkSuccess;
 import static com.facebook.presto.operator.Operators.getDone;
-import static com.facebook.presto.spi.Page.mask;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
@@ -650,7 +649,7 @@ public class LookupJoinOperator
 
         public SavedRow(Page page, int position, long joinPositionWithinPartition, boolean currentProbePositionProducedRow, int joinSourcePositions)
         {
-            this.row = mask(page, new int[] {position});
+            this.row = page.mask(new int[] {position});
             this.row.compact();
 
             this.joinPositionWithinPartition = joinPositionWithinPartition;

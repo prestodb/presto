@@ -252,12 +252,11 @@ public class Page
         return blocks[0].getPositionCount();
     }
 
-    public static Page mask(Page page, int[] retainedPositions)
+    public Page mask(int[] retainedPositions)
     {
-        requireNonNull(page, "page is null");
         requireNonNull(retainedPositions, "retainedPositions is null");
 
-        Block[] blocks = Arrays.stream(page.getBlocks())
+        Block[] blocks = Arrays.stream(this.getBlocks())
                 .map(block -> new DictionaryBlock(block, retainedPositions))
                 .toArray(Block[]::new);
         return new Page(retainedPositions.length, blocks);
