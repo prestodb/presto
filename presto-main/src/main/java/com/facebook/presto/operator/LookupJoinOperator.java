@@ -154,7 +154,7 @@ public class LookupJoinOperator
         checkState(probe == null, "Current page has not been completely processed yet");
 
         // create probe
-        probe = joinProbeFactory.createJoinProbe(lookupSource, page);
+        probe = joinProbeFactory.createJoinProbe(page);
 
         // initialize to invalid join position to force output code to advance the cursors
         joinPosition = -1;
@@ -261,7 +261,7 @@ public class LookupJoinOperator
         }
 
         // update join position
-        joinPosition = probe.getCurrentJoinPosition();
+        joinPosition = probe.getCurrentJoinPosition(lookupSource);
         return true;
     }
 
