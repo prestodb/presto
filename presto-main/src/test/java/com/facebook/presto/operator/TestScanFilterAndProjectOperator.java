@@ -225,8 +225,9 @@ public class TestScanFilterAndProjectOperator
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
-        // we only check yield signal once a column has been completely processed; thus the first 19 outputs will get nothing
-        for (int i = 0; i < totalColumns - 1; i++) {
+        // yield for every cell: 20 X 1000 times
+        // currently we enforce a yield check for every position; free feel to adjust the number if the behavior changes
+        for (int i = 0; i < totalRows * totalColumns; i++) {
             driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
             assertNull(operator.getOutput());
             driverContext.getYieldSignal().reset();

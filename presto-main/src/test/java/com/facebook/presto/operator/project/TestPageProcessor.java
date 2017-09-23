@@ -332,25 +332,31 @@ public class TestPageProcessor
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
-                Collections.nCopies(columns, new YieldPageProjection(new InputPageProjection(0, VARCHAR), yieldSignal)));
+                Collections.nCopies(columns, new YieldPageProjection(new InputPageProjection(0, VARCHAR))));
 
         Slice[] slices = new Slice[rows];
         Arrays.fill(slices, Slices.allocate(rows));
         Page inputPage = new Page(new SliceArrayBlock(slices.length, slices));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, yieldSignal, inputPage);
+
+        // Test yield signal works for page processor.
+        // The purpose of this test is NOT to test the yield signal in page projection; we have other tests to cover that.
+        // In page processor, we check yield signal after a column has been completely processed.
+        // So we would like to set yield signal when the column has just finished processing in order to let page processor capture the yield signal when the block is returned.
+        // Also, we would like to reset the yield signal before starting to process the next column in order NOT to yield per position inside the column.
         for (int i = 0; i < columns - 1; i++) {
             assertTrue(output.hasNext());
             assertNull(output.next().orElse(null));
-
-            // we do not need a yield for the next projection
-            if (yieldSignal.isSet()) {
-                yieldSignal.reset();
-            }
+            assertTrue(yieldSignal.isSet());
+            yieldSignal.reset();
         }
         assertTrue(output.hasNext());
         Page actualPage = output.next().orElse(null);
         assertNotNull(actualPage);
+        assertTrue(yieldSignal.isSet());
+        yieldSignal.reset();
+
         Block[] blocks = new Block[columns];
         Arrays.fill(blocks, new SliceArrayBlock(rows, slices));
         Page expectedPage = new Page(blocks);
@@ -388,10 +394,10 @@ public class TestPageProcessor
         }
 
         @Override
-        public Block project(ConnectorSession session, Page page, SelectedPositions selectedPositions)
+        public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             setInvocationCount(getInvocationCount() + 1);
-            return delegate.project(session, page, selectedPositions);
+            return delegate.project(session, yieldSignal, page, selectedPositions);
         }
 
         public int getInvocationCount()
@@ -408,28 +414,38 @@ public class TestPageProcessor
     private class YieldPageProjection
             extends InvocationCountPageProjection
     {
-        private final DriverYieldSignal yieldSignal;
-
-        public YieldPageProjection(PageProjection delegate, DriverYieldSignal yieldSignal)
+        public YieldPageProjection(PageProjection delegate)
         {
             super(delegate);
-            this.yieldSignal = yieldSignal;
         }
 
         @Override
-        public Block project(ConnectorSession session, Page page, SelectedPositions selectedPositions)
+        public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
-            // do not yield while projecting
-            if (yieldSignal.isSet()) {
-                yieldSignal.reset();
-            }
-            Block result = delegate.project(session, page, selectedPositions);
+            return new YieldPageProjectionOutput(session, yieldSignal, page, selectedPositions);
+        }
 
-            // force yield right after projection
-            // call setWithDelay() only to pair with reset()
-            yieldSignal.setWithDelay(1, executor);
-            yieldSignal.forceYieldForTesting();
-            return result;
+        private class YieldPageProjectionOutput
+                implements PageProjectionOutput
+        {
+            private final DriverYieldSignal yieldSignal;
+            private final PageProjectionOutput result;
+
+            public YieldPageProjectionOutput(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+            {
+                this.yieldSignal = yieldSignal;
+                this.result = delegate.project(session, yieldSignal, page, selectedPositions);
+            }
+
+            @Override
+            public Optional<Block> compute()
+            {
+                Optional<Block> block = result.compute();
+                assertNotNull(block.get());
+                yieldSignal.setWithDelay(1, executor);
+                yieldSignal.forceYieldForTesting();
+                return block;
+            }
         }
     }
 
@@ -455,11 +471,11 @@ public class TestPageProcessor
         }
 
         @Override
-        public Block project(ConnectorSession session, Page page, SelectedPositions selectedPositions)
+        public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             Block block = page.getBlock(0);
             block.assureLoaded();
-            return block;
+            return () -> Optional.of(block);
         }
     }
 
