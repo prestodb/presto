@@ -16,7 +16,9 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.InterpretedPageProjection;
+import com.facebook.presto.operator.project.PageProjectionOutput;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -29,7 +31,10 @@ import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsList;
@@ -39,12 +44,17 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestInterpretedPageProjectionFunction
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
+    private static final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%s"));
 
     @Test
     public void testBooleanExpression()
@@ -153,16 +163,16 @@ public class TestInterpretedPageProjectionFunction
         Symbol symbol = new Symbol("symbol");
         ImmutableMap<Symbol, Integer> symbolToInputMappings = ImmutableMap.of(symbol, 0);
         assertProjection("symbol", true, symbolToInputMappings, ImmutableMap.of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, true));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, null));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, BOOLEAN), 0, createNullBlock(BOOLEAN));
 
         assertProjection("symbol", 42L, symbolToInputMappings, ImmutableMap.of(symbol, BIGINT), 0, createBlock(BIGINT, 42));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, BIGINT), 0, createBlock(BIGINT, null));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, BIGINT), 0, createNullBlock(BIGINT));
 
         assertProjection("symbol", 11.1, symbolToInputMappings, ImmutableMap.of(symbol, DOUBLE), 0, createBlock(DOUBLE, 11.1));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, DOUBLE), 0, createBlock(DOUBLE, null));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, DOUBLE), 0, createNullBlock(DOUBLE));
 
         assertProjection("symbol", "foo", symbolToInputMappings, ImmutableMap.of(symbol, VARCHAR), 0, createBlock(VARCHAR, "foo"));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, VARCHAR), 0, createBlock(VARCHAR, null));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, VARCHAR), 0, createNullBlock(VARCHAR));
     }
 
     private static void assertProjection(String expression, @Nullable Object expectedValue)
@@ -183,6 +193,17 @@ public class TestInterpretedPageProjectionFunction
             int position,
             Block... blocks)
     {
+        assertProjection(expression, new Object[] {expectedValue}, symbolToInputMappings, symbolTypes, new int[] {position}, blocks);
+    }
+
+    private static void assertProjection(
+            String expression,
+            Object[] expectedValues,
+            Map<Symbol, Integer> symbolToInputMappings,
+            Map<Symbol, Type> symbolTypes,
+            int[] positions,
+            Block... blocks)
+    {
         InterpretedPageProjection projectionFunction = new InterpretedPageProjection(
                 createExpression(expression, METADATA, symbolTypes),
                 symbolTypes,
@@ -191,18 +212,70 @@ public class TestInterpretedPageProjectionFunction
                 SQL_PARSER,
                 TEST_SESSION);
 
-        // project
-        Block block = projectionFunction.project(TEST_SESSION.toConnectorSession(), new Page(1, blocks), positionsList(new int[] {position}, 0, 1));
+        // project with yield
+        DriverYieldSignal yieldSignal = new DriverYieldSignal();
+        PageProjectionOutput output = projectionFunction.project(
+                TEST_SESSION.toConnectorSession(),
+                yieldSignal,
+                new Page(positions.length, blocks),
+                positionsList(positions, 0, positions.length));
 
-        // extract single value
-        Object actualValue = BlockAssertions.getOnlyValue(projectionFunction.getType(), block);
-        assertEquals(actualValue, expectedValue);
+        Optional<Block> block;
+        // Get nothing for the first position.length compute due to yield
+        // Currently we enforce a yield check for every position; free feel to adjust the number if the behavior changes
+        for (int i = 0; i < positions.length; i++) {
+            yieldSignal.setWithDelay(1, executor);
+            yieldSignal.forceYieldForTesting();
+            assertFalse(output.compute().isPresent());
+            yieldSignal.reset();
+        }
+        // the next yield is not going to prevent a block to be produced
+        yieldSignal.setWithDelay(1, executor);
+        yieldSignal.forceYieldForTesting();
+        block = output.compute();
+        yieldSignal.reset();
+        assertTrue(block.isPresent());
+
+        List<Object> actualValues = BlockAssertions.toValues(projectionFunction.getType(), block.get());
+        assertEquals(actualValues.size(), positions.length);
+        assertEquals(expectedValues.length, positions.length);
+        for (int i = 0; i < positions.length; i++) {
+            assertEquals(actualValues.get(i), expectedValues[i]);
+        }
+
+        // project without yield
+        output = projectionFunction.project(
+                TEST_SESSION.toConnectorSession(),
+                new DriverYieldSignal(),
+                new Page(positions.length, blocks),
+                positionsList(positions, 0, positions.length));
+        block = output.compute();
+        assertTrue(block.isPresent());
+
+        actualValues = BlockAssertions.toValues(projectionFunction.getType(), block.get());
+        assertEquals(actualValues.size(), positions.length);
+        assertEquals(expectedValues.length, positions.length);
+        for (int i = 0; i < positions.length; i++) {
+            assertEquals(actualValues.get(i), expectedValues[i]);
+        }
     }
 
     private static Block createBlock(Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
-        writeNativeValue(type, blockBuilder, value);
+        return createBlock(type, new Object[] {value});
+    }
+
+    private static Block createNullBlock(Type type)
+    {
+        return createBlock(type, new Object[] {null});
+    }
+
+    private static Block createBlock(Type type, Object[] values)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), values.length);
+        for (Object value : values) {
+            writeNativeValue(type, blockBuilder, value);
+        }
         return blockBuilder.build();
     }
 }

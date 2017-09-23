@@ -135,8 +135,11 @@ public class PageProcessor
         private long retainedSizeInBytes;
 
         // remember if we need to re-use the same batch size if we yield last time
+        // TODO: make this a local variable in computeNext
+        // processBatch() should return multiple values instead of using a field variable as part of its return
         private boolean forceYieldFinish;
         private int previousBatchSize;
+        private Optional<PageProjectionOutput> pageProjectOutput = Optional.empty();
 
         public PositionsPageProcessorIterator(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
@@ -266,7 +269,17 @@ public class PageProcessor
                     blocks[i] = previouslyComputedResults[i].getRegion(0, batchSize);
                 }
                 else {
-                    previouslyComputedResults[i] = projection.project(session, projection.getInputChannels().getInputChannels(page), positionsBatch);
+                    if (!pageProjectOutput.isPresent()) {
+                        pageProjectOutput = Optional.of(projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch));
+                    }
+                    Optional<Block> block = pageProjectOutput.get().compute();
+                    if (!block.isPresent()) {
+                        forceYieldFinish = true;
+                        previousBatchSize = batchSize;
+                        return Optional.empty();
+                    }
+                    pageProjectOutput = Optional.empty();
+                    previouslyComputedResults[i] = block.get();
                     blocks[i] = previouslyComputedResults[i];
                 }
 

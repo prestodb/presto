@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -21,6 +22,8 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 
@@ -59,8 +62,27 @@ public class ConstantPageProjection
     }
 
     @Override
-    public Block project(ConnectorSession session, Page page, SelectedPositions selectedPositions)
+    public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        return new RunLengthEncodedBlock(value, selectedPositions.size());
+        return new ConstantPageProjectionOutput(value, selectedPositions.size());
+    }
+
+    private class ConstantPageProjectionOutput
+            implements PageProjectionOutput
+    {
+        private final Block value;
+        private final int size;
+
+        public ConstantPageProjectionOutput(Block value, int size)
+        {
+            this.value = value;
+            this.size = size;
+        }
+
+        @Override
+        public Optional<Block> compute()
+        {
+            return Optional.of(new RunLengthEncodedBlock(value, size));
+        }
     }
 }
