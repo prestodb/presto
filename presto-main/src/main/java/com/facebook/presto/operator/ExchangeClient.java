@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -90,7 +90,7 @@ public class ExchangeClient
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
-    private final SystemMemoryUsageListener systemMemoryUsageListener;
+    private final LocalMemoryContext systemMemoryContext;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -102,7 +102,7 @@ public class ExchangeClient
             Duration maxErrorDuration,
             HttpClient httpClient,
             ScheduledExecutorService executor,
-            SystemMemoryUsageListener systemMemoryUsageListener)
+            LocalMemoryContext systemMemoryContext)
     {
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
@@ -111,7 +111,7 @@ public class ExchangeClient
         this.maxErrorDuration = maxErrorDuration;
         this.httpClient = httpClient;
         this.executor = executor;
-        this.systemMemoryUsageListener = systemMemoryUsageListener;
+        this.systemMemoryContext = systemMemoryContext;
         this.maxBufferBytes = Long.MIN_VALUE;
     }
 
@@ -225,7 +225,7 @@ public class ExchangeClient
         synchronized (this) {
             if (!closed.get()) {
                 bufferBytes -= page.getRetainedSizeInBytes();
-                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
+                systemMemoryContext.addBytes(-page.getRetainedSizeInBytes());
                 if (pageBuffer.peek() == NO_MORE_PAGES) {
                     close();
                 }
@@ -258,7 +258,7 @@ public class ExchangeClient
             closeQuietly(client);
         }
         pageBuffer.clear();
-        systemMemoryUsageListener.updateSystemMemoryUsage(-bufferBytes);
+        systemMemoryContext.addBytes(-bufferBytes);
         bufferBytes = 0;
         if (pageBuffer.peekLast() != NO_MORE_PAGES) {
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
@@ -334,7 +334,7 @@ public class ExchangeClient
 
         bufferBytes += memorySize;
         maxBufferBytes = Math.max(maxBufferBytes, bufferBytes);
-        systemMemoryUsageListener.updateSystemMemoryUsage(memorySize);
+        systemMemoryContext.addBytes(memorySize);
         successfulRequests++;
 
         long responseSize = pages.stream()

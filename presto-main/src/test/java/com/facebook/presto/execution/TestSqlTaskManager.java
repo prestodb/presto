@@ -29,6 +29,7 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.google.common.collect.ImmutableList;
@@ -295,7 +296,7 @@ public class TestSqlTaskManager
             implements ExchangeClientSupplier
     {
         @Override
-        public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
+        public ExchangeClient get(LocalMemoryContext systemMemoryContext)
         {
             throw new UnsupportedOperationException();
         }

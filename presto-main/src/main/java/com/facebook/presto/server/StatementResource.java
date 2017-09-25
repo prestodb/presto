@@ -42,6 +42,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -169,7 +171,7 @@ public class StatementResource
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> {});
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(new LocalMemoryContext(new AggregatedMemoryContext()));
         Query query = new Query(
                 sessionContext,
                 statement,

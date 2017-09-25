@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
@@ -93,7 +92,6 @@ public class AggregationOperator
     }
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext systemMemoryContext;
     private final List<Type> types;
     private final List<Aggregator> aggregates;
 
@@ -102,8 +100,6 @@ public class AggregationOperator
     public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-
         requireNonNull(step, "step is null");
         this.partial = step.isOutputPartial();
 
@@ -162,7 +158,7 @@ public class AggregationOperator
             memorySize += aggregate.getEstimatedSize();
         }
         if (partial) {
-            systemMemoryContext.setBytes(memorySize);
+            operatorContext.setSystemMemory(memorySize);
         }
         else {
             operatorContext.setMemoryReservation(memorySize);

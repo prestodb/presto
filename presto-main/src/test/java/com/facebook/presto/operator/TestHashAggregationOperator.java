@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
@@ -24,6 +23,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -642,7 +643,7 @@ public class TestHashAggregationOperator
         private long spillsCount;
 
         @Override
-        public Spiller create(List<Type> types, SpillContext spillContext, AggregatedMemoryContext memoryContext)
+        public Spiller create(List<Type> types, SpillContext spillContext, Supplier<LocalMemoryContext> memoryContextSupplier)
         {
             return new Spiller()
             {
@@ -681,7 +682,7 @@ public class TestHashAggregationOperator
             implements SpillerFactory
     {
         @Override
-        public Spiller create(List<Type> types, SpillContext spillContext, AggregatedMemoryContext memoryContext)
+        public Spiller create(List<Type> types, SpillContext spillContext, Supplier<LocalMemoryContext> memoryContextSupplier)
         {
             return new Spiller()
             {

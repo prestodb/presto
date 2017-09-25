@@ -247,7 +247,7 @@ public class HashBuilderOperator
         checkState(!isFinished(), "Operator is already finished");
 
         index.addPage(page);
-        if (!operatorContext.trySetMemoryReservation(index.getEstimatedSize().toBytes())) {
+        if (!operatorContext.tryReserveMemory(index.getEstimatedSize().toBytes())) {
             index.compact();
         }
         operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());

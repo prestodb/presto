@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
@@ -59,8 +58,6 @@ public class ScanFilterAndProjectOperator
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
-    private final LocalMemoryContext pageSourceMemoryContext;
-    private final LocalMemoryContext pageBuilderMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
 
     private RecordCursor cursor;
@@ -90,9 +87,6 @@ public class ScanFilterAndProjectOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.pageSourceMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-        this.pageBuilderMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
-
         this.pageBuilder = new PageBuilder(getTypes());
     }
 
@@ -235,11 +229,11 @@ public class ScanFilterAndProjectOperator
 
     private Page processColumnSource()
     {
+        long systemMemory = 0;
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !yieldSignal.isSet()) {
             CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, cursor, pageBuilder);
-            pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
-
+            systemMemory += cursor.getSystemMemoryUsage();
             long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
             long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
             operatorContext.recordGeneratedInput(bytesProcessed, output.getProcessedRows(), elapsedNanos);
@@ -254,19 +248,20 @@ public class ScanFilterAndProjectOperator
             page = pageBuilder.build();
             pageBuilder.reset();
         }
-        pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+        systemMemory += pageBuilder.getRetainedSizeInBytes();
+        operatorContext.setSystemMemory(systemMemory);
         return page;
     }
 
     private Page processPageSource()
     {
+        long systemMemory = 0;
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !currentOutput.hasNext() && !yieldSignal.isSet()) {
             Page page = pageSource.getNextPage();
 
             finishing = pageSource.isFinished();
-            pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
-
+            systemMemory += pageSource.getSystemMemoryUsage();
             if (page == null) {
                 currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
             }
@@ -280,9 +275,10 @@ public class ScanFilterAndProjectOperator
 
                 currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, page);
             }
-            pageBuilderMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
+            systemMemory += currentOutput.getRetainedSizeInBytes();
         }
 
+        operatorContext.setSystemMemory(systemMemory);
         return currentOutput.hasNext() ? currentOutput.next().orElse(null) : null;
     }
 

@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.spi.memory;
 
-public interface SystemMemoryUsageListener
+@FunctionalInterface
+public interface MemoryNotificationListener
 {
-    // TODO: Remove this class and migrate to use AbstractAggregatedMemoryContext
-
-    void updateSystemMemoryUsage(long deltaMemoryInBytes);
+    void memoryUsageUpdated(long oldUsage, long newUsage);
 }

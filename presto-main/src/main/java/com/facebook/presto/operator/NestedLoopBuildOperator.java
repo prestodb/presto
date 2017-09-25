@@ -138,7 +138,7 @@ public class NestedLoopBuildOperator
         }
 
         nestedLoopJoinPagesBuilder.addPage(page);
-        if (!operatorContext.trySetMemoryReservation(nestedLoopJoinPagesBuilder.getEstimatedSize().toBytes())) {
+        if (!operatorContext.tryReserveMemory(nestedLoopJoinPagesBuilder.getEstimatedSize().toBytes())) {
             nestedLoopJoinPagesBuilder.compact();
         }
         operatorContext.setMemoryReservation(nestedLoopJoinPagesBuilder.getEstimatedSize().toBytes());

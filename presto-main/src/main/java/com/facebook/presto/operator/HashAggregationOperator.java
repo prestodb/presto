@@ -104,7 +104,7 @@ public class HashAggregationOperator
                     false,
                     new DataSize(0, MEGABYTE),
                     new DataSize(0, MEGABYTE),
-                    (types, spillContext, memoryContext) -> {
+                    (types, spillContext, memoryContextSupplier) -> {
                         throw new UnsupportedOperationException();
                     },
                     joinCompiler);

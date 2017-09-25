@@ -11,19 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.parquet.memory;
+package com.facebook.presto.spi.memory;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+
 import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public class AggregatedMemoryContext
-        extends AbstractAggregatedMemoryContext
 {
-    // This class should remain exactly the same as AggregatedMemoryContext in com.facebook.presto.memory
-
-    private final AbstractAggregatedMemoryContext parentMemoryContext;
+    @Nullable
+    @GuardedBy("this")
+    private final AggregatedMemoryContext parentMemoryContext;
+    @GuardedBy("this")
     private long usedBytes;
+    @GuardedBy("this")
     private boolean closed;
 
     public AggregatedMemoryContext()
@@ -31,19 +35,28 @@ public class AggregatedMemoryContext
         this.parentMemoryContext = null;
     }
 
-    public AggregatedMemoryContext(AbstractAggregatedMemoryContext parentMemoryContext)
+    private AggregatedMemoryContext(AggregatedMemoryContext parentMemoryContext)
     {
         this.parentMemoryContext = requireNonNull(parentMemoryContext, "parentMemoryContext is null");
     }
 
-    public long getBytes()
+    public AggregatedMemoryContext newAggregatedMemoryContext()
+    {
+        return new AggregatedMemoryContext(this);
+    }
+
+    public LocalMemoryContext newLocalMemoryContext()
+    {
+        return new LocalMemoryContext(this);
+    }
+
+    public synchronized long getBytes()
     {
         checkState(!closed);
         return usedBytes;
     }
 
-    @Override
-    protected void updateBytes(long bytes)
+    public synchronized void updateBytes(long bytes)
     {
         checkState(!closed);
         if (parentMemoryContext != null) {
@@ -52,7 +65,7 @@ public class AggregatedMemoryContext
         usedBytes += bytes;
     }
 
-    public void close()
+    public synchronized void close()
     {
         if (closed) {
             return;
@@ -67,9 +80,17 @@ public class AggregatedMemoryContext
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("usedBytes", usedBytes)
-                .add("closed", closed)
-                .toString();
+        StringBuilder sb = new StringBuilder("AggregatedMemoryContext{");
+        sb.append("usedBytes=").append(usedBytes).append(", ");
+        sb.append("closed=").append(closed);
+        sb.append('}');
+        return sb.toString();
+    }
+
+    private static void checkState(boolean expression)
+    {
+        if (!expression) {
+            throw new IllegalStateException();
+        }
     }
 }
