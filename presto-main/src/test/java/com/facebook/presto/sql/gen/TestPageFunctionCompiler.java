@@ -121,8 +121,9 @@ public class TestPageFunctionCompiler
         String classSuffix = stageId + "_" + planNodeId;
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of(classSuffix));
         PageProjection projection = projectionSupplier.get();
-        // class name should look like PageProjection_20170707_223500_67496_zguwn_2_7_XX
-        assertTrue(projection.getClass().getSimpleName().startsWith("PageProjection_" + stageId.replace('.', '_') + "_" + planNodeId));
+        PageProjectionOutput pageProjectionOutput = projection.project(SESSION, new DriverYieldSignal(), createLongBlockPage(0), SelectedPositions.positionsRange(0, 1));
+        // class name should look like PageProjectionOutput_20170707_223500_67496_zguwn_2_7_XX
+        assertTrue(pageProjectionOutput.getClass().getSimpleName().startsWith("PageProjectionOutput_" + stageId.replace('.', '_') + "_" + planNodeId));
     }
 
     @Test
