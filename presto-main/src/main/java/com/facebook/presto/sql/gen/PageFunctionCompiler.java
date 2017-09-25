@@ -24,10 +24,10 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.ConstantPageProjection;
+import com.facebook.presto.operator.project.GeneratedPageProjection;
 import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.InputPageProjection;
 import com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter;
@@ -40,8 +40,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -88,13 +86,13 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
+import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -201,123 +199,11 @@ public class PageFunctionCompiler
             throw new PrestoException(COMPILER_ERROR, e);
         }
 
-        // TODO: it is no longer necessary to generate PageProjection
-        ClassDefinition classDefinition = defineProjectionClass(result.getRewrittenExpression(), result.getInputChannels(), pageProjectionOutputClass, callSiteBinder, classNameSuffix);
-
-        Class<? extends PageProjection> projectionClass;
-        try {
-            projectionClass = defineClass(classDefinition, PageProjection.class, callSiteBinder.getBindings(), pageProjectionOutputClass.getClassLoader());
-        }
-        catch (Exception e) {
-            throw new PrestoException(COMPILER_ERROR, e);
-        }
-
-        return () -> {
-            try {
-                return projectionClass.newInstance();
-            }
-            catch (ReflectiveOperationException e) {
-                throw new PrestoException(COMPILER_ERROR, e);
-            }
-        };
-    }
-
-    private static ParameterizedType generateProjectionClassName(Optional<String> classNameSuffix)
-    {
-        StringBuilder className = new StringBuilder(PageProjection.class.getSimpleName());
-        classNameSuffix.ifPresent(suffix -> className.append("_").append(suffix.replace('.', '_')));
-        return makeClassName(className.toString());
-    }
-
-    private ClassDefinition defineProjectionClass(RowExpression projection,
-            InputChannels inputChannels,
-            Class<? extends PageProjectionOutput> pageProjectionOutputClass,
-            CallSiteBinder callSiteBinder,
-            Optional<String> classNameSuffix)
-    {
-        ClassDefinition classDefinition = new ClassDefinition(
-                a(PUBLIC, FINAL),
-                generateProjectionClassName(classNameSuffix),
-                type(Object.class),
-                type(PageProjection.class));
-
-        FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE), "blockBuilder", BlockBuilder.class);
-
-        // project
-        generatePageProjectMethod(classDefinition, blockBuilderField, pageProjectionOutputClass);
-
-        // getType
-        BytecodeExpression type = invoke(callSiteBinder.bind(projection.getType(), Type.class), "type");
-        classDefinition.declareMethod(a(PUBLIC), "getType", type(Type.class))
-                .getBody()
-                .append(type.ret());
-
-        // isDeterministic
-        classDefinition.declareMethod(a(PUBLIC), "isDeterministic", type(boolean.class))
-                .getBody()
-                .append(constantBoolean(determinismEvaluator.isDeterministic(projection)).ret());
-
-        // getInputChannels
-        classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(InputChannels.class))
-                .getBody()
-                .append(invoke(callSiteBinder.bind(inputChannels, InputChannels.class), "getInputChannels").ret());
-
-        // toString
-        String toStringResult = toStringHelper(classDefinition.getType()
-                .getJavaClassName())
-                .add("projection", projection)
-                .toString();
-        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
-                .getBody()
-                // bind constant via invokedynamic to avoid constant pool issues due to large strings
-                .append(invoke(callSiteBinder.bind(toStringResult, String.class), "toString").ret());
-
-        // constructor
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
-
-        BytecodeBlock body = constructorDefinition.getBody();
-        Variable thisVariable = constructorDefinition.getThis();
-
-        body.comment("super();")
-                .append(thisVariable)
-                .invokeConstructor(Object.class)
-                .append(thisVariable.setField(
-                        blockBuilderField,
-                        type.invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), constantInt(1))));
-
-        body.ret();
-
-        return classDefinition;
-    }
-
-    private MethodDefinition generatePageProjectMethod(ClassDefinition classDefinition, FieldDefinition blockBuilder, Class<? extends PageProjectionOutput> pageProjectionOutputClass)
-    {
-        Parameter session = arg("session", ConnectorSession.class);
-        Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
-        Parameter page = arg("page", Page.class);
-        Parameter selectedPositions = arg("selectedPositions", SelectedPositions.class);
-
-        MethodDefinition method = classDefinition.declareMethod(
-                a(PUBLIC),
-                "project",
-                type(PageProjectionOutput.class),
-                ImmutableList.<Parameter>builder()
-                        .add(session)
-                        .add(yieldSignal)
-                        .add(page)
-                        .add(selectedPositions)
-                        .build());
-
-        Variable thisVariable = method.getThis();
-        BytecodeBlock body = method.getBody();
-
-        // reset block builder before using since a previous run may have thrown leaving data in the block builder
-        body.append(thisVariable.setField(
-                blockBuilder,
-                thisVariable.getField(blockBuilder).invoke("newBlockBuilderLike", BlockBuilder.class, newInstance(BlockBuilderStatus.class))))
-                .append(newInstance(pageProjectionOutputClass, thisVariable.getField(blockBuilder), session, yieldSignal, page, selectedPositions).ret());
-
-        return method;
+        return () -> new GeneratedPageProjection(
+                result.getRewrittenExpression(),
+                determinismEvaluator.isDeterministic(result.getRewrittenExpression()),
+                result.getInputChannels(),
+                constructorMethodHandle(pageProjectionOutputClass, BlockBuilder.class, ConnectorSession.class, DriverYieldSignal.class, Page.class, SelectedPositions.class));
     }
 
     private static ParameterizedType generateProjectionOutputClassName(Optional<String> classNameSuffix)
