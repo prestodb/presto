@@ -397,11 +397,9 @@ public class TaskContext
         }
 
         long userMemory;
-        long systemMemory;
         long revocableMemory;
         synchronized (this) {
             userMemory = taskMemoryContext.reservedUserMemory();
-            systemMemory = taskMemoryContext.reservedSystemMemory();
             revocableMemory = taskMemoryContext.reservedRevocableMemory();
         }
 
@@ -442,7 +440,6 @@ public class TaskContext
                 cumulativeMemory.get(),
                 succinctBytes(userMemory),
                 succinctBytes(revocableMemory),
-                succinctBytes(systemMemory),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

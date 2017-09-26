@@ -452,11 +452,9 @@ public class PipelineContext
         boolean fullyBlocked = !runningDriverStats.isEmpty() && runningDriverStats.stream().allMatch(DriverStats::isFullyBlocked);
 
         long userMemory;
-        long systemMemory;
         long revocableMemory;
         synchronized (this) {
             userMemory = pipelineMemoryContext.reservedUserMemory();
-            systemMemory = pipelineMemoryContext.reservedSystemMemory();
             revocableMemory = pipelineMemoryContext.reservedRevocableMemory();
         }
 
@@ -480,7 +478,6 @@ public class PipelineContext
 
                 succinctBytes(userMemory),
                 succinctBytes(revocableMemory),
-                succinctBytes(systemMemory),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),

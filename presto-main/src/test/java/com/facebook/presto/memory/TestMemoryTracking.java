@@ -150,9 +150,6 @@ public class TestMemoryTracking
                 0,
                 taskLocalAllocation + pipelineLocalAllocation, // at the pool level we should observe both
                 taskLocalAllocation);
-        assertEquals(pipelineContext.getPipelineStats().getSystemMemoryReservation().toBytes(),
-                pipelineLocalAllocation,
-                "task level allocations should not be visible at the pipeline level");
         pipelineLocalSystemMemoryContext.addBytes(-pipelineLocalAllocation);
         assertLocalMemoryAllocations(
                 pipelineContext.getPipelineMemoryContext(),
@@ -318,11 +315,6 @@ public class TestMemoryTracking
         assertEquals(driverStats.getMemoryReservation().toBytes(), expectedUserMemory);
         assertEquals(pipelineStats.getMemoryReservation().toBytes(), expectedUserMemory);
         assertEquals(taskStats.getMemoryReservation().toBytes(), expectedUserMemory);
-
-        assertEquals(operatorStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
-        assertEquals(driverStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
-        assertEquals(pipelineStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
-        assertEquals(taskStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
 
         assertEquals(operatorStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
         assertEquals(driverStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);

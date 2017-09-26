@@ -411,7 +411,6 @@ public class DriverContext
                 succinctBytes(driverMemoryContext.reservedUserMemory()),
                 succinctBytes(peakUserMemoryReservation.get()),
                 succinctBytes(driverMemoryContext.reservedRevocableMemory()),
-                succinctBytes(driverMemoryContext.reservedSystemMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
