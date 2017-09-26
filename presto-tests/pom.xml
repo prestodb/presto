@@ -179,6 +179,14 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
@@ -189,12 +197,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
