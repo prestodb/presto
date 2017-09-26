@@ -749,7 +749,8 @@ public abstract class AbstractTestDistributedQueries
                             ImmutableList.of()),
                     new Duration(1, MINUTES));
 
-            long beforeQueryCount = queryManager.getStats().getCompletedQueries().getTotalCount();
+            long beforeCompletedQueriesCount = queryManager.getStats().getCompletedQueries().getTotalCount();
+            long beforeSubmittedQueriesCount = queryManager.getStats().getSubmittedQueries().getTotalCount();
             assertUpdate("CREATE TABLE test_query_logging_count AS SELECT 1 foo_1, 2 foo_2_4", 1);
             assertQuery("SELECT foo_1, foo_2_4 FROM test_query_logging_count", "SELECT 1, 2");
             assertUpdate("DROP TABLE test_query_logging_count");
@@ -757,8 +758,9 @@ public abstract class AbstractTestDistributedQueries
 
             // TODO: Figure out a better way of synchronization
             assertUntilTimeout(
-                    () -> assertEquals(queryManager.getStats().getCompletedQueries().getTotalCount() - beforeQueryCount, 4),
+                    () -> assertEquals(queryManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount, 4),
                     new Duration(1, MINUTES));
+            assertEquals(queryManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmittedQueriesCount, 4);
         });
     }
 
