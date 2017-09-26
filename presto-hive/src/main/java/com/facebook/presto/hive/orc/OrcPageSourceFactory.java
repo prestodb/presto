@@ -176,7 +176,7 @@ public class OrcPageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
+        AggregatedMemoryContext memoryUsage = new AggregatedMemoryContext();
         try {
             OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize, maxReadBlockSize);
 
@@ -199,14 +199,14 @@ public class OrcPageSourceFactory
                     start,
                     length,
                     hiveStorageTimeZone,
-                    systemMemoryUsage);
+                    memoryUsage);
 
             return new OrcPageSource(
                     recordReader,
                     orcDataSource,
                     physicalColumns,
                     typeManager,
-                    systemMemoryUsage,
+                    memoryUsage,
                     stats);
         }
         catch (Exception e) {

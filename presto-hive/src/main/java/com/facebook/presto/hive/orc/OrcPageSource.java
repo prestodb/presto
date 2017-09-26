@@ -59,7 +59,7 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     private final FileFormatDataSourceStats stats;
 
@@ -68,7 +68,7 @@ public class OrcPageSource
             OrcDataSource orcDataSource,
             List<HiveColumnHandle> columns,
             TypeManager typeManager,
-            AggregatedMemoryContext systemMemoryContext,
+            AggregatedMemoryContext memoryContext,
             FileFormatDataSourceStats stats)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
@@ -106,7 +106,7 @@ public class OrcPageSource
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
 
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -188,9 +188,9 @@ public class OrcPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryContext.getBytes();
+        return memoryContext.getBytes();
     }
 
     protected void closeWithSuppression(Throwable throwable)

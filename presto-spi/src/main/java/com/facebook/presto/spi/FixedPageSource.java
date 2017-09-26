@@ -75,7 +75,7 @@ public class FixedPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return memoryUsageBytes;
     }

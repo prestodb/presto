@@ -177,7 +177,7 @@ public class TestOrcPageSourceMemoryTracking
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         ConnectorPageSource pageSource = testPreparer.newPageSource(stats);
 
-        assertEquals(pageSource.getSystemMemoryUsage(), 0);
+        assertEquals(pageSource.getMemoryUsage(), 0);
 
         long memoryUsage = -1;
         for (int i = 0; i < 20; i++) {
@@ -186,15 +186,15 @@ public class TestOrcPageSourceMemoryTracking
             assertNotNull(page);
             Block block = page.getBlock(1);
             if (memoryUsage == -1) {
-                assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
+                assertBetweenInclusive(pageSource.getMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                memoryUsage = pageSource.getSystemMemoryUsage();
+                memoryUsage = pageSource.getMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L); // Memory usage after lazy-loading the actual block
             }
             else {
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(pageSource.getMemoryUsage(), memoryUsage);
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(pageSource.getMemoryUsage(), memoryUsage);
             }
         }
 
@@ -205,15 +205,15 @@ public class TestOrcPageSourceMemoryTracking
             assertNotNull(page);
             Block block = page.getBlock(1);
             if (memoryUsage == -1) {
-                assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
+                assertBetweenInclusive(pageSource.getMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                memoryUsage = pageSource.getSystemMemoryUsage();
+                memoryUsage = pageSource.getMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L); // Memory usage after lazy-loading the actual block
             }
             else {
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(pageSource.getMemoryUsage(), memoryUsage);
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(pageSource.getMemoryUsage(), memoryUsage);
             }
         }
 
@@ -224,22 +224,22 @@ public class TestOrcPageSourceMemoryTracking
             assertNotNull(page);
             Block block = page.getBlock(1);
             if (memoryUsage == -1) {
-                assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 90000L, 99999L); // Memory usage before lazy-loading the block
+                assertBetweenInclusive(pageSource.getMemoryUsage(), 90000L, 99999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                memoryUsage = pageSource.getSystemMemoryUsage();
+                memoryUsage = pageSource.getMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 360000L, 369999L); // Memory usage after lazy-loading the actual block
             }
             else {
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(pageSource.getMemoryUsage(), memoryUsage);
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(pageSource.getMemoryUsage(), memoryUsage);
             }
         }
 
         assertFalse(pageSource.isFinished());
         assertNull(pageSource.getNextPage());
         assertTrue(pageSource.isFinished());
-        assertEquals(pageSource.getSystemMemoryUsage(), 0);
+        assertEquals(pageSource.getMemoryUsage(), 0);
         pageSource.close();
     }
 

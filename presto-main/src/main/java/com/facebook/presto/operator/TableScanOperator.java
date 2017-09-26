@@ -204,7 +204,7 @@ public class TableScanOperator
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
-            operatorContext.setSystemMemory(source.getSystemMemoryUsage());
+            operatorContext.setSystemMemory(source.getMemoryUsage());
         }
     }
 
@@ -214,7 +214,7 @@ public class TableScanOperator
         if (!finished) {
             finished = (source != null) && source.isFinished();
             if (source != null) {
-                operatorContext.setSystemMemory(source.getSystemMemoryUsage());
+                operatorContext.setSystemMemory(source.getMemoryUsage());
             }
         }
 
@@ -270,7 +270,7 @@ public class TableScanOperator
         }
 
         // updating system memory usage should happen after page is loaded.
-        operatorContext.setSystemMemory(source.getSystemMemoryUsage());
+        operatorContext.setSystemMemory(source.getMemoryUsage());
 
         return page;
     }

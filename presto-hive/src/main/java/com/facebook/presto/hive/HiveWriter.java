@@ -44,9 +44,9 @@ public class HiveWriter
         this.onCommit = onCommit;
     }
 
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return fileWriter.getSystemMemoryUsage();
+        return fileWriter.getMemoryUsage();
     }
 
     public long getRowCount()

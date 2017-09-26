@@ -69,7 +69,7 @@ public class ParquetPageSource
     private long readTimeNanos;
     private final boolean useParquetColumnNames;
 
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     public ParquetPageSource(
             ParquetReader parquetReader,
@@ -81,7 +81,7 @@ public class ParquetPageSource
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
             boolean useParquetColumnNames,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext memoryContext)
     {
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
@@ -117,7 +117,7 @@ public class ParquetPageSource
         }
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -139,9 +139,9 @@ public class ParquetPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryContext.getBytes();
+        return memoryContext.getBytes();
     }
 
     @Override

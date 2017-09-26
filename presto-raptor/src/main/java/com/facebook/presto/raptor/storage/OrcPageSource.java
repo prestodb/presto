@@ -215,7 +215,7 @@ public class OrcPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return systemMemoryContext.getBytes();
     }

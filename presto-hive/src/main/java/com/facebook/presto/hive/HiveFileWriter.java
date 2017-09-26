@@ -19,7 +19,7 @@ import java.util.Optional;
 
 public interface HiveFileWriter
 {
-    long getSystemMemoryUsage();
+    long getMemoryUsage();
 
     void appendRows(Page dataPage);
 

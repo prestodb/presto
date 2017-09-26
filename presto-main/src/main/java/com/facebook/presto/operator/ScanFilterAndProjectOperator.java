@@ -233,7 +233,7 @@ public class ScanFilterAndProjectOperator
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !yieldSignal.isSet()) {
             CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, cursor, pageBuilder);
-            systemMemory += cursor.getSystemMemoryUsage();
+            systemMemory += cursor.getMemoryUsage();
             long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
             long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
             operatorContext.recordGeneratedInput(bytesProcessed, output.getProcessedRows(), elapsedNanos);
@@ -261,7 +261,7 @@ public class ScanFilterAndProjectOperator
             Page page = pageSource.getNextPage();
 
             finishing = pageSource.isFinished();
-            systemMemory += pageSource.getSystemMemoryUsage();
+            systemMemory += pageSource.getMemoryUsage();
             if (page == null) {
                 currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
             }
