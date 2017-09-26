@@ -30,6 +30,7 @@ public class SqlQueryManagerStats
 {
     private final AtomicInteger queuedQueries = new AtomicInteger();
     private final AtomicInteger runningQueries = new AtomicInteger();
+    private final CounterStat submittedQueries = new CounterStat();
     private final CounterStat startedQueries = new CounterStat();
     private final CounterStat completedQueries = new CounterStat();
     private final CounterStat failedQueries = new CounterStat();
@@ -49,6 +50,7 @@ public class SqlQueryManagerStats
 
     public void queryQueued()
     {
+        submittedQueries.update(1);
         queuedQueries.incrementAndGet();
     }
 
@@ -130,6 +132,13 @@ public class SqlQueryManagerStats
     public CounterStat getStartedQueries()
     {
         return startedQueries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSubmittedQueries()
+    {
+        return submittedQueries;
     }
 
     @Managed
