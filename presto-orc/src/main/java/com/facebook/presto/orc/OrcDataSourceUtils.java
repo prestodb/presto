@@ -20,13 +20,12 @@ import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import static java.lang.Math.toIntExact;
+import static java.util.Comparator.comparingLong;
 
 public final class OrcDataSourceUtils
 {
@@ -41,14 +40,7 @@ public final class OrcDataSourceUtils
     {
         // sort ranges by start offset
         List<DiskRange> ranges = new ArrayList<>(diskRanges);
-        Collections.sort(ranges, new Comparator<DiskRange>()
-        {
-            @Override
-            public int compare(DiskRange o1, DiskRange o2)
-            {
-                return Long.compare(o1.getOffset(), o2.getOffset());
-            }
-        });
+        ranges.sort(comparingLong(DiskRange::getOffset));
 
         // merge overlapping ranges
         long maxReadSizeBytes = maxReadSize.toBytes();

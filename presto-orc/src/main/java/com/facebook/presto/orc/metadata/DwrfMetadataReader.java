@@ -29,7 +29,6 @@ import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
@@ -54,6 +53,7 @@ import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTE
 import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 
 public class DwrfMetadataReader
@@ -106,7 +106,9 @@ public class DwrfMetadataReader
 
     private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toStripeInformation));
+        return types.stream()
+                .map(DwrfMetadataReader::toStripeInformation)
+                .collect(toImmutableList());
     }
 
     private static StripeInformation toStripeInformation(DwrfProto.StripeInformation stripeInformation)
@@ -135,7 +137,9 @@ public class DwrfMetadataReader
 
     private static List<Stream> toStream(List<DwrfProto.Stream> streams)
     {
-        return ImmutableList.copyOf(Iterables.transform(streams, DwrfMetadataReader::toStream));
+        return streams.stream()
+                .map(DwrfMetadataReader::toStream)
+                .collect(toImmutableList());
     }
 
     private static ColumnEncoding toColumnEncoding(OrcTypeKind type, DwrfProto.ColumnEncoding columnEncoding)
@@ -161,7 +165,9 @@ public class DwrfMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.RowIndex rowIndex = DwrfProto.RowIndex.parseFrom(input);
-        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), rowIndexEntry -> toRowGroupIndex(hiveWriterVersion, rowIndexEntry)));
+        return rowIndex.getEntryList().stream()
+                .map(entry -> toRowGroupIndex(hiveWriterVersion, entry))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -178,6 +184,7 @@ public class DwrfMetadataReader
         ImmutableList.Builder<Integer> positions = ImmutableList.builder();
         for (int index = 0; index < positionsList.size(); index++) {
             long longPosition = positionsList.get(index);
+            @SuppressWarnings("NumericCastThatLosesPrecision")
             int intPosition = (int) longPosition;
 
             checkState(intPosition == longPosition, "Expected checkpoint position %s, to be an integer", index);
@@ -187,15 +194,7 @@ public class DwrfMetadataReader
         return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true));
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
-    {
-        if (columnStatistics == null) {
-            return ImmutableList.of();
-        }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup)));
-    }
-
-    private Map<String, Slice> toUserMetadata(List<DwrfProto.UserMetadataItem> metadataList)
+    private static Map<String, Slice> toUserMetadata(List<DwrfProto.UserMetadataItem> metadataList)
     {
         ImmutableMap.Builder<String, Slice> mapBuilder = ImmutableMap.builder();
         for (DwrfProto.UserMetadataItem item : metadataList) {
@@ -318,7 +317,9 @@ public class DwrfMetadataReader
 
     private static List<OrcType> toType(List<DwrfProto.Type> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toType));
+        return types.stream()
+                .map(DwrfMetadataReader::toType)
+                .collect(toImmutableList());
     }
 
     private static OrcTypeKind toTypeKind(DwrfProto.Type.Kind kind)
@@ -392,9 +393,7 @@ public class DwrfMetadataReader
                 if (type == OrcTypeKind.SHORT || type == OrcTypeKind.INT || type == OrcTypeKind.LONG) {
                     return ColumnEncodingKind.DWRF_DIRECT;
                 }
-                else {
-                    return ColumnEncodingKind.DIRECT;
-                }
+                return ColumnEncodingKind.DIRECT;
             case DICTIONARY:
                 return ColumnEncodingKind.DICTIONARY;
             default:

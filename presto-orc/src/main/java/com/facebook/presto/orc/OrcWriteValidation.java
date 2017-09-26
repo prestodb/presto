@@ -247,7 +247,7 @@ public class OrcWriteValidation
         {
             this.totalRowCount = totalRowCount;
             this.stripeHash = stripeHash;
-            this.columnHashes = columnHashes;
+            this.columnHashes = ImmutableList.copyOf(columnHashes);
         }
 
         public long getTotalRowCount()
@@ -472,7 +472,7 @@ public class OrcWriteValidation
 
         public void setFileStatistics(List<ColumnStatistics> fileStatistics)
         {
-            this.fileStatistics = fileStatistics;
+            this.fileStatistics = ImmutableList.copyOf(fileStatistics);
         }
 
         public OrcWriteValidation build()

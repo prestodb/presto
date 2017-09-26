@@ -45,7 +45,6 @@ import org.joda.time.DateTimeZone;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +169,7 @@ public class OrcRecordReader
             }
             stripeInfos.add(new StripeInfo(fileStripes.get(i), stats));
         }
-        Collections.sort(stripeInfos, comparingLong(info -> info.getStripe().getOffset()));
+        stripeInfos.sort(comparingLong(info -> info.getStripe().getOffset()));
 
         long totalRowCount = 0;
         long fileRowCount = 0;
@@ -234,10 +233,11 @@ public class OrcRecordReader
             OrcPredicate predicate)
     {
         // if there are no stats, include the column
-        if (!stripeStats.isPresent()) {
-            return true;
-        }
-        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get().getColumnStatistics()));
+        return stripeStats
+                .map(StripeStatistics::getColumnStatistics)
+                .map(columnStats -> getStatisticsByColumnOrdinal(rootStructType, columnStats))
+                .map(statsByColumn -> predicate.matches(stripe.getNumberOfRows(), statsByColumn))
+                .orElse(true);
     }
 
     @VisibleForTesting
@@ -469,9 +469,7 @@ public class OrcRecordReader
     private void validateWriteStripe(int rowCount)
             throws IOException
     {
-        if (writeChecksumBuilder.isPresent()) {
-            writeChecksumBuilder.get().addStripe(rowCount);
-        }
+        writeChecksumBuilder.ifPresent(builder -> builder.addStripe(rowCount));
     }
 
     private void validateWritePageChecksum()
@@ -576,7 +574,7 @@ public class OrcRecordReader
         private final List<DiskRange> diskRanges;
         private int index;
 
-        public LinearProbeRangeFinder(List<DiskRange> diskRanges)
+        private LinearProbeRangeFinder(List<DiskRange> diskRanges)
         {
             this.diskRanges = diskRanges;
         }
@@ -586,19 +584,20 @@ public class OrcRecordReader
         {
             // Assumption: range are always read in order
             // Assumption: bytes that are not part of any range are never read
-            for (; index < diskRanges.size(); index++) {
+            while (index < diskRanges.size()) {
                 DiskRange range = diskRanges.get(index);
                 if (range.getEnd() > desiredOffset) {
                     checkArgument(range.getOffset() <= desiredOffset);
                     return range;
                 }
+                index++;
             }
             throw new IllegalArgumentException("Invalid desiredOffset " + desiredOffset);
         }
 
         public static LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
         {
-            if (stripes.size() == 0) {
+            if (stripes.isEmpty()) {
                 return new LinearProbeRangeFinder(ImmutableList.of());
             }
 

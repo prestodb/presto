@@ -58,6 +58,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Integer.min;
@@ -106,7 +107,7 @@ public class OrcWriter
     private boolean closed;
 
     @Nullable
-    private OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
+    private final OrcWriteValidationBuilder validationBuilder;
 
     public static OrcWriter createOrcWriter(
             SliceOutput output,
@@ -186,7 +187,7 @@ public class OrcWriter
             DateTimeZone hiveStorageTimeZone,
             boolean validate)
     {
-        this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(types) : null;
+        this.validationBuilder = validate ? new OrcWriteValidationBuilder(types) : null;
 
         this.output = requireNonNull(output, "output is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -430,7 +431,7 @@ public class OrcWriter
                 closedStripes.stream()
                         .map(ClosedStripe::getStatistics)
                         .map(StripeStatistics::getColumnStatistics)
-                        .collect(toList()));
+                        .collect(toImmutableList()));
         recordValidation(validation -> validation.setFileStatistics(fileStats));
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
@@ -479,7 +480,7 @@ public class OrcWriter
     private static <T> List<T> toDenseList(Map<Integer, T> data, int expectedSize)
     {
         checkArgument(data.size() == expectedSize);
-        ArrayList<T> list = new ArrayList<>(expectedSize);
+        List<T> list = new ArrayList<>(expectedSize);
         for (int i = 0; i < expectedSize; i++) {
             list.add(data.get(i));
         }

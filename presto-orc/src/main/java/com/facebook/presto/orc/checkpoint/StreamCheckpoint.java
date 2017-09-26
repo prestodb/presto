@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.checkpoint;
 
+@SuppressWarnings("MarkerInterface")
 public interface StreamCheckpoint
 {
 }
