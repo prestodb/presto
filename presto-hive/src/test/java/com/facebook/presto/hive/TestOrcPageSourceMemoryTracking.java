@@ -311,7 +311,7 @@ public class TestOrcPageSourceMemoryTracking
         DriverContext driverContext = testPreparer.newDriverContext();
         SourceOperator operator = testPreparer.newTableScanOperator(driverContext);
 
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
 
         long memoryUsage = -1;
         for (int i = 0; i < 20; i++) {
@@ -320,11 +320,11 @@ public class TestOrcPageSourceMemoryTracking
             assertNotNull(page);
             page.getBlock(1);
             if (memoryUsage == -1) {
-                memoryUsage = driverContext.getSystemMemoryUsage();
+                memoryUsage = driverContext.getMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L);
             }
             else {
-                assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(driverContext.getMemoryUsage(), memoryUsage);
             }
         }
 
@@ -335,11 +335,11 @@ public class TestOrcPageSourceMemoryTracking
             assertNotNull(page);
             page.getBlock(1);
             if (memoryUsage == -1) {
-                memoryUsage = driverContext.getSystemMemoryUsage();
+                memoryUsage = driverContext.getMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L);
             }
             else {
-                assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(driverContext.getMemoryUsage(), memoryUsage);
             }
         }
 
@@ -350,18 +350,18 @@ public class TestOrcPageSourceMemoryTracking
             assertNotNull(page);
             page.getBlock(1);
             if (memoryUsage == -1) {
-                memoryUsage = driverContext.getSystemMemoryUsage();
+                memoryUsage = driverContext.getMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 360000L, 369999L);
             }
             else {
-                assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
+                assertEquals(driverContext.getMemoryUsage(), memoryUsage);
             }
         }
 
         assertFalse(operator.isFinished());
         assertNull(operator.getOutput());
         assertTrue(operator.isFinished());
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
     @Test
@@ -374,18 +374,18 @@ public class TestOrcPageSourceMemoryTracking
         DriverContext driverContext = testPreparer.newDriverContext();
         SourceOperator operator = testPreparer.newScanFilterAndProjectOperator(driverContext);
 
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
 
         for (int i = 0; i < 50; i++) {
             assertFalse(operator.isFinished());
             assertNotNull(operator.getOutput());
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 90_000L, 499_999L);
+            assertBetweenInclusive(driverContext.getMemoryUsage(), 90_000L, 499_999L);
         }
 
         // done... in the current implementation finish is not set until output returns a null page
         assertNull(operator.getOutput());
         assertTrue(operator.isFinished());
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
     private class TestPreparer
