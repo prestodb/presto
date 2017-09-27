@@ -101,7 +101,6 @@ public class TaskContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-        this.taskMemoryContext.localSystemMemoryContext().setMemoryNotificationListener(this::systemMemoryReservationChanged);
         this.taskMemoryContext.localUserMemoryContext().setMemoryNotificationListener(this::userMemoryReservationChanged);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -213,25 +212,6 @@ public class TaskContext
     {
         checkArgument(bytes >= 0, "bytes is negative");
         queryContext.freeSpill(bytes);
-    }
-
-    // we need this listener to reflect changes all the way up to the system memory pool
-    private synchronized void systemMemoryReservationChanged(long oldUsage, long newUsage)
-    {
-        long delta = newUsage - oldUsage;
-        if (delta >= 0) {
-            queryContext.reserveSystemMemory(delta);
-        }
-        else {
-            queryContext.freeSystemMemory(-delta);
-        }
-    }
-
-    // this is OK because we already have a memory notification listener,
-    // so we can keep track of all allocations.
-    public LocalMemoryContext localSystemMemoryContext()
-    {
-        return taskMemoryContext.localSystemMemoryContext();
     }
 
     // we need this listener to reflect changes all the way up to the user memory pool

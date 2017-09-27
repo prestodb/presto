@@ -57,7 +57,7 @@ public class PartitionedOutputBuffer
             StateMachine<BufferState> state,
             OutputBuffers outputBuffers,
             DataSize maxBufferSize,
-            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+            Supplier<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor)
     {
         this.state = requireNonNull(state, "state is null");
@@ -69,7 +69,7 @@ public class PartitionedOutputBuffer
 
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
-                requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
+                requireNonNull(memoryContextSupplier, "memoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
 
         ImmutableList.Builder<ClientBuffer> partitions = ImmutableList.builder();

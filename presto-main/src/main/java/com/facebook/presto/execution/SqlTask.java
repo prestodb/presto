@@ -96,14 +96,13 @@ public class SqlTask
 
         // pass a memory context supplier to the output buffer
         // instead of a LocalMemoryContext as at this point
-        // we don't have the task context to get a local system
-        // memory context.
+        // we don't have the task context to get a local memory context
         outputBuffer = new LazyOutputBuffer(
                 taskId,
                 taskInstanceId,
                 taskNotificationExecutor,
                 maxBufferSize,
-                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext());
+                () -> queryContext.getTaskContextByTaskId(taskId).localUserMemoryContext());
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {

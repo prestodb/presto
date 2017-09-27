@@ -38,14 +38,14 @@ class OutputBufferMemoryManager
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
-    private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
+    private final Supplier<LocalMemoryContext> memoryContextSupplier;
     private final Executor notificationExecutor;
 
-    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> systemMemoryContextSupplier, Executor notificationExecutor)
+    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
     {
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
-        this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
+        this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         notFull = SettableFuture.create();
@@ -56,7 +56,7 @@ class OutputBufferMemoryManager
     {
         // safe to call get multiple times here as the supplier will
         // return the same local memory context instance for this particular task
-        systemMemoryContextSupplier.get().addBytes(bytesAdded);
+        memoryContextSupplier.get().addBytes(bytesAdded);
         bufferedBytes.addAndGet(bytesAdded);
         synchronized (this) {
             if (!isFull() && !notFull.isDone()) {
