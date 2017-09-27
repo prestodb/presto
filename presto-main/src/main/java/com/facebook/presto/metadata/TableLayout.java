@@ -80,7 +80,7 @@ public class TableLayout
                         nodePartitioning.getPartitioningColumns()));
     }
 
-    public Optional<Set<ColumnHandle>> getPartitioningColumns()
+    public Optional<Set<ColumnHandle>> getStreamPartitioningColumns()
     {
         return layout.getStreamPartitioningColumns();
     }
