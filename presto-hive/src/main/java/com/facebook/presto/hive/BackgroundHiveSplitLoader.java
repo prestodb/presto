@@ -197,7 +197,7 @@ public class BackgroundHiveSplitLoader
                     finally {
                         taskExecutionLock.readLock().unlock();
                     }
-                    invokeFinishedIfNecessary();
+                    invokeNoMoreSplitsIfNecessary();
                     if (!future.isDone()) {
                         return TaskStatus.continueOn(future);
                     }
@@ -209,16 +209,16 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private void invokeFinishedIfNecessary()
+    private void invokeNoMoreSplitsIfNecessary()
     {
         if (partitions.isEmpty() && fileIterators.isEmpty()) {
             taskExecutionLock.writeLock().lock();
             try {
                 // the write lock guarantees that no one is operating on the partitions, fileIterators, or hiveSplitSource, or half way through doing so.
                 if (partitions.isEmpty() && fileIterators.isEmpty()) {
-                    // It is legal to call `finished` multiple times or after `stop` was called.
-                    // Nothing bad will happen if `finished` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
-                    hiveSplitSource.finished();
+                    // It is legal to call `noMoreSplits` multiple times or after `stop` was called.
+                    // Nothing bad will happen if `noMoreSplits` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
+                    hiveSplitSource.noMoreSplits();
                 }
             }
             finally {

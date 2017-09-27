@@ -69,7 +69,7 @@ class HiveSplitSource
         return CompletableFuture.completedFuture(null);
     }
 
-    void finished()
+    void noMoreSplits()
     {
         if (throwable.get() == null) {
             // Stop the split loader before finishing the queue.
