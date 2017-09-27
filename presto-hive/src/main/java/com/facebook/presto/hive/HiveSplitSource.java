@@ -72,8 +72,11 @@ class HiveSplitSource
     void finished()
     {
         if (throwable.get() == null) {
-            queue.finish();
+            // Stop the split loader before finishing the queue.
+            // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
+            // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
             splitLoader.stop();
+            queue.finish();
         }
     }
 
@@ -81,11 +84,11 @@ class HiveSplitSource
     {
         // only record the first error message
         if (throwable.compareAndSet(null, e)) {
-            // add finish the queue
-            queue.finish();
-
-            // no need to process any more jobs
+            // Stop the split loader before finishing the queue.
+            // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
+            // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
             splitLoader.stop();
+            queue.finish();
         }
     }
 
@@ -122,8 +125,11 @@ class HiveSplitSource
     @Override
     public void close()
     {
-        queue.finish();
+        // Stop the split loader before finishing the queue.
+        // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
+        // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
         splitLoader.stop();
+        queue.finish();
 
         closed = true;
     }
