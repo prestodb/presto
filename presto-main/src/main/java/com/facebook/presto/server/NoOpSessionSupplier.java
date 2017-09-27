@@ -17,14 +17,27 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 
-import java.io.IOException;
-
-public interface SessionSupplier
+/**
+ * Used on workers.
+ */
+public class NoOpSessionSupplier
+        implements SessionSupplier
 {
-    Session createSession(QueryId queryId, SessionContext context);
+    @Override
+    public Session createSession(QueryId queryId, SessionContext context)
+    {
+        throw new UnsupportedOperationException();
+    }
 
-    void addConfigurationManager(SessionPropertyConfigurationManagerFactory sessionConfigFactory);
+    @Override
+    public void addConfigurationManager(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
+    {
+        // no-op
+    }
 
-    void loadConfigurationManager()
-            throws IOException;
+    @Override
+    public void loadConfigurationManager()
+    {
+        // no-op
+    }
 }

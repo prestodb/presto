@@ -11,20 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.spi.session;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import java.util.Map;
 
-import java.io.IOException;
-
-public interface SessionSupplier
+public interface SessionPropertyConfigurationManagerFactory
 {
-    Session createSession(QueryId queryId, SessionContext context);
+    String getName();
 
-    void addConfigurationManager(SessionPropertyConfigurationManagerFactory sessionConfigFactory);
-
-    void loadConfigurationManager()
-            throws IOException;
+    SessionPropertyConfigurationManager create(Map<String, String> config);
 }
