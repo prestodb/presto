@@ -69,7 +69,7 @@ public class OrcPageSource
     private final Block[] constantBlocks;
     private final int[] columnIndexes;
 
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     private int batchId;
     private boolean closed;
@@ -83,7 +83,7 @@ public class OrcPageSource
             List<Integer> columnIndexes,
             UUID shardUuid,
             OptionalInt bucketNumber,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext memoryContext)
     {
         this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
@@ -121,7 +121,7 @@ public class OrcPageSource
             }
         }
 
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -217,7 +217,7 @@ public class OrcPageSource
     @Override
     public long getMemoryUsage()
     {
-        return systemMemoryContext.getBytes();
+        return memoryContext.getBytes();
     }
 
     private void closeWithSuppression(Throwable throwable)

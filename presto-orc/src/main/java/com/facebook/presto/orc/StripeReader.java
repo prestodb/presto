@@ -101,11 +101,11 @@ public class StripeReader
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
     }
 
-    public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
+    public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext memoryContext)
             throws IOException
     {
         // read the stripe footer
-        StripeFooter stripeFooter = readStripeFooter(stripe, systemMemoryUsage);
+        StripeFooter stripeFooter = readStripeFooter(stripe, memoryContext);
         List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
 
         // get streams for selected columns
@@ -130,7 +130,7 @@ public class StripeReader
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
 
             // read the file regions
-            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
+            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, memoryContext);
 
             // read the bloom filter for each column
             Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
@@ -147,7 +147,7 @@ public class StripeReader
             // if all row groups are skipped, return null
             if (selectedRowGroups.isEmpty()) {
                 // set accounted memory usage to zero
-                systemMemoryUsage.close();
+                memoryContext.close();
                 return null;
             }
 
@@ -191,7 +191,7 @@ public class StripeReader
         ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
 
         // read the file regions
-        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, memoryContext);
 
         long minAverageRowBytes = 0;
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
@@ -229,7 +229,7 @@ public class StripeReader
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
-    public Map<StreamId, OrcInputStream> readDiskRanges(long stripeOffset, Map<StreamId, DiskRange> diskRanges, AggregatedMemoryContext systemMemoryUsage)
+    public Map<StreamId, OrcInputStream> readDiskRanges(long stripeOffset, Map<StreamId, DiskRange> diskRanges, AggregatedMemoryContext memoryContext)
             throws IOException
     {
         //
@@ -250,7 +250,7 @@ public class StripeReader
         // transform streams to OrcInputStream
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
         for (Entry<StreamId, FixedLengthSliceInput> entry : streamsData.entrySet()) {
-            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), entry.getValue(), decompressor, systemMemoryUsage));
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), entry.getValue(), decompressor, memoryContext));
         }
         return streamsBuilder.build();
     }
@@ -353,7 +353,7 @@ public class StripeReader
         return new RowGroup(groupId, rowOffset, rowCount, minAverageRowBytes, rowGroupStreams);
     }
 
-    public StripeFooter readStripeFooter(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
+    public StripeFooter readStripeFooter(StripeInformation stripe, AggregatedMemoryContext memoryUsage)
             throws IOException
     {
         long offset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();
@@ -362,7 +362,7 @@ public class StripeReader
         // read the footer
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
-        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage)) {
+        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, memoryUsage)) {
             return metadataReader.readStripeFooter(types, inputStream);
         }
     }

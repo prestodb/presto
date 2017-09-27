@@ -79,22 +79,22 @@ public class ParquetReader
     private final Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     public ParquetReader(MessageType fileSchema,
             MessageType requestedSchema,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             TypeManager typeManager,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext memoryContext)
     {
         this.fileSchema = fileSchema;
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;
         this.typeManager = typeManager;
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         initializeColumnReaders();
     }
 
@@ -133,7 +133,7 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
     {
         currentRowGroupMemoryContext.close();
-        currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+        currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
 
         if (currentBlock == blocks.size()) {
             return false;

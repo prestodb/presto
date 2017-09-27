@@ -56,7 +56,7 @@ public final class OrcInputStream
     // * Memory pointed to by `current` is always part of `buffer`. It shouldn't be counted again.
     private final LocalMemoryContext fixedMemoryUsage;
 
-    public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AggregatedMemoryContext systemMemoryContext)
+    public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AggregatedMemoryContext memoryContext)
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSource is null");
 
@@ -64,9 +64,9 @@ public final class OrcInputStream
 
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
 
-        requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext();
-        this.fixedMemoryUsage = systemMemoryContext.newLocalMemoryContext();
+        requireNonNull(memoryContext, "memoryContext is null");
+        this.bufferMemoryUsage = memoryContext.newLocalMemoryContext();
+        this.fixedMemoryUsage = memoryContext.newLocalMemoryContext();
         this.fixedMemoryUsage.setBytes(sliceInput.length());
 
         if (!decompressor.isPresent()) {
