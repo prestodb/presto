@@ -421,6 +421,7 @@ public class SqlQueryManager
                 queryMonitor.queryCreatedEvent(queryInfo);
                 queryMonitor.queryCompletedEvent(queryInfo);
                 stats.queryStarted();
+                stats.queryStopped();
                 stats.queryFinished(queryInfo);
             }
             finally {
