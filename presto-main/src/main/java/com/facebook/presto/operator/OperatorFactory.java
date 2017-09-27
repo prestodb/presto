@@ -23,6 +23,13 @@ public interface OperatorFactory
 
     Operator createOperator(DriverContext driverContext);
 
+    /**
+     * Declare that createOperator will not be called any more and release
+     * any resources associated with this factory.
+     * <p>
+     * This method will be called only once.
+     * Implementation doesn't need to worry about duplicate invocations.
+     */
     void noMoreOperators();
 
     OperatorFactory duplicate();
