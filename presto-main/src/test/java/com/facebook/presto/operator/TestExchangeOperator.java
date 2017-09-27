@@ -101,7 +101,7 @@ public class TestExchangeOperator
 
         httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
-        exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
+        exchangeClientSupplier = (localMemoryContext) -> new ExchangeClient(
                 new DataSize(32, MEGABYTE),
                 new DataSize(10, MEGABYTE),
                 3,
@@ -109,7 +109,7 @@ public class TestExchangeOperator
                 new Duration(1, TimeUnit.MINUTES),
                 httpClient,
                 executor,
-                systemMemoryUsageListener);
+                localMemoryContext);
     }
 
     @AfterClass(alwaysRun = true)

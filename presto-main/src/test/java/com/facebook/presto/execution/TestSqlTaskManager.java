@@ -295,7 +295,7 @@ public class TestSqlTaskManager
             implements ExchangeClientSupplier
     {
         @Override
-        public ExchangeClient get(LocalMemoryContext systemMemoryContext)
+        public ExchangeClient get(LocalMemoryContext memoryContext)
         {
             throw new UnsupportedOperationException();
         }

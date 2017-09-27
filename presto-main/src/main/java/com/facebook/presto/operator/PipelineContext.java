@@ -104,7 +104,7 @@ public class PipelineContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
-        this.pipelineMemoryContext.localSystemMemoryContext().setMemoryNotificationListener(this::systemMemoryReservationChanged);
+        this.pipelineMemoryContext.localUserMemoryContext().setMemoryNotificationListener(this::memoryReservationChanged);
     }
 
     public TaskContext getTaskContext()
@@ -272,23 +272,23 @@ public class PipelineContext
         taskContext.freeSpill(bytes);
     }
 
-    // we need this listener to reflect changes all the way up to the system memory pool
-    private synchronized void systemMemoryReservationChanged(long oldUsage, long newUsage)
+    // we need this listener to reflect changes all the way up to the general memory pool
+    private synchronized void memoryReservationChanged(long oldUsage, long newUsage)
     {
         long delta = newUsage - oldUsage;
         if (delta >= 0) {
-            taskContext.reserveSystemMemory(delta);
+            taskContext.reserveMemory(delta);
         }
         else {
-            taskContext.freeSystemMemory(-delta);
+            taskContext.freeMemory(-delta);
         }
     }
 
     // this is OK because we already have a memory notification listener,
     // so we can keep track of all allocations.
-    public LocalMemoryContext localSystemMemoryContext()
+    public LocalMemoryContext localMemoryContext()
     {
-        return pipelineMemoryContext.localSystemMemoryContext();
+        return pipelineMemoryContext.localUserMemoryContext();
     }
 
     public void moreMemoryAvailable()

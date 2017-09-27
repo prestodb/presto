@@ -82,7 +82,7 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get(LocalMemoryContext systemMemoryContext)
+    public ExchangeClient get(LocalMemoryContext memoryContext)
     {
         return new ExchangeClient(
                 maxBufferedBytes,
@@ -92,6 +92,6 @@ public class ExchangeClientFactory
                 maxErrorDuration,
                 httpClient,
                 executor,
-                systemMemoryContext);
+                memoryContext);
     }
 }
