@@ -76,8 +76,8 @@ public class LookupJoinOperatorFactory
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
-        probeReferenceCount = new ReferenceCount();
-        lookupSourceFactoryUsersCount = new ReferenceCount();
+        probeReferenceCount = new ReferenceCount(1);
+        lookupSourceFactoryUsersCount = new ReferenceCount(1);
 
         // when all probe and build-outer operators finish, destroy the lookup source (freeing the memory)
         lookupSourceFactoryUsersCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
