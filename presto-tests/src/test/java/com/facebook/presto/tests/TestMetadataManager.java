@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
@@ -23,6 +24,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
@@ -86,7 +88,12 @@ public class TestMetadataManager
 
         // wait until query starts running
         while (true) {
-            if (queryManager.getQueryInfo(queryId).getState() == RUNNING) {
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            if (queryInfo.getState().isDone()) {
+                assertEquals(queryInfo.getState(), FAILED);
+                throw queryInfo.getFailureInfo().toException();
+            }
+            if (queryInfo.getState() == RUNNING) {
                 break;
             }
             Thread.sleep(100);
