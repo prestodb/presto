@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import com.facebook.presto.spi.type.Type;
@@ -54,7 +55,9 @@ public class LookupJoinOperatorFactory
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private boolean closed;
 
-    public LookupJoinOperatorFactory(int operatorId,
+    @UsedByGeneratedCode
+    public LookupJoinOperatorFactory(
+            int operatorId,
             PlanNodeId planNodeId,
             LookupSourceFactory lookupSourceFactory,
             List<Type> probeTypes,

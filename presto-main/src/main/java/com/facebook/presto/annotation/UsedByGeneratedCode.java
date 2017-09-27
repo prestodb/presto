@@ -15,6 +15,7 @@ package com.facebook.presto.annotation;
 
 import java.lang.annotation.Target;
 
+import static java.lang.annotation.ElementType.CONSTRUCTOR;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
@@ -24,7 +25,7 @@ import static java.lang.annotation.ElementType.TYPE;
  * This can be used to prevent warnings about program elements that
  * static analysis tools flag as unused.
  */
-@Target({TYPE, FIELD, METHOD})
+@Target({TYPE, FIELD, METHOD, CONSTRUCTOR})
 public @interface UsedByGeneratedCode
 {
 }
