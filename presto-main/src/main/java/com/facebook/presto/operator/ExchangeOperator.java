@@ -98,7 +98,7 @@ public class ExchangeOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }

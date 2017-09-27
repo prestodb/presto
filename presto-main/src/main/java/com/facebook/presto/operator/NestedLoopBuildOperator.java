@@ -62,7 +62,7 @@ public class NestedLoopBuildOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             if (closed) {
                 return;

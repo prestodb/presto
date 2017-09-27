@@ -64,7 +64,7 @@ public class LocalExchangeSourceOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }

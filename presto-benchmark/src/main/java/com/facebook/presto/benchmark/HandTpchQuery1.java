@@ -166,7 +166,7 @@ public class HandTpchQuery1
             }
 
             @Override
-            public void close()
+            public void noMoreOperators()
             {
             }
 

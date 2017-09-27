@@ -180,7 +180,7 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public void close()
+    public void noMoreOperators()
     {
         if (closed) {
             return;

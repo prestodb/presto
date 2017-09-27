@@ -84,7 +84,7 @@ public class TaskOutputOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
         }
 

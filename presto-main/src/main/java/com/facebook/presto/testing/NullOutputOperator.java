@@ -70,7 +70,7 @@ public class NullOutputOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
         }
 
