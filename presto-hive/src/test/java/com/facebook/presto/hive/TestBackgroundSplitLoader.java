@@ -53,9 +53,10 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
 public class TestBackgroundSplitLoader
@@ -69,7 +70,7 @@ public class TestBackgroundSplitLoader
     private static final Path RETURNED_PATH = new Path(SAMPLE_PATH);
     private static final Path FILTERED_PATH = new Path(SAMPLE_PATH_FILTERED);
 
-    private static final Executor EXECUTOR = directExecutor();
+    private static final Executor EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
     private static final TupleDomain<HiveColumnHandle> RETURNED_PATH_DOMAIN = withColumnDomains(
             ImmutableMap.of(
@@ -99,7 +100,8 @@ public class TestBackgroundSplitLoader
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
-        assertEquals(2, hiveSplitSource.getOutstandingSplitCount());
+
+        assertEquals(drain(hiveSplitSource).size(), 2);
     }
 
     @Test
@@ -112,11 +114,9 @@ public class TestBackgroundSplitLoader
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
-        assertEquals(1, hiveSplitSource.getOutstandingSplitCount());
-
-        List<ConnectorSplit> connectorSplits = hiveSplitSource.getNextBatch(1).get();
-        assertEquals(1, connectorSplits.size());
-        assertEquals(RETURNED_PATH.toString(), ((HiveSplit) connectorSplits.get(0)).getPath());
+        List<String> paths = drain(hiveSplitSource);
+        assertEquals(paths.size(), 1);
+        assertEquals(paths.get(0), RETURNED_PATH.toString());
     }
 
     @Test
@@ -134,11 +134,9 @@ public class TestBackgroundSplitLoader
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
-        assertEquals(1, hiveSplitSource.getOutstandingSplitCount());
-
-        List<ConnectorSplit> connectorSplits = hiveSplitSource.getNextBatch(1).get();
-        assertEquals(1, connectorSplits.size());
-        assertEquals(RETURNED_PATH.toString(), ((HiveSplit) connectorSplits.get(0)).getPath());
+        List<String> paths = drain(hiveSplitSource);
+        assertEquals(paths.size(), 1);
+        assertEquals(paths.get(0), RETURNED_PATH.toString());
     }
 
     @Test
@@ -157,11 +155,25 @@ public class TestBackgroundSplitLoader
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
-        assertEquals(1, hiveSplitSource.getOutstandingSplitCount());
+        List<String> paths = drain(hiveSplitSource);
+        assertEquals(paths.size(), 1);
+        assertEquals(paths.get(0), RETURNED_PATH.toString());
+    }
 
-        List<ConnectorSplit> connectorSplits = hiveSplitSource.getNextBatch(1).get();
-        assertEquals(1, connectorSplits.size());
-        assertEquals(RETURNED_PATH.toString(), ((HiveSplit) connectorSplits.get(0)).getPath());
+    private List<String> drain(HiveSplitSource source)
+            throws Exception
+    {
+        ImmutableList.Builder<String> paths = ImmutableList.builder();
+        while (true) {
+            List<ConnectorSplit> splits = source.getNextBatch(100).get();
+            for (ConnectorSplit connectorSplit : splits) {
+                paths.add(((HiveSplit) connectorSplit).getPath());
+            }
+            if (source.isFinished()) {
+                break;
+            }
+        }
+        return paths.build();
     }
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
