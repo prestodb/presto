@@ -31,39 +31,32 @@ import static java.util.Objects.requireNonNull;
  *
  * The reason we have local memory contexts at every level is that not all the
  * allocations are done by the children levels (e.g., at the pipeline level exchange clients
- * can do system allocations directly, see the ExchangeOperator, another example is the buffers
- * doing system allocations at the task context level, etc.).
+ * can do local allocations directly, see the ExchangeOperator, another example is the buffers
+ * doing local allocations at the task context level, etc.).
  *
- * As another example, at the pipeline level there will be system allocations initiated by the operator context
- * and there will be system allocations initiated by the exchange clients (local allocations). All these system
- * allocations will be visible in the systemReservedAggregateMemoryContext.
+ * As another example, at the pipeline level there will be local allocations initiated by the operator context
+ * and there will be local allocations initiated by the exchange clients. All these local
+ * allocations will be visible in the userReservedAggregateMemoryContext.
  *
- * To perform local allocations clients should call localUserMemoryContext()/localSystemMemoryContext()
- * and get a reference to the local memory contexts. The other child-originated allocations will go through
- * reserveUserMemory()/reserveRevocableMemory()/setSystemMemory() methods.
+ * To perform local allocations clients should call localUserMemoryContext()
+ * and get a reference to the local memory context. The other child-originated allocations will go through
+ * reserveUserMemory() and reserveRevocableMemory() methods.
  */
 @ThreadSafe
 public class MemoryTrackingContext
 {
     private final AggregatedMemoryContext userReservedAggregateMemoryContext;
     private final AggregatedMemoryContext userRevocableAggregateMemoryContext;
-    private final AggregatedMemoryContext systemReservedAggregateMemoryContext;
 
     private final LocalMemoryContext userReservedLocalMemoryContext;
     private final LocalMemoryContext userRevocableLocalMemoryContext;
-    private final LocalMemoryContext systemReservedLocalMemoryContext;
 
-    public MemoryTrackingContext(
-            AggregatedMemoryContext userReservedAggregateMemoryContext,
-            AggregatedMemoryContext userRevocableAggregateMemoryContext,
-            AggregatedMemoryContext systemReservedAggregateMemoryContext)
+    public MemoryTrackingContext(AggregatedMemoryContext userReservedAggregateMemoryContext, AggregatedMemoryContext userRevocableAggregateMemoryContext)
     {
         this.userReservedAggregateMemoryContext = requireNonNull(userReservedAggregateMemoryContext, "userReservedAggregateMemoryContext is null");
         this.userRevocableAggregateMemoryContext = requireNonNull(userRevocableAggregateMemoryContext, "userRevocableAggregateMemoryContext is null");
-        this.systemReservedAggregateMemoryContext = requireNonNull(systemReservedAggregateMemoryContext, "systemReservedAggregateMemoryContext is null");
         this.userReservedLocalMemoryContext = userReservedAggregateMemoryContext.newLocalMemoryContext();
         this.userRevocableLocalMemoryContext = userRevocableAggregateMemoryContext.newLocalMemoryContext();
-        this.systemReservedLocalMemoryContext = systemReservedAggregateMemoryContext.newLocalMemoryContext();
     }
 
     // below methods are for reserving memory locally
@@ -77,12 +70,6 @@ public class MemoryTrackingContext
     {
         checkArgument(delta >= 0, "delta is negative");
         userRevocableLocalMemoryContext.addBytes(delta);
-    }
-
-    public void setSystemMemory(long systemMemoryUsage)
-    {
-        checkArgument(systemMemoryUsage >= 0, "systemMemoryUsage is negative");
-        systemReservedLocalMemoryContext.setBytes(systemMemoryUsage);
     }
 
     // "free" methods always free from the local context, which is reflected to the aggregate context
@@ -105,11 +92,6 @@ public class MemoryTrackingContext
         return userReservedLocalMemoryContext;
     }
 
-    public LocalMemoryContext localSystemMemoryContext()
-    {
-        return systemReservedLocalMemoryContext;
-    }
-
     public LocalMemoryContext newLocalMemoryContext()
     {
         return userReservedAggregateMemoryContext.newLocalMemoryContext();
@@ -126,28 +108,15 @@ public class MemoryTrackingContext
         return userRevocableAggregateMemoryContext.getBytes();
     }
 
-    public long reservedSystemMemory()
-    {
-        return systemReservedAggregateMemoryContext.getBytes();
-    }
-
     // below methods are for getting the locally reserved memory
     public long reservedLocalUserMemory()
     {
         return userReservedLocalMemoryContext.getBytes();
     }
 
-    public long reservedLocalSystemMemory()
-    {
-        return systemReservedLocalMemoryContext.getBytes();
-    }
-
     public MemoryTrackingContext newMemoryTrackingContext()
     {
-        return new MemoryTrackingContext(
-                userReservedAggregateMemoryContext.newAggregatedMemoryContext(),
-                userRevocableAggregateMemoryContext.newAggregatedMemoryContext(),
-                systemReservedAggregateMemoryContext.newAggregatedMemoryContext());
+        return new MemoryTrackingContext(userReservedAggregateMemoryContext.newAggregatedMemoryContext(), userRevocableAggregateMemoryContext.newAggregatedMemoryContext());
     }
 
     @Override
@@ -156,10 +125,8 @@ public class MemoryTrackingContext
         return toStringHelper(this)
                 .add("userReservedAggregateMemoryContext", userReservedAggregateMemoryContext)
                 .add("userRevocableAggregateMemoryContext", userRevocableAggregateMemoryContext)
-                .add("systemReservedAggregateMemoryContext", systemReservedAggregateMemoryContext)
                 .add("userReservedLocalMemoryContext", userReservedLocalMemoryContext)
                 .add("userRevocableLocalMemoryContext", userRevocableLocalMemoryContext)
-                .add("systemReservedLocalMemoryContext", systemReservedLocalMemoryContext)
                 .toString();
     }
 }

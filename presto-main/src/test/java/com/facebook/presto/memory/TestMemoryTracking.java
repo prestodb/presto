@@ -111,16 +111,14 @@ public class TestMemoryTracking
     public void testOperatorAllocations()
     {
         operatorContext.reserveMemory(100);
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 100, 0);
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 100, 1_000_000);
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 100, 2_000_000);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 1_000_000);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 2_000_000);
         operatorContext.reserveMemory(400);
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 500, 2_000_000);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 2_000_000);
         operatorContext.freeMemory(500);
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 2_000_000);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 2_000_000);
         assertAllocationFails((ignored) -> operatorContext.freeMemory(500), "\\Qcannot free more memory than reserved\\E");
-        operatorContext.freeSystemMemory();
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0);
     }
 
     @Test
@@ -133,7 +131,6 @@ public class TestMemoryTracking
         assertLocalMemoryAllocations(pipelineContext.getPipelineMemoryContext(),
                 0,
                 0,
-                pipelineLocalAllocation,
                 pipelineLocalAllocation);
         LocalMemoryContext taskLocalMemoryContext = taskContext.localUserMemoryContext();
         taskLocalMemoryContext.addBytes(taskLocalAllocation);
@@ -141,19 +138,16 @@ public class TestMemoryTracking
                 taskContext.getTaskMemoryContext(),
                 0,
                 0,
-                taskLocalAllocation + pipelineLocalAllocation, // at the pool level we should observe both
-                taskLocalAllocation);
+                taskLocalAllocation + pipelineLocalAllocation); // at the pool level we should observe both
         pipelineLocalMemoryContext.addBytes(-pipelineLocalAllocation);
         assertLocalMemoryAllocations(
                 pipelineContext.getPipelineMemoryContext(),
                 0,
                 0,
-                taskLocalAllocation,
-                0);
+                taskLocalAllocation);
         taskLocalMemoryContext.addBytes(-taskLocalAllocation);
         assertLocalMemoryAllocations(
                 taskContext.getTaskMemoryContext(),
-                0,
                 0,
                 0,
                 0);
@@ -171,7 +165,6 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 100_000_000,
                 0,
-                200_000_000,
                 100_000_000);
 
         // allocate more and check peak memory reservation
@@ -183,7 +176,6 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 600_000_000,
                 0,
-                200_000_000,
                 500_000_000);
 
         operatorContext.freeMemory(300_000_000);
@@ -194,7 +186,6 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 300_000_000,
                 0,
-                200_000_000,
                 500_000_000);
 
         operatorContext.freeMemory(300_000_000);
@@ -205,16 +196,13 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 0,
                 0,
-                200_000_000,
                 500_000_000);
 
-        operatorContext.freeSystemMemory();
         assertStats(
                 operatorContext.getOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
-                0,
                 0,
                 0,
                 500_000_000);
@@ -231,7 +219,6 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 0,
                 100_000_000,
-                0,
                 0);
         operatorContext.reserveMemory(100_000_000);
         operatorContext.reserveRevocableMemory(100_000_000);
@@ -242,7 +229,6 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 100_000_000,
                 200_000_000,
-                100_000_000,
                 100_000_000);
     }
 
@@ -257,7 +243,6 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 100_000_000,
                 0,
-                0,
                 100_000_000); // tryReserveMemory should update peak usage
 
         assertFalse(operatorContext.tryReserveMemory(userPool.getMaxBytes() + 1));
@@ -269,7 +254,6 @@ public class TestMemoryTracking
                 taskContext.getTaskStats(),
                 100_000_000,
                 0,
-                0,
                 100_000_000); // tryReserveMemory should update peak usage
     }
 
@@ -279,17 +263,7 @@ public class TestMemoryTracking
         operatorContext.reserveMemory(300_000_000);
         operatorContext.transferMemoryToTaskContext(300_000_000);
         assertEquals(operatorContext.getOperatorMemoryContext().reservedLocalUserMemory(), 0);
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 300_000_000, 300_000_000, 0, 0);
-    }
-
-    @Test
-    public void testFreeSystemMemory()
-    {
-        LocalMemoryContext newLocalMemoryContext = operatorContext.newLocalMemoryContext();
-        newLocalMemoryContext.setBytes(100_000);
-        assertEquals(operatorContext.getOperatorMemoryContext().reservedSystemMemory(), 100_000);
-        operatorContext.freeSystemMemory();
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0);
+        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 300_000_000, 300_000_000, 0);
     }
 
     private void assertStats(
@@ -299,7 +273,6 @@ public class TestMemoryTracking
             TaskStats taskStats,
             long expectedUserMemory,
             long expectedRevocableMemory,
-            long expectedSystemMemory,
             long expectedPeakDriverUserMemory)
     {
         assertEquals(operatorStats.getMemoryReservation().toBytes(), expectedUserMemory);
@@ -330,12 +303,10 @@ public class TestMemoryTracking
     // the allocations that are done at the operator level are reflected at that level and all the way up to the pools
     private void assertOperatorMemoryAllocations(
             MemoryTrackingContext memoryTrackingContext,
-            long expectedUserMemory,
-            long expectedSystemMemory)
+            long expectedUserMemory)
     {
         assertEquals(memoryTrackingContext.reservedUserMemory(), expectedUserMemory, "User memory verification failed");
         assertEquals(userPool.getReservedBytes(), expectedUserMemory, "User pool memory verification failed");
-        assertEquals(memoryTrackingContext.reservedSystemMemory(), expectedSystemMemory, "System memory verification failed");
     }
 
     // the local allocations are reflected only at that level and all the way up to the pools
@@ -343,11 +314,9 @@ public class TestMemoryTracking
             MemoryTrackingContext memoryTrackingContext,
             long expectedUserPoolMemory,
             long expectedContextUserMemory,
-            long expectedSystemPoolMemory,
-            long expectedContextSystemMemory)
+            long expectedSystemPoolMemory)
     {
         assertEquals(memoryTrackingContext.reservedUserMemory(), expectedContextUserMemory, "User memory verification failed");
         assertEquals(userPool.getReservedBytes(), expectedUserPoolMemory, "User pool memory verification failed");
-        assertEquals(memoryTrackingContext.reservedLocalSystemMemory(), expectedContextSystemMemory, "Local system memory verification failed");
     }
 }

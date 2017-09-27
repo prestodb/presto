@@ -85,7 +85,7 @@ public class QueryContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
-        this.queryMemoryContext = new MemoryTrackingContext(new AggregatedMemoryContext(), new AggregatedMemoryContext(), new AggregatedMemoryContext());
+        this.queryMemoryContext = new MemoryTrackingContext(new AggregatedMemoryContext(), new AggregatedMemoryContext());
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
