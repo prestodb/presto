@@ -476,26 +476,11 @@ public class Driver
                             operator.getOperatorContext().getOperatorId(),
                             driverContext.getTaskId());
                 }
-                try {
-                    operator.getOperatorContext().freeSystemMemory();
-                }
-                catch (Throwable t) {
-                    inFlightException = addSuppressedException(
-                            inFlightException,
-                            t,
-                            "Error freeing system memory for operator %s for task %s",
-                            operator.getOperatorContext().getOperatorId(),
-                            driverContext.getTaskId());
-                }
             }
             if (driverContext.getMemoryUsage() > 0) {
                 log.error("Driver still has memory reserved after freeing all operator memory. Freeing it.");
             }
-            if (driverContext.getSystemMemoryUsage() > 0) {
-                log.error("Driver still has system memory reserved after freeing all operator memory. Freeing it.");
-            }
             driverContext.freeMemory(driverContext.getMemoryUsage());
-            driverContext.freeSystemMemory(driverContext.getSystemMemoryUsage());
             driverContext.freeRevocableMemory(driverContext.getRevocableMemoryUsage());
             driverContext.finished();
         }

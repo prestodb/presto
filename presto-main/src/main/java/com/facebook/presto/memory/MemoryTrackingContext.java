@@ -100,21 +100,6 @@ public class MemoryTrackingContext
         userRevocableLocalMemoryContext.addBytes(-delta);
     }
 
-    // frees both the local system memory and the aggregate system memory
-    // useful when another local memory context is created from the aggregate context to
-    // do memory accounting. In that case systemReservedLocalMemoryContext will not have those reservations
-    // while systemReservedAggregateMemoryContext will.
-    public void forceFreeSystemMemory()
-    {
-        systemReservedLocalMemoryContext.addBytes(-1 * systemReservedLocalMemoryContext.getBytes());
-        synchronized (systemReservedAggregateMemoryContext) {
-            if (systemReservedAggregateMemoryContext.getBytes() > 0) {
-                // we cannot simply close systemReservedAggregateMemoryContext as it will be unreadable after that
-                systemReservedAggregateMemoryContext.updateBytes(-1 * systemReservedAggregateMemoryContext.getBytes());
-            }
-        }
-    }
-
     public LocalMemoryContext localUserMemoryContext()
     {
         return userReservedLocalMemoryContext;

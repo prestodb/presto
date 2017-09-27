@@ -177,11 +177,6 @@ public class TaskContext
         return queryContext.reserveRevocableMemory(bytes);
     }
 
-    public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
-    {
-        return queryContext.reserveSystemMemory(bytes);
-    }
-
     public synchronized ListenableFuture<?> reserveSpill(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -201,11 +196,6 @@ public class TaskContext
     public synchronized void freeRevocableMemory(long bytes)
     {
         queryContext.freeRevocableMemory(bytes);
-    }
-
-    public synchronized void freeSystemMemory(long bytes)
-    {
-        queryContext.freeSystemMemory(bytes);
     }
 
     public synchronized void freeSpill(long bytes)

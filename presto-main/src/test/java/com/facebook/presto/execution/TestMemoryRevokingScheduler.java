@@ -288,7 +288,7 @@ public class TestMemoryRevokingScheduler
                 taskId,
                 location,
                 "fake",
-                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), memoryPool, new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), executor, scheduledExecutor, new DataSize(1, GIGABYTE), spillSpaceTracker),
+                new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), memoryPool, executor, scheduledExecutor, new DataSize(1, GIGABYTE), spillSpaceTracker),
                 sqlTaskExecutionFactory,
                 executor,
                 Functions.<SqlTask>identity(),

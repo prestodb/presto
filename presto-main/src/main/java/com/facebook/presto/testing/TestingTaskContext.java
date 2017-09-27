@@ -131,13 +131,11 @@ public final class TestingTaskContext
         public TaskContext build()
         {
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
-            MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), systemMemoryPoolSize);
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
             QueryContext queryContext = new QueryContext(
                     new QueryId("test_query"),
                     queryMaxMemory,
                     memoryPool,
-                    systemMemoryPool,
                     notificationExecutor,
                     yieldExecutor,
                     queryMaxSpillSize,

@@ -55,7 +55,6 @@ public class QueryContext
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
-    private final MemoryPool systemMemoryPool;
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")
@@ -74,7 +73,6 @@ public class QueryContext
             QueryId queryId,
             DataSize maxMemory,
             MemoryPool memoryPool,
-            MemoryPool systemMemoryPool,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             DataSize maxSpill,
@@ -83,7 +81,6 @@ public class QueryContext
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
-        this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
@@ -118,11 +115,6 @@ public class QueryContext
         return memoryPool.reserveRevocable(queryId, bytes);
     }
 
-    public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
-    {
-        return systemMemoryPool.reserve(queryId, bytes);
-    }
-
     public synchronized ListenableFuture<?> reserveSpill(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -154,11 +146,6 @@ public class QueryContext
     public synchronized void freeRevocableMemory(long bytes)
     {
         memoryPool.freeRevocable(queryId, bytes);
-    }
-
-    public synchronized void freeSystemMemory(long bytes)
-    {
-        systemMemoryPool.free(queryId, bytes);
     }
 
     public synchronized void freeSpill(long bytes)

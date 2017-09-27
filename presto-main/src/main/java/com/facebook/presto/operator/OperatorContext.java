@@ -335,25 +335,8 @@ public class OperatorContext
         driverContext.freeMemory(bytes);
     }
 
-    public void freeSystemMemory()
-    {
-        // this method is called from the driver to free allocated system memory
-        // it's possible that some operators called OperatorContext::newLocalMemoryContext()
-        // to create new local memory contexts and recorded allocations with that
-        // however, not all the operators free their reservations on close()
-        // we do that on purpose because the operators may be holding onto that memory
-        // until the driver is destroyed (which calls this method)
-        // so here we clear the memory accounting for both local context
-        // and its parent(s) and all the way up to the system pool
-        operatorMemoryContext.forceFreeSystemMemory();
-        verifyMemoryReservations();
-    }
-
     private void verifyMemoryReservations()
     {
-        if (operatorMemoryContext.reservedSystemMemory() != 0) {
-            log.warn("nonzero system memory reservation after close: %d", operatorMemoryContext.reservedSystemMemory());
-        }
         if (operatorMemoryContext.reservedUserMemory() != 0) {
             log.warn("nonzero user memory reservation after close: %d", operatorMemoryContext.reservedUserMemory());
         }

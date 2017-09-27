@@ -212,11 +212,6 @@ public class DriverContext
         return pipelineContext.reserveRevocableMemory(bytes);
     }
 
-    public ListenableFuture<?> reserveSystemMemory(long bytes)
-    {
-        return pipelineContext.reserveSystemMemory(bytes);
-    }
-
     public ListenableFuture<?> reserveSpill(long bytes)
     {
         return pipelineContext.reserveSpill(bytes);
@@ -241,11 +236,6 @@ public class DriverContext
         pipelineContext.freeRevocableMemory(bytes);
     }
 
-    public void freeSystemMemory(long bytes)
-    {
-        pipelineContext.freeSystemMemory(bytes);
-    }
-
     public void freeSpill(long bytes)
     {
         if (bytes == 0) {
@@ -258,11 +248,6 @@ public class DriverContext
     public DriverYieldSignal getYieldSignal()
     {
         return yieldSignal;
-    }
-
-    public long getSystemMemoryUsage()
-    {
-        return driverMemoryContext.reservedSystemMemory();
     }
 
     public long getMemoryUsage()

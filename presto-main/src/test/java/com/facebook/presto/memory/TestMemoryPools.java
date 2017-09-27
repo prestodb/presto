@@ -67,7 +67,6 @@ public class TestMemoryPools
     private QueryId fakeQueryId;
     private LocalQueryRunner localQueryRunner;
     private MemoryPool userPool;
-    private MemoryPool systemPool;
     private List<Driver> drivers;
     private TaskContext taskContext;
 
@@ -87,10 +86,9 @@ public class TestMemoryPools
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         userPool = new MemoryPool(new MemoryPoolId("test"), TEN_MEGABYTES);
-        systemPool = new MemoryPool(new MemoryPoolId("testSystem"), TEN_MEGABYTES);
         fakeQueryId = new QueryId("fake");
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-        QueryContext queryContext = new QueryContext(new QueryId("query"), TEN_MEGABYTES, userPool, systemPool, localQueryRunner.getExecutor(), localQueryRunner.getScheduler(), TEN_MEGABYTES, spillSpaceTracker);
+        QueryContext queryContext = new QueryContext(new QueryId("query"), TEN_MEGABYTES, userPool, localQueryRunner.getExecutor(), localQueryRunner.getScheduler(), TEN_MEGABYTES, spillSpaceTracker);
         taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session);
         drivers = driversSupplier.get();
     }

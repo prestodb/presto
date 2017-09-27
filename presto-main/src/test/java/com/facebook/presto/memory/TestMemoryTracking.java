@@ -56,7 +56,6 @@ public class TestMemoryTracking
     private DriverContext driverContext;
     private OperatorContext operatorContext;
     private MemoryPool userPool;
-    private MemoryPool systemPool;
     private ExecutorService notificationExecutor;
     private ScheduledExecutorService yieldExecutor;
 
@@ -72,12 +71,10 @@ public class TestMemoryTracking
         notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
         userPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
-        systemPool = new MemoryPool(new MemoryPoolId("testSystem"), systemMemoryPoolSize);
         queryContext = new QueryContext(
                 new QueryId("test_query"),
                 queryMaxMemory,
                 userPool,
-                systemPool,
                 notificationExecutor,
                 yieldExecutor,
                 queryMaxSpillSize,
@@ -106,7 +103,6 @@ public class TestMemoryTracking
         driverContext = null;
         operatorContext = null;
         userPool = null;
-        systemPool = null;
         notificationExecutor.shutdownNow();
         yieldExecutor.shutdownNow();
     }
@@ -340,7 +336,6 @@ public class TestMemoryTracking
         assertEquals(memoryTrackingContext.reservedUserMemory(), expectedUserMemory, "User memory verification failed");
         assertEquals(userPool.getReservedBytes(), expectedUserMemory, "User pool memory verification failed");
         assertEquals(memoryTrackingContext.reservedSystemMemory(), expectedSystemMemory, "System memory verification failed");
-        assertEquals(systemPool.getReservedBytes(), expectedSystemMemory, "System pool memory verification failed");
     }
 
     // the local allocations are reflected only at that level and all the way up to the pools
@@ -354,6 +349,5 @@ public class TestMemoryTracking
         assertEquals(memoryTrackingContext.reservedUserMemory(), expectedContextUserMemory, "User memory verification failed");
         assertEquals(userPool.getReservedBytes(), expectedUserPoolMemory, "User pool memory verification failed");
         assertEquals(memoryTrackingContext.reservedLocalSystemMemory(), expectedContextSystemMemory, "Local system memory verification failed");
-        assertEquals(systemPool.getReservedBytes(), expectedSystemPoolMemory, "System pool memory verification failed");
     }
 }

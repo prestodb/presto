@@ -236,11 +236,6 @@ public class PipelineContext
         return taskContext.reserveRevocableMemory(bytes);
     }
 
-    public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
-    {
-        return taskContext.reserveSystemMemory(bytes);
-    }
-
     public synchronized ListenableFuture<?> reserveSpill(long bytes)
     {
         return taskContext.reserveSpill(bytes);
@@ -259,11 +254,6 @@ public class PipelineContext
     public synchronized void freeRevocableMemory(long bytes)
     {
         taskContext.freeRevocableMemory(bytes);
-    }
-
-    public synchronized void freeSystemMemory(long bytes)
-    {
-        taskContext.freeSystemMemory(bytes);
     }
 
     public synchronized void freeSpill(long bytes)
