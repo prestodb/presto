@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -55,6 +56,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
@@ -474,7 +476,13 @@ public class HiveWriterFactory
                 partitionValues.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
             }
             else {
-                partitionValues.add(value.toString());
+                String valueString = value.toString();
+                if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(valueString)) {
+                    throw new PrestoException(
+                            HIVE_INVALID_PARTITION_VALUE,
+                            format("Cannot use %s as value of a partition column in Hive. Partition keys in Hive can only contain characters in the range of 0x20 - 0x7E.", valueString));
+                }
+                partitionValues.add(valueString);
             }
         }
         return partitionValues.build();
