@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
-import java.io.Closeable;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -27,7 +26,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class DriverFactory
-        implements Closeable
 {
     private final int pipelineId;
     private final boolean inputDriver;
@@ -97,14 +95,14 @@ public class DriverFactory
         return new Driver(driverContext, operators.build());
     }
 
-    @Override
-    public synchronized void close()
+    public synchronized void noMoreDrivers()
     {
-        if (!closed) {
-            closed = true;
-            for (OperatorFactory operatorFactory : operatorFactories) {
-                operatorFactory.noMoreOperators();
-            }
+        if (closed) {
+            return;
+        }
+        closed = true;
+        for (OperatorFactory operatorFactory : operatorFactories) {
+            operatorFactory.noMoreOperators();
         }
     }
 }

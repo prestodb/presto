@@ -198,7 +198,7 @@ public class SqlTaskExecution
                 taskStateMachine.addStateChangeListener(state -> {
                     if (state.isDone()) {
                         for (DriverFactory factory : driverFactories) {
-                            factory.close();
+                            factory.noMoreDrivers();
                         }
                     }
                 });
@@ -548,7 +548,7 @@ public class SqlTaskExecution
         private void closeDriverFactoryIfFullyCreated()
         {
             if (isNoMoreSplits() && pendingCreation.get() <= 0) {
-                driverFactory.close();
+                driverFactory.noMoreDrivers();
             }
         }
 
