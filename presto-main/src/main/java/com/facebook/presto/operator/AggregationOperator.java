@@ -157,12 +157,7 @@ public class AggregationOperator
             aggregate.processPage(page);
             memorySize += aggregate.getEstimatedSize();
         }
-        if (partial) {
-            operatorContext.setSystemMemory(memorySize);
-        }
-        else {
-            operatorContext.setMemoryReservation(memorySize);
-        }
+        operatorContext.setMemoryReservation(memorySize);
     }
 
     @Override

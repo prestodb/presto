@@ -229,11 +229,11 @@ public class ScanFilterAndProjectOperator
 
     private Page processColumnSource()
     {
-        long systemMemory = 0;
+        long memoryUsage = 0;
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !yieldSignal.isSet()) {
             CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, cursor, pageBuilder);
-            systemMemory += cursor.getMemoryUsage();
+            memoryUsage += cursor.getMemoryUsage();
             long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
             long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
             operatorContext.recordGeneratedInput(bytesProcessed, output.getProcessedRows(), elapsedNanos);
@@ -248,20 +248,20 @@ public class ScanFilterAndProjectOperator
             page = pageBuilder.build();
             pageBuilder.reset();
         }
-        systemMemory += pageBuilder.getRetainedSizeInBytes();
-        operatorContext.setSystemMemory(systemMemory);
+        memoryUsage += pageBuilder.getRetainedSizeInBytes();
+        operatorContext.setMemoryReservation(memoryUsage);
         return page;
     }
 
     private Page processPageSource()
     {
-        long systemMemory = 0;
+        long memoryUsage = 0;
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !currentOutput.hasNext() && !yieldSignal.isSet()) {
             Page page = pageSource.getNextPage();
 
             finishing = pageSource.isFinished();
-            systemMemory += pageSource.getMemoryUsage();
+            memoryUsage += pageSource.getMemoryUsage();
             if (page == null) {
                 currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
             }
@@ -275,10 +275,10 @@ public class ScanFilterAndProjectOperator
 
                 currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, page);
             }
-            systemMemory += currentOutput.getRetainedSizeInBytes();
+            memoryUsage += currentOutput.getRetainedSizeInBytes();
         }
 
-        operatorContext.setSystemMemory(systemMemory);
+        operatorContext.setMemoryReservation(memoryUsage);
         return currentOutput.hasNext() ? currentOutput.next().orElse(null) : null;
     }
 

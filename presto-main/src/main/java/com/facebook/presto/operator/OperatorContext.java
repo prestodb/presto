@@ -261,12 +261,6 @@ public class OperatorContext
         }
     }
 
-    public void setSystemMemory(long usedBytes)
-    {
-        long currentSystemReservation = operatorMemoryContext.reservedSystemMemory();
-        operatorMemoryContext.setSystemMemory(usedBytes);
-    }
-
     // this is OK because we already have a memory notification listener,
     // so we can keep track of all allocations.
     public LocalMemoryContext newLocalMemoryContext()
@@ -351,7 +345,6 @@ public class OperatorContext
         // until the driver is destroyed (which calls this method)
         // so here we clear the memory accounting for both local context
         // and its parent(s) and all the way up to the system pool
-        setSystemMemory(0);
         operatorMemoryContext.forceFreeSystemMemory();
         verifyMemoryReservations();
     }

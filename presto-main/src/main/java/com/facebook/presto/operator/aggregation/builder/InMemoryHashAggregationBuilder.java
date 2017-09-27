@@ -113,12 +113,7 @@ public class InMemoryHashAggregationBuilder
     @Override
     public void close()
     {
-        if (partial) {
-            operatorContext.setSystemMemory(0);
-        }
-        else {
-            operatorContext.setMemoryReservation(0);
-        }
+        operatorContext.setMemoryReservation(0);
     }
 
     @Override
@@ -141,12 +136,9 @@ public class InMemoryHashAggregationBuilder
     {
         long memorySize = getSizeInMemory();
         if (partial) {
-            operatorContext.setSystemMemory(memorySize);
             full = (memorySize > maxPartialMemory);
         }
-        else {
-            operatorContext.setMemoryReservation(memorySize);
-        }
+        operatorContext.setMemoryReservation(memorySize);
     }
 
     @Override

@@ -68,7 +68,7 @@ public class FilterAndProjectOperator
         boolean finished = finishing && !currentOutput.hasNext();
         if (finished) {
             currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
-            operatorContext.setSystemMemory(0);
+            operatorContext.setMemoryReservation(0);
         }
         return finished;
     }
@@ -87,7 +87,7 @@ public class FilterAndProjectOperator
         checkState(!currentOutput.hasNext(), "Page buffer is full");
 
         currentOutput = processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), page);
-        operatorContext.setSystemMemory(currentOutput.getRetainedSizeInBytes());
+        operatorContext.setMemoryReservation(currentOutput.getRetainedSizeInBytes());
     }
 
     @Override

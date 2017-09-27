@@ -231,7 +231,7 @@ public class PartitionedOutputOperator
         // TODO: We should try to make this more accurate
         // Recalculating the retained size of all the PageBuilders is somewhat expensive,
         // so we only do it once here rather than in addInput(), and assume that the size will be constant.
-        operatorContext.setSystemMemory(this.partitionFunction.getRetainedSizeInBytes());
+        operatorContext.setMemoryReservation(this.partitionFunction.getRetainedSizeInBytes());
     }
 
     @Override

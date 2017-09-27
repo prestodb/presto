@@ -116,9 +116,7 @@ public class TestMemoryTracking
     {
         operatorContext.reserveMemory(100);
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 100, 0);
-        operatorContext.setSystemMemory(1_000_000);
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 100, 1_000_000);
-        operatorContext.setSystemMemory(2_000_000);
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 100, 2_000_000);
         operatorContext.reserveMemory(400);
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 500, 2_000_000);
@@ -127,7 +125,6 @@ public class TestMemoryTracking
         assertAllocationFails((ignored) -> operatorContext.freeMemory(500), "\\Qcannot free more memory than reserved\\E");
         operatorContext.freeSystemMemory();
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0);
-        assertAllocationFails((ignored) -> operatorContext.setSystemMemory(-1), ".*is negative");
     }
 
     @Test
@@ -170,7 +167,6 @@ public class TestMemoryTracking
     public void testStats()
     {
         operatorContext.reserveMemory(100_000_000);
-        operatorContext.setSystemMemory(200_000_000);
 
         assertStats(
                 operatorContext.getOperatorStats(),
@@ -242,7 +238,6 @@ public class TestMemoryTracking
                 0,
                 0);
         operatorContext.reserveMemory(100_000_000);
-        operatorContext.setSystemMemory(100_000_000);
         operatorContext.reserveRevocableMemory(100_000_000);
         assertStats(
                 operatorContext.getOperatorStats(),

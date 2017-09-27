@@ -198,7 +198,7 @@ public class TableWriterOperator
         }
 
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
-        operatorContext.setSystemMemory(pageSink.getMemoryUsage());
+        operatorContext.setMemoryReservation(pageSink.getMemoryUsage());
         if (!future.isDone()) {
             this.blocked = toListenableFuture(future);
         }

@@ -204,7 +204,7 @@ public class TableScanOperator
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
-            operatorContext.setSystemMemory(source.getMemoryUsage());
+            operatorContext.setMemoryReservation(source.getMemoryUsage());
         }
     }
 
@@ -214,7 +214,7 @@ public class TableScanOperator
         if (!finished) {
             finished = (source != null) && source.isFinished();
             if (source != null) {
-                operatorContext.setSystemMemory(source.getMemoryUsage());
+                operatorContext.setMemoryReservation(source.getMemoryUsage());
             }
         }
 
@@ -269,8 +269,8 @@ public class TableScanOperator
             readTimeNanos = endReadTimeNanos;
         }
 
-        // updating system memory usage should happen after page is loaded.
-        operatorContext.setSystemMemory(source.getMemoryUsage());
+        // updating the memory usage should happen after the page is loaded
+        operatorContext.setMemoryReservation(source.getMemoryUsage());
 
         return page;
     }
