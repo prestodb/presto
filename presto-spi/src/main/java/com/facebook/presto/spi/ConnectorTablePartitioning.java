@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,12 +24,37 @@ import java.util.Objects;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-public class ConnectorNodePartitioning
+/**
+ * The partitioning of split groups in a table.
+ * A table is partitioned on columns {C1,...,Cn} if rows with the same values
+ * on the respective columns are always in the same split group.
+ * <p>
+ * This class was previously name ConnectorNodePartitioning.
+ * The new semantics is more flexible.
+ * It enables expression of more sophisticated table organization.
+ * Node partitioning is a form of partitioning between split groups,
+ * where each split group contains all splits on a {@link Node}.
+ * <p>
+ * Unless the connector declares itself as supporting grouped scheduling in
+ * {@link ConnectorSplitManager}, Presto engine treats all splits on a node
+ * as a single split group.
+ * As a result, the connector does not need to provide additional guarantee
+ * as a result of this change for previously-declared node partitioning.
+ * Therefore, this change in SPI is backward compatible.
+ * <p>
+ * For now, all splits in each split group must be assigned the same {@link Node}
+ * by {@link ConnectorNodePartitioningProvider}.
+ * With future changes to the engine, connectors will no longer be required
+ * to declare a mapping from split groups to nodes.
+ * Artificially requiring such a mapping regardless of whether the engine can
+ * take advantage of the TablePartitioning negatively affects performance.
+ */
+public class ConnectorTablePartitioning
 {
     private final ConnectorPartitioningHandle partitioningHandle;
     private final List<ColumnHandle> partitioningColumns;
 
-    public ConnectorNodePartitioning(ConnectorPartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
+    public ConnectorTablePartitioning(ConnectorPartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
     {
         this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
         this.partitioningColumns = unmodifiableList(new ArrayList<>(requireNonNull(partitioningColumns, "partitioningColumns is null")));
@@ -62,7 +89,7 @@ public class ConnectorNodePartitioning
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ConnectorNodePartitioning that = (ConnectorNodePartitioning) o;
+        ConnectorTablePartitioning that = (ConnectorTablePartitioning) o;
         return Objects.equals(partitioningHandle, that.partitioningHandle) &&
                 Objects.equals(partitioningColumns, that.partitioningColumns);
     }

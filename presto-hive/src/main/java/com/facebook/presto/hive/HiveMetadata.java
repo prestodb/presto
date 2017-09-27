@@ -29,7 +29,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
-import com.facebook.presto.spi.ConnectorNodePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -37,6 +36,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorTablePartitioning;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
@@ -1203,9 +1203,9 @@ public class HiveMetadata
             discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
         }
 
-        Optional<ConnectorNodePartitioning> nodePartitioning = Optional.empty();
+        Optional<ConnectorTablePartitioning> nodePartitioning = Optional.empty();
         if (isBucketExecutionEnabled(session) && hiveLayoutHandle.getBucketHandle().isPresent()) {
-            nodePartitioning = hiveLayoutHandle.getBucketHandle().map(hiveBucketHandle -> new ConnectorNodePartitioning(
+            nodePartitioning = hiveLayoutHandle.getBucketHandle().map(hiveBucketHandle -> new ConnectorTablePartitioning(
                     new HivePartitioningHandle(
                             connectorId,
                             hiveBucketHandle.getBucketCount(),
