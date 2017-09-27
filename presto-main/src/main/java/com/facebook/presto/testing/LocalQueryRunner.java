@@ -698,7 +698,7 @@ public class LocalQueryRunner
         }
 
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-            driverFactory.close();
+            driverFactory.noMoreDrivers();
         }
 
         return ImmutableList.copyOf(drivers);
