@@ -653,7 +653,7 @@ public class BackgroundHiveSplitLoader
             }
             String value = values.get(i);
             checkCondition(value != null, HIVE_INVALID_PARTITION_VALUE, "partition key value cannot be null for field: %s", name);
-            partitionKeys.add(new HivePartitionKey(name, hiveType, value));
+            partitionKeys.add(new HivePartitionKey(name, value));
         }
         return partitionKeys.build();
     }
