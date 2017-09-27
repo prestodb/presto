@@ -204,7 +204,7 @@ public class SpillableHashAggregationBuilder
             spiller = Optional.of(spillerFactory.create(
                     hashAggregationBuilder.buildTypes(),
                     operatorContext.getSpillContext(),
-                    () -> operatorContext.newLocalSystemMemoryContext()));
+                    () -> operatorContext.newLocalMemoryContext()));
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
@@ -221,7 +221,7 @@ public class SpillableHashAggregationBuilder
         checkState(spiller.isPresent());
 
         hashAggregationBuilder.setOutputPartial();
-        mergeHashSort = Optional.of(new MergeHashSort(() -> operatorContext.newLocalSystemMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(() -> operatorContext.newLocalMemoryContext()));
 
         Iterator<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -238,7 +238,7 @@ public class SpillableHashAggregationBuilder
     {
         checkState(spiller.isPresent());
 
-        mergeHashSort = Optional.of(new MergeHashSort(() -> operatorContext.newLocalSystemMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(() -> operatorContext.newLocalMemoryContext()));
 
         Iterator<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -258,7 +258,7 @@ public class SpillableHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 sortedPages,
-                () -> operatorContext.newLocalSystemMemoryContext(),
+                () -> operatorContext.newLocalMemoryContext(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler));

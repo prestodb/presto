@@ -294,7 +294,7 @@ public class TestMemoryTracking
     @Test
     public void testFreeSystemMemory()
     {
-        LocalMemoryContext newLocalMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        LocalMemoryContext newLocalMemoryContext = operatorContext.newLocalMemoryContext();
         newLocalMemoryContext.setBytes(100_000);
         assertEquals(operatorContext.getOperatorMemoryContext().reservedSystemMemory(), 100_000);
         operatorContext.freeSystemMemory();

@@ -125,9 +125,9 @@ public class MemoryTrackingContext
         return systemReservedLocalMemoryContext;
     }
 
-    public LocalMemoryContext newSystemMemoryContext()
+    public LocalMemoryContext newLocalMemoryContext()
     {
-        return systemReservedAggregateMemoryContext.newLocalMemoryContext();
+        return userReservedAggregateMemoryContext.newLocalMemoryContext();
     }
 
     // below methods are for getting the aggregate reserved memory

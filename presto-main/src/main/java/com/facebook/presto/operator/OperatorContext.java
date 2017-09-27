@@ -120,7 +120,6 @@ public class OperatorContext
         this.revocableMemoryFuture = new AtomicReference<>(SettableFuture.create());
         this.revocableMemoryFuture.get().set(null);
         this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
-
         collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
     }
 
@@ -250,14 +249,15 @@ public class OperatorContext
         updateMemoryFuture(driverContext.reserveRevocableMemory(bytes), revocableMemoryFuture);
     }
 
-    private void systemMemoryReservationChanged(long oldUsage, long newUsage)
+    // we need this listener to reflect changes all the way up to the user memory pool
+    private synchronized void userMemoryReservationChanged(long oldUsage, long newUsage)
     {
         long delta = newUsage - oldUsage;
         if (delta >= 0) {
-            driverContext.reserveSystemMemory(delta);
+            driverContext.reserveMemory(delta);
         }
         else {
-            driverContext.freeSystemMemory(-delta);
+            driverContext.freeMemory(-delta);
         }
     }
 
@@ -265,15 +265,14 @@ public class OperatorContext
     {
         long currentSystemReservation = operatorMemoryContext.reservedSystemMemory();
         operatorMemoryContext.setSystemMemory(usedBytes);
-        systemMemoryReservationChanged(currentSystemReservation, usedBytes);
     }
 
     // this is OK because we already have a memory notification listener,
     // so we can keep track of all allocations.
-    public LocalMemoryContext newLocalSystemMemoryContext()
+    public LocalMemoryContext newLocalMemoryContext()
     {
-        LocalMemoryContext localMemoryContext = operatorMemoryContext.newSystemMemoryContext();
-        localMemoryContext.setMemoryNotificationListener(this::systemMemoryReservationChanged);
+        LocalMemoryContext localMemoryContext = operatorMemoryContext.newLocalMemoryContext();
+        localMemoryContext.setMemoryNotificationListener(this::userMemoryReservationChanged);
         return localMemoryContext;
     }
 
@@ -345,7 +344,7 @@ public class OperatorContext
     public void freeSystemMemory()
     {
         // this method is called from the driver to free allocated system memory
-        // it's possible that some operators called OperatorContext::newLocalSystemMemoryContext()
+        // it's possible that some operators called OperatorContext::newLocalMemoryContext()
         // to create new local memory contexts and recorded allocations with that
         // however, not all the operators free their reservations on close()
         // we do that on purpose because the operators may be holding onto that memory

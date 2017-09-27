@@ -42,7 +42,7 @@ public class MergingHashAggregationBuilder
     private final Iterator<Page> sortedPages;
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
     private final List<Type> groupByTypes;
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
     private final JoinCompiler joinCompiler;
@@ -73,7 +73,7 @@ public class MergingHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
-        this.systemMemoryContext = memoryContextSupplier.get();
+        this.memoryContext = memoryContextSupplier.get();
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
         this.joinCompiler = joinCompiler;
@@ -105,7 +105,7 @@ public class MergingHashAggregationBuilder
                     while (sortedPages.hasNext() && !shouldProduceOutput(memorySize)) {
                         hashAggregationBuilder.processPage(sortedPages.next());
                         memorySize = hashAggregationBuilder.getSizeInMemory();
-                        systemMemoryContext.setBytes(memorySize);
+                        memoryContext.setBytes(memorySize);
                     }
                     resultPages = hashAggregationBuilder.buildResult();
                 }
