@@ -28,7 +28,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
@@ -58,29 +57,23 @@ public final class MapToMapCast
             ConnectorSession session,
             @SqlType("map(FK,FV)") Block fromMap)
     {
-        // loop over all the parameter types and bind ConnectorSession if needed
-        // TODO: binding `ConnectorSession` should be done in function invocation framework
-        Class<?>[] parameterTypes = keyCastFunction.type().parameterArray();
-        for (int i = 0; i < parameterTypes.length; i++) {
-            if (parameterTypes[i] == ConnectorSession.class) {
-                keyCastFunction = MethodHandles.insertArguments(keyCastFunction, i, session);
-                break;
-            }
-        }
-        parameterTypes = valueCastFunction.type().parameterArray();
-        for (int i = 0; i < parameterTypes.length; i++) {
-            if (parameterTypes[i] == ConnectorSession.class) {
-                valueCastFunction = MethodHandles.insertArguments(valueCastFunction, i, session);
-                break;
-            }
-        }
+        boolean keyCastRequiresSession = keyCastFunction.type().parameterArray()[0] == ConnectorSession.class;
+        boolean valueCastRequiresSession = valueCastFunction.type().parameterArray()[0] == ConnectorSession.class;
 
         TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
         BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(new BlockBuilderStatus(), fromMap.getPositionCount() / 2);
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             Object fromKey = readNativeValue(fromKeyType, fromMap, i);
             try {
-                Object toKey = keyCastFunction.invoke(fromKey);
+                Object toKey;
+                // TODO: binding `ConnectorSession` should be done in function invocation framework
+                if (!keyCastRequiresSession) {
+                    toKey = keyCastFunction.invoke(fromKey);
+                }
+                else {
+                    toKey = keyCastFunction.invoke(session, fromKey);
+                }
+
                 if (toKey == null) {
                     throw new PrestoException(StandardErrorCode.INVALID_CAST_ARGUMENT, "map key is null");
                 }
@@ -105,7 +98,15 @@ public final class MapToMapCast
 
                 Object fromValue = readNativeValue(fromValueType, fromMap, i + 1);
                 try {
-                    Object toValue = valueCastFunction.invoke(fromValue);
+                    Object toValue;
+                    // TODO: binding `ConnectorSession` should be done in function invocation framework
+                    if (!valueCastRequiresSession) {
+                        toValue = valueCastFunction.invoke(fromValue);
+                    }
+                    else {
+                        toValue = valueCastFunction.invoke(session, fromValue);
+                    }
+
                     writeNativeValue(toValueType, blockBuilder, toValue);
                 }
                 catch (Throwable t) {
