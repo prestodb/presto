@@ -75,7 +75,7 @@ public class NestedLoopJoinOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             if (closed) {
                 return;

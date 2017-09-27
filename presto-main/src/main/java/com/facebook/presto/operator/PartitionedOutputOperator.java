@@ -172,7 +172,7 @@ public class PartitionedOutputOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
         }
 

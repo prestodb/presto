@@ -103,7 +103,7 @@ public class DriverFactory
         if (!closed) {
             closed = true;
             for (OperatorFactory operatorFactory : operatorFactories) {
-                operatorFactory.close();
+                operatorFactory.noMoreOperators();
             }
         }
     }

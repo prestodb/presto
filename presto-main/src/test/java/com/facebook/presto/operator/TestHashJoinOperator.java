@@ -375,8 +375,8 @@ public class TestHashJoinOperator
                 .addSequencePage(20, 0, 123_000)
                 .addSequencePage(10, 30, 123_000);
 
-        try (OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, joinSpillerFactory);
-                Operator joinOperator = joinOperatorFactory.createOperator(joinDriverContext)) {
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, joinSpillerFactory);
+        try (Operator joinOperator = joinOperatorFactory.createOperator(joinDriverContext)) {
             // build lookup source
             ListenableFuture<LookupSourceProvider> lookupSourceProvider = buildSideSetup.getLookupSourceFactory().createLookupSourceProvider();
             List<Boolean> revoked = new ArrayList<>(nCopies(buildOperatorCount, false));
@@ -447,6 +447,9 @@ public class TestHashJoinOperator
                     .build();
 
             assertEqualsIgnoreOrder(getProperColumns(joinOperator, probePages, actualPages).getMaterializedRows(), expected.getMaterializedRows());
+        }
+        finally {
+            joinOperatorFactory.noMoreOperators();
         }
     }
 
@@ -1047,8 +1050,8 @@ public class TestHashJoinOperator
         Driver sourceDriver = new Driver(collectDriverContext,
                 valuesOperatorFactory.createOperator(collectDriverContext),
                 sinkOperatorFactory.createOperator(collectDriverContext));
-        valuesOperatorFactory.close();
-        sinkOperatorFactory.close();
+        valuesOperatorFactory.noMoreOperators();
+        sinkOperatorFactory.noMoreOperators();
 
         while (!sourceDriver.isFinished()) {
             sourceDriver.process();

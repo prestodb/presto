@@ -15,18 +15,15 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
 
-import java.io.Closeable;
 import java.util.List;
 
 public interface OperatorFactory
-        extends Closeable
 {
     List<Type> getTypes();
 
     Operator createOperator(DriverContext driverContext);
 
-    @Override
-    void close();
+    void noMoreOperators();
 
     OperatorFactory duplicate();
 }

@@ -90,7 +90,7 @@ public class LookupOuterOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             if (state == State.CLOSED) {
                 return;

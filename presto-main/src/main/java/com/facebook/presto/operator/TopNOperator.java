@@ -91,7 +91,7 @@ public class TopNOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
