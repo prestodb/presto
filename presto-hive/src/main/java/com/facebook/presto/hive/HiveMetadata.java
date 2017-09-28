@@ -1181,6 +1181,12 @@ public class HiveMetadata
     }
 
     @Override
+    public  Optional<DiscretePredicates> getTableDiscretePredicates(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return partitionManager.getTableDiscretePredicates(metastore, tableHandle);
+    }
+
+    @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) layoutHandle;

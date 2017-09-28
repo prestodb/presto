@@ -21,15 +21,12 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -126,7 +123,6 @@ import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -362,16 +358,7 @@ final class ShowQueriesRewrite
             if (!tableHandle.isPresent()) {
                 throw new SemanticException(MISSING_TABLE, showPartitions, "Table '%s' does not exist", table);
             }
-
-            List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
-            if (layouts.size() != 1) {
-                throw new SemanticException(NOT_SUPPORTED, showPartitions, "Table does not have exactly one layout: %s", table);
-            }
-            TableLayout layout = getOnlyElement(layouts).getLayout();
-            if (!layout.getDiscretePredicates().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, showPartitions, "Table does not have partition columns: %s", table);
-            }
-            List<ColumnHandle> partitionColumns = layout.getDiscretePredicates().get().getColumns();
+            List<ColumnHandle> partitionColumns = metadata.getDiscretePredicates(session, tableHandle.get()).get().getColumns();
 
             /*
                 Generate a dynamic pivot to output one column per partition key.

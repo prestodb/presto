@@ -21,8 +21,6 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
@@ -30,7 +28,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
@@ -46,7 +43,6 @@ import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -268,57 +264,52 @@ public class InformationSchemaPageSourceProvider
             throw new TableNotFoundException(tableName.asSchemaTableName());
         }
 
-        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
-
-        if (layouts.size() == 1) {
-            Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(session, tableHandle.get())).inverse();
-            Map<ColumnHandle, MethodHandle> methodHandles = new HashMap<>();
-            for (ColumnHandle columnHandle : columnHandles.keySet()) {
-                try {
-                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
-                    Signature operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), createUnboundedVarcharType());
-                    MethodHandle methodHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(operator).getMethodHandle();
-                    methodHandles.put(columnHandle, methodHandle);
-                }
-                catch (OperatorNotFoundException exception) {
-                    // Do not put the columnHandle in the map.
-                }
+        Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(session, tableHandle.get())).inverse();
+        Map<ColumnHandle, MethodHandle> methodHandles = new HashMap<>();
+        for (ColumnHandle columnHandle : columnHandles.keySet()) {
+            try {
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
+                Signature operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), createUnboundedVarcharType());
+                MethodHandle methodHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(operator).getMethodHandle();
+                methodHandles.put(columnHandle, methodHandle);
             }
+            catch (OperatorNotFoundException exception) {
+                // Do not put the columnHandle in the map.
+            }
+        }
 
-            TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
-            layout.getDiscretePredicates().ifPresent(predicates -> {
-                int partitionNumber = 1;
-                for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
-                    for (Entry<ColumnHandle, NullableValue> entry : TupleDomain.extractFixedValues(domain).get().entrySet()) {
-                        ColumnHandle columnHandle = entry.getKey();
-                        String columnName = columnHandles.get(columnHandle);
-                        String value = null;
-                        if (entry.getValue().getValue() != null) {
-                            if (methodHandles.containsKey(columnHandle)) {
-                                try {
-                                    value = ((Slice) methodHandles.get(columnHandle).invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
-                                }
-                                catch (Throwable throwable) {
-                                    throw Throwables.propagate(throwable);
-                                }
+        metadata.getDiscretePredicates(session, tableHandle.get()).ifPresent(predicates -> {
+            int partitionNumber = 1;
+            for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
+                for (Entry<ColumnHandle, NullableValue> entry : TupleDomain.extractFixedValues(domain).get().entrySet()) {
+                    ColumnHandle columnHandle = entry.getKey();
+                    String columnName = columnHandles.get(columnHandle);
+                    String value = null;
+                    if (entry.getValue().getValue() != null) {
+                        if (methodHandles.containsKey(columnHandle)) {
+                            try {
+                                value = ((Slice) methodHandles.get(columnHandle).invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
                             }
-                            else {
-                                // OperatorNotFoundException was thrown for this columnHandle
-                                value = "<UNREPRESENTABLE VALUE>";
+                            catch (Throwable throwable) {
+                                throw Throwables.propagate(throwable);
                             }
                         }
-                        table.add(
-                                catalogName,
-                                tableName.getSchemaName(),
-                                tableName.getObjectName(),
-                                partitionNumber,
-                                columnName,
-                                value);
+                        else {
+                            // OperatorNotFoundException was thrown for this columnHandle
+                            value = "<UNREPRESENTABLE VALUE>";
+                        }
                     }
-                    partitionNumber++;
+                    table.add(
+                            catalogName,
+                            tableName.getSchemaName(),
+                            tableName.getObjectName(),
+                            partitionNumber,
+                            columnName,
+                            value);
                 }
-            });
-        }
+                partitionNumber++;
+            }
+        });
         return table.build();
     }
 

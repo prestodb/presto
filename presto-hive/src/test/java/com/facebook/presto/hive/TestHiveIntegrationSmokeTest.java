@@ -1219,6 +1219,12 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, insertPartitions, 100);
         }
 
+        // verify can show partitions
+        assertQuery(
+                session,
+                "SHOW PARTITIONS FROM " + tableName + " WHERE part > 490 and part <= 500",
+                "SELECT * FROM VALUES (491), (492), (493), (494), (495), (496), (497), (498), (499), (500)");
+
         // verify can query 1000 partitions
         assertQuery(
                 session,

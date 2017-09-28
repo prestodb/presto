@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -63,6 +64,8 @@ public interface Metadata
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
 
     List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+
+    Optional<DiscretePredicates> getDiscretePredicates(Session session, TableHandle tableHandle);
 
     TableLayout getLayout(Session session, TableLayoutHandle handle);
 
