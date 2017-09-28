@@ -33,6 +33,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.Locale;
+import java.util.UUID;
 
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -74,6 +75,7 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
+    private static final long NUM_100NS_INTERVALS_SINCE_UUID_EPOCH = 0x01b21dd213814000L;
 
     private DateTimeFunctions() {}
 
@@ -1097,5 +1099,19 @@ public final class DateTimeFunctions
     public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
         return value;
+    }
+
+    @Description("timeuuid to timestamp")
+    @ScalarFunction("from_timeuuid")
+    @SqlType(StandardTypes.TIMESTAMP)
+    public static long fromTimeuuid(ConnectorSession session, @SqlType("varchar(36)") Slice timeuuidAsString)
+    {
+        try {
+            UUID timeuuid = UUID.fromString(timeuuidAsString.toStringUtf8());
+            return (timeuuid.timestamp() - NUM_100NS_INTERVALS_SINCE_UUID_EPOCH) / 10;
+        }
+        catch (UnsupportedOperationException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Not a time-based UUID: %s", timeuuidAsString.toStringUtf8()));
+        }
     }
 }

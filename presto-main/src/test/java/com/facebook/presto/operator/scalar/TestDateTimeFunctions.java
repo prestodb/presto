@@ -967,6 +967,14 @@ public class TestDateTimeFunctions
         assertFunction("to_milliseconds(parse_duration('1d'))", BigintType.BIGINT, DAYS.toMillis(1));
     }
 
+    @Test
+    public void testTimeuuidToTimestamp()
+            throws Exception
+    {
+        assertFunction("from_timeuuid('d9813960-a3f1-11e7-9598-0800200c9a66')", TimestampType.TIMESTAMP, toTimestamp(1506564478966000L));
+        assertInvalidFunction("from_timeuuid('d83be11a-2d18-4770-a52d-60f62cb195f7')", "Not a time-based UUID: d83be11a-2d18-4770-a52d-60f62cb195f7");
+    }
+
     private void assertFunctionString(String projection, Type expectedType, String expected)
     {
         functionAssertions.assertFunctionString(projection, expectedType, expected);

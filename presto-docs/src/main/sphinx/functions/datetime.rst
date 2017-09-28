@@ -104,6 +104,10 @@ Date and Time Functions
 
     Returns ``timestamp`` as a UNIX timestamp.
 
+.. function:: from_timeuuid(string) -> timestamp
+
+    Returns the timestamp extracted from the version 1 UUID contained on the ``string``.
+
 .. note:: The following SQL-standard functions do not use parenthesis:
 
     - ``current_date``
