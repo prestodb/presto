@@ -59,6 +59,7 @@ import static java.lang.Character.MIN_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
+import org.apache.commons.math3.special.Erf;
 
 public final class MathFunctions
 {
@@ -598,6 +599,18 @@ public final class MathFunctions
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextLong(value);
+    }
+
+    @Description("a pseudo-random number from a normal distribution with mean, std, and p")
+    @ScalarFunction(alias = "rand_normal", deterministic = false)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double randomNormal(@SqlNullable @SqlType(StandardTypes.DOUBLE) Double mean, @SqlNullable @SqlType(StandardTypes.DOUBLE) Double sd, @SqlNullable @SqlType(StandardTypes.DOUBLE) Double p)
+    {
+        checkCondition(p != null && p > 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "p must be 0 > p > 1");
+        checkCondition(mean != null, INVALID_FUNCTION_ARGUMENT, "mean must not be null");
+        checkCondition(sd != null && sd > 0, INVALID_FUNCTION_ARGUMENT, "sd must > 0");
+
+        return mean + sd * 1.4142135623730951 * Erf.erfInv(2 * p - 1);
     }
 
     @Description("round to nearest integer")

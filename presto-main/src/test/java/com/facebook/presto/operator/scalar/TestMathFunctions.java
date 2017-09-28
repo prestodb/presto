@@ -1297,4 +1297,16 @@ public class TestMathFunctions
                 DOUBLE,
                 null);
     }
+
+    @Test
+    public void testRandNormal()
+            throws Exception
+    {
+        assertFunction("rand_normal(0, 1, 0.3)", DOUBLE, -0.52440051270804089);
+        assertFunction("rand_normal(10, 9, 0.9)", DOUBLE, 21.533964089901406);
+        assertFunction("rand_normal(0.5, 0.25, 0.65)", DOUBLE, 0.59633011660189195);
+        assertFunction("rand_normal(4, 48, 0)", DOUBLE, null);
+        assertFunction("rand_normal(4, 48, 1)", DOUBLE, null);
+        assertFunction("rand_normal(4, 0, 0.4)", DOUBLE, null);
+    }
 }
