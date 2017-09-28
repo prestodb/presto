@@ -80,7 +80,6 @@ public final class TestingTaskContext
         private TaskStateMachine taskStateMachine;
         private DataSize queryMaxMemory = new DataSize(256, MEGABYTE);
         private DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
-        private DataSize systemMemoryPoolSize = new DataSize(1, GIGABYTE);
         private DataSize maxSpillSize = new DataSize(1, GIGABYTE);
         private DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
 
@@ -107,12 +106,6 @@ public final class TestingTaskContext
         public Builder setMemoryPoolSize(DataSize memoryPoolSize)
         {
             this.memoryPoolSize = memoryPoolSize;
-            return this;
-        }
-
-        public Builder setSystemMemoryPoolSize(DataSize systemMemoryPoolSize)
-        {
-            this.systemMemoryPoolSize = systemMemoryPoolSize;
             return this;
         }
 
