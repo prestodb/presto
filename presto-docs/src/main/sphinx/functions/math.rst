@@ -60,6 +60,13 @@ Mathematical Functions
 
     Returns the value of ``string`` interpreted as a base-``radix`` number.
 
+.. function:: inverse_normal_cdf(mean, sd, p) -> double
+
+    Compute the inverse of the Normal cdf with given mean and standard
+    deviation (sd) for the cumulative probability (p): P(N < n). The mean must be
+    a real value and the standard deviation must be a real and positive value.
+    The probability p must lie on the interval (0, 1).
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.

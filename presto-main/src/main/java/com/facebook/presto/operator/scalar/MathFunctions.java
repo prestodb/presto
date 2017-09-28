@@ -30,6 +30,7 @@ import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+import org.apache.commons.math3.special.Erf;
 
 import java.math.BigInteger;
 import java.util.concurrent.ThreadLocalRandom;
@@ -598,6 +599,17 @@ public final class MathFunctions
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextLong(value);
+    }
+
+    @Description("inverse of normal cdf given a mean, std, and probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseNormalCdf(@SqlType(StandardTypes.DOUBLE) double mean, @SqlType(StandardTypes.DOUBLE) double sd, @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p > 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "p must be 0 > p > 1");
+        checkCondition(sd > 0, INVALID_FUNCTION_ARGUMENT, "sd must > 0");
+
+        return mean + sd * 1.4142135623730951 * Erf.erfInv(2 * p - 1);
     }
 
     @Description("round to nearest integer")

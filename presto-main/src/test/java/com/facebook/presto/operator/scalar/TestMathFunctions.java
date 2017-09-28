@@ -1297,4 +1297,16 @@ public class TestMathFunctions
                 DOUBLE,
                 null);
     }
+
+    @Test
+    public void testInverseNormalCdf()
+            throws Exception
+    {
+        assertFunction("inverse_normal_cdf(0, 1, 0.3)", DOUBLE, -0.52440051270804089);
+        assertFunction("inverse_normal_cdf(10, 9, 0.9)", DOUBLE, 21.533964089901406);
+        assertFunction("inverse_normal_cdf(0.5, 0.25, 0.65)", DOUBLE, 0.59633011660189195);
+        assertInvalidFunction("inverse_normal_cdf(4, 48, 0)");
+        assertInvalidFunction("inverse_normal_cdf(4, 48, 1)");
+        assertInvalidFunction("inverse_normal_cdf(4, 0, 0.4)");
+    }
 }
