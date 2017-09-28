@@ -1227,4 +1227,71 @@ public final class MathFunctions
 
         return Math.sqrt(norm);
     }
+
+    @ScalarFunction
+    @Description("binomial confidence interval lower bound using Wilson score")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double wilsonIntervalLower(@SqlType(StandardTypes.DOUBLE) double pos, @SqlType(StandardTypes.DOUBLE) double neg)
+    {
+        return wilsonIntervalLower(pos, neg, 1.96);
+    }
+
+    @ScalarFunction
+    @Description("binomial confidence interval lower bound using Wilson score")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double wilsonIntervalLower(@SqlType(StandardTypes.DOUBLE) double pos, @SqlType(StandardTypes.DOUBLE) double neg, @SqlType(StandardTypes.DOUBLE) double z)
+    {
+        return wilsonIntervalHelper(pos, neg, z, IntervalPosition.LOWER);
+    }
+
+    @ScalarFunction
+    @Description("binomial confidence interval upper bound using Wilson score")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double wilsonIntervalUpper(@SqlType(StandardTypes.DOUBLE) double pos, @SqlType(StandardTypes.DOUBLE) double neg)
+    {
+        return wilsonIntervalUpper(pos, neg, 1.96);
+    }
+
+    @ScalarFunction
+    @Description("binomial confidence interval upper bound using Wilson score")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double wilsonIntervalUpper(@SqlType(StandardTypes.DOUBLE) double pos, @SqlType(StandardTypes.DOUBLE) double neg, @SqlType(StandardTypes.DOUBLE) double z)
+    {
+        return wilsonIntervalHelper(pos, neg, z, IntervalPosition.UPPER);
+    }
+
+    private enum IntervalPosition {
+        LOWER, UPPER;
+    }
+
+    private static double wilsonIntervalHelper(double pos, double neg, double z, IntervalPosition kind)
+    {
+        checkCondition(pos >= 0, INVALID_FUNCTION_ARGUMENT, "positive observation count must not be negative");
+        checkCondition(neg >= 0, INVALID_FUNCTION_ARGUMENT, "negative observation count must not be negative");
+        checkCondition(z >= 0, INVALID_FUNCTION_ARGUMENT, "z-score must not be negative");
+
+        if (pos + neg == 0) {
+            switch (kind) {
+                case LOWER:
+                    return 0.0;
+                case UPPER:
+                    return 1.0;
+            }
+        }
+
+        double n = pos + neg;
+        double pHat = pos / n;
+
+        double mean = pHat + (z * z) / (2 * n);
+        double denom = 1 + (z * z) / n;
+        double err = z * Math.sqrt((pHat * (1 - pHat)) / n + (z * z) / (4 * n * n));
+
+        switch (kind) {
+            case LOWER:
+                return (mean - err) / denom;
+            case UPPER:
+                return (mean + err) / denom;
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "kind must contain a valid IntervalPosition");
+    }
 }

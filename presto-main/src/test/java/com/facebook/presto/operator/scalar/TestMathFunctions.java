@@ -1297,4 +1297,22 @@ public class TestMathFunctions
                 DOUBLE,
                 null);
     }
+
+    @Test
+    public void testWilsonInterval()
+    {
+        assertInvalidFunction("wilson_interval_lower(-1, 60.0, 2.575)", "positive observation count must not be negative");
+        assertInvalidFunction("wilson_interval_lower(1250.0, -1, 2.575)", "negative observation count must not be negative");
+        assertInvalidFunction("wilson_interval_lower(1250.0, 60.0, -1)", "z-score must not be negative");
+        assertFunction("wilson_interval_lower(1250.0, 60.0, 2.575)", DOUBLE, 0.9369002233452149);
+        assertFunction("wilson_interval_lower(1250.0, 60.0)", DOUBLE, 0.9414883725395894);
+        assertFunction("wilson_interval_lower(0, 0)", DOUBLE, 0.0);
+
+        assertInvalidFunction("wilson_interval_upper(-1, 60.0, 2.575)", "positive observation count must not be negative");
+        assertInvalidFunction("wilson_interval_upper(1250.0, -1, 2.575)", "negative observation count must not be negative");
+        assertInvalidFunction("wilson_interval_upper(1250.0, 60.0, -1)", "z-score must not be negative");
+        assertFunction("wilson_interval_upper(1252.0, 60.0, 2.575)", DOUBLE, 0.9669726888686958);
+        assertFunction("wilson_interval_upper(1252.0, 60.0)", DOUBLE, 0.9643072147213575);
+        assertFunction("wilson_interval_upper(0, 0)", DOUBLE, 1.0);
+    }
 }

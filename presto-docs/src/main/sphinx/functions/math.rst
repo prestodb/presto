@@ -153,6 +153,23 @@ Mathematical Functions
     array ``bins``. The ``bins`` parameter must be an array of doubles and is
     assumed to be in sorted ascending order.
 
+Statistical Functions
+-----------------------
+
+.. function:: wilson_interval_lower(pos, neg[, z]) -> double
+
+    Returns the lower bound of the Wilson score interval for ``pos`` positive
+    and ``neg`` negative observations, at a confidence specified by the z-score
+    ``z``. If ``z`` is omitted the value of ``1.96``, representing a confidence
+    of 95%, is used instead.
+
+.. function:: wilson_interval_upper(pos, neg[, z]) -> double
+
+    Returns the upper bound of the Wilson score interval for ``pos`` positive
+    and ``neg`` negative observations, at a confidence specified by the z-score
+    ``z``. If ``z`` is omitted the value of ``1.96``, representing a confidence
+    of 95%, is used instead.
+
 Trigonometric Functions
 -----------------------
 
