@@ -64,7 +64,6 @@ public class TestMemoryTracking
     {
         DataSize queryMaxMemory = new DataSize(1, GIGABYTE);
         DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
-        DataSize systemMemoryPoolSize = new DataSize(1, GIGABYTE);
         DataSize maxSpillSize = new DataSize(1, GIGABYTE);
         DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
@@ -111,44 +110,42 @@ public class TestMemoryTracking
     public void testOperatorAllocations()
     {
         operatorContext.reserveMemory(100);
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 100);
+        operatorContext.setMemoryReservation(1_000_000);
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 1_000_000);
+        operatorContext.setMemoryReservation(2_000_000);
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 2_000_000);
-        operatorContext.reserveMemory(400);
+        operatorContext.reserveMemory(1_000_000);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 3_000_000);
+        operatorContext.freeMemory(1_000_000);
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 2_000_000);
-        operatorContext.freeMemory(500);
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 2_000_000);
-        assertAllocationFails((ignored) -> operatorContext.freeMemory(500), "\\Qcannot free more memory than reserved\\E");
+        assertAllocationFails((ignored) -> operatorContext.freeMemory(5_000_000), "\\Qcannot free more memory than reserved\\E");
     }
 
     @Test
-    public void testLocalSystemAllocations()
+    public void testLocalAllocations()
     {
         long pipelineLocalAllocation = 1_000_000;
         long taskLocalAllocation = 10_000_000;
         LocalMemoryContext pipelineLocalMemoryContext = pipelineContext.localMemoryContext();
         pipelineLocalMemoryContext.addBytes(pipelineLocalAllocation);
         assertLocalMemoryAllocations(pipelineContext.getPipelineMemoryContext(),
-                0,
-                0,
+                pipelineLocalAllocation,
                 pipelineLocalAllocation);
         LocalMemoryContext taskLocalMemoryContext = taskContext.localUserMemoryContext();
         taskLocalMemoryContext.addBytes(taskLocalAllocation);
         assertLocalMemoryAllocations(
                 taskContext.getTaskMemoryContext(),
-                0,
-                0,
-                taskLocalAllocation + pipelineLocalAllocation); // at the pool level we should observe both
+                taskLocalAllocation + pipelineLocalAllocation, // at the pool level we should observe both
+                taskLocalAllocation);
         pipelineLocalMemoryContext.addBytes(-pipelineLocalAllocation);
         assertLocalMemoryAllocations(
                 pipelineContext.getPipelineMemoryContext(),
-                0,
-                0,
-                taskLocalAllocation);
+                taskLocalAllocation,
+                0);
         taskLocalMemoryContext.addBytes(-taskLocalAllocation);
         assertLocalMemoryAllocations(
                 taskContext.getTaskMemoryContext(),
-                0,
                 0,
                 0);
     }
@@ -263,7 +260,7 @@ public class TestMemoryTracking
         operatorContext.reserveMemory(300_000_000);
         operatorContext.transferMemoryToTaskContext(300_000_000);
         assertEquals(operatorContext.getOperatorMemoryContext().reservedLocalUserMemory(), 0);
-        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 300_000_000, 300_000_000, 0);
+        assertLocalMemoryAllocations(taskContext.getTaskMemoryContext(), 300_000_000, 300_000_000);
     }
 
     private void assertStats(
@@ -313,10 +310,9 @@ public class TestMemoryTracking
     private void assertLocalMemoryAllocations(
             MemoryTrackingContext memoryTrackingContext,
             long expectedUserPoolMemory,
-            long expectedContextUserMemory,
-            long expectedSystemPoolMemory)
+            long expectedContextUserMemory)
     {
-        assertEquals(memoryTrackingContext.reservedUserMemory(), expectedContextUserMemory, "User memory verification failed");
+        assertEquals(memoryTrackingContext.reservedLocalUserMemory(), expectedContextUserMemory, "User memory verification failed");
         assertEquals(userPool.getReservedBytes(), expectedUserPoolMemory, "User pool memory verification failed");
     }
 }
