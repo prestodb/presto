@@ -30,6 +30,7 @@ import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+import org.apache.commons.math3.special.Erf;
 
 import java.math.BigInteger;
 import java.util.concurrent.ThreadLocalRandom;
@@ -59,7 +60,6 @@ import static java.lang.Character.MIN_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
-import org.apache.commons.math3.special.Erf;
 
 public final class MathFunctions
 {
@@ -601,14 +601,16 @@ public final class MathFunctions
         return ThreadLocalRandom.current().nextLong(value);
     }
 
-    @Description("a pseudo-random number from a normal distribution with mean, std, and p")
-    @ScalarFunction(alias = "rand_normal", deterministic = false)
+    @Description("Compute the inverse of the Normal cdf with given mean and\n" +
+            " standard deviation for the cumulative probability: P(N < n).\n" +
+            " The mean must be a real value and the standard deviation must\n" +
+            " be a real and positive value. The probability p must lie on the interval (0, 1).")
+    @ScalarFunction(deterministic = true)
     @SqlType(StandardTypes.DOUBLE)
-    public static double randomNormal(@SqlNullable @SqlType(StandardTypes.DOUBLE) Double mean, @SqlNullable @SqlType(StandardTypes.DOUBLE) Double sd, @SqlNullable @SqlType(StandardTypes.DOUBLE) Double p)
+    public static double inverseNormalCdf(@SqlType(StandardTypes.DOUBLE) double mean, @SqlType(StandardTypes.DOUBLE) double sd, @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p != null && p > 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "p must be 0 > p > 1");
-        checkCondition(mean != null, INVALID_FUNCTION_ARGUMENT, "mean must not be null");
-        checkCondition(sd != null && sd > 0, INVALID_FUNCTION_ARGUMENT, "sd must > 0");
+        checkCondition(p > 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "p must be 0 > p > 1");
+        checkCondition(sd > 0, INVALID_FUNCTION_ARGUMENT, "sd must > 0");
 
         return mean + sd * 1.4142135623730951 * Erf.erfInv(2 * p - 1);
     }
