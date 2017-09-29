@@ -3,8 +3,10 @@ Resource Group Configuration
 ============================
 
 .. note::
-    Resource groups are currently experimental and must be enabled with the
-    ``experimental.resource-groups-enabled=true`` config flag.
+
+    Resource groups are disabled by default and must be enabled with the
+    ``experimental.resource-groups-enabled=true`` config flag. They are no
+    longer experimental and will be enabled by default in a future release.
 
 Resource groups place limits on resource usage, and can enforce queueing policies on
 queries that run within them or divide their resources among sub groups. A query
