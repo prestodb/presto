@@ -101,7 +101,7 @@ public class TaskContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-        this.taskMemoryContext.localUserMemoryContext().setMemoryNotificationListener(this::userMemoryReservationChanged);
+        this.taskMemoryContext.localUserMemoryContext().setNotificationListener(this::userMemoryReservationChanged);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override

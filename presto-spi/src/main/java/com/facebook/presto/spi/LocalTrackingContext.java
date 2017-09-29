@@ -11,21 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spiller;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.memory.LocalMemoryContext;
-import com.facebook.presto.spi.type.Type;
-
-import java.util.List;
-
-public interface SingleStreamSpillerFactory
+public interface LocalTrackingContext
+        extends TrackingContext
 {
-    SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext);
-
-    static SingleStreamSpillerFactory unsupportedSingleStreamSpillerFactory()
-    {
-        return (types, spillContext, memoryContext) -> {
-            throw new UnsupportedOperationException();
-        };
-    }
 }

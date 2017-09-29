@@ -11,10 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.memory;
+package com.facebook.presto.spi;
 
-@FunctionalInterface
-public interface MemoryNotificationListener
+import com.facebook.presto.spi.memory.TrackingNotificationListener;
+
+public interface TrackingContext
 {
-    void memoryUsageUpdated(long oldUsage, long newUsage);
+    public void addBytes(long bytes);
+    public void setNotificationListener(TrackingNotificationListener listener);
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.memory;
 
+import com.facebook.presto.spi.AggregateTrackingContext;
+
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -20,7 +22,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class AggregatedMemoryContext
+public final class AggregatedMemoryContext
+        implements AggregateTrackingContext
 {
     @Nullable
     @GuardedBy("this")
@@ -56,14 +59,17 @@ public class AggregatedMemoryContext
         return usedBytes;
     }
 
-    public synchronized void updateBytes(long bytes)
+    public synchronized void addBytes(long bytes)
     {
         checkState(!closed);
         if (parentMemoryContext != null) {
-            parentMemoryContext.updateBytes(bytes);
+            parentMemoryContext.addBytes(bytes);
         }
         usedBytes += bytes;
     }
+
+    @Override
+    public void setNotificationListener(TrackingNotificationListener listener) {}
 
     public synchronized void close()
     {
@@ -72,7 +78,7 @@ public class AggregatedMemoryContext
         }
         closed = true;
         if (parentMemoryContext != null) {
-            parentMemoryContext.updateBytes(-usedBytes);
+            parentMemoryContext.addBytes(-usedBytes);
         }
         usedBytes = 0;
     }

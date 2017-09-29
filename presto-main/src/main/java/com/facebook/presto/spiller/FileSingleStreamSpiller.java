@@ -16,7 +16,6 @@ package com.facebook.presto.spiller;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeUtil;
 import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.LocalMemoryContext;
@@ -131,7 +130,7 @@ public class FileSingleStreamSpiller
                 spilledPagesInMemorySize += page.getSizeInBytes();
                 SerializedPage serializedPage = serde.serialize(page);
                 long pageSize = serializedPage.getSizeInBytes();
-                localSpillContext.updateBytes(pageSize);
+                localSpillContext.addBytes(pageSize);
                 spillerStats.addToTotalSpilledBytes(pageSize);
                 writeSerializedPage(output, serializedPage);
             }

@@ -104,7 +104,7 @@ public class PipelineContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
-        this.pipelineMemoryContext.localUserMemoryContext().setMemoryNotificationListener(this::memoryReservationChanged);
+        this.pipelineMemoryContext.localUserMemoryContext().setNotificationListener(this::memoryReservationChanged);
     }
 
     public TaskContext getTaskContext()

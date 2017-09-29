@@ -19,6 +19,7 @@ import com.facebook.presto.memory.MemoryTrackingContext;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.memory.LocalMemoryContext;
+import com.facebook.presto.spiller.SpillContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
@@ -30,7 +31,6 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
@@ -41,7 +41,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
@@ -113,7 +112,8 @@ public class OperatorContext
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
-        this.spillContext = new OperatorSpillContext(this.driverContext);
+        this.spillContext = new SpillContext();
+        this.spillContext.setNotificationListener(this::spillUsageChanged);
         this.executor = requireNonNull(executor, "executor is null");
         this.memoryFuture = new AtomicReference<>(SettableFuture.create());
         this.memoryFuture.get().set(null);
@@ -266,7 +266,7 @@ public class OperatorContext
     public LocalMemoryContext newLocalMemoryContext()
     {
         LocalMemoryContext localMemoryContext = operatorMemoryContext.newLocalMemoryContext();
-        localMemoryContext.setMemoryNotificationListener(this::userMemoryReservationChanged);
+        localMemoryContext.setNotificationListener(this::userMemoryReservationChanged);
         return localMemoryContext;
     }
 
@@ -343,13 +343,24 @@ public class OperatorContext
         if (operatorMemoryContext.reservedRevocableMemory() != 0) {
             log.warn("nonzero revocable memory reservation after close: %d", operatorMemoryContext.reservedRevocableMemory());
         }
-        if (((OperatorSpillContext) spillContext).reservedBytes.get() != 0) {
-            log.warn("nonzero spill reservation after close: %d", ((OperatorSpillContext) spillContext).reservedBytes.get());
+        if (spillContext.getSpilledBytes() != 0) {
+            log.warn("nonzero spill reservation after close: %d", spillContext.getSpilledBytes());
         }
     }
     public SpillContext getSpillContext()
     {
         return spillContext;
+    }
+
+    // we need this listener to reflect changes all the way up
+    private synchronized void spillUsageChanged(long oldUsage, long newUsage)
+    {
+        if (newUsage >= 0) {
+            driverContext.reserveSpill(newUsage);
+        }
+        else {
+            driverContext.freeSpill(-newUsage);
+        }
     }
 
     public void moreMemoryAvailable()
@@ -561,54 +572,6 @@ public class OperatorContext
         public long getBlockedTime()
         {
             return nanosBetween(start, System.nanoTime());
-        }
-    }
-
-    @ThreadSafe
-    private class OperatorSpillContext
-            implements SpillContext
-    {
-        private final DriverContext driverContext;
-        private final AtomicLong reservedBytes = new AtomicLong();
-
-        public OperatorSpillContext(DriverContext driverContext)
-        {
-            this.driverContext = driverContext;
-        }
-
-        @Override
-        public void updateBytes(long bytes)
-        {
-            if (bytes >= 0) {
-                reservedBytes.addAndGet(bytes);
-                driverContext.reserveSpill(bytes);
-            }
-            else {
-                reservedBytes.accumulateAndGet(-bytes, this::decrementSpilledReservation);
-                driverContext.freeSpill(-bytes);
-            }
-        }
-
-        private long decrementSpilledReservation(long reservedBytes, long bytesBeingFreed)
-        {
-            checkArgument(bytesBeingFreed >= 0);
-            checkArgument(bytesBeingFreed <= reservedBytes, "tried to free %s spilled bytes from %s bytes reserved", bytesBeingFreed, reservedBytes);
-            return reservedBytes - bytesBeingFreed;
-        }
-
-        @Override
-        public void close()
-        {
-            // Only products of SpillContext.newLocalSpillContext() should be closed.
-            throw new UnsupportedOperationException(format("%s should not be closed directly", getClass()));
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("usedBytes", reservedBytes.get())
-                    .toString();
         }
     }
 

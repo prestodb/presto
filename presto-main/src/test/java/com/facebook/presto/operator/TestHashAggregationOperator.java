@@ -26,6 +26,7 @@ import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.SpillContext;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;

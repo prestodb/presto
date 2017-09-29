@@ -17,7 +17,6 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.memory.AggregatedMemoryContext;
@@ -210,7 +209,7 @@ public class TestGenericPartitioningSpiller
 
     private static SpillContext mockSpillContext()
     {
-        return bytes -> {};
+        return new SpillContext();
     }
 
     private static class FourFixedPartitionsPartitionFunction

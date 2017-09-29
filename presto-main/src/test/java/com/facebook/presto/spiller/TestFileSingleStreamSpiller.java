@@ -70,7 +70,7 @@ public class TestFileSingleStreamSpiller
         PagesSerde serde = serdeFactory.createPagesSerde();
         SpillerStats spillerStats = new SpillerStats();
         LocalMemoryContext memoryContext = new AggregatedMemoryContext().newLocalMemoryContext();
-        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, bytes -> {}, memoryContext);
+        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, new SpillContext(), memoryContext);
 
         Page page = buildPage();
 

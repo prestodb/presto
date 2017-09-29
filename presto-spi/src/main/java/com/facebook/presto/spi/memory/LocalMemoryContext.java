@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.memory;
 
+import com.facebook.presto.spi.LocalTrackingContext;
+
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -20,13 +22,14 @@ import javax.annotation.concurrent.ThreadSafe;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class LocalMemoryContext
+public final class LocalMemoryContext
+        implements LocalTrackingContext
 {
     @GuardedBy("this")
     private final AggregatedMemoryContext parentMemoryContext;
     @Nullable
     @GuardedBy("this")
-    private MemoryNotificationListener notificationListener;
+    private TrackingNotificationListener notificationListener;
     @GuardedBy("this")
     private long usedBytes;
 
@@ -44,9 +47,9 @@ public class LocalMemoryContext
     {
         long oldLocalUsedBytes = this.usedBytes;
         this.usedBytes = bytes;
-        parentMemoryContext.updateBytes(this.usedBytes - oldLocalUsedBytes);
+        parentMemoryContext.addBytes(this.usedBytes - oldLocalUsedBytes);
         if (notificationListener != null) {
-            notificationListener.memoryUsageUpdated(oldLocalUsedBytes, usedBytes);
+            notificationListener.usageUpdated(oldLocalUsedBytes, usedBytes);
         }
     }
 
@@ -55,7 +58,7 @@ public class LocalMemoryContext
         setBytes(usedBytes + bytes);
     }
 
-    public synchronized void setMemoryNotificationListener(MemoryNotificationListener notificationListener)
+    public synchronized void setNotificationListener(TrackingNotificationListener notificationListener)
     {
         this.notificationListener = notificationListener;
     }
