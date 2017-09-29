@@ -82,7 +82,7 @@ public class TestLongMaxNAggregation
 
     private void testCustomAggregation(Long[] values, int n)
     {
-        PriorityQueue<Long> heap = new PriorityQueue<Long>(n);
+        PriorityQueue<Long> heap = new PriorityQueue<>(n);
         Arrays.stream(values).filter(x -> x != null).forEach(heap::add);
         Long[] expected = new Long[heap.size()];
         for (int i = heap.size() - 1; i >= 0; i--) {
