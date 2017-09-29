@@ -16,10 +16,16 @@ it does not cause running queries to fail; instead new queries become queued.
 A resource group may have sub groups or may accept queries, but may not do both.
 
 The resource groups and associated selection rules are configured by a manager which is pluggable.
-An implementation that uses a static file can be installed via the ``presto-resource-group-managers``
-plugin and enabled by adding ``resource-groups.configuration-manager=file`` to
-``etc/resource-groups.properties`` and setting ``resource-groups.config-file`` to the
-location of a JSON config file with the properties described below.
+Add an ``etc/resource-groups.properties`` file with the following contents to enable
+the built-in manager that reads a JSON config file:
+
+.. code-block:: none
+
+    resource-groups.configuration-manager=file
+    resource-groups.config-file=etc/resource_groups.json
+
+Change the value of ``resource-groups.config-file`` to point to a JSON config file,
+which can be an absolute path, or a path relative to the Presto data directory.
 
 Resource Group Properties
 -------------------------
