@@ -59,11 +59,13 @@ public class QueryManagerConfig
     private int initializationRequiredWorkers = 1;
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
 
+    @Deprecated
     public String getQueueConfigFile()
     {
         return queueConfigFile;
     }
 
+    @Deprecated
     @Config("query.queue-config-file")
     public QueryManagerConfig setQueueConfigFile(String queueConfigFile)
     {

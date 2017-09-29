@@ -2,6 +2,11 @@
 Queue Configuration
 ===================
 
+.. note::
+
+    Queues are deprecated and will be removed in a future release.
+    Please use :doc:`resource-groups` instead of queues.
+
 The queueing rules are defined in a JSON file and control the number of queries
 that can be submitted to Presto and the quota of running queries per queue.
 The filename of the JSON config file should be specified in ``query.queue-config-file``
