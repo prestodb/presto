@@ -601,11 +601,8 @@ public final class MathFunctions
         return ThreadLocalRandom.current().nextLong(value);
     }
 
-    @Description("Compute the inverse of the Normal cdf with given mean and\n" +
-            " standard deviation for the cumulative probability: P(N < n).\n" +
-            " The mean must be a real value and the standard deviation must\n" +
-            " be a real and positive value. The probability p must lie on the interval (0, 1).")
-    @ScalarFunction(deterministic = true)
+    @Description("inverse of normal cdf given a mean, std, and probability")
+    @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseNormalCdf(@SqlType(StandardTypes.DOUBLE) double mean, @SqlType(StandardTypes.DOUBLE) double sd, @SqlType(StandardTypes.DOUBLE) double p)
     {
