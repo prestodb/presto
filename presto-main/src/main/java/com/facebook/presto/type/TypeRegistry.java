@@ -67,6 +67,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
+import static com.facebook.presto.type.BitType.bitType;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
@@ -146,6 +147,7 @@ public final class TypeRegistry
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
+        addParametricType(BitParametricType.BIT);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
@@ -282,6 +284,9 @@ public final class TypeRegistry
                 return Optional.of(getCommonSuperTypeForVarchar(
                         (VarcharType) firstType, (VarcharType) secondType));
             }
+            if (firstTypeBaseName.equals(StandardTypes.BIT)) {
+                return Optional.of(getCommonSuperTypeForBit((BitType) firstType, (BitType) secondType));
+            }
             if (firstTypeBaseName.equals(StandardTypes.ROW)) {
                 return getCommonSuperTypeForRow((RowType) firstType, (RowType) secondType);
             }
@@ -321,6 +326,11 @@ public final class TypeRegistry
         }
 
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
+    }
+
+    private static Type getCommonSuperTypeForBit(BitType firstType, BitType secondType)
+    {
+        return bitType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 
     private Optional<Type> getCommonSuperTypeForRow(RowType firstType, RowType secondType)

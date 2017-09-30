@@ -140,6 +140,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
+import com.facebook.presto.type.BitOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.CharOperators;
 import com.facebook.presto.type.ColorOperators;
@@ -464,6 +465,7 @@ public class FunctionRegistry
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(IpAddressOperators.class)
+                .scalars(BitOperators.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalar(ArrayCardinalityFunction.class)

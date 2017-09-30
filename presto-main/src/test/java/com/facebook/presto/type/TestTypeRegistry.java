@@ -147,6 +147,10 @@ public class TestTypeRegistry
         assertFalse(canCoerce("row(a integer)", "row(a integer,b varchar(2))"));
         assertFalse(canCoerce("row(a integer)", "row(a varchar(2))"));
 
+        assertTrue(canCoerce("bit(42)", "bit(42)"));
+        assertTrue(canCoerce("bit(42)", "bit(44)"));
+        assertFalse(canCoerce("bit(44)", "bit(42)"));
+
         assertTrue(canCoerce("varchar(42)", "varchar(42)"));
         assertTrue(canCoerce("varchar(42)", "varchar(44)"));
         assertFalse(canCoerce("varchar(44)", "varchar(42)"));

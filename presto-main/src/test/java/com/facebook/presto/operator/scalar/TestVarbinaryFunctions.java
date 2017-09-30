@@ -368,7 +368,7 @@ public class TestVarbinaryFunctions
         return new SqlVarbinary(string.getBytes());
     }
 
-    private static SqlVarbinary varbinary(int... bytesAsInts)
+    public static SqlVarbinary varbinary(int... bytesAsInts)
     {
         byte[] bytes = new byte[bytesAsInts.length];
         for (int i = 0; i < bytes.length; i++) {
