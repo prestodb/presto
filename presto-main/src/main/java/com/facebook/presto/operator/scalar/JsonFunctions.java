@@ -103,10 +103,13 @@ public final class JsonFunctions
         // cast(json_parse(x) AS t)` will be optimized into `$internal$json_string_to_array/map/row_cast` in ExpressionOptimizer
         // If you make changes to this function (e.g. use parse JSON string into some internal representation),
         // make sure `$internal$json_string_to_array/map/row_cast` is changed accordingly.
-        try {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
             byte[] in = slice.getBytes();
             SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);
-            SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(in, Object.class));
+            SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(parser, Object.class));
+            // nextToken() returns null if the input is parsed correctly,
+            // but will throw an exception if there are trailing characters.
+            parser.nextToken();
             return dynamicSliceOutput.slice();
         }
         catch (Exception e) {
