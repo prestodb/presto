@@ -640,7 +640,7 @@ public class HashBuilderOperator
         try (Closer closer = Closer.create()) {
             closer.register(index::clear);
             spiller.ifPresent(closer::register);
-            closer.register(() -> operatorContext.setMemoryReservation(0));
+            closer.register(() -> operatorContext.forceFreeMemory());
             closer.register(() -> operatorContext.setRevocableMemoryReservation(0));
         }
         catch (IOException e) {

@@ -80,6 +80,16 @@ public class MemoryTrackingContext
         userReservedLocalMemoryContext.addBytes(-delta);
     }
 
+    // frees all the allocations whether they are done through userReservedLocalMemoryContext or
+    // through the new local memory contexts created through the operator context (e.g., by the spill logic).
+    public void forceFreeUserMemory()
+    {
+        long localReservation = userReservedLocalMemoryContext.getBytes();
+        long aggregatedReserved = userRevocableAggregateMemoryContext.getBytes();
+        userRevocableAggregateMemoryContext.addBytes(-aggregatedReserved);
+        userReservedLocalMemoryContext.addBytes(-localReservation);
+    }
+
     public void freeRevocableMemory(long delta)
     {
         checkArgument(delta >= 0, "delta is negative");

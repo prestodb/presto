@@ -323,7 +323,7 @@ public class OperatorContext
         }
     }
 
-    public synchronized void freeRevocableMemory(long bytes)
+    private synchronized void freeRevocableMemory(long bytes)
     {
         operatorMemoryContext.freeRevocableMemory(bytes);
         driverContext.freeRevocableMemory(bytes);
@@ -398,6 +398,11 @@ public class OperatorContext
         else {
             freeMemory(-delta);
         }
+    }
+
+    public void forceFreeMemory()
+    {
+        operatorMemoryContext.forceFreeUserMemory();
     }
 
     public boolean tryReserveMemory(long newMemoryReservation)

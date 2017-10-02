@@ -113,7 +113,7 @@ public class InMemoryHashAggregationBuilder
     @Override
     public void close()
     {
-        operatorContext.setMemoryReservation(0);
+        operatorContext.forceFreeMemory();
     }
 
     @Override

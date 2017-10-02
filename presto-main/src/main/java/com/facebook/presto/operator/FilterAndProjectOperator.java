@@ -68,7 +68,7 @@ public class FilterAndProjectOperator
         boolean finished = finishing && !currentOutput.hasNext();
         if (finished) {
             currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
-            operatorContext.setMemoryReservation(0);
+            operatorContext.forceFreeMemory();
         }
         return finished;
     }
