@@ -125,6 +125,9 @@ public class ClientOptions
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
 
+    @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
+    public boolean ignoreErrors;
+
     public enum OutputFormat
     {
         ALIGNED,

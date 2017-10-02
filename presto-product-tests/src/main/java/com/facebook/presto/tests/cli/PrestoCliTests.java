@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.airlift.testing.TempFile;
 import io.prestodb.tempto.AfterTestWithContext;
 import io.prestodb.tempto.Requirement;
 import io.prestodb.tempto.RequirementsProvider;
@@ -25,7 +26,6 @@ import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -37,6 +37,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class PrestoCliTests
         extends PrestoCliLauncher
@@ -111,36 +112,88 @@ public class PrestoCliTests
         launchPrestoCliWithServerArgument();
         presto.waitForPrompt();
         presto.getProcessInput().println("select * from hive.default.nation;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldRunBatchQuery()
-            throws IOException
+            throws Exception
     {
         launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        presto.waitForWithTimeoutAndKill();
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldUseCatalogAndSchemaOptions()
-            throws IOException
+            throws Exception
     {
         launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        presto.waitForWithTimeoutAndKill();
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldRunQueryFromFile()
-            throws IOException
+            throws Exception
     {
-        File temporayFile = File.createTempFile("test-sql", null);
-        temporayFile.deleteOnExit();
-        Files.write("select * from hive.default.nation;\n", temporayFile, UTF_8);
+        try (TempFile file = new TempFile()) {
+            Files.write("select * from hive.default.nation;\n", file.file(), UTF_8);
 
-        launchPrestoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
+            launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath());
+            assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+
+            presto.waitForWithTimeoutAndKill();
+        }
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldExitOnErrorFromExecute()
+            throws IOException, InterruptedException
+    {
+        String sql = "select * from hive.default.nations; select * from hive.default.nation;";
+        launchPrestoCliWithServerArgument("--execute", sql);
+        assertThat(trimLines(presto.readRemainingOutputLines())).isEmpty();
+
+        assertThatThrownBy(() -> presto.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldExitOnErrorFromFile()
+            throws IOException, InterruptedException
+    {
+        try (TempFile file = new TempFile()) {
+            Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
+
+            launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath());
+            assertThat(trimLines(presto.readRemainingOutputLines())).isEmpty();
+
+            assertThatThrownBy(() -> presto.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
+        }
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldNotExitOnErrorFromExecute()
+            throws IOException, InterruptedException
+    {
+        String sql = "select * from hive.default.nations; select * from hive.default.nation;";
+        launchPrestoCliWithServerArgument("--execute", sql, "--ignore-errors");
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+
+        assertThatThrownBy(() -> presto.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldNotExitOnErrorFromFile()
+            throws IOException, InterruptedException
+    {
+        try (TempFile file = new TempFile()) {
+            Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
+
+            launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath(), "--ignore-errors");
+            assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+
+            assertThatThrownBy(() -> presto.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
+        }
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
