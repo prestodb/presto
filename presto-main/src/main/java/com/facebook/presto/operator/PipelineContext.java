@@ -104,7 +104,7 @@ public class PipelineContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
-        this.pipelineMemoryContext.localUserMemoryContext().setNotificationListener(this::memoryReservationChanged);
+        this.pipelineMemoryContext.localMemoryContext().setNotificationListener(this::memoryReservationChanged);
     }
 
     public TaskContext getTaskContext()
@@ -278,7 +278,7 @@ public class PipelineContext
     // so we can keep track of all allocations.
     public LocalMemoryContext localMemoryContext()
     {
-        return pipelineMemoryContext.localUserMemoryContext();
+        return pipelineMemoryContext.localMemoryContext();
     }
 
     public void moreMemoryAvailable()
@@ -441,11 +441,11 @@ public class PipelineContext
 
         boolean fullyBlocked = !runningDriverStats.isEmpty() && runningDriverStats.stream().allMatch(DriverStats::isFullyBlocked);
 
-        long userMemory;
-        long revocableMemory;
+        long reservedMemory;
+        long reservedRevocableMemory;
         synchronized (this) {
-            userMemory = pipelineMemoryContext.reservedUserMemory();
-            revocableMemory = pipelineMemoryContext.reservedRevocableMemory();
+            reservedMemory = pipelineMemoryContext.reservedMemory();
+            reservedRevocableMemory = pipelineMemoryContext.reservedRevocableMemory();
         }
 
         return new PipelineStats(
@@ -466,8 +466,8 @@ public class PipelineContext
                 blockedDrivers,
                 completedDrivers,
 
-                succinctBytes(userMemory),
-                succinctBytes(revocableMemory),
+                succinctBytes(reservedMemory),
+                succinctBytes(reservedRevocableMemory),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),

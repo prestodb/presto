@@ -101,7 +101,7 @@ public class TaskContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-        this.taskMemoryContext.localUserMemoryContext().setNotificationListener(this::userMemoryReservationChanged);
+        this.taskMemoryContext.localMemoryContext().setNotificationListener(this::memoryReservationChanged);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
@@ -205,7 +205,7 @@ public class TaskContext
     }
 
     // we need this listener to reflect changes all the way up to the user memory pool
-    private synchronized void userMemoryReservationChanged(long oldUsage, long newUsage)
+    private synchronized void memoryReservationChanged(long oldUsage, long newUsage)
     {
         long delta = newUsage - oldUsage;
         if (delta >= 0) {
@@ -218,9 +218,9 @@ public class TaskContext
 
     // this is OK because we already have a memory notification listener,
     // so we can keep track of all allocations.
-    public LocalMemoryContext localUserMemoryContext()
+    public LocalMemoryContext localMemoryContext()
     {
-        return taskMemoryContext.localUserMemoryContext();
+        return taskMemoryContext.localMemoryContext();
     }
 
     public void moreMemoryAvailable()
@@ -366,16 +366,16 @@ public class TaskContext
             elapsedTime = new Duration(0, NANOSECONDS);
         }
 
-        long userMemory;
-        long revocableMemory;
+        long reservedMemory;
+        long reservedRevocableMemory;
         synchronized (this) {
-            userMemory = taskMemoryContext.reservedUserMemory();
-            revocableMemory = taskMemoryContext.reservedRevocableMemory();
+            reservedMemory = taskMemoryContext.reservedMemory();
+            reservedRevocableMemory = taskMemoryContext.reservedRevocableMemory();
         }
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
-            long currentMemory = userMemory;
+            long currentMemory = reservedMemory;
             long averageMemoryForLastPeriod = (currentMemory + lastMemoryReservation) / 2;
             cumulativeMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
 
@@ -408,8 +408,8 @@ public class TaskContext
                 blockedDrivers,
                 completedDrivers,
                 cumulativeMemory.get(),
-                succinctBytes(userMemory),
-                succinctBytes(revocableMemory),
+                succinctBytes(reservedMemory),
+                succinctBytes(reservedRevocableMemory),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

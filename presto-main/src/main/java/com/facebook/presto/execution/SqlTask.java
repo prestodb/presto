@@ -102,7 +102,7 @@ public class SqlTask
                 taskInstanceId,
                 taskNotificationExecutor,
                 maxBufferSize,
-                () -> queryContext.getTaskContextByTaskId(taskId).localUserMemoryContext());
+                () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext());
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {

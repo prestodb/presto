@@ -133,15 +133,15 @@ public class TestMemoryPools
     }
 
     @Test
-    public void testBlockingOnUserMemory()
+    public void testBlockingMemory()
             throws Exception
     {
         setUpCountStarFromOrdersWithJoin();
         assertTrue(userPool.tryReserve(fakeQueryId, TEN_MEGABYTES.toBytes()));
-        runDriversUntilBlocked(waitingForUserMemory());
+        runDriversUntilBlocked(waitingForMemory());
         assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
         userPool.free(fakeQueryId, TEN_MEGABYTES.toBytes());
-        assertDriversProgress(waitingForUserMemory());
+        assertDriversProgress(waitingForMemory());
     }
 
     @Test
@@ -168,17 +168,17 @@ public class TestMemoryPools
         assertTrue(userPool.tryReserve(fakeQueryId, TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
 
         // we expect 2 iterations as we have 2 bytes remaining in system pool and we allocate 1 byte per page
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // lets free 5 bytes
         userPool.free(fakeQueryId, 5);
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 5);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 5);
         assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // 3 more bytes is enough for driver to finish
         userPool.free(fakeQueryId, 3);
-        assertDriversProgress(waitingForRevocableSystemMemory());
+        assertDriversProgress(waitingForRevocableMemory());
         assertEquals(userPool.getFreeBytes(), 10);
     }
 
@@ -190,15 +190,15 @@ public class TestMemoryPools
         assertTrue(userPool.tryReserve(fakeQueryId, TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
 
         // we expect 2 iterations as we have 2 bytes remaining in system pool and we allocate 1 byte per page
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
 
         // 2 more iterations
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
 
         // 3 more bytes is enough for driver to finish
-        assertDriversProgress(waitingForRevocableSystemMemory());
+        assertDriversProgress(waitingForRevocableMemory());
         assertEquals(userPool.getFreeBytes(), 2);
     }
 
@@ -236,12 +236,12 @@ public class TestMemoryPools
         while (!drivers.stream().allMatch(Driver::isFinished));
     }
 
-    private Predicate<OperatorContext> waitingForUserMemory()
+    private Predicate<OperatorContext> waitingForMemory()
     {
         return (OperatorContext operatorContext) -> !operatorContext.isWaitingForMemory().isDone();
     }
 
-    private Predicate<OperatorContext> waitingForRevocableSystemMemory()
+    private Predicate<OperatorContext> waitingForRevocableMemory()
     {
         return (OperatorContext operatorContext) ->
                 !operatorContext.isWaitingForRevocableMemory().isDone() &&

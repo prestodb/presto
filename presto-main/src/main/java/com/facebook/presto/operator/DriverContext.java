@@ -83,7 +83,7 @@ public class DriverContext
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
 
     private final MemoryTrackingContext driverMemoryContext;
-    private final AtomicLong peakUserMemoryReservation = new AtomicLong();
+    private final AtomicLong peakMemoryReservation = new AtomicLong();
 
     private final DriverYieldSignal yieldSignal;
 
@@ -203,7 +203,7 @@ public class DriverContext
 
     public ListenableFuture<?> reserveMemory(long bytes)
     {
-        peakUserMemoryReservation.accumulateAndGet(bytes, Math::max);
+        peakMemoryReservation.accumulateAndGet(bytes, Math::max);
         return pipelineContext.reserveMemory(bytes);
     }
 
@@ -220,7 +220,7 @@ public class DriverContext
     public boolean tryReserveMemory(long bytes)
     {
         if (pipelineContext.tryReserveMemory(bytes)) {
-            peakUserMemoryReservation.accumulateAndGet(bytes, Math::max);
+            peakMemoryReservation.accumulateAndGet(bytes, Math::max);
             return true;
         }
         return false;
@@ -252,7 +252,7 @@ public class DriverContext
 
     public long getMemoryUsage()
     {
-        return driverMemoryContext.reservedUserMemory();
+        return driverMemoryContext.reservedMemory();
     }
 
     public long getRevocableMemoryUsage()
@@ -393,8 +393,8 @@ public class DriverContext
                 executionEndTime.get(),
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
-                succinctBytes(driverMemoryContext.reservedUserMemory()),
-                succinctBytes(peakUserMemoryReservation.get()),
+                succinctBytes(driverMemoryContext.reservedMemory()),
+                succinctBytes(peakMemoryReservation.get()),
                 succinctBytes(driverMemoryContext.reservedRevocableMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

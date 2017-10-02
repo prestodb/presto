@@ -99,12 +99,12 @@ public class QueryContext
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
         // "bytes" have already been reflected in the queryMemoryContext reserved memory
-        if (queryMemoryContext.reservedUserMemory() > maxMemory) {
+        if (queryMemoryContext.reservedMemory() > maxMemory) {
             throw exceededLocalLimit(succinctBytes(maxMemory));
         }
         ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
         // Never block queries using a trivial amount of memory
-        if (queryMemoryContext.reservedUserMemory() < GUARANTEED_MEMORY) {
+        if (queryMemoryContext.reservedMemory() < GUARANTEED_MEMORY) {
             return NOT_BLOCKED;
         }
         return future;
@@ -129,7 +129,7 @@ public class QueryContext
     public synchronized boolean tryReserveMemory(long bytes)
     {
         // "bytes" is not yet reflected in the queryMemoryContext
-        if (queryMemoryContext.reservedUserMemory() + bytes > maxMemory) {
+        if (queryMemoryContext.reservedMemory() + bytes > maxMemory) {
             return false;
         }
         if (memoryPool.tryReserve(queryId, bytes)) {
@@ -163,7 +163,7 @@ public class QueryContext
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = queryMemoryContext.reservedUserMemory() + queryMemoryContext.reservedRevocableMemory();
+        long originalReserved = queryMemoryContext.reservedMemory() + queryMemoryContext.reservedRevocableMemory();
         memoryPool = pool;
         ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
         Futures.addCallback(future, new FutureCallback<Object>()

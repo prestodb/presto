@@ -239,7 +239,7 @@ public class OperatorContext
 
     public void reserveMemory(long delta)
     {
-        operatorMemoryContext.reserveUserMemory(delta);
+        operatorMemoryContext.reserveMemory(delta);
         updateMemoryFuture(driverContext.reserveMemory(delta), memoryFuture);
     }
 
@@ -250,7 +250,7 @@ public class OperatorContext
     }
 
     // we need this listener to reflect changes all the way up to the user memory pool
-    private synchronized void userMemoryReservationChanged(long oldUsage, long newUsage)
+    private synchronized void memoryReservationChanged(long oldUsage, long newUsage)
     {
         long delta = newUsage - oldUsage;
         if (delta >= 0) {
@@ -266,7 +266,7 @@ public class OperatorContext
     public LocalMemoryContext newLocalMemoryContext()
     {
         LocalMemoryContext localMemoryContext = operatorMemoryContext.newLocalMemoryContext();
-        localMemoryContext.setNotificationListener(this::userMemoryReservationChanged);
+        localMemoryContext.setNotificationListener(this::memoryReservationChanged);
         return localMemoryContext;
     }
 
@@ -331,14 +331,14 @@ public class OperatorContext
 
     public void freeMemory(long bytes)
     {
-        operatorMemoryContext.freeUserMemory(bytes);
+        operatorMemoryContext.freeMemory(bytes);
         driverContext.freeMemory(bytes);
     }
 
     private void verifyMemoryReservations()
     {
-        if (operatorMemoryContext.reservedUserMemory() != 0) {
-            log.warn("nonzero user memory reservation after close: %d", operatorMemoryContext.reservedUserMemory());
+        if (operatorMemoryContext.reservedMemory() != 0) {
+            log.warn("nonzero user memory reservation after close: %d", operatorMemoryContext.reservedMemory());
         }
         if (operatorMemoryContext.reservedRevocableMemory() != 0) {
             log.warn("nonzero revocable memory reservation after close: %d", operatorMemoryContext.reservedRevocableMemory());
@@ -372,11 +372,11 @@ public class OperatorContext
     {
         // taskBytes is the absolute bytes that need to be transferred to the task context
         // first, free the locally allocated memory and reflect it all the way up to the user pool
-        long bytes = operatorMemoryContext.reservedLocalUserMemory();
+        long bytes = operatorMemoryContext.reservedLocalMemory();
         freeMemory(bytes);
 
         TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
-        LocalMemoryContext taskLocalMemoryContext = taskContext.localUserMemoryContext();
+        LocalMemoryContext taskLocalMemoryContext = taskContext.localMemoryContext();
         try {
             taskLocalMemoryContext.addBytes(taskBytes);
         }
@@ -390,7 +390,7 @@ public class OperatorContext
     {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
 
-        long delta = newMemoryReservation - operatorMemoryContext.reservedUserMemory();
+        long delta = newMemoryReservation - operatorMemoryContext.reservedMemory();
 
         if (delta > 0) {
             reserveMemory(delta);
@@ -402,21 +402,21 @@ public class OperatorContext
 
     public void forceFreeMemory()
     {
-        operatorMemoryContext.forceFreeUserMemory();
+        operatorMemoryContext.forceFreeMemory();
     }
 
     public boolean tryReserveMemory(long newMemoryReservation)
     {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
 
-        long delta = newMemoryReservation - operatorMemoryContext.reservedUserMemory();
+        long delta = newMemoryReservation - operatorMemoryContext.reservedMemory();
 
         if (delta > 0) {
             if (!driverContext.tryReserveMemory(delta)) {
                 return false;
             }
 
-            operatorMemoryContext.reserveUserMemory(delta);
+            operatorMemoryContext.reserveMemory(delta);
         }
         else {
             freeMemory(-delta);
@@ -525,7 +525,7 @@ public class OperatorContext
                 new Duration(finishCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                succinctBytes(operatorMemoryContext.reservedUserMemory()),
+                succinctBytes(operatorMemoryContext.reservedMemory()),
                 succinctBytes(getReservedRevocableBytes()),
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);

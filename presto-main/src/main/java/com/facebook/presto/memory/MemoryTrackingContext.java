@@ -36,107 +36,107 @@ import static java.util.Objects.requireNonNull;
  *
  * As another example, at the pipeline level there will be local allocations initiated by the operator context
  * and there will be local allocations initiated by the exchange clients. All these local
- * allocations will be visible in the userReservedAggregateMemoryContext.
+ * allocations will be visible in the reservedAggregateMemoryContext.
  *
- * To perform local allocations clients should call localUserMemoryContext()
+ * To perform local allocations clients should call localMemoryContext()
  * and get a reference to the local memory context. The other child-originated allocations will go through
- * reserveUserMemory() and reserveRevocableMemory() methods.
+ * reserveMemory() and reserveRevocableMemory() methods.
  */
 @ThreadSafe
 public class MemoryTrackingContext
 {
-    private final AggregatedMemoryContext userReservedAggregateMemoryContext;
-    private final AggregatedMemoryContext userRevocableAggregateMemoryContext;
+    private final AggregatedMemoryContext reservedAggregateMemoryContext;
+    private final AggregatedMemoryContext revocableAggregateMemoryContext;
 
-    private final LocalMemoryContext userReservedLocalMemoryContext;
-    private final LocalMemoryContext userRevocableLocalMemoryContext;
+    private final LocalMemoryContext reservedLocalMemoryContext;
+    private final LocalMemoryContext revocableLocalMemoryContext;
 
-    public MemoryTrackingContext(AggregatedMemoryContext userReservedAggregateMemoryContext, AggregatedMemoryContext userRevocableAggregateMemoryContext)
+    public MemoryTrackingContext(AggregatedMemoryContext reservedAggregateMemoryContext, AggregatedMemoryContext revocableAggregateMemoryContext)
     {
-        this.userReservedAggregateMemoryContext = requireNonNull(userReservedAggregateMemoryContext, "userReservedAggregateMemoryContext is null");
-        this.userRevocableAggregateMemoryContext = requireNonNull(userRevocableAggregateMemoryContext, "userRevocableAggregateMemoryContext is null");
-        this.userReservedLocalMemoryContext = userReservedAggregateMemoryContext.newLocalMemoryContext();
-        this.userRevocableLocalMemoryContext = userRevocableAggregateMemoryContext.newLocalMemoryContext();
+        this.reservedAggregateMemoryContext = requireNonNull(reservedAggregateMemoryContext, "reservedAggregateMemoryContext is null");
+        this.revocableAggregateMemoryContext = requireNonNull(revocableAggregateMemoryContext, "revocableAggregateMemoryContext is null");
+        this.reservedLocalMemoryContext = reservedAggregateMemoryContext.newLocalMemoryContext();
+        this.revocableLocalMemoryContext = revocableAggregateMemoryContext.newLocalMemoryContext();
     }
 
     // below methods are for reserving memory locally
-    public void reserveUserMemory(long delta)
+    public void reserveMemory(long delta)
     {
         checkArgument(delta >= 0, "delta is negative");
-        userReservedLocalMemoryContext.addBytes(delta);
+        reservedLocalMemoryContext.addBytes(delta);
     }
 
     public void reserveRevocableMemory(long delta)
     {
         checkArgument(delta >= 0, "delta is negative");
-        userRevocableLocalMemoryContext.addBytes(delta);
+        revocableLocalMemoryContext.addBytes(delta);
     }
 
     // "free" methods always free from the local context, which is reflected to the aggregate context
-    public void freeUserMemory(long delta)
+    public void freeMemory(long delta)
     {
         checkArgument(delta >= 0, "delta is negative");
-        checkArgument(delta <= userReservedLocalMemoryContext.getBytes(), "cannot free more memory than reserved");
-        userReservedLocalMemoryContext.addBytes(-delta);
+        checkArgument(delta <= reservedLocalMemoryContext.getBytes(), "cannot free more memory than reserved");
+        reservedLocalMemoryContext.addBytes(-delta);
     }
 
-    // frees all the allocations whether they are done through userReservedLocalMemoryContext or
+    // frees all the allocations whether they are done through reservedLocalMemoryContext or
     // through the new local memory contexts created through the operator context (e.g., by the spill logic).
-    public void forceFreeUserMemory()
+    public void forceFreeMemory()
     {
-        long localReservation = userReservedLocalMemoryContext.getBytes();
-        long aggregatedReserved = userRevocableAggregateMemoryContext.getBytes();
-        userRevocableAggregateMemoryContext.addBytes(-aggregatedReserved);
-        userReservedLocalMemoryContext.addBytes(-localReservation);
+        long localReservation = reservedLocalMemoryContext.getBytes();
+        long aggregatedReserved = revocableAggregateMemoryContext.getBytes();
+        revocableAggregateMemoryContext.addBytes(-aggregatedReserved);
+        reservedLocalMemoryContext.addBytes(-localReservation);
     }
 
     public void freeRevocableMemory(long delta)
     {
         checkArgument(delta >= 0, "delta is negative");
-        checkArgument(delta <= userRevocableLocalMemoryContext.getBytes(), "cannot free more memory than reserved");
-        userRevocableLocalMemoryContext.addBytes(-delta);
+        checkArgument(delta <= revocableLocalMemoryContext.getBytes(), "cannot free more memory than reserved");
+        revocableLocalMemoryContext.addBytes(-delta);
     }
 
-    public LocalMemoryContext localUserMemoryContext()
+    public LocalMemoryContext localMemoryContext()
     {
-        return userReservedLocalMemoryContext;
+        return reservedLocalMemoryContext;
     }
 
     public LocalMemoryContext newLocalMemoryContext()
     {
-        return userReservedAggregateMemoryContext.newLocalMemoryContext();
+        return reservedAggregateMemoryContext.newLocalMemoryContext();
     }
 
     // below methods are for getting the aggregate reserved memory
-    public long reservedUserMemory()
+    public long reservedMemory()
     {
-        return userReservedAggregateMemoryContext.getBytes();
+        return reservedAggregateMemoryContext.getBytes();
     }
 
     public long reservedRevocableMemory()
     {
-        return userRevocableAggregateMemoryContext.getBytes();
+        return revocableAggregateMemoryContext.getBytes();
     }
 
     // below methods are for getting the locally reserved memory
-    public long reservedLocalUserMemory()
+    public long reservedLocalMemory()
     {
-        return userReservedLocalMemoryContext.getBytes();
+        return reservedLocalMemoryContext.getBytes();
     }
 
     public MemoryTrackingContext newMemoryTrackingContext()
     {
-        return new MemoryTrackingContext(userReservedAggregateMemoryContext.newAggregatedMemoryContext(), userRevocableAggregateMemoryContext.newAggregatedMemoryContext());
+        return new MemoryTrackingContext(reservedAggregateMemoryContext.newAggregatedMemoryContext(), revocableAggregateMemoryContext.newAggregatedMemoryContext());
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("userReservedAggregateMemoryContext", userReservedAggregateMemoryContext)
-                .add("userRevocableAggregateMemoryContext", userRevocableAggregateMemoryContext)
-                .add("userReservedLocalMemoryContext", userReservedLocalMemoryContext)
-                .add("userRevocableLocalMemoryContext", userRevocableLocalMemoryContext)
+                .add("reservedAggregateMemoryContext", reservedAggregateMemoryContext)
+                .add("revocableAggregateMemoryContext", revocableAggregateMemoryContext)
+                .add("reservedLocalMemoryContext", reservedLocalMemoryContext)
+                .add("revocableLocalMemoryContext", revocableLocalMemoryContext)
                 .toString();
     }
 }
