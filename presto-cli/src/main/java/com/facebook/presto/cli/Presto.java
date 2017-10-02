@@ -28,6 +28,6 @@ public final class Presto
             return;
         }
 
-        console.run();
+        System.exit(console.run() ? 0 : 1);
     }
 }
