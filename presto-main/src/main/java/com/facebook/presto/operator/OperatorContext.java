@@ -237,16 +237,16 @@ public class OperatorContext
         return revocableMemoryFuture.get();
     }
 
-    public void reserveMemory(long bytes)
+    public void reserveMemory(long delta)
     {
-        operatorMemoryContext.reserveUserMemory(bytes);
-        updateMemoryFuture(driverContext.reserveMemory(bytes), memoryFuture);
+        operatorMemoryContext.reserveUserMemory(delta);
+        updateMemoryFuture(driverContext.reserveMemory(delta), memoryFuture);
     }
 
-    public synchronized void reserveRevocableMemory(long bytes)
+    public synchronized void reserveRevocableMemory(long delta)
     {
-        operatorMemoryContext.reserveRevocableMemory(bytes);
-        updateMemoryFuture(driverContext.reserveRevocableMemory(bytes), revocableMemoryFuture);
+        operatorMemoryContext.reserveRevocableMemory(delta);
+        updateMemoryFuture(driverContext.reserveRevocableMemory(delta), revocableMemoryFuture);
     }
 
     // we need this listener to reflect changes all the way up to the user memory pool
