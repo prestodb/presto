@@ -112,6 +112,19 @@ public abstract class AbstractTestDistributedQueries
         result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
+
+        result = computeActual("SET SESSION task_writer_count = 1");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("task_writer_count", "1"));
+
+        result = computeActual("SET SESSION TASK_WRITER_COUNT = 8");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("task_writer_count", "8"));
+
+        assertQueryFails("SET SESSION task_writer_count=-2", "task_writer_count must be a power of 2: -2");
+        assertQueryFails("SET SESSION TASK_WRITER_COUNT=0", "task_writer_count must be a power of 2: 0");
+        assertQueryFails("SET SESSION task_writer_count=3", "task_writer_count must be a power of 2: 3");
+        assertQueryFails("SET SESSION TASK_WRITER_COUNT=6", "task_writer_count must be a power of 2: 6");
     }
 
     @Test
