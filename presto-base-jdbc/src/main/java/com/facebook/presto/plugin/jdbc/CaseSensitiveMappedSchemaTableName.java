@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class CaseSensitiveMappedSchemaTableName
 {
@@ -24,22 +25,16 @@ public class CaseSensitiveMappedSchemaTableName
 
     public CaseSensitiveMappedSchemaTableName(String schemaName, String tableName)
     {
-        if (schemaName == null) {
-            throw new NullPointerException("schemaName is null");
-        }
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
         if (schemaName.isEmpty()) {
             throw new IllegalArgumentException("schemaName is empty");
         }
-        this.schemaName = schemaName;
         this.schemaNameLower = schemaName.toLowerCase(ENGLISH);
 
-        if (tableName == null) {
-            throw new NullPointerException("tableName is null");
-        }
+        this.tableName = requireNonNull(tableName, "tableName is null");
         if (tableName.isEmpty()) {
             throw new IllegalArgumentException("tableName is empty");
         }
-        this.tableName = tableName;
         this.tableNameLower = tableName.toLowerCase(ENGLISH);
     }
 

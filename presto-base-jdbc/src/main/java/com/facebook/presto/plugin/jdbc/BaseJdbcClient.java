@@ -165,10 +165,10 @@ public class BaseJdbcClient
         Set<String> schemas = getSchemaNames();
 
         // invalidate and remove from the schema table mapping all records, start from scratch
-        for (String key : schemaTableMapping.keySet()) {
+        schemaTableMapping.keySet().forEach(key -> {
             schemaTableMapping.get(key).invalidateAll();
-            schemaTableMapping.remove(key);
-        }
+        });
+        schemaTableMapping.clear();
 
         for (final String schema : schemas) {
             // this preloads the list of table names for each schema
@@ -247,17 +247,17 @@ public class BaseJdbcClient
 
             schema = finalizeSchemaName(metadata, schema);
             Map<String, Map<String, String>> schemaMappedNames = new HashMap<>();
-            ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
+            ImmutableList.Builder<SchemaTableName> tableNameList = ImmutableList.builder();
             for (CaseSensitiveMappedSchemaTableName table : getOriginalTablesWithSchema(connection, schema)) {
                 Map<String, String> mappedNames = schemaMappedNames.computeIfAbsent(table.getSchemaName(), s -> new HashMap<>());
                 mappedNames.put(table.getSchemaNameLower(), table.getTableName());
-                list.add(new SchemaTableName(table.getSchemaNameLower(), table.getTableNameLower()));
+                tableNameList.add(new SchemaTableName(table.getSchemaNameLower(), table.getTableNameLower()));
             }
             // if someone is listing all of the table names, throw them all into the cache as a refresh since we already spent the time pulling them from the DB
             for (Map.Entry<String, Map<String, String>> entry : schemaMappedNames.entrySet()) {
                 updateTableMapping(entry.getKey(), entry.getValue());
             }
-            return list.build();
+            return tableNameList.build();
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
