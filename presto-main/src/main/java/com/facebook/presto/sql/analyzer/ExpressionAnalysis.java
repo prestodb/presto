@@ -80,11 +80,6 @@ public class ExpressionAnalysis
         return expressionCoercions.get(NodeRef.of(expression));
     }
 
-    public LambdaArgumentDeclaration getLambdaArgumentReference(Identifier qualifiedNameReference)
-    {
-        return lambdaArgumentReferences.get(NodeRef.of(qualifiedNameReference));
-    }
-
     public boolean isTypeOnlyCoercion(Expression expression)
     {
         return typeOnlyCoercions.contains(NodeRef.of(expression));
