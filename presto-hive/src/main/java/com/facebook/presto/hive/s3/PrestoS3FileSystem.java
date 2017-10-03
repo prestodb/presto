@@ -345,7 +345,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, uri.getHost(), path, maxAttempts, maxBackoffTime, maxRetryTime),
+                        new PrestoS3InputStream(s3, getBucketName(uri), path, maxAttempts, maxBackoffTime, maxRetryTime),
                         bufferSize));
     }
 
@@ -367,7 +367,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile, sseEnabled, sseType, sseKmsKeyId),
+                new PrestoS3OutputStream(s3, transferConfig, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId),
                 statistics);
     }
 
@@ -412,7 +412,7 @@ public class PrestoS3FileSystem
             deleteObject(keyFromPath(src) + DIRECTORY_SUFFIX);
         }
         else {
-            s3.copyObject(uri.getHost(), keyFromPath(src), uri.getHost(), keyFromPath(dst));
+            s3.copyObject(getBucketName(uri), keyFromPath(src), getBucketName(uri), keyFromPath(dst));
             delete(src, true);
         }
 
@@ -453,7 +453,7 @@ public class PrestoS3FileSystem
     private boolean deleteObject(String key)
     {
         try {
-            s3.deleteObject(uri.getHost(), key);
+            s3.deleteObject(getBucketName(uri), key);
             return true;
         }
         catch (AmazonClientException e) {
@@ -476,7 +476,7 @@ public class PrestoS3FileSystem
         }
 
         ListObjectsRequest request = new ListObjectsRequest()
-                .withBucketName(uri.getHost())
+                .withBucketName(getBucketName(uri))
                 .withPrefix(key)
                 .withDelimiter(PATH_SEPARATOR);
 
@@ -560,7 +560,7 @@ public class PrestoS3FileSystem
                     .run("getS3ObjectMetadata", () -> {
                         try {
                             STATS.newMetadataCall();
-                            return s3.getObjectMetadata(uri.getHost(), keyFromPath(path));
+                            return s3.getObjectMetadata(getBucketName(uri), keyFromPath(path));
                         }
                         catch (RuntimeException e) {
                             STATS.newGetMetadataError();
@@ -1087,5 +1087,28 @@ public class PrestoS3FileSystem
     void setS3Client(AmazonS3 client)
     {
         s3 = client;
+    }
+
+    /**
+     * Helper function used to work around the fact that if you use an S3 bucket with an '_' that java.net.URI
+     * behaves differently and sets the host value to null whereas S3 buckets without '_' have a properly
+     * set host field.
+     *
+     * @param uri The URI from which to extract a host value.
+     * @return The host value where uri.getAuthority() is used when uri.getHost() returns null as long as no UserInfo is present.
+     * @note '_' is only allowed in S3 bucket names in us-east-1
+     * @throws IllegalArgumentException If the bucket can not be determined from the URI.
+     */
+    public static String getBucketName(URI uri)
+    {
+        if (uri.getHost() != null) {
+            return uri.getHost();
+        }
+
+        if (uri.getUserInfo() == null) {
+            return uri.getAuthority();
+        }
+
+        throw new IllegalArgumentException("Unable to determine S3 bucket from URI.");
     }
 }
