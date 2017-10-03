@@ -140,6 +140,23 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testUnderscoreBucket()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.setBoolean(S3_PATH_STYLE_ACCESS, true);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            String expectedBucketName = "test-bucket_underscore";
+            fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
+            fs.setS3Client(s3);
+            fs.getS3ObjectMetadata(new Path("/test/path"));
+            assertEquals(expectedBucketName, s3.getGetObjectMetadataRequest().getBucketName());
+        }
+    }
+
     @SuppressWarnings({"ResultOfMethodCallIgnored", "OverlyStrongTypeCast", "ConstantConditions"})
     @Test
     public void testReadRetryCounters()

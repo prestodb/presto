@@ -29,6 +29,7 @@ public class MockAmazonS3
 {
     private int getObjectHttpCode = SC_OK;
     private int getObjectMetadataHttpCode = SC_OK;
+    private GetObjectMetadataRequest getObjectMetadataRequest;
 
     public void setGetObjectHttpErrorCode(int getObjectHttpErrorCode)
     {
@@ -40,9 +41,15 @@ public class MockAmazonS3
         this.getObjectMetadataHttpCode = getObjectMetadataHttpCode;
     }
 
+    public GetObjectMetadataRequest getGetObjectMetadataRequest()
+    {
+        return getObjectMetadataRequest;
+    }
+
     @Override
     public ObjectMetadata getObjectMetadata(GetObjectMetadataRequest getObjectMetadataRequest)
     {
+        this.getObjectMetadataRequest = getObjectMetadataRequest;
         if (getObjectMetadataHttpCode != SC_OK) {
             AmazonS3Exception exception = new AmazonS3Exception("Failing getObjectMetadata call with " + getObjectMetadataHttpCode);
             exception.setStatusCode(getObjectMetadataHttpCode);
