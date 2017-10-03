@@ -5325,7 +5325,7 @@ public abstract class AbstractTestQueries
                         "SELECT * FROM b",
                 "SELECT 2");
         assertQueryFails(
-                        "WITH a AS (VALUES 1), " +
+                "WITH a AS (VALUES 1), " +
                         "     a AS (VALUES 2)" +
                         "SELECT * FROM a",
                 "line 1:28: WITH query name 'a' specified more than once");
