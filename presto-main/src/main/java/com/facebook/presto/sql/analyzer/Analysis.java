@@ -196,9 +196,9 @@ public class Analysis
 
     public Type getType(Expression expression)
     {
-        NodeRef<Expression> key = NodeRef.of(expression);
-        checkArgument(types.containsKey(key), "Expression not analyzed: %s", expression);
-        return types.get(key);
+        Type type = types.get(NodeRef.of(expression));
+        checkArgument(type != null, "Expression not analyzed: %s", expression);
+        return type;
     }
 
     public Type getTypeWithCoercions(Expression expression)
