@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.ResolvedField;
+import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -218,17 +219,17 @@ class TranslationMap
 
     private Expression translateNamesToSymbols(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Scope>()
         {
             @Override
-            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteExpression(Expression node, Scope context, ExpressionTreeRewriter<Scope> treeRewriter)
             {
                 Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
                 return coerceIfNecessary(node, rewrittenExpression);
             }
 
             @Override
-            public Expression rewriteFieldReference(FieldReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteFieldReference(FieldReference node, Scope context, ExpressionTreeRewriter<Scope> treeRewriter)
             {
                 Symbol symbol = rewriteBase.getSymbol(node.getFieldIndex());
                 checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, node.getFieldIndex());
@@ -236,7 +237,7 @@ class TranslationMap
             }
 
             @Override
-            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteIdentifier(Identifier node, Scope context, ExpressionTreeRewriter<Scope> treeRewriter)
             {
                 LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
                 if (referencedLambdaArgumentDeclaration != null) {
@@ -256,7 +257,7 @@ class TranslationMap
             }
 
             @Override
-            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteDereferenceExpression(DereferenceExpression node, Scope context, ExpressionTreeRewriter<Scope> treeRewriter)
             {
                 Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
                 if (resolvedField.isPresent()) {
@@ -272,7 +273,7 @@ class TranslationMap
             }
 
             @Override
-            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteLambdaExpression(LambdaExpression node, Scope context, ExpressionTreeRewriter<Scope> treeRewriter)
             {
                 checkState(analysis.getCoercion(node) == null, "cannot coerce a lambda expression");
 
@@ -281,7 +282,7 @@ class TranslationMap
                     Symbol symbol = lambdaDeclarationToSymbolMap.get(NodeRef.of(argument));
                     newArguments.add(new LambdaArgumentDeclaration(new Identifier(symbol.getName())));
                 }
-                Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
+                Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), context);
                 return new LambdaExpression(newArguments.build(), rewrittenBody);
             }
 
@@ -297,7 +298,7 @@ class TranslationMap
                 }
                 return rewritten;
             }
-        }, expression, null);
+        }, expression, rewriteBase.getScope());
     }
 
     Optional<Symbol> getSymbol(RelationPlan plan, Expression expression)
