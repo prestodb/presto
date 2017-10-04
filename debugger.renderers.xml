@@ -6,8 +6,8 @@
       <option name="NAME" value="unnamed" />
       <option name="ENABLED" value="true" />
       <option name="START_INDEX" value="0" />
-      <option name="END_INDEX" value="100" />
-      <option name="ENTRIES_LIMIT" value="101" />
+      <option name="END_INDEX" value="99" />
+      <option name="ENTRIES_LIMIT" value="99" />
     </Renderer>
     <Renderer ID="ToStringRenderer">
       <option name="NAME" value="unnamed" />
