@@ -599,7 +599,7 @@ public final class StringFunctions
             }
         }
         String input = string.toStringAscii();
-        StringBuilder stringBuilder = new StringBuilder();
+        StringBuffer stringBuffer = new StringBuffer();
         ByteBuffer inputBytes = ByteBuffer.wrap(input.getBytes(), 0, input.length());
 
         while (inputBytes.hasRemaining()) {
@@ -609,9 +609,9 @@ public final class StringFunctions
             }
             Integer replacementCodePoint = replacementMap.get(inputCodePoint);
             char[] charArray = Character.toChars((replacementCodePoint != null) ? replacementCodePoint : inputCodePoint);
-            stringBuilder.append(charArray);
+            stringBuffer.append(charArray);
         }
-        String answer = stringBuilder.toString();
+        String answer = stringBuffer.toString();
 
         return Slices.utf8Slice(answer);
     }
