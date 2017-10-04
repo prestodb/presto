@@ -1062,6 +1062,15 @@
                     </configuration>
                 </plugin>
 
+                <!-- takari-lifecycle-plugin is used instead of this -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <configuration>
+                        <skip>true</skip>
+                    </configuration>
+                </plugin>
+
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
                     <!--suppress MavenModelInspection -->
@@ -1232,6 +1241,19 @@
                 <configuration combine.children="append">
                     <fork>false</fork>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>takari-lifecycle-plugin</artifactId>
+                <version>1.13.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>deploy</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
