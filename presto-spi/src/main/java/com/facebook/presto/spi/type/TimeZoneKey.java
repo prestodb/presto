@@ -202,9 +202,12 @@ public final class TimeZoneKey
     private static String normalizeZoneId(String originalZoneId)
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
+        boolean isEtcZoneId = false;
+        boolean isGmtZoneId = false;
 
         if (zoneId.startsWith("etc/")) {
             zoneId = zoneId.substring(4);
+            isEtcZoneId = true;
         }
 
         if (isUtcEquivalentName(zoneId)) {
@@ -218,6 +221,9 @@ public final class TimeZoneKey
         // In some zones systems, these will start with UTC, GMT or UT.
         int length = zoneId.length();
         if (length > 3 && (zoneId.startsWith("utc") || zoneId.startsWith("gmt"))) {
+            if (zoneId.startsWith("gmt")) {
+                isGmtZoneId = true;
+            }
             zoneId = zoneId.substring(3);
             length = zoneId.length();
         }
@@ -270,6 +276,18 @@ public final class TimeZoneKey
         // is this offset 0 (e.g., UTC)?
         if (hourTens == '0' && hourOnes == '0') {
             return "utc";
+        }
+
+        // if tz like Etc/GMT+/-<offset> reverse sign
+        if (isEtcZoneId && isGmtZoneId) {
+            char newSign;
+            if (signChar == '-') {
+                newSign = '+';
+            }
+            else {
+                newSign = '-';
+            }
+            return "" + newSign + hourTens + hourOnes + ":00";
         }
 
         return "" + signChar + hourTens + hourOnes + ":00";
