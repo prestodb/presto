@@ -84,10 +84,9 @@ public class MemoryTrackingContext
     // through the new local memory contexts created through the operator context (e.g., by the spill logic).
     public void forceFreeMemory()
     {
-        long localReservation = reservedLocalMemoryContext.getBytes();
-        long aggregatedReserved = revocableAggregateMemoryContext.getBytes();
-        revocableAggregateMemoryContext.addBytes(-aggregatedReserved);
-        reservedLocalMemoryContext.addBytes(-localReservation);
+        reservedLocalMemoryContext.setBytes(0);
+        long aggregatedReserved = reservedAggregateMemoryContext.getBytes();
+        reservedAggregateMemoryContext.addBytes(-aggregatedReserved);
     }
 
     public void freeRevocableMemory(long delta)
