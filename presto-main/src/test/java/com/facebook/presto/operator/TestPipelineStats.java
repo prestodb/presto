@@ -52,7 +52,6 @@ public class TestPipelineStats
 
             new DataSize(5, BYTE),
             new DataSize(6, BYTE),
-            new DataSize(7, BYTE),
 
             getTestDistribution(8),
             getTestDistribution(9),
@@ -105,7 +104,6 @@ public class TestPipelineStats
 
         assertEquals(actual.getMemoryReservation(), new DataSize(5, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(6, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(7, BYTE));
 
         assertEquals(actual.getQueuedTime().getCount(), 8.0);
         assertEquals(actual.getElapsedTime().getCount(), 9.0);

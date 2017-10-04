@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.spi;
 
-public interface SystemMemoryUsageListener
+import com.facebook.presto.spi.memory.TrackingNotificationListener;
+
+public interface TrackingContext
 {
-    // TODO: Remove this class and migrate to use AbstractAggregatedMemoryContext
-
-    void updateSystemMemoryUsage(long deltaMemoryInBytes);
+    public void addBytes(long bytes);
+    public void setNotificationListener(TrackingNotificationListener listener);
 }

@@ -80,7 +80,6 @@ public final class TestingTaskContext
         private TaskStateMachine taskStateMachine;
         private DataSize queryMaxMemory = new DataSize(256, MEGABYTE);
         private DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
-        private DataSize systemMemoryPoolSize = new DataSize(1, GIGABYTE);
         private DataSize maxSpillSize = new DataSize(1, GIGABYTE);
         private DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
 
@@ -110,12 +109,6 @@ public final class TestingTaskContext
             return this;
         }
 
-        public Builder setSystemMemoryPoolSize(DataSize systemMemoryPoolSize)
-        {
-            this.systemMemoryPoolSize = systemMemoryPoolSize;
-            return this;
-        }
-
         public Builder setMaxSpillSize(DataSize maxSpillSize)
         {
             this.maxSpillSize = maxSpillSize;
@@ -131,13 +124,11 @@ public final class TestingTaskContext
         public TaskContext build()
         {
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
-            MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), systemMemoryPoolSize);
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
             QueryContext queryContext = new QueryContext(
                     new QueryId("test_query"),
                     queryMaxMemory,
                     memoryPool,
-                    systemMemoryPool,
                     notificationExecutor,
                     yieldExecutor,
                     queryMaxSpillSize,

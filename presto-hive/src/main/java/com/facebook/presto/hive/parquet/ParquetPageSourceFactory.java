@@ -17,13 +17,13 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.predicate.ParquetPredicate;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
@@ -139,7 +139,7 @@ public class ParquetPageSourceFactory
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        AggregatedMemoryContext systemMemoryContext = new AggregatedMemoryContext();
+        AggregatedMemoryContext memoryContext = new AggregatedMemoryContext();
 
         ParquetDataSource dataSource = null;
         try {
@@ -180,7 +180,7 @@ public class ParquetPageSourceFactory
                     blocks,
                     dataSource,
                     typeManager,
-                    systemMemoryContext);
+                    memoryContext);
 
             return new ParquetPageSource(
                     parquetReader,
@@ -192,7 +192,7 @@ public class ParquetPageSourceFactory
                     effectivePredicate,
                     typeManager,
                     useParquetColumnNames,
-                    systemMemoryContext);
+                    memoryContext);
         }
         catch (Exception e) {
             try {

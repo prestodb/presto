@@ -138,7 +138,6 @@ public class SqlTaskManager
                         queryId,
                         maxQueryMemoryPerNode,
                         localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
-                        localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
                         taskNotificationExecutor,
                         driverYieldExecutor,
                         maxQuerySpillPerNode,

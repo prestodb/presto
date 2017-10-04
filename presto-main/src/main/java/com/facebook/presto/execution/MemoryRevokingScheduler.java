@@ -122,7 +122,7 @@ public class MemoryRevokingScheduler
                 requestMemoryRevokingIfNeeded();
             }
             catch (Throwable e) {
-                log.error(e, "Error requesting system memory revoking");
+                log.error(e, "Error requesting memory revoking");
             }
         }, 1, 1, SECONDS);
     }

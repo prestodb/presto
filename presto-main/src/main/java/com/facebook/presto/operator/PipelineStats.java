@@ -54,7 +54,6 @@ public class PipelineStats
 
     private final DataSize memoryReservation;
     private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
 
     private final DistributionSnapshot queuedTime;
     private final DistributionSnapshot elapsedTime;
@@ -99,7 +98,6 @@ public class PipelineStats
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("queuedTime") DistributionSnapshot queuedTime,
             @JsonProperty("elapsedTime") DistributionSnapshot elapsedTime,
@@ -149,7 +147,6 @@ public class PipelineStats
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
@@ -271,12 +268,6 @@ public class PipelineStats
     }
 
     @JsonProperty
-    public DataSize getSystemMemoryReservation()
-    {
-        return systemMemoryReservation;
-    }
-
-    @JsonProperty
     public DistributionSnapshot getQueuedTime()
     {
         return queuedTime;
@@ -390,7 +381,6 @@ public class PipelineStats
                 completedDrivers,
                 memoryReservation,
                 revocableMemoryReservation,
-                systemMemoryReservation,
                 queuedTime,
                 elapsedTime,
                 totalScheduledTime,

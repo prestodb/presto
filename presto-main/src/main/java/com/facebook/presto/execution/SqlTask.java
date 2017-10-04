@@ -94,7 +94,15 @@ public class SqlTask
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
-        outputBuffer = new LazyOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext, taskId));
+        // pass a memory context supplier to the output buffer
+        // instead of a LocalMemoryContext as at this point
+        // we don't have the task context to get a local memory context
+        outputBuffer = new LazyOutputBuffer(
+                taskId,
+                taskInstanceId,
+                taskNotificationExecutor,
+                maxBufferSize,
+                () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext());
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -136,34 +144,6 @@ public class SqlTask
                 }
             }
         });
-    }
-
-    private static final class UpdateSystemMemory
-            implements SystemMemoryUsageListener
-    {
-        private final QueryContext queryContext;
-        private final TaskId taskId;
-        private TaskContext taskContext;
-
-        public UpdateSystemMemory(QueryContext queryContext, TaskId taskId)
-        {
-            this.queryContext = requireNonNull(queryContext, "queryContext is null");
-            this.taskId = requireNonNull(taskId, "taskId is null");
-        }
-
-        @Override
-        public void updateSystemMemoryUsage(long deltaMemoryInBytes)
-        {
-            if (taskContext == null) {
-                taskContext = queryContext.getTaskContextByTaskId(taskId);
-            }
-            if (deltaMemoryInBytes > 0) {
-                taskContext.reserveSystemMemory(deltaMemoryInBytes);
-            }
-            else {
-                taskContext.freeSystemMemory(-deltaMemoryInBytes);
-            }
-        }
     }
 
     public SqlTaskIoStats getIoStats()

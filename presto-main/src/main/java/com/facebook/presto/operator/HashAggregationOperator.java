@@ -104,7 +104,7 @@ public class HashAggregationOperator
                     false,
                     new DataSize(0, MEGABYTE),
                     new DataSize(0, MEGABYTE),
-                    (types, spillContext, memoryContext) -> {
+                    (types, spillContext, memoryContextSupplier) -> {
                         throw new UnsupportedOperationException();
                     },
                     joinCompiler);
@@ -479,7 +479,7 @@ public class HashAggregationOperator
             // The reference must be set to null afterwards to avoid unaccounted memory.
             aggregationBuilder = null;
         }
-        operatorContext.setMemoryReservation(0);
+        operatorContext.forceFreeMemory();
         operatorContext.setRevocableMemoryReservation(0);
     }
 

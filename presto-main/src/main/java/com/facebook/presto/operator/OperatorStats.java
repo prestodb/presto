@@ -65,7 +65,6 @@ public class OperatorStats
 
     private final DataSize memoryReservation;
     private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
     private final Optional<BlockedReason> blockedReason;
 
     private final OperatorInfo info;
@@ -103,7 +102,6 @@ public class OperatorStats
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
             @JsonProperty("info") OperatorInfo info)
@@ -143,7 +141,6 @@ public class OperatorStats
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
         this.blockedReason = blockedReason;
 
         this.info = info;
@@ -300,12 +297,6 @@ public class OperatorStats
     }
 
     @JsonProperty
-    public DataSize getSystemMemoryReservation()
-    {
-        return systemMemoryReservation;
-    }
-
-    @JsonProperty
     public Optional<BlockedReason> getBlockedReason()
     {
         return blockedReason;
@@ -351,7 +342,6 @@ public class OperatorStats
 
         long memoryReservation = this.memoryReservation.toBytes();
         long revocableMemoryReservation = this.revocableMemoryReservation.toBytes();
-        long systemMemoryReservation = this.systemMemoryReservation.toBytes();
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
         Mergeable<OperatorInfo> base = getMergeableInfoOrNull(info);
@@ -384,7 +374,6 @@ public class OperatorStats
 
             memoryReservation += operator.getMemoryReservation().toBytes();
             revocableMemoryReservation += operator.getRevocableMemoryReservation().toBytes();
-            systemMemoryReservation += operator.getSystemMemoryReservation().toBytes();
             if (operator.getBlockedReason().isPresent()) {
                 blockedReason = operator.getBlockedReason();
             }
@@ -427,7 +416,6 @@ public class OperatorStats
 
                 succinctBytes(memoryReservation),
                 succinctBytes(revocableMemoryReservation),
-                succinctBytes(systemMemoryReservation),
                 blockedReason,
 
                 (OperatorInfo) base);
@@ -477,7 +465,6 @@ public class OperatorStats
                 finishUser,
                 memoryReservation,
                 revocableMemoryReservation,
-                systemMemoryReservation,
                 blockedReason,
                 (info != null && info.isFinal()) ? info : null);
     }

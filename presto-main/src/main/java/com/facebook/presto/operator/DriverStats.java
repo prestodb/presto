@@ -45,7 +45,6 @@ public class DriverStats
     private final DataSize memoryReservation;
     private final DataSize peakMemoryReservation;
     private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -77,7 +76,6 @@ public class DriverStats
         this.memoryReservation = new DataSize(0, BYTE);
         this.peakMemoryReservation = new DataSize(0, BYTE);
         this.revocableMemoryReservation = new DataSize(0, BYTE);
-        this.systemMemoryReservation = new DataSize(0, BYTE);
 
         this.totalScheduledTime = new Duration(0, MILLISECONDS);
         this.totalCpuTime = new Duration(0, MILLISECONDS);
@@ -110,7 +108,6 @@ public class DriverStats
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -140,7 +137,6 @@ public class DriverStats
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -213,12 +209,6 @@ public class DriverStats
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getSystemMemoryReservation()
-    {
-        return systemMemoryReservation;
     }
 
     @JsonProperty

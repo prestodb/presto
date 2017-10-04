@@ -18,8 +18,11 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.memory.MemoryTrackingContext;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
@@ -57,10 +60,6 @@ public class TaskContext
     private final ScheduledExecutorService yieldExecutor;
     private final Session session;
 
-    private final AtomicLong memoryReservation = new AtomicLong();
-    private final AtomicLong systemMemoryReservation = new AtomicLong();
-    private final AtomicLong revocableMemoryReservation = new AtomicLong();
-
     private final long createNanos = System.nanoTime();
 
     private final AtomicLong startNanos = new AtomicLong();
@@ -84,11 +83,15 @@ public class TaskContext
     @GuardedBy("cumulativeMemoryLock")
     private long lastTaskStatCallNanos = 0;
 
+    @GuardedBy("this")
+    private final MemoryTrackingContext taskMemoryContext;
+
     public TaskContext(QueryContext queryContext,
             TaskStateMachine taskStateMachine,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             Session session,
+            MemoryTrackingContext taskMemoryContext,
             boolean verboseStats,
             boolean cpuTimerEnabled)
     {
@@ -97,6 +100,8 @@ public class TaskContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
+        this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
+        this.taskMemoryContext.localMemoryContext().setNotificationListener(this::memoryReservationChanged);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
@@ -120,7 +125,14 @@ public class TaskContext
 
     public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline)
     {
-        PipelineContext pipelineContext = new PipelineContext(pipelineId, this, notificationExecutor, yieldExecutor, inputPipeline, outputPipeline);
+        PipelineContext pipelineContext = new PipelineContext(
+                pipelineId,
+                this,
+                notificationExecutor,
+                yieldExecutor,
+                taskMemoryContext.newMemoryTrackingContext(),
+                inputPipeline,
+                outputPipeline);
         pipelineContexts.add(pipelineContext);
         return pipelineContext;
     }
@@ -157,28 +169,12 @@ public class TaskContext
 
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
-        ListenableFuture<?> future = queryContext.reserveMemory(bytes);
-        memoryReservation.getAndAdd(bytes);
-        return future;
+        return queryContext.reserveMemory(bytes);
     }
 
     public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
-        ListenableFuture<?> future = queryContext.reserveRevocableMemory(bytes);
-        revocableMemoryReservation.getAndAdd(bytes);
-        return future;
-    }
-
-    public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "bytes is negative");
-        ListenableFuture<?> future = queryContext.reserveSystemMemory(bytes);
-        systemMemoryReservation.getAndAdd(bytes);
-        return future;
+        return queryContext.reserveRevocableMemory(bytes);
     }
 
     public synchronized ListenableFuture<?> reserveSpill(long bytes)
@@ -189,43 +185,42 @@ public class TaskContext
 
     public synchronized boolean tryReserveMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-
-        if (queryContext.tryReserveMemory(bytes)) {
-            memoryReservation.getAndAdd(bytes);
-            return true;
-        }
-        return false;
+        return queryContext.tryReserveMemory(bytes);
     }
 
     public synchronized void freeMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
-        memoryReservation.getAndAdd(-bytes);
         queryContext.freeMemory(bytes);
     }
 
     public synchronized void freeRevocableMemory(long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
-        revocableMemoryReservation.getAndAdd(-bytes);
         queryContext.freeRevocableMemory(bytes);
-    }
-
-    public synchronized void freeSystemMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more system memory than is reserved");
-        systemMemoryReservation.getAndAdd(-bytes);
-        queryContext.freeSystemMemory(bytes);
     }
 
     public synchronized void freeSpill(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         queryContext.freeSpill(bytes);
+    }
+
+    // we need this listener to reflect changes all the way up to the user memory pool
+    private synchronized void memoryReservationChanged(long oldUsage, long newUsage)
+    {
+        long delta = newUsage - oldUsage;
+        if (delta >= 0) {
+            queryContext.reserveMemory(delta);
+        }
+        else {
+            queryContext.freeMemory(-delta);
+        }
+    }
+
+    // this is OK because we already have a memory notification listener,
+    // so we can keep track of all allocations.
+    public LocalMemoryContext localMemoryContext()
+    {
+        return taskMemoryContext.localMemoryContext();
     }
 
     public void moreMemoryAvailable()
@@ -371,9 +366,16 @@ public class TaskContext
             elapsedTime = new Duration(0, NANOSECONDS);
         }
 
+        long reservedMemory;
+        long reservedRevocableMemory;
+        synchronized (this) {
+            reservedMemory = taskMemoryContext.reservedMemory();
+            reservedRevocableMemory = taskMemoryContext.reservedRevocableMemory();
+        }
+
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
-            long currentMemory = memoryReservation.get();
+            long currentMemory = reservedMemory;
             long averageMemoryForLastPeriod = (currentMemory + lastMemoryReservation) / 2;
             cumulativeMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
 
@@ -406,9 +408,8 @@ public class TaskContext
                 blockedDrivers,
                 completedDrivers,
                 cumulativeMemory.get(),
-                succinctBytes(memoryReservation.get()),
-                succinctBytes(revocableMemoryReservation.get()),
-                succinctBytes(systemMemoryReservation.get()),
+                succinctBytes(reservedMemory),
+                succinctBytes(reservedRevocableMemory),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -434,5 +435,11 @@ public class TaskContext
         return pipelineContexts.stream()
                 .map(pipelineContext -> pipelineContext.accept(visitor, context))
                 .collect(toList());
+    }
+
+    @VisibleForTesting
+    public MemoryTrackingContext getTaskMemoryContext()
+    {
+        return taskMemoryContext;
     }
 }

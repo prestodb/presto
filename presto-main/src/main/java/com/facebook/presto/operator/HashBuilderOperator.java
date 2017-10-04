@@ -359,7 +359,7 @@ public class HashBuilderOperator
             operatorContext.setRevocableMemoryReservation(index.getEstimatedSize().toBytes());
         }
         else {
-            if (!operatorContext.trySetMemoryReservation(index.getEstimatedSize().toBytes())) {
+            if (!operatorContext.tryReserveMemory(index.getEstimatedSize().toBytes())) {
                 index.compact();
                 operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
             }
@@ -425,7 +425,7 @@ public class HashBuilderOperator
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
-                operatorContext.getSystemMemoryContext().newLocalMemoryContext()));
+                operatorContext.newLocalSystemMemoryContext()));
         return getSpiller().spill(index.getPages());
     }
 
@@ -640,7 +640,7 @@ public class HashBuilderOperator
         try (Closer closer = Closer.create()) {
             closer.register(index::clear);
             spiller.ifPresent(closer::register);
-            closer.register(() -> operatorContext.setMemoryReservation(0));
+            closer.register(() -> operatorContext.forceFreeMemory());
             closer.register(() -> operatorContext.setRevocableMemoryReservation(0));
         }
         catch (IOException e) {

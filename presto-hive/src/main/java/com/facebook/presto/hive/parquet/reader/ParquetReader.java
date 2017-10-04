@@ -16,12 +16,12 @@ package com.facebook.presto.hive.parquet.reader;
 import com.facebook.presto.hive.parquet.ParquetCorruptionException;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
-import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
-import com.facebook.presto.hive.parquet.memory.LocalMemoryContext;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
@@ -79,22 +79,22 @@ public class ParquetReader
     private final Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     public ParquetReader(MessageType fileSchema,
             MessageType requestedSchema,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             TypeManager typeManager,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext memoryContext)
     {
         this.fileSchema = fileSchema;
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;
         this.typeManager = typeManager;
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         initializeColumnReaders();
     }
 
@@ -133,7 +133,7 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
     {
         currentRowGroupMemoryContext.close();
-        currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+        currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
 
         if (currentBlock == blocks.size()) {
             return false;

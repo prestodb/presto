@@ -98,7 +98,7 @@ public class MongoPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0L;
     }

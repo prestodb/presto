@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
@@ -24,8 +23,10 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.SpillContext;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -51,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -465,7 +467,7 @@ public class TestHashAggregationOperator
                 new DataSize(1, KILOBYTE),
                 joinCompiler);
 
-        DriverContext driverContext = createDriverContext(1024, Integer.MAX_VALUE);
+        DriverContext driverContext = createDriverContext(1024);
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
@@ -578,7 +580,6 @@ public class TestHashAggregationOperator
         DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setQueryMaxMemory(DataSize.valueOf("7MB"))
                 .setMemoryPoolSize(DataSize.valueOf("1GB"))
-                .setSystemMemoryPoolSize(DataSize.valueOf("10B"))
                 .build()
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
@@ -621,16 +622,10 @@ public class TestHashAggregationOperator
         return createDriverContext(Integer.MAX_VALUE);
     }
 
-    private DriverContext createDriverContext(long systemMemoryLimit)
-    {
-        return createDriverContext(Integer.MAX_VALUE, systemMemoryLimit);
-    }
-
-    private DriverContext createDriverContext(long memoryLimit, long systemMemoryLimit)
+    private DriverContext createDriverContext(long memoryLimit)
     {
         return TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setMemoryPoolSize(succinctBytes(memoryLimit))
-                .setSystemMemoryPoolSize(succinctBytes(systemMemoryLimit))
                 .build()
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
@@ -642,7 +637,7 @@ public class TestHashAggregationOperator
         private long spillsCount;
 
         @Override
-        public Spiller create(List<Type> types, SpillContext spillContext, AggregatedMemoryContext memoryContext)
+        public Spiller create(List<Type> types, SpillContext spillContext, Supplier<LocalMemoryContext> memoryContextSupplier)
         {
             return new Spiller()
             {
@@ -681,7 +676,7 @@ public class TestHashAggregationOperator
             implements SpillerFactory
     {
         @Override
-        public Spiller create(List<Type> types, SpillContext spillContext, AggregatedMemoryContext memoryContext)
+        public Spiller create(List<Type> types, SpillContext spillContext, Supplier<LocalMemoryContext> memoryContextSupplier)
         {
             return new Spiller()
             {

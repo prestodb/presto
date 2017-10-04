@@ -63,7 +63,6 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     succinctBytes(1L),
                     succinctBytes(1L),
-                    succinctBytes(1L),
                     Optional.empty(),
                     null),
             new OperatorStats(
@@ -92,7 +91,6 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     succinctBytes(1L),
                     succinctBytes(1L),
-                    succinctBytes(1L),
                     Optional.empty(),
                     null),
             new OperatorStats(
@@ -119,7 +117,6 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     new Duration(1, NANOSECONDS),
                     new Duration(1, NANOSECONDS),
-                    succinctBytes(1L),
                     succinctBytes(1L),
                     succinctBytes(1L),
                     Optional.empty(),

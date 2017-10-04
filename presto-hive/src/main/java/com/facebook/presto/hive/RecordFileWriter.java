@@ -66,14 +66,14 @@ public class RecordFileWriter
     private final List<StructField> structFields;
     private final Object row;
     private final FieldSetter[] setters;
-    private final long estimatedWriterSystemMemoryUsage;
+    private final long estimatedWriterMemoryUsage;
 
     public RecordFileWriter(
             Path path,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
-            DataSize estimatedWriterSystemMemoryUsage,
+            DataSize estimatedWriterMemoryUsage,
             JobConf conf,
             TypeManager typeManager)
     {
@@ -110,13 +110,13 @@ public class RecordFileWriter
             setters[i] = createFieldSetter(tableInspector, row, structFields.get(i), fileColumnTypes.get(structFields.get(i).getFieldID()));
         }
 
-        this.estimatedWriterSystemMemoryUsage = estimatedWriterSystemMemoryUsage.toBytes();
+        this.estimatedWriterMemoryUsage = estimatedWriterMemoryUsage.toBytes();
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return estimatedWriterSystemMemoryUsage;
+        return estimatedWriterMemoryUsage;
     }
 
     @Override

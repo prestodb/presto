@@ -11,23 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
-
-import com.facebook.presto.spiller.LocalSpillContext;
+package com.facebook.presto.spi;
 
 import java.io.Closeable;
 
-@FunctionalInterface
-public interface SpillContext
-        extends Closeable
+public interface AggregateTrackingContext
+        extends TrackingContext, Closeable
 {
-    void updateBytes(long bytes);
-
-    default SpillContext newLocalSpillContext()
-    {
-        return new LocalSpillContext(this);
-    }
-
     @Override
     default void close() {}
 }

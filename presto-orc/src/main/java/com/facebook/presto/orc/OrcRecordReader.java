@@ -15,8 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksum;
 import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
-import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -30,6 +28,7 @@ import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
@@ -86,7 +85,7 @@ public class OrcRecordReader
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
     private int currentStripe = -1;
-    private AggregatedMemoryContext currentStripeSystemMemoryContext;
+    private AggregatedMemoryContext currentStripeMemoryContext;
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
@@ -98,7 +97,7 @@ public class OrcRecordReader
 
     private final Map<String, Slice> userMetadata;
 
-    private final AbstractAggregatedMemoryContext systemMemoryUsage;
+    private final AggregatedMemoryContext memoryUsage;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
@@ -123,7 +122,7 @@ public class OrcRecordReader
             DataSize maxReadSize,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AbstractAggregatedMemoryContext systemMemoryUsage,
+            AggregatedMemoryContext memoryUsage,
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
@@ -203,8 +202,8 @@ public class OrcRecordReader
 
         this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
 
-        this.systemMemoryUsage = requireNonNull(systemMemoryUsage, "systemMemoryUsage is null").newAggregatedMemoryContext();
-        this.currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null").newAggregatedMemoryContext();
+        this.currentStripeMemoryContext = memoryUsage.newAggregatedMemoryContext();
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -427,8 +426,8 @@ public class OrcRecordReader
     private void advanceToNextStripe()
             throws IOException
     {
-        currentStripeSystemMemoryContext.close();
-        currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        currentStripeMemoryContext.close();
+        currentStripeMemoryContext = memoryUsage.newAggregatedMemoryContext();
         rowGroups = ImmutableList.<RowGroup>of().iterator();
 
         currentStripe++;
@@ -443,7 +442,7 @@ public class OrcRecordReader
         StripeInformation stripeInformation = stripes.get(currentStripe);
         validateWriteStripe(stripeInformation.getNumberOfRows());
 
-        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeMemoryContext);
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();

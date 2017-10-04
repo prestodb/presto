@@ -17,11 +17,12 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -36,6 +37,7 @@ import java.io.File;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -60,6 +62,7 @@ public class TestBinaryFileSpiller
     private SpillerFactory factory;
     private PagesSerde pagesSerde;
     private AggregatedMemoryContext memoryContext;
+    private Supplier<LocalMemoryContext> memoryContextSupplier;
 
     @BeforeMethod
     public void setUp()
@@ -75,6 +78,7 @@ public class TestBinaryFileSpiller
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
         pagesSerde = pagesSerdeFactory.createPagesSerde();
         memoryContext = new AggregatedMemoryContext();
+        memoryContextSupplier = () -> memoryContext.newLocalMemoryContext();
     }
 
     @AfterMethod
@@ -89,7 +93,7 @@ public class TestBinaryFileSpiller
     public void testFileSpiller()
             throws Exception
     {
-        try (Spiller spiller = factory.create(TYPES, bytes -> {}, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, new SpillContext(), memoryContextSupplier)) {
             testSimpleSpiller(spiller);
         }
     }
@@ -110,7 +114,7 @@ public class TestBinaryFileSpiller
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
-        try (Spiller spiller = factory.create(TYPES, bytes -> {}, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, new SpillContext(), memoryContextSupplier)) {
             testSpiller(types, spiller, ImmutableList.of(page));
         }
     }

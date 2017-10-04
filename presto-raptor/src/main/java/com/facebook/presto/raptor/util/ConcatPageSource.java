@@ -76,9 +76,9 @@ public class ConcatPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return (current != null) ? current.getSystemMemoryUsage() : 0;
+        return (current != null) ? current.getMemoryUsage() : 0;
     }
 
     @Override

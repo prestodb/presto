@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -23,6 +23,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -37,14 +38,14 @@ class OutputBufferMemoryManager
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
-    private final SystemMemoryUsageListener systemMemoryUsageListener;
+    private final Supplier<LocalMemoryContext> memoryContextSupplier;
     private final Executor notificationExecutor;
 
-    public OutputBufferMemoryManager(long maxBufferedBytes, SystemMemoryUsageListener systemMemoryUsageListener, Executor notificationExecutor)
+    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
     {
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
-        this.systemMemoryUsageListener = requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
+        this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         notFull = SettableFuture.create();
@@ -53,7 +54,9 @@ class OutputBufferMemoryManager
 
     public void updateMemoryUsage(long bytesAdded)
     {
-        systemMemoryUsageListener.updateSystemMemoryUsage(bytesAdded);
+        // safe to call get multiple times here as the supplier will
+        // return the same local memory context instance for this particular task
+        memoryContextSupplier.get().addBytes(bytesAdded);
         bufferedBytes.addAndGet(bytesAdded);
         synchronized (this) {
             if (!isFull() && !notFull.isDone()) {

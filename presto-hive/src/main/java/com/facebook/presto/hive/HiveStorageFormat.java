@@ -98,14 +98,14 @@ public enum HiveStorageFormat
     private final String serde;
     private final String inputFormat;
     private final String outputFormat;
-    private final DataSize estimatedWriterSystemMemoryUsage;
+    private final DataSize estimatedWriterMemoryUsage;
 
-    HiveStorageFormat(String serde, String inputFormat, String outputFormat, DataSize estimatedWriterSystemMemoryUsage)
+    HiveStorageFormat(String serde, String inputFormat, String outputFormat, DataSize estimatedWriterMemoryUsage)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
         this.outputFormat = requireNonNull(outputFormat, "outputFormat is null");
-        this.estimatedWriterSystemMemoryUsage = requireNonNull(estimatedWriterSystemMemoryUsage, "estimatedWriterSystemMemoryUsage is null");
+        this.estimatedWriterMemoryUsage = requireNonNull(estimatedWriterMemoryUsage, "estimatedWriterMemoryUsage is null");
     }
 
     public String getSerDe()
@@ -123,9 +123,9 @@ public enum HiveStorageFormat
         return outputFormat;
     }
 
-    public DataSize getEstimatedWriterSystemMemoryUsage()
+    public DataSize getEstimatedWriterMemoryUsage()
     {
-        return estimatedWriterSystemMemoryUsage;
+        return estimatedWriterMemoryUsage;
     }
 
     public void validateColumns(List<HiveColumnHandle> handles)

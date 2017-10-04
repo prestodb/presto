@@ -26,6 +26,8 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -172,9 +174,8 @@ public class MockRemoteTaskFactory
             this.taskStateMachine = new TaskStateMachine(requireNonNull(taskId, "taskId is null"), requireNonNull(executor, "executor is null"));
 
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-            MemoryPool memorySystemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor, scheduledExecutor, new DataSize(1, MEGABYTE), spillSpaceTracker);
+            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, executor, scheduledExecutor, new DataSize(1, MEGABYTE), spillSpaceTracker);
             this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true);
 
             this.location = URI.create("fake://task/" + taskId);
@@ -184,7 +185,7 @@ public class MockRemoteTaskFactory
                     TASK_INSTANCE_ID,
                     executor,
                     requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"),
-                    new UpdateSystemMemory(queryContext));
+                    () -> new LocalMemoryContext(new AggregatedMemoryContext()));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -371,28 +372,6 @@ public class MockRemoteTaskFactory
                 return 0;
             }
             return getPartitionedSplitCount() - runningDrivers;
-        }
-
-        private static final class UpdateSystemMemory
-                implements SystemMemoryUsageListener
-        {
-            private final QueryContext queryContext;
-
-            public UpdateSystemMemory(QueryContext queryContext)
-            {
-                this.queryContext = requireNonNull(queryContext, "queryContext is null");
-            }
-
-            @Override
-            public void updateSystemMemoryUsage(long deltaMemoryInBytes)
-            {
-                if (deltaMemoryInBytes > 0) {
-                    queryContext.reserveSystemMemory(deltaMemoryInBytes);
-                }
-                else {
-                    queryContext.freeSystemMemory(-deltaMemoryInBytes);
-                }
-            }
         }
     }
 }

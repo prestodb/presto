@@ -90,7 +90,7 @@ public class HivePageSink
 
     private final ConnectorSession session;
 
-    private long systemMemoryUsage;
+    private long memoryUsage;
 
     public HivePageSink(
             HiveWriterFactory writerFactory,
@@ -162,9 +162,9 @@ public class HivePageSink
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryUsage;
+        return memoryUsage;
     }
 
     @Override
@@ -289,9 +289,9 @@ public class HivePageSink
 
             HiveWriter writer = writers.get(writerIndex);
 
-            long currentMemory = writer.getSystemMemoryUsage();
+            long currentMemory = writer.getMemoryUsage();
             writer.append(pageForWriter);
-            systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+            memoryUsage += (writer.getMemoryUsage() - currentMemory);
 
             currentWriterPositions.clear();
         }
@@ -310,7 +310,7 @@ public class HivePageSink
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
             writers.add(null);
             WriterPositions newWriterPositions = new WriterPositions();
-            systemMemoryUsage += sizeOf(newWriterPositions.getPositionsArray());
+            memoryUsage += sizeOf(newWriterPositions.getPositionsArray());
             writerPositions.add(newWriterPositions);
         }
 

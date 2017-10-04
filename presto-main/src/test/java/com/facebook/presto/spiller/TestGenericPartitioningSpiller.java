@@ -16,12 +16,11 @@ package com.facebook.presto.spiller;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.operator.TestingOperatorContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
+import com.facebook.presto.spi.memory.LocalMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.PartitioningSpiller.PartitioningSpillResult;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -37,6 +36,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.IntPredicate;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -93,7 +93,7 @@ public class TestGenericPartitioningSpiller
                 TYPES,
                 new FourFixedPartitionsPartitionFunction(0),
                 mockSpillContext(),
-                mockMemoryContext())) {
+                () -> new LocalMemoryContext(new AggregatedMemoryContext()))) {
             RowPagesBuilder builder = RowPagesBuilder.rowPagesBuilder(TYPES);
             builder.addSequencePage(10, SECOND_PARTITION_START, 5, 10, 15);
             builder.addSequencePage(10, FIRST_PARTITION_START, -5, 0, 5);
@@ -149,7 +149,7 @@ public class TestGenericPartitioningSpiller
                 TYPES,
                 new ModuloPartitionFunction(0, 4),
                 mockSpillContext(),
-                mockMemoryContext())) {
+                () -> new LocalMemoryContext(new AggregatedMemoryContext()))) {
             Page page = SequencePageBuilder.createSequencePage(TYPES, 10, FIRST_PARTITION_START, 5, 10, 15);
             PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
             assertEquals(spillResult.getRetained().getPositionCount(), 0);
@@ -174,20 +174,19 @@ public class TestGenericPartitioningSpiller
     {
         List<Type> types = ImmutableList.of(BIGINT);
         int partitionCount = 4;
-        AggregatedMemoryContext memoryContext = mockMemoryContext();
-
+        MockMemoryContextSupplier mockMemoryContextSupplier = new MockMemoryContextSupplier();
         try (GenericPartitioningSpiller spiller = (GenericPartitioningSpiller) factory.create(
                 types,
                 new ModuloPartitionFunction(0, partitionCount),
                 mockSpillContext(),
-                memoryContext)) {
+                mockMemoryContextSupplier)) {
             for (int i = 0; i < 50_000; i++) {
                 Page page = SequencePageBuilder.createSequencePage(types, partitionCount, 0);
                 PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
                 assertEquals(spillResult.getRetained().getPositionCount(), 0);
                 getFutureValue(spillResult.getSpillingFuture());
                 getFutureValue(spiller.flush());
-                assertEquals(memoryContext.getBytes(), 0, "Reserved bytes should be zeroed after spill completes");
+                assertEquals(mockMemoryContextSupplier.getBytes(), 0, "Reserved bytes should be zeroed after spill completes");
             }
         }
     }
@@ -208,17 +207,9 @@ public class TestGenericPartitioningSpiller
         }
     }
 
-    private static AggregatedMemoryContext mockMemoryContext()
-    {
-        // It's important to use OperatorContext's system memory context, because it does additional bookkeeping.
-        return TestingOperatorContext.create()
-                .getSystemMemoryContext()
-                .newAggregatedMemoryContext();
-    }
-
     private static SpillContext mockSpillContext()
     {
-        return bytes -> {};
+        return new SpillContext();
     }
 
     private static class FourFixedPartitionsPartitionFunction
@@ -278,6 +269,23 @@ public class TestGenericPartitioningSpiller
         {
             long value = page.getBlock(valueChannel).getLong(position, 0);
             return toIntExact(Math.abs(value) % partitionCount);
+        }
+    }
+
+    private static class MockMemoryContextSupplier
+            implements Supplier<LocalMemoryContext>
+    {
+        private final AggregatedMemoryContext aggregatedMemoryContext = new AggregatedMemoryContext();
+
+        @Override
+        public LocalMemoryContext get()
+        {
+            return new LocalMemoryContext(aggregatedMemoryContext);
+        }
+
+        public long getBytes()
+        {
+            return aggregatedMemoryContext.getBytes();
         }
     }
 }

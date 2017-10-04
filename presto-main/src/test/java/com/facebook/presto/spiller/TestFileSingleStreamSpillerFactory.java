@@ -14,11 +14,11 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -93,7 +93,7 @@ public class TestFileSingleStreamSpillerFactory
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
         for (int i = 0; i < 10; ++i) {
-            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, new AggregatedMemoryContext().newLocalMemoryContext());
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, new SpillContext(), new AggregatedMemoryContext().newLocalMemoryContext());
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
@@ -125,7 +125,7 @@ public class TestFileSingleStreamSpillerFactory
                 spillPaths,
                 0.0);
 
-        spillerFactory.create(types, bytes -> {}, new AggregatedMemoryContext().newLocalMemoryContext());
+        spillerFactory.create(types, new SpillContext(), new AggregatedMemoryContext().newLocalMemoryContext());
     }
 
     @Test

@@ -356,7 +356,7 @@ public class TestScanFilterAndProjectOperator
         }
 
         @Override
-        public long getSystemMemoryUsage()
+        public long getMemoryUsage()
         {
             return 0;
         }
