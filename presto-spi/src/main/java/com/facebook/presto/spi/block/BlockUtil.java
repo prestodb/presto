@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 import java.util.List;
 import java.util.Set;
 
+import static java.lang.Math.ceil;
 import static java.util.stream.Collectors.toSet;
 
 final class BlockUtil
@@ -65,7 +66,7 @@ final class BlockUtil
 
     static int calculateBlockResetSize(int currentSize)
     {
-        long newSize = (long) Math.ceil(currentSize * BLOCK_RESET_SKEW);
+        long newSize = (long) ceil(currentSize * BLOCK_RESET_SKEW);
 
         // verify new size is within reasonable bounds
         if (newSize < DEFAULT_CAPACITY) {
@@ -75,5 +76,14 @@ final class BlockUtil
             newSize = MAX_ARRAY_SIZE;
         }
         return (int) newSize;
+    }
+
+    static int calculateBlockResetBytes(int currentBytes)
+    {
+        long newBytes = (long) ceil(currentBytes * BLOCK_RESET_SKEW);
+        if (newBytes > MAX_ARRAY_SIZE) {
+            return MAX_ARRAY_SIZE;
+        }
+        return (int) newBytes;
     }
 }
