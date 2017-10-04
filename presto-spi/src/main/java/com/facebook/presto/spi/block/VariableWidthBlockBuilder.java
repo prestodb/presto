@@ -26,12 +26,14 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
+import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetBytes;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.min;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
@@ -56,12 +58,12 @@ public class VariableWidthBlockBuilder
 
     private long arraysRetainedSizeInBytes;
 
-    public VariableWidthBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public VariableWidthBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytes)
     {
         this.blockBuilderStatus = blockBuilderStatus;
 
         initialEntryCount = expectedEntries;
-        initialSliceOutputSize = (int) Math.min((long) expectedBytesPerEntry * expectedEntries, MAX_ARRAY_SIZE);
+        initialSliceOutputSize = min(expectedBytes, MAX_ARRAY_SIZE);
 
         updateArraysDataSize();
     }
@@ -314,8 +316,8 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
-        int expectedBytesPerEntry = positions == 0 ? positions : (getOffset(positions) - getOffset(0)) / positions;
-        return new VariableWidthBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positions), expectedBytesPerEntry);
+        int currentSizeInBytes = positions == 0 ? positions : (getOffset(positions) - getOffset(0));
+        return new VariableWidthBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positions), calculateBlockResetBytes(currentSizeInBytes));
     }
 
     private int getOffset(int position)

@@ -119,7 +119,7 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testVariableWidthBlock()
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, 4);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, 4 * EXPECTED_ENTRIES);
         writeEntries(EXPECTED_ENTRIES, blockBuilder, VARCHAR);
         checkRetainedSize(blockBuilder.build(), false);
     }
