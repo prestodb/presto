@@ -120,7 +120,7 @@ public class StatementResource
 
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
-    private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
+    private static final DataSize DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE);
 
     private final QueryManager queryManager;
     private final SessionPropertyManager sessionPropertyManager;
@@ -179,7 +179,7 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS));
+        return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS), DESIRED_RESULT_BYTES);
     }
 
     @GET
@@ -189,6 +189,7 @@ public class StatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
+            @QueryParam("desiredResults") double desiredResults,
             @Context UriInfo uriInfo)
             throws InterruptedException
     {
@@ -197,19 +198,25 @@ public class StatementResource
             return Response.status(Status.NOT_FOUND).build();
         }
 
+        DataSize resultsSize = DESIRED_RESULT_BYTES;
+
+        if (desiredResults != 0) {
+            resultsSize = new DataSize(desiredResults, MEGABYTE);
+        }
+
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        return getQueryResults(query, Optional.of(token), uriInfo, wait);
+        return getQueryResults(query, Optional.of(token), uriInfo, wait, resultsSize);
     }
 
-    private static Response getQueryResults(Query query, Optional<Long> token, UriInfo uriInfo, Duration wait)
+    private static Response getQueryResults(Query query, Optional<Long> token, UriInfo uriInfo, Duration wait, DataSize resultsSize)
             throws InterruptedException
     {
         QueryResults queryResults;
         if (token.isPresent()) {
-            queryResults = query.getResults(token.get(), uriInfo, wait);
+            queryResults = query.getResults(token.get(), uriInfo, wait, resultsSize);
         }
         else {
-            queryResults = query.getNextResults(uriInfo, wait);
+            queryResults = query.getNextResults(uriInfo, wait, resultsSize);
         }
 
         ResponseBuilder response = Response.ok(queryResults);
@@ -380,7 +387,7 @@ public class StatementResource
             return clearTransactionId;
         }
 
-        public synchronized QueryResults getResults(long token, UriInfo uriInfo, Duration maxWaitTime)
+        public synchronized QueryResults getResults(long token, UriInfo uriInfo, Duration maxWaitTime, DataSize resultsSize)
                 throws InterruptedException
         {
             // is the a repeated request for the last results?
@@ -402,13 +409,13 @@ public class StatementResource
                 throw new WebApplicationException(Status.NOT_FOUND);
             }
 
-            return getNextResults(uriInfo, maxWaitTime);
+            return getNextResults(uriInfo, maxWaitTime, resultsSize);
         }
 
-        public synchronized QueryResults getNextResults(UriInfo uriInfo, Duration maxWaitTime)
+        public synchronized QueryResults getNextResults(UriInfo uriInfo, Duration maxWaitTime, DataSize resultsSize)
                 throws InterruptedException
         {
-            Iterable<List<Object>> data = getData(maxWaitTime);
+            Iterable<List<Object>> data = getData(maxWaitTime, resultsSize);
 
             // get the query info before returning
             // force update if query manager is closed
@@ -492,7 +499,7 @@ public class StatementResource
             return queryResults;
         }
 
-        private synchronized Iterable<List<Object>> getData(Duration maxWait)
+        private synchronized Iterable<List<Object>> getData(Duration maxWait, DataSize resultsSize)
                 throws InterruptedException
         {
             // wait for query to start
@@ -520,7 +527,7 @@ public class StatementResource
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
             // wait up to max wait for data to arrive; then try to return at least DESIRED_RESULT_BYTES
             long bytes = 0;
-            while (bytes < DESIRED_RESULT_BYTES) {
+            while (bytes < resultsSize.toBytes()) {
                 SerializedPage serializedPage = exchangeClient.getNextPage(maxWait);
                 if (serializedPage == null) {
                     break;
