@@ -77,25 +77,25 @@ public class TestQueues
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
             // submit first "dashboard" query
-            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
 
             // wait for the first "dashboard" query to start
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
             // submit second "dashboard" query
-            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
 
             // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
             // submit first non "dashboard" query
-            QueryId firstNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
+            QueryId firstNonDashboardQuery = createAdHocQuery(queryRunner);
 
             // wait for the first non "dashboard" query to start
             waitForQueryState(queryRunner, firstNonDashboardQuery, RUNNING);
 
             // submit second non "dashboard" query
-            QueryId secondNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
+            QueryId secondNonDashboardQuery = createAdHocQuery(queryRunner);
 
             // wait for the second non "dashboard" query to start
             waitForQueryState(queryRunner, secondNonDashboardQuery, RUNNING);
@@ -137,8 +137,8 @@ public class TestQueues
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
-            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
-            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
+            QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
 
             ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
             waitForQueryState(queryRunner, firstDashboardQuery, queuedOrRunning);
@@ -176,13 +176,13 @@ public class TestQueues
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
-            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
-            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
-            QueryId thirdDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId thirdDashboardQuery = createDashboardQuery(queryRunner);
             waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
         }
     }
@@ -220,7 +220,7 @@ public class TestQueues
     private void assertResourceGroup(DistributedQueryRunner queryRunner, String query, String expectedResourceGroup)
             throws InterruptedException
     {
-        QueryId queryId = createQuery(queryRunner, newSession(), query);
+        QueryId queryId = createQuery(queryRunner, newAdhocSession(), query);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
         Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
         assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
@@ -255,30 +255,32 @@ public class TestQueues
         return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
-    private static Session newSession()
+    private QueryId createDashboardQuery(DistributedQueryRunner queryRunner)
     {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("adhoc")
-                .build();
+        return createQuery(queryRunner, newSession("dashboard"), LONG_LASTING_QUERY);
     }
 
-    private static Session newDashboardSession()
+    private QueryId createAdHocQuery(DistributedQueryRunner queryRunner)
     {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("dashboard")
-                .build();
+        return createQuery(queryRunner, newAdhocSession(), LONG_LASTING_QUERY);
+    }
+
+    private static Session newAdhocSession()
+    {
+        return newSession("adhoc");
     }
 
     private static Session newRejectionSession()
     {
+        return newSession("reject");
+    }
+
+    private static Session newSession(String source)
+    {
         return testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("sf100000")
-                .setSource("reject")
+                .setSource(source)
                 .build();
     }
 }
