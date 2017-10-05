@@ -1,0 +1,49 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "maxRunning": 100,
+      "maxQueued": 1000,
+      "subGroups": [
+        {
+          "name": "pipeline",
+          "softMemoryLimit": "1MB",
+          "maxRunning": 3,
+          "maxQueued": 3,
+          "schedulingPolicy": "WEIGHTED",
+          "subGroups": [
+            {
+              "name": "scheduled",
+              "softMemoryLimit": "1MB",
+              "targetRunning": 2,
+              "maxRunning": 3,
+              "schedulingWeight": 100,
+              "burstSchedulingWeight": 10,
+              "maxQueued": 3
+            },
+            {
+              "name": "backfill",
+              "softMemoryLimit": "1MB",
+              "targetRunning": 1,
+              "maxRunning": 3,
+              "schedulingWeight": 1000,
+              "burstSchedulingWeight": 1,
+              "maxQueued": 1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "source": "(?i).*backfill.*",
+      "group": "global.pipeline.backfill"
+    },
+    {
+      "source": "(?i).*scheduled.*",
+      "group": "global.pipeline.scheduled"
+    }
+  ]
+}

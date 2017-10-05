@@ -191,14 +191,17 @@ public abstract class AbstractResourceConfigurationManager
             }
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
+        group.setTargetRunningQueries(match.getTargetRunningQueries().orElse(match.getMaxRunning()));
         group.setMaxRunningQueries(match.getMaxRunning());
         match.getQueuedTimeLimit().ifPresent(group::setQueuedTimeLimit);
         match.getRunningTimeLimit().ifPresent(group::setRunningTimeLimit);
         match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
         match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
+        match.getBurstSchedulingWeight().ifPresent(group::setBurstSchedulingWeight);
         match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
         match.getSoftCpuLimit().ifPresent(group::setSoftCpuLimit);
         match.getHardCpuLimit().ifPresent(group::setHardCpuLimit);
+
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
             // This will never throw an exception if the validateRootGroups method succeeds
             checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");

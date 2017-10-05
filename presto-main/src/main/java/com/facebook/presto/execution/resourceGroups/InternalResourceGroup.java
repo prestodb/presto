@@ -91,6 +91,8 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long softMemoryLimitBytes;
     @GuardedBy("root")
+    private int targetRunningQueries;
+    @GuardedBy("root")
     private int maxRunningQueries;
     @GuardedBy("root")
     private int maxQueuedQueries;
@@ -111,6 +113,8 @@ public class InternalResourceGroup
     private long cachedMemoryUsageBytes;
     @GuardedBy("root")
     private int schedulingWeight = DEFAULT_WEIGHT;
+    @GuardedBy("root")
+    private int burstSchedulingWeight = DEFAULT_WEIGHT;
     @GuardedBy("root")
     private UpdateablePriorityQueue<QueryExecution> queuedQueries = new FifoQueue<>();
     @GuardedBy("root")
@@ -353,6 +357,27 @@ public class InternalResourceGroup
         }
     }
 
+    @Override
+    public int getTargetRunningQueries()
+    {
+        synchronized (root) {
+            return targetRunningQueries;
+        }
+    }
+
+    @Override
+    public void setTargetRunningQueries(int targetRunningQueries)
+    {
+        checkArgument(targetRunningQueries >= 0, "targetRunningQueries is negative");
+        synchronized (root) {
+            boolean oldCanRun = canRunMore();
+            this.targetRunningQueries = targetRunningQueries;
+            if (canRunMore() != oldCanRun) {
+                updateEligiblility();
+            }
+        }
+    }
+
     @Managed
     @Override
     public int getMaxRunningQueries()
@@ -410,7 +435,25 @@ public class InternalResourceGroup
         synchronized (root) {
             this.schedulingWeight = weight;
             if (parent.isPresent() && parent.get().schedulingPolicy == WEIGHTED && parent.get().eligibleSubGroups.contains(this)) {
-                parent.get().eligibleSubGroups.addOrUpdate(this, weight);
+                parent.get().eligibleSubGroups.addOrUpdate(this, computeSchedulingWeight());
+            }
+        }
+    }
+
+    @Override
+    public int getBurstSchedulingWeight()
+    {
+        return burstSchedulingWeight;
+    }
+
+    @Override
+    public void setBurstSchedulingWeight(int burstSchedulingWeight)
+    {
+        checkArgument(burstSchedulingWeight > 0, "weight must be positive");
+        synchronized (root) {
+            this.burstSchedulingWeight = burstSchedulingWeight;
+            if (parent.isPresent() && parent.get().schedulingPolicy == WEIGHTED && parent.get().eligibleSubGroups.contains(this)) {
+                parent.get().eligibleSubGroups.addOrUpdate(this, computeSchedulingWeight());
             }
         }
     }
@@ -775,8 +818,17 @@ public class InternalResourceGroup
             return group.getHighestQueryPriority();
         }
         else {
-            return group.getSchedulingWeight();
+            return group.computeSchedulingWeight();
         }
+    }
+
+    private int computeSchedulingWeight()
+    {
+        if (runningQueries.size() + descendantRunningQueries >= targetRunningQueries) {
+            return burstSchedulingWeight;
+        }
+
+        return schedulingWeight;
     }
 
     private boolean isDirty()
@@ -828,6 +880,7 @@ public class InternalResourceGroup
 
             int maxRunning = maxRunningQueries;
             if (cpuUsageMillis >= softCpuLimitMillis) {
+                // TODO: Consider whether cpu limit math should be performed on target running or max running
                 // Linear penalty between soft and hard limit
                 double penalty = (cpuUsageMillis - softCpuLimitMillis) / (double) (hardCpuLimitMillis - softCpuLimitMillis);
                 maxRunning = (int) Math.floor(maxRunning * (1 - penalty));

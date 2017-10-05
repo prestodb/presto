@@ -29,9 +29,11 @@ public class TestingResourceGroup
     private Duration softCpuLimit;
     private Duration hardCpuLimit;
     private long quotaGenerationRate;
+    private int targetRunning;
     private int maxRunning;
     private int maxQueued;
     private int schedulingWeight;
+    private int burstSchedulingWeight;
     private SchedulingPolicy policy;
     private boolean jmxExport;
     private Duration queuedTimeLimit;
@@ -97,6 +99,18 @@ public class TestingResourceGroup
     }
 
     @Override
+    public int getTargetRunningQueries()
+    {
+        return targetRunning;
+    }
+
+    @Override
+    public void setTargetRunningQueries(int targetRunningQueries)
+    {
+        targetRunning = targetRunningQueries;
+    }
+
+    @Override
     public int getMaxRunningQueries()
     {
         return maxRunning;
@@ -130,6 +144,18 @@ public class TestingResourceGroup
     public void setSchedulingWeight(int weight)
     {
         schedulingWeight = weight;
+    }
+
+    @Override
+    public int getBurstSchedulingWeight()
+    {
+        return burstSchedulingWeight;
+    }
+
+    @Override
+    public void setBurstSchedulingWeight(int burstWeight)
+    {
+        burstSchedulingWeight = burstWeight;
     }
 
     @Override

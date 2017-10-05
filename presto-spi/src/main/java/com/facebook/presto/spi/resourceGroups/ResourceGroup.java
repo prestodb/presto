@@ -50,6 +50,14 @@ public interface ResourceGroup
      */
     void setCpuQuotaGenerationMillisPerSecond(long rate);
 
+    int getTargetRunningQueries();
+
+    /**
+     * The target number of concurrently running queries, after which
+     * the weight for this group will switch to burstSchedulingWeight.
+     */
+    void setTargetRunningQueries(int targetRunningQueries);
+
     int getMaxRunningQueries();
 
     /**
@@ -68,9 +76,17 @@ public interface ResourceGroup
     int getSchedulingWeight();
 
     /**
-     * Scheduling weight of this group in its parent group.
+     * Scheduling weight of this group in its parent group until target is reached.
      */
     void setSchedulingWeight(int weight);
+
+    int getBurstSchedulingWeight();
+
+    /**
+     * Scheduling weight of this group in its parent group when the number of running
+     * queries exceeds the target
+     */
+    void setBurstSchedulingWeight(int burstWeight);
 
     SchedulingPolicy getSchedulingPolicy();
 

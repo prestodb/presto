@@ -53,7 +53,7 @@ public class TestQueues
         testBasic(false);
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 240_000, invocationCount = 100)
     public void testResourceGroupManager()
             throws Exception
     {
@@ -105,6 +105,70 @@ public class TestQueues
             waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
         }
+    }
+
+    @Test(timeOut = 240_000)
+    public void testBurst()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_burst.json")));
+
+            QueryId scheduled1 = createScheduledQuery(queryRunner);
+            waitForQueryState(queryRunner, scheduled1, RUNNING);
+
+            QueryId scheduled2 = createScheduledQuery(queryRunner);
+            waitForQueryState(queryRunner, scheduled2, RUNNING);
+
+            QueryId scheduled3 = createScheduledQuery(queryRunner);
+            waitForQueryState(queryRunner, scheduled3, RUNNING);
+
+            // cluster is now 'at capacity' - 3 scheduled are running in 'burst' mode
+
+            QueryId backfill1 = createBackfill(queryRunner);
+            QueryId scheduled4 = createScheduledQuery(queryRunner);
+
+            cancelQuery(queryRunner, scheduled1);
+
+            // backfill should be chosen to run next
+            waitForQueryState(queryRunner, backfill1, RUNNING);
+
+            cancelQuery(queryRunner, scheduled2);
+            cancelQuery(queryRunner, scheduled3);
+            cancelQuery(queryRunner, scheduled4);
+
+            QueryId backfill2 = createBackfill(queryRunner);
+            waitForQueryState(queryRunner, backfill2, RUNNING);
+
+            QueryId backfill3 = createBackfill(queryRunner);
+            waitForQueryState(queryRunner, backfill3, RUNNING);
+
+            // cluster is now 'at capacity' - 3 backfills are running in 'burst' mode
+
+            QueryId backfill4 = createBackfill(queryRunner);
+            QueryId scheduled5 = createScheduledQuery(queryRunner);
+            cancelQuery(queryRunner, backfill1);
+
+            // scheduled should be chosen to run next
+            waitForQueryState(queryRunner, scheduled5, RUNNING);
+            cancelQuery(queryRunner, backfill2);
+            cancelQuery(queryRunner, backfill3);
+            cancelQuery(queryRunner, backfill4);
+            cancelQuery(queryRunner, scheduled5);
+
+            waitForQueryState(queryRunner, scheduled5, FAILED);
+        }
+    }
+
+    private QueryId createBackfill(DistributedQueryRunner queryRunner)
+    {
+        return createQuery(queryRunner, newSession("backfill"), LONG_LASTING_QUERY);
+    }
+
+    private QueryId createScheduledQuery(DistributedQueryRunner queryRunner)
+    {
+        return createQuery(queryRunner, newSession("scheduled"), LONG_LASTING_QUERY);
     }
 
     @Test(timeOut = 240_000)
