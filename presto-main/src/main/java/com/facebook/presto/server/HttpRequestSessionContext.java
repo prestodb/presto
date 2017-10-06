@@ -140,36 +140,43 @@ public final class HttpRequestSessionContext
         transactionId = parseTransactionId(transactionIdHeader);
     }
 
+    @Override
     public Identity getIdentity()
     {
         return identity;
     }
 
+    @Override
     public String getCatalog()
     {
         return catalog;
     }
 
+    @Override
     public String getSchema()
     {
         return schema;
     }
 
+    @Override
     public String getSource()
     {
         return source;
     }
 
+    @Override
     public String getRemoteUserAddress()
     {
         return remoteUserAddress;
     }
 
+    @Override
     public String getUserAgent()
     {
         return userAgent;
     }
 
+    @Override
     public String getClientInfo()
     {
         return clientInfo;
@@ -181,36 +188,43 @@ public final class HttpRequestSessionContext
         return clientTags;
     }
 
+    @Override
     public String getTimeZoneId()
     {
         return timeZoneId;
     }
 
+    @Override
     public String getLanguage()
     {
         return language;
     }
 
+    @Override
     public Map<String, String> getSystemProperties()
     {
         return systemProperties;
     }
 
+    @Override
     public Map<String, Map<String, String>> getCatalogSessionProperties()
     {
         return catalogSessionProperties;
     }
 
+    @Override
     public Map<String, String> getPreparedStatements()
     {
         return preparedStatements;
     }
 
+    @Override
     public Optional<TransactionId> getTransactionId()
     {
         return transactionId;
     }
 
+    @Override
     public boolean supportClientTransaction()
     {
         return clientTransactionSupport;
