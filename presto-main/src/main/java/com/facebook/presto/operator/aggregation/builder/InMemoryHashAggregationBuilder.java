@@ -19,6 +19,7 @@ import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
@@ -42,12 +43,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryHashAggregationBuilder
@@ -71,7 +73,8 @@ public class InMemoryHashAggregationBuilder
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             DataSize maxPartialMemory,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            boolean yieldForMemoryReservation)
     {
         this(accumulatorFactories,
                 step,
@@ -82,7 +85,8 @@ public class InMemoryHashAggregationBuilder
                 operatorContext,
                 maxPartialMemory,
                 Optional.empty(),
-                joinCompiler);
+                joinCompiler,
+                yieldForMemoryReservation);
     }
 
     public InMemoryHashAggregationBuilder(
@@ -95,9 +99,30 @@ public class InMemoryHashAggregationBuilder
             OperatorContext operatorContext,
             DataSize maxPartialMemory,
             Optional<Integer> overwriteIntermediateChannelOffset,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            boolean yieldForMemoryReservation)
     {
-        this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups, isDictionaryAggregationEnabled(operatorContext.getSession()), joinCompiler, this::updateMemoryWithYieldInfo);
+        UpdateMemory updateMemory;
+        if (yieldForMemoryReservation) {
+            updateMemory = this::updateMemoryWithYieldInfo;
+        }
+        else {
+            // Report memory usage but do not yield for memory.
+            // This is specially used for spillable hash aggregation operator.
+            // TODO: revisit this when spillable hash aggregation operator is turned on
+            updateMemory = () -> {
+                updateMemoryWithYieldInfo();
+                return true;
+            };
+        }
+        this.groupByHash = createGroupByHash(
+                groupByTypes,
+                Ints.toArray(groupByChannels),
+                hashChannel,
+                expectedGroups,
+                isDictionaryAggregationEnabled(operatorContext.getSession()),
+                joinCompiler,
+                updateMemory);
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.toBytes();
@@ -129,24 +154,21 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public void processPage(Page page)
+    public Work<?> processPage(Page page)
     {
         if (aggregators.isEmpty()) {
-            Work<?> work = groupByHash.addPage(page);
-            boolean done = work.process();
-            // TODO: change the interface and enable yield
-            verify(done);
+            return groupByHash.addPage(page);
         }
         else {
-            Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
-            boolean done = work.process();
-            // TODO: change the interface and enable yield
-            verify(done);
-            GroupByIdBlock groupIds = work.getResult();
-
-            for (Aggregator aggregator : aggregators) {
-                aggregator.processPage(groupIds, page);
-            }
+            return new TransformWork<>(
+                    groupByHash.getGroupIds(page),
+                    groupByIdBlock -> {
+                        for (Aggregator aggregator : aggregators) {
+                            aggregator.processPage(groupByIdBlock, page);
+                        }
+                        // we do not need any output from TransformWork for this case
+                        return null;
+                    });
         }
     }
 
@@ -426,5 +448,40 @@ public class InMemoryHashAggregationBuilder
             types.add(new Aggregator(factory, step, Optional.empty()).getType());
         }
         return types.build();
+    }
+
+    private static class TransformWork<I, O>
+            implements Work<O>
+    {
+        private final Work<I> prerequisite;
+        private final Function<I, O> transform;
+
+        private boolean finished;
+        private O result;
+
+        public TransformWork(Work<I> prerequisite, Function<I, O> transform)
+        {
+            this.prerequisite = requireNonNull(prerequisite, "prerequisite is null");
+            this.transform = requireNonNull(transform, "transform is null");
+        }
+
+        @Override
+        public boolean process()
+        {
+            checkState(!finished);
+            finished = prerequisite.process();
+            if (!finished) {
+                return false;
+            }
+            result = transform.apply(prerequisite.getResult());
+            return true;
+        }
+
+        @Override
+        public O getResult()
+        {
+            checkState(finished, "process has not finished");
+            return result;
+        }
     }
 }
