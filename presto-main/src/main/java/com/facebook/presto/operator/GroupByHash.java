@@ -70,7 +70,5 @@ public interface GroupByHash
 
     boolean contains(int position, Page page, int[] hashChannels);
 
-    int putIfAbsent(int position, Page page);
-
     long getRawHash(int groupyId);
 }
