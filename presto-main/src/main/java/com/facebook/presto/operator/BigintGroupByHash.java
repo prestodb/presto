@@ -34,7 +34,6 @@ import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.toIntExact;
@@ -158,23 +157,17 @@ public class BigintGroupByHash
     }
 
     @Override
-    public void addPage(Page page)
+    public Work<?> addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        boolean done = new AddPageWork(page.getBlock(hashChannel)).process();
-        // TODO: (1) change the interface and (2) remove this with yield enabled
-        verify(done);
+        return new AddPageWork(page.getBlock(hashChannel));
     }
 
     @Override
-    public GroupByIdBlock getGroupIds(Page page)
+    public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Work<GroupByIdBlock> work = new GetGroupIdsWork(page.getBlock(hashChannel));
-        boolean done = work.process();
-        // TODO: (1) change the interface and (2) remove this with yield enabled
-        verify(done);
-        return work.getResult();
+        return new GetGroupIdsWork(page.getBlock(hashChannel));
     }
 
     @Override

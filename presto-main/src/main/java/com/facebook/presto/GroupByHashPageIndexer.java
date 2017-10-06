@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.type.Type;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.UpdateMemory.NOOP;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -53,7 +55,11 @@ public class GroupByHashPageIndexer
     @Override
     public int[] indexPage(Page page)
     {
-        GroupByIdBlock groupIds = hash.getGroupIds(page);
+        Work<GroupByIdBlock> work = hash.getGroupIds(page);
+        boolean done = work.process();
+        // TODO: this class does not yield wrt memory limit; enable it
+        verify(done);
+        GroupByIdBlock groupIds = work.getResult();
         int[] indexes = new int[page.getPositionCount()];
         for (int i = 0; i < indexes.length; i++) {
             indexes[i] = toIntExact(groupIds.getGroupId(i));

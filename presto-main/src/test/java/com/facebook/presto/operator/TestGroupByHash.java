@@ -69,11 +69,13 @@ public class TestGroupByHash
                 Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(BIGINT), block);
                 Page page = new Page(block, hashBlock);
                 for (int addValuesTries = 0; addValuesTries < 10; addValuesTries++) {
-                    groupByHash.addPage(page);
+                    groupByHash.addPage(page).process();
                     assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
 
                     // add the page again using get group ids and make sure the group count didn't change
-                    GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
+                    Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+                    work.process();
+                    GroupByIdBlock groupIds = work.getResult();
                     assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
                     assertEquals(groupIds.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
 
@@ -95,13 +97,13 @@ public class TestGroupByHash
         Block block = createLongsBlock((Long) null);
         Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
         Page page = new Page(block, hashBlock);
-        groupByHash.addPage(page);
+        groupByHash.addPage(page).process();
 
         // Add enough values to force a rehash
         block = createLongSequenceBlock(1, 132748);
         hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
         page = new Page(block, hashBlock);
-        groupByHash.addPage(page);
+        groupByHash.addPage(page).process();
 
         block = createLongsBlock(0);
         hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
@@ -120,7 +122,9 @@ public class TestGroupByHash
                 Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(BIGINT), block);
                 Page page = new Page(block, hashBlock);
                 for (int addValuesTries = 0; addValuesTries < 10; addValuesTries++) {
-                    GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
+                    Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+                    work.process();
+                    GroupByIdBlock groupIds = work.getResult();
                     assertEquals(groupIds.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
                     assertEquals(groupIds.getPositionCount(), 1);
                     long groupId = groupIds.getGroupId(0);
@@ -147,7 +151,9 @@ public class TestGroupByHash
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), valuesBlock);
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
 
-        GroupByIdBlock groupIds = groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
+        Work<GroupByIdBlock> work = groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
+        work.process();
+        GroupByIdBlock groupIds = work.getResult();
         for (int i = 0; i < groupIds.getPositionCount(); i++) {
             assertEquals(groupIds.getGroupId(i), i);
         }
@@ -180,7 +186,7 @@ public class TestGroupByHash
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
 
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
-        groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
+        groupByHash.getGroupIds(new Page(valuesBlock, hashBlock)).process();
         assertEquals(groupByHash.getGroupCount(), 50);
 
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
@@ -200,7 +206,7 @@ public class TestGroupByHash
         Block valuesBlock = BlockAssertions.createDoubleSequenceBlock(0, 10);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE), valuesBlock);
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
-        groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
+        groupByHash.getGroupIds(new Page(valuesBlock, hashBlock)).process();
 
         Block testBlock = BlockAssertions.createDoublesBlock((double) 3);
         Block testHashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE), testBlock);
@@ -220,7 +226,7 @@ public class TestGroupByHash
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), valuesBlock, stringValuesBlock);
         int[] hashChannels = {0, 1};
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE, VARCHAR), hashChannels, Optional.of(2), 100, JOIN_COMPILER);
-        groupByHash.getGroupIds(new Page(valuesBlock, stringValuesBlock, hashBlock));
+        groupByHash.getGroupIds(new Page(valuesBlock, stringValuesBlock, hashBlock)).process();
 
         Block testValuesBlock = BlockAssertions.createDoublesBlock((double) 3);
         Block testStringValuesBlock = BlockAssertions.createStringsBlock("3");
@@ -238,7 +244,7 @@ public class TestGroupByHash
 
         // Create group by hash with extremely small size
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 4, JOIN_COMPILER);
-        groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
+        groupByHash.getGroupIds(new Page(valuesBlock, hashBlock)).process();
 
         // Ensure that all groups are present in group by hash
         for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
@@ -277,7 +283,7 @@ public class TestGroupByHash
                     rehashCount.incrementAndGet();
                     return true;
                 });
-        groupByHash.addPage(new Page(valuesBlock, hashBlock));
+        groupByHash.addPage(new Page(valuesBlock, hashBlock)).process();
 
         // assert we call update memory every time we rehash; the rehash count = log2(length / FILL_RATIO)
         assertEquals(rehashCount.get(), log2(length / 0.75, RoundingMode.FLOOR));

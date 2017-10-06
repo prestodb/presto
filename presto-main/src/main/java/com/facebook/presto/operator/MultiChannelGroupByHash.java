@@ -209,38 +209,17 @@ public class MultiChannelGroupByHash
     }
 
     @Override
-    public void addPage(Page page)
+    public Work<?> addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        if (canProcessDictionary(page)) {
-            boolean done = new AddDictionaryPageWork(page).process();
-            // TODO: (1) change the interface and (2) remove this with yield enabled
-            verify(done);
-            return;
-        }
-
-        boolean done = new AddNonDictionaryPageWork(page).process();
-        // TODO: (1) change the interface and (2) remove this with yield enabled
-        verify(done);
+        return canProcessDictionary(page) ? new AddDictionaryPageWork(page) : new AddNonDictionaryPageWork(page);
     }
 
     @Override
-    public GroupByIdBlock getGroupIds(Page page)
+    public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        if (canProcessDictionary(page)) {
-            Work<GroupByIdBlock> work = new GetDictionaryGroupIdsWork(page);
-            boolean done = work.process();
-            // TODO: (1) change the interface and (2) remove this with yield enabled
-            verify(done);
-            return work.getResult();
-        }
-
-        Work<GroupByIdBlock> work = new GetNonDictionaryGroupIdsWork(page);
-        boolean done = work.process();
-        // TODO: (1) change the interface and (2) remove this with yield enabled
-        verify(done);
-        return work.getResult();
+        return canProcessDictionary(page) ? new GetDictionaryGroupIdsWork(page) : new GetNonDictionaryGroupIdsWork(page);
     }
 
     @Override
