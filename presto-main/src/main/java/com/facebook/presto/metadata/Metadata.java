@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableIdentity;
@@ -261,12 +262,12 @@ public interface Metadata
     /**
      * Returns the view definition for the specified view name.
      */
-    Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName);
+    Optional<ViewInfo> getView(Session session, QualifiedObjectName viewName);
 
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace);
+    void createView(Session session, String catalogName, ConnectorViewDefinition definition, boolean replace);
 
     /**
      * Drops the specified view.

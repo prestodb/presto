@@ -326,7 +326,7 @@ public interface ConnectorMetadata
     /**
      * Create the specified view. The data for the view is opaque to the connector.
      */
-    default void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    default void createView(ConnectorSession session, ConnectorViewDefinition definition, boolean replace)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
     }

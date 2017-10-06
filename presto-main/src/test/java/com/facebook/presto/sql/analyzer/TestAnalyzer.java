@@ -24,7 +24,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
@@ -34,6 +33,7 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -1579,7 +1579,12 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
+        ConnectorViewDefinition definition1 = new ConnectorViewDefinition(
+                new SchemaTableName("s1", "v1"),
+                Optional.of("user"),
+                viewData1,
+                Optional.empty());
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, definition1, false));
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1589,7 +1594,12 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
+        ConnectorViewDefinition definition2 = new ConnectorViewDefinition(
+                new SchemaTableName("s1", "v2"),
+                Optional.of("user"),
+                viewData2,
+                Optional.empty());
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, definition2, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1599,7 +1609,12 @@ public class TestAnalyzer
                         Optional.of("s2"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("owner")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
+        ConnectorViewDefinition definition3 = new ConnectorViewDefinition(
+                new SchemaTableName("s3", "v3"),
+                Optional.of("user"),
+                viewData3,
+                Optional.empty());
+        inSetupTransaction(session -> metadata.createView(session, THIRD_CATALOG, definition3, false));
 
         // valid view with uppercase column name
         String viewData4 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1609,7 +1624,12 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
+        ConnectorViewDefinition definition4 = new ConnectorViewDefinition(
+                new SchemaTableName("s1", "v4"),
+                Optional.of("user"),
+                viewData4,
+                Optional.empty());
+        inSetupTransaction(session -> metadata.createView(session, "tpch", definition4, false));
 
         // recursive view referencing to itself
         String viewData5 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1619,7 +1639,12 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+        ConnectorViewDefinition definition5 = new ConnectorViewDefinition(
+                new SchemaTableName("s1", "v5"),
+                Optional.of("user"),
+                viewData5,
+                Optional.empty());
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, definition5, false));
 
         this.metadata = metadata;
     }

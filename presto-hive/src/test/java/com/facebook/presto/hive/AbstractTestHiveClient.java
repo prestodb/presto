@@ -2002,7 +2002,7 @@ public abstract class AbstractTestHiveClient
     {
         String viewData = "test data";
         try (Transaction transaction = newTransaction()) {
-            transaction.getMetadata().createView(newSession(), viewName, viewData, replace);
+            transaction.getMetadata().createView(newSession(), new ConnectorViewDefinition(viewName, Optional.empty(), viewData, Optional.empty()), replace);
             transaction.commit();
         }
 

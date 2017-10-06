@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.metadata.ViewInfo;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.security.ViewAccessControl;
@@ -774,8 +775,8 @@ class StatementAnalyzer
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
 
-            Optional<ViewDefinition> optionalView = metadata.getView(session, name);
-            if (optionalView.isPresent()) {
+            Optional<ViewInfo> optionalViewInfo = metadata.getView(session, name);
+            if (optionalViewInfo.isPresent()) {
                 Statement statement = analysis.getStatement();
                 if (statement instanceof CreateView) {
                     CreateView viewStatement = (CreateView) statement;
@@ -787,7 +788,7 @@ class StatementAnalyzer
                 if (analysis.hasTableInView(table)) {
                     throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
                 }
-                ViewDefinition view = optionalView.get();
+                ViewDefinition view = optionalViewInfo.get().getViewDefinition();
 
                 Query query = parseView(view.getOriginalSql(), name, table);
 

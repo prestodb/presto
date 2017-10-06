@@ -810,8 +810,10 @@ public class RaptorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorViewDefinition definition, boolean replace)
     {
+        SchemaTableName viewName = definition.getName();
+        String viewData = definition.getViewData();
         String schemaName = viewName.getSchemaName();
         String tableName = viewName.getTableName();
 
@@ -858,7 +860,7 @@ public class RaptorMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
         for (ViewResult view : dao.getViews(prefix.getSchemaName(), prefix.getTableName())) {
-            map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData()));
+            map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData(), Optional.empty()));
         }
         return map.build();
     }

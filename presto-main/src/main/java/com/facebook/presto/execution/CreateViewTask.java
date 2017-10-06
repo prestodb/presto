@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -89,7 +90,8 @@ public class CreateViewTask
 
         String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, Optional.of(session.getUser())));
 
-        metadata.createView(session, name, data, statement.isReplace());
+        ConnectorViewDefinition definition = new ConnectorViewDefinition(name.asSchemaTableName(), Optional.empty(), data, statement.getComment());
+        metadata.createView(session, name.getCatalogName(), definition, statement.isReplace());
 
         return immediateFuture(null);
     }
