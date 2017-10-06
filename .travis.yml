@@ -29,9 +29,9 @@ addons:
     packages:
       - oracle-java8-installer
 
-cache:
-  directories:
-    - $HOME/.m2/repository
+#cache:
+#  directories:
+#    - $HOME/.m2/repository
 
 services:
   - docker
@@ -41,6 +41,8 @@ install:
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl $TEST_SPECIFIC_MODULES -am
+      #rm -fR /home/travis/.m2/repository/org/eclipse/jetty/jetty-server/9.4.7.v20170914/jetty-server-9.4.7.v20170914.jar
+      #mvn install:install-file -Dfile=/home/travis/build/prestodb/presto/presto-tests/src/test/resources/jetty-server-9.4.7.v20170914.jar -DgroupId=org.eclipse.jetty -DartifactId=jetty-server -Dversion=9.4.7.v20170914 -Dpackaging=jar
     fi
   - |
     if [[ -v TEST_OTHER_MODULES ]]; then
@@ -69,7 +71,7 @@ script:
     fi
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
-      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES $TEST_FLAGS
+      ./mvnw -X test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES $TEST_FLAGS
     fi
   - |
     if [[ -v TEST_OTHER_MODULES ]]; then

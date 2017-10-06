@@ -243,6 +243,13 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
+                            <systemPropertyVariables>
+                                <java.util.logging.config.file>/home/travis/build/prestodb/presto/presto-tests/target/test-classes/logging.properties</java.util.logging.config.file>
+                            </systemPropertyVariables>
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>org.eclipse.jetty:jetty-server</classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                            <additionalClasspathElements>${project.basedir}/src/test/resources/jetty-server-9.4.7.v20170914.jar</additionalClasspathElements>
                             <excludes combine.self="override" />
                             <includes>
                                 <include>**/TestDistributedQueriesNoHashGeneration.java</include>
