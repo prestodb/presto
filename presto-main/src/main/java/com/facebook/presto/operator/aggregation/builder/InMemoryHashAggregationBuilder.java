@@ -19,6 +19,7 @@ import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.Page;
@@ -46,6 +47,7 @@ import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregatio
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryHashAggregationBuilder
@@ -130,10 +132,17 @@ public class InMemoryHashAggregationBuilder
     public void processPage(Page page)
     {
         if (aggregators.isEmpty()) {
-            groupByHash.addPage(page);
+            Work<?> work = groupByHash.addPage(page);
+            boolean done = work.process();
+            // TODO: change the interface and enable yield
+            verify(done);
         }
         else {
-            GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
+            Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+            boolean done = work.process();
+            // TODO: change the interface and enable yield
+            verify(done);
+            GroupByIdBlock groupIds = work.getResult();
 
             for (Aggregator aggregator : aggregators) {
                 aggregator.processPage(groupIds, page);

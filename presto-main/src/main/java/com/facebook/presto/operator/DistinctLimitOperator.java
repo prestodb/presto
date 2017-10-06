@@ -27,6 +27,7 @@ import java.util.Optional;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class DistinctLimitOperator
@@ -166,7 +167,11 @@ public class DistinctLimitOperator
 
         pageBuilder.reset();
 
-        GroupByIdBlock ids = groupByHash.getGroupIds(page);
+        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        boolean done = work.process();
+        // TODO: this class does not yield wrt memory limit; enable it
+        verify(done);
+        GroupByIdBlock ids = work.getResult();
         for (int position = 0; position < ids.getPositionCount(); position++) {
             if (ids.getGroupId(position) == nextDistinctId) {
                 pageBuilder.declarePosition();

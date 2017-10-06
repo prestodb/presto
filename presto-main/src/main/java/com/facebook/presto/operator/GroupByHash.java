@@ -66,9 +66,9 @@ public interface GroupByHash
 
     void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset);
 
-    void addPage(Page page);
+    Work<?> addPage(Page page);
 
-    GroupByIdBlock getGroupIds(Page page);
+    Work<GroupByIdBlock> getGroupIds(Page page);
 
     boolean contains(int position, Page page, int[] hashChannels);
 

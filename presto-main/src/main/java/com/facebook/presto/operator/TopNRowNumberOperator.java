@@ -36,6 +36,7 @@ import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class TopNRowNumberOperator
@@ -256,7 +257,11 @@ public class TopNRowNumberOperator
         if (groupByHash.isPresent()) {
             GroupByHash hash = groupByHash.get();
             long groupByHashSize = hash.getEstimatedSize();
-            partitionIds = Optional.of(hash.getGroupIds(page));
+            Work<GroupByIdBlock> work = hash.getGroupIds(page);
+            boolean done = work.process();
+            // TODO: this class does not yield wrt memory limit; enable it
+            verify(done);
+            partitionIds = Optional.of(work.getResult());
             operatorContext.reserveMemory(hash.getEstimatedSize() - groupByHashSize);
         }
 
