@@ -141,6 +141,30 @@ public class PrestoCliTests
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldStopOnError()
+            throws IOException, InterruptedException
+    {
+        File temporayFile = File.createTempFile("test-sql", null);
+        temporayFile.deleteOnExit();
+        Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", temporayFile, UTF_8);
+
+        launchPrestoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
+        assertThat(trimLines(presto.readRemainingOutputLines())).isEmpty();
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldNotStopOnError()
+            throws IOException, InterruptedException
+    {
+        File temporayFile = File.createTempFile("test-sql", null);
+        temporayFile.deleteOnExit();
+        Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", temporayFile, UTF_8);
+
+        launchPrestoCliWithServerArgument("--file", temporayFile.getAbsolutePath(), "--stop-on-error", "false");
+        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+    }
+
     private void launchPrestoCliWithServerArgument(String... arguments)
             throws IOException, InterruptedException
     {
