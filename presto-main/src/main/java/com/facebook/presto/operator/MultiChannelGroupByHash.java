@@ -42,14 +42,24 @@ import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfH
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfByteArray;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.slice.SizeOf.sizeOfLongArray;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public class MultiChannelGroupByHash
         implements GroupByHash
 {
+    private static final int SEGMENT_SHIFT = 20;
+    private static final int SEGMENT_SIZE = 1 << SEGMENT_SHIFT;
+    private static final int SEGMENT_MASK = SEGMENT_SIZE - 1;
+    private static final long SIZE_OF_SEGMENT = sizeOfIntArray(SEGMENT_SIZE) + sizeOfByteArray(SEGMENT_SIZE) + sizeOfLongArray(SEGMENT_SIZE);
+
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private final List<Type> types;
@@ -66,12 +76,13 @@ public class MultiChannelGroupByHash
 
     private long completedPagesMemorySize;
 
+    private int segments;
     private int hashCapacity;
     private int maxFill;
     private int mask;
-    private long[] groupAddressByHash;
-    private int[] groupIdsByHash;
-    private byte[] rawHashByHashPosition;
+    private long[][] groupAddressByHash;
+    private int[][] groupIdsByHash;
+    private byte[][] rawHashByHashPosition;
 
     private final LongBigArray groupAddressByGroupId;
 
@@ -125,16 +136,24 @@ public class MultiChannelGroupByHash
         startNewPage();
 
         // reserve memory for the arrays
-        hashCapacity = arraySize(expectedSize, FILL_RATIO);
+        hashCapacity = max(arraySize(expectedSize, FILL_RATIO), SEGMENT_SIZE);
+        // must be power of 2
+        segments = hashCapacity / SEGMENT_SIZE;
+        verify(hashCapacity % SEGMENT_SIZE == 0);
+        verify(segments == nextPowerOfTwo(segments));
 
         maxFill = calculateMaxFill(hashCapacity);
         mask = hashCapacity - 1;
-        groupAddressByHash = new long[hashCapacity];
-        Arrays.fill(groupAddressByHash, -1);
 
-        rawHashByHashPosition = new byte[hashCapacity];
-
-        groupIdsByHash = new int[hashCapacity];
+        groupAddressByHash = new long[segments][];
+        groupIdsByHash = new int[segments][];
+        rawHashByHashPosition = new byte[segments][];
+        for (int i = 0; i < segments; i++) {
+            groupAddressByHash[i] = new long[SEGMENT_SIZE];
+            Arrays.fill(groupAddressByHash[i], -1);
+            groupIdsByHash[i] = new int[SEGMENT_SIZE];
+            rawHashByHashPosition[i] = new byte[SEGMENT_SIZE];
+        }
 
         groupAddressByGroupId = new LongBigArray();
         groupAddressByGroupId.ensureCapacity(maxFill);
@@ -156,6 +175,7 @@ public class MultiChannelGroupByHash
                 (sizeOf(channelBuilders.get(0).elements()) * channelBuilders.size()) +
                 completedPagesMemorySize +
                 currentPageBuilder.getRetainedSizeInBytes() +
+                (segments * SIZE_OF_SEGMENT) +
                 sizeOf(groupAddressByHash) +
                 sizeOf(groupIdsByHash) +
                 groupAddressByGroupId.sizeOf() +
@@ -242,8 +262,8 @@ public class MultiChannelGroupByHash
         int hashPosition = (int) getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
-        while (groupAddressByHash[hashPosition] != -1) {
-            if (positionEqualsCurrentRow(groupAddressByHash[hashPosition], hashPosition, position, page, (byte) rawHash, hashChannels)) {
+        while (groupAddressByHash[segment(hashPosition)][offset(hashPosition)] != -1) {
+            if (positionEqualsCurrentRow(groupAddressByHash[segment(hashPosition)][offset(hashPosition)], hashPosition, position, page, (byte) rawHash, hashChannels)) {
                 // found an existing slot for this key
                 return true;
             }
@@ -267,10 +287,10 @@ public class MultiChannelGroupByHash
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
-        while (groupAddressByHash[hashPosition] != -1) {
-            if (positionEqualsCurrentRow(groupAddressByHash[hashPosition], hashPosition, position, page, (byte) rawHash, channels)) {
+        while (groupAddressByHash[segment(hashPosition)][offset(hashPosition)] != -1) {
+            if (positionEqualsCurrentRow(groupAddressByHash[segment(hashPosition)][offset(hashPosition)], hashPosition, position, page, (byte) rawHash, channels)) {
                 // found an existing slot for this key
-                groupId = groupIdsByHash[hashPosition];
+                groupId = groupIdsByHash[segment(hashPosition)][offset(hashPosition)];
 
                 break;
             }
@@ -305,9 +325,9 @@ public class MultiChannelGroupByHash
         // record group id in hash
         int groupId = nextGroupId++;
 
-        groupAddressByHash[hashPosition] = address;
-        rawHashByHashPosition[hashPosition] = (byte) rawHash;
-        groupIdsByHash[hashPosition] = groupId;
+        groupAddressByHash[segment(hashPosition)][offset(hashPosition)] = address;
+        rawHashByHashPosition[segment(hashPosition)][offset(hashPosition)] = (byte) rawHash;
+        groupIdsByHash[segment(hashPosition)][offset(hashPosition)] = groupId;
         groupAddressByGroupId.set(groupId, address);
 
         // create new page builder if this page is full
@@ -348,37 +368,65 @@ public class MultiChannelGroupByHash
         int newCapacity = (int) newCapacityLong;
 
         int newMask = newCapacity - 1;
-        long[] newKey = new long[newCapacity];
-        byte[] rawHashes = new byte[newCapacity];
-        Arrays.fill(newKey, -1);
-        int[] newValue = new int[newCapacity];
+        int newSegments = newCapacity / SEGMENT_SIZE;
+        long[][] newKey = new long[newSegments][];
+        byte[][] rawHashes = new byte[newSegments][];
+        int[][] newValue = new int[newSegments][];
 
-        int oldIndex = 0;
-        for (int groupId = 0; groupId < nextGroupId; groupId++) {
-            // seek to the next used slot
-            while (groupAddressByHash[oldIndex] == -1) {
-                oldIndex++;
+        newKey[segments - 1] = new long[SEGMENT_SIZE];
+        newValue[segments - 1] = new int[SEGMENT_SIZE];
+        rawHashes[segments - 1] = new byte[SEGMENT_SIZE];
+        newKey[2 * segments - 1] = new long[SEGMENT_SIZE];
+        newValue[2 * segments - 1] = new int[SEGMENT_SIZE];
+        rawHashes[2 * segments - 1] = new byte[SEGMENT_SIZE];
+        Arrays.fill(newKey[segments - 1], -1);
+        Arrays.fill(newKey[2 * segments - 1], -1);
+
+        for (int i = 0; i < segments; i++) {
+            if (i != segments - 1) {
+                newKey[i + segments] = new long[SEGMENT_SIZE];
+                Arrays.fill(newKey[i + segments], -1);
+                newValue[i + segments] = new int[SEGMENT_SIZE];
+                rawHashes[i + segments] = new byte[SEGMENT_SIZE];
+                if (i == 0) {
+                    newKey[i] = new long[SEGMENT_SIZE];
+                    newValue[i] = new int[SEGMENT_SIZE];
+                    rawHashes[i] = new byte[SEGMENT_SIZE];
+                }
+                else {
+                    newKey[i] = groupAddressByHash[i - 1];
+                    newValue[i] = groupIdsByHash[i - 1];
+                    rawHashes[i] = rawHashByHashPosition[i - 1];
+                }
+                Arrays.fill(newKey[i], -1);
             }
 
-            // get the address for this slot
-            long address = groupAddressByHash[oldIndex];
+            for (int j = 0; j < SEGMENT_SIZE; j++) {
+                // seek to the next used slot
+                if (groupAddressByHash[i][j] == -1) {
+                    continue;
+                }
 
-            long rawHash = hashPosition(address);
-            // find an empty slot for the address
-            int pos = (int) getHashPosition(rawHash, newMask);
-            while (newKey[pos] != -1) {
-                pos = (pos + 1) & newMask;
-                hashCollisions++;
+                // get the address for this slot
+                long address = groupAddressByHash[i][j];
+
+                long rawHash = hashPosition(address);
+                // find an empty slot for the address
+                int position = (int) getHashPosition(rawHash, newMask);
+                while (newKey[segment(position)][offset(position)] != -1) {
+                    position = (position + 1) & newMask;
+                    hashCollisions++;
+                }
+
+                // record the mapping
+                newKey[segment(position)][offset(position)] = address;
+                rawHashes[segment(position)][offset(position)] = (byte) rawHash;
+                newValue[segment(position)][offset(position)] = groupIdsByHash[i][j];
             }
-
-            // record the mapping
-            newKey[pos] = address;
-            rawHashes[pos] = (byte) rawHash;
-            newValue[pos] = groupIdsByHash[oldIndex];
-            oldIndex++;
         }
 
         this.mask = newMask;
+        this.segments = newSegments;
         this.hashCapacity = newCapacity;
         this.maxFill = calculateMaxFill(newCapacity);
         this.groupAddressByHash = newKey;
@@ -404,10 +452,20 @@ public class MultiChannelGroupByHash
 
     private boolean positionEqualsCurrentRow(long address, int hashPosition, int position, Page page, byte rawHash, int[] hashChannels)
     {
-        if (rawHashByHashPosition[hashPosition] != rawHash) {
+        if (rawHashByHashPosition[segment(hashPosition)][offset(hashPosition)] != rawHash) {
             return false;
         }
         return hashStrategy.positionEqualsRow(decodeSliceIndex(address), decodePosition(address), position, page, hashChannels);
+    }
+
+    private static int segment(int index)
+    {
+        return index >>> SEGMENT_SHIFT;
+    }
+
+    public static int offset(int index)
+    {
+        return index & SEGMENT_MASK;
     }
 
     private static long getHashPosition(long rawHash, int mask)
