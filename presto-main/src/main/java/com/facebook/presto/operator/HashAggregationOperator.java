@@ -41,6 +41,7 @@ import static com.facebook.presto.operator.aggregation.builder.InMemoryHashAggre
 import static com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -375,7 +376,8 @@ public class HashAggregationOperator
                         hashChannel,
                         operatorContext,
                         maxPartialMemory,
-                        joinCompiler);
+                        joinCompiler,
+                        true);
             }
             else {
                 aggregationBuilder = new SpillableHashAggregationBuilder(
@@ -397,7 +399,9 @@ public class HashAggregationOperator
         else {
             checkState(!aggregationBuilder.isFull(), "Aggregation buffer is full");
         }
-        aggregationBuilder.processPage(page);
+        boolean done = aggregationBuilder.processPage(page).process();
+        // TODO: enable yield and remove this
+        verify(done);
         aggregationBuilder.updateMemory();
     }
 
