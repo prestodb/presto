@@ -35,6 +35,8 @@ public final class QueryStats
     private final long userTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
+    private final long queuedTimeMillis;
+    private final long elapsedTimeMillis;
     private final long processedRows;
     private final long processedBytes;
     private final Optional<StageStats> rootStage;
@@ -52,6 +54,8 @@ public final class QueryStats
             long userTimeMillis,
             long cpuTimeMillis,
             long wallTimeMillis,
+            long queuedTimeMillis,
+            long elapsedTimeMillis,
             long processedRows,
             long processedBytes,
             Optional<StageStats> rootStage)
@@ -68,6 +72,8 @@ public final class QueryStats
         this.userTimeMillis = userTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
+        this.queuedTimeMillis = queuedTimeMillis;
+        this.elapsedTimeMillis = elapsedTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
@@ -88,6 +94,8 @@ public final class QueryStats
                 stats.getUserTimeMillis(),
                 stats.getCpuTimeMillis(),
                 stats.getWallTimeMillis(),
+                stats.getQueuedTimeMillis(),
+                stats.getElapsedTimeMillis(),
                 stats.getProcessedRows(),
                 stats.getProcessedBytes(),
                 Optional.ofNullable(stats.getRootStage()).map(StageStats::create));
@@ -151,6 +159,16 @@ public final class QueryStats
     public long getWallTimeMillis()
     {
         return wallTimeMillis;
+    }
+
+    public long getQueuedTimeMillis()
+    {
+        return queuedTimeMillis;
+    }
+
+    public long getElapsedTimeMillis()
+    {
+        return elapsedTimeMillis;
     }
 
     public long getProcessedRows()

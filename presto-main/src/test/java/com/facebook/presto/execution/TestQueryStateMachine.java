@@ -335,7 +335,6 @@ public class TestQueryStateMachine
 
         QueryStats queryStats = queryInfo.getQueryStats();
         if (queryInfo.getState() == QUEUED) {
-            assertNull(queryStats.getQueuedTime());
             assertNull(queryStats.getTotalPlanningTime());
             assertNull(queryStats.getExecutionStartTime());
             assertNull(queryStats.getFinishingTime());
