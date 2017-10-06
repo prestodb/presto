@@ -203,13 +203,6 @@ public class BigintGroupByHash
     }
 
     @Override
-    public int putIfAbsent(int position, Page page)
-    {
-        Block block = page.getBlock(hashChannel);
-        return putIfAbsent(position, block);
-    }
-
-    @Override
     public long getRawHash(int groupId)
     {
         return BigintType.hash(valuesByGroupId.get(groupId));

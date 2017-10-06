@@ -254,8 +254,7 @@ public class MultiChannelGroupByHash
         return false;
     }
 
-    @Override
-    public int putIfAbsent(int position, Page page)
+    private int putIfAbsent(int position, Page page)
     {
         long rawHash = hashGenerator.hashPosition(position, page);
         return putIfAbsent(position, page, rawHash);
