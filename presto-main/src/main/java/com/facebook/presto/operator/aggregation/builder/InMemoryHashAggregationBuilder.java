@@ -42,6 +42,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -94,7 +95,7 @@ public class InMemoryHashAggregationBuilder
             Optional<Integer> overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler)
     {
-        this.groupByHash = createGroupByHash(operatorContext.getSession(), groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups, joinCompiler);
+        this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups, isDictionaryAggregationEnabled(operatorContext.getSession()), joinCompiler, this::updateMemoryWithYieldInfo);
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.toBytes();
@@ -143,14 +144,7 @@ public class InMemoryHashAggregationBuilder
     @Override
     public void updateMemory()
     {
-        long memorySize = getSizeInMemory();
-        if (partial) {
-            systemMemoryContext.setBytes(memorySize);
-            full = (memorySize > maxPartialMemory);
-        }
-        else {
-            operatorContext.setMemoryReservation(memorySize);
-        }
+        updateMemoryWithYieldInfo();
     }
 
     @Override
@@ -282,6 +276,29 @@ public class InMemoryHashAggregationBuilder
             types.add(aggregator.getType());
         }
         return types;
+    }
+
+    /**
+     * Update memory usage with extra memory needed.
+     *
+     * @return true to if the reservation is within the limit
+     */
+    // TODO: update in the interface after the new memory tracking framework is landed
+    // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
+    // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
+    private boolean updateMemoryWithYieldInfo()
+    {
+        long memorySize = getSizeInMemory();
+        if (partial) {
+            systemMemoryContext.setBytes(memorySize);
+            full = (memorySize > maxPartialMemory);
+            return true;
+        }
+        // Operator/driver will be blocked on memory after we call setMemoryReservation.
+        // If memory is not available, once we return, this operator will be blocked until memory is available.
+        operatorContext.setMemoryReservation(memorySize);
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
     }
 
     private IntIterator consecutiveGroupIds()

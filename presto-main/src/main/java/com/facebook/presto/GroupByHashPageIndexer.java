@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.operator.UpdateMemory.NOOP;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -40,7 +41,8 @@ public class GroupByHashPageIndexer
                 Optional.empty(),
                 20,
                 false,
-                joinCompiler));
+                joinCompiler,
+                NOOP));
     }
 
     public GroupByHashPageIndexer(GroupByHash hash)

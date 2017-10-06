@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static com.facebook.presto.operator.UpdateMemory.NOOP;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
@@ -35,7 +36,7 @@ public interface GroupByHash
             int expectedSize,
             JoinCompiler joinCompiler)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler);
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, NOOP);
     }
 
     static GroupByHash createGroupByHash(
@@ -44,12 +45,13 @@ public interface GroupByHash
             Optional<Integer> inputHashChannel,
             int expectedSize,
             boolean processDictionary,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            UpdateMemory updateMemory)
     {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
-            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize);
+            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
         }
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler);
+        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, updateMemory);
     }
 
     long getEstimatedSize();

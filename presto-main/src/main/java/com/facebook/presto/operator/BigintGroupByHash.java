@@ -35,6 +35,8 @@ import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfH
 import static com.google.common.base.Preconditions.checkArgument;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class BigintGroupByHash
         implements GroupByHash
@@ -66,7 +68,12 @@ public class BigintGroupByHash
     private long hashCollisions;
     private double expectedHashCollisions;
 
-    public BigintGroupByHash(int hashChannel, boolean outputRawHash, int expectedSize)
+    // reserve enough memory before rehash
+    private final UpdateMemory updateMemory;
+    private long preallocatedMemoryInBytes;
+    private long currentPageSizeInBytes;
+
+    public BigintGroupByHash(int hashChannel, boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
     {
         checkArgument(hashChannel >= 0, "hashChannel must be at least zero");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
@@ -85,6 +92,10 @@ public class BigintGroupByHash
 
         valuesByGroupId = new LongBigArray();
         valuesByGroupId.ensureCapacity(hashCapacity);
+
+        // This interface is used for actively reserving memory (push model) for rehash.
+        // The caller can also query memory usage on this object (pull model)
+        this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
     }
 
     @Override
@@ -93,7 +104,8 @@ public class BigintGroupByHash
         return INSTANCE_SIZE +
                 groupIds.sizeOf() +
                 values.sizeOf() +
-                valuesByGroupId.sizeOf();
+                valuesByGroupId.sizeOf() +
+                preallocatedMemoryInBytes;
     }
 
     @Override
@@ -146,6 +158,7 @@ public class BigintGroupByHash
     @Override
     public void addPage(Page page)
     {
+        currentPageSizeInBytes = page.getRetainedSizeInBytes();
         int positionCount = page.getPositionCount();
 
         // get the group id for each position
@@ -159,6 +172,7 @@ public class BigintGroupByHash
     @Override
     public GroupByIdBlock getGroupIds(Page page)
     {
+        currentPageSizeInBytes = page.getRetainedSizeInBytes();
         int positionCount = page.getPositionCount();
 
         // we know the exact size required for the block
@@ -265,7 +279,17 @@ public class BigintGroupByHash
         if (newCapacityLong > Integer.MAX_VALUE) {
             throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
-        int newCapacity = (int) newCapacityLong;
+        int newCapacity = toIntExact(newCapacityLong);
+
+        // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
+        // This includes the new capacity for values, groupIds, and valuesByGroupId as well as the size of the current page
+        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES) + (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES + currentPageSizeInBytes;
+        if (!updateMemory.update()) {
+            // reserved memory but has exceeded the limit
+            // TODO enable this
+            // return;
+        }
+        preallocatedMemoryInBytes = 0;
 
         int newMask = newCapacity - 1;
         LongBigArray newValues = new LongBigArray();
