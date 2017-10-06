@@ -33,6 +33,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.toIntExact;
@@ -159,35 +161,20 @@ public class BigintGroupByHash
     public void addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        int positionCount = page.getPositionCount();
-
-        // get the group id for each position
-        Block block = page.getBlock(hashChannel);
-        for (int position = 0; position < positionCount; position++) {
-            // get the group for the current row
-            putIfAbsent(position, block);
-        }
+        boolean done = new AddPageWork(page.getBlock(hashChannel)).process();
+        // TODO: (1) change the interface and (2) remove this with yield enabled
+        verify(done);
     }
 
     @Override
     public GroupByIdBlock getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        int positionCount = page.getPositionCount();
-
-        // we know the exact size required for the block
-        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
-
-        // get the group id for each position
-        Block block = page.getBlock(hashChannel);
-        for (int position = 0; position < positionCount; position++) {
-            // get the group for the current row
-            int groupId = putIfAbsent(position, block);
-
-            // output the group id for this row
-            BIGINT.writeLong(blockBuilder, groupId);
-        }
-        return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+        Work<GroupByIdBlock> work = new GetGroupIdsWork(page.getBlock(hashChannel));
+        boolean done = work.process();
+        // TODO: (1) change the interface and (2) remove this with yield enabled
+        verify(done);
+        return work.getResult();
     }
 
     @Override
@@ -265,16 +252,14 @@ public class BigintGroupByHash
         groupIds.set(hashPosition, groupId);
 
         // increase capacity, if necessary
-        if (nextGroupId >= maxFill) {
-            rehash();
+        if (needRehash()) {
+            tryRehash();
         }
         return groupId;
     }
 
-    private void rehash()
+    private boolean tryRehash()
     {
-        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
-
         long newCapacityLong = hashCapacity * 2L;
         if (newCapacityLong > Integer.MAX_VALUE) {
             throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
@@ -287,9 +272,11 @@ public class BigintGroupByHash
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             // TODO enable this
-            // return;
+            // return false;
         }
         preallocatedMemoryInBytes = 0;
+
+        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
 
         int newMask = newCapacity - 1;
         LongBigArray newValues = new LongBigArray();
@@ -322,6 +309,12 @@ public class BigintGroupByHash
         groupIds = newGroupIds;
 
         this.valuesByGroupId.ensureCapacity(maxFill);
+        return true;
+    }
+
+    private boolean needRehash()
+    {
+        return nextGroupId >= maxFill;
     }
 
     private static long getHashPosition(long rawHash, int mask)
@@ -338,5 +331,95 @@ public class BigintGroupByHash
         }
         checkArgument(hashSize > maxFill, "hashSize must be larger than maxFill");
         return maxFill;
+    }
+
+    private class AddPageWork
+            implements Work<Void>
+    {
+        private final Block block;
+
+        private int lastPosition;
+
+        public AddPageWork(Block block)
+        {
+            this.block = requireNonNull(block, "block is null");
+        }
+
+        @Override
+        public boolean process()
+        {
+            int positionCount = block.getPositionCount();
+            checkState(lastPosition < positionCount, "position count out of bound");
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                // get the group for the current row
+                putIfAbsent(lastPosition, block);
+                lastPosition++;
+            }
+            return lastPosition == positionCount;
+        }
+
+        @Override
+        public Void getResult()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private class GetGroupIdsWork
+            implements Work<GroupByIdBlock>
+    {
+        private final BlockBuilder blockBuilder;
+        private final Block block;
+
+        private boolean finished;
+        private int lastPosition;
+
+        public GetGroupIdsWork(Block block)
+        {
+            this.block = requireNonNull(block, "block is null");
+            // we know the exact size required for the block
+            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
+        }
+
+        @Override
+        public boolean process()
+        {
+            int positionCount = block.getPositionCount();
+            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(!finished);
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                // output the group id for this row
+                BIGINT.writeLong(blockBuilder, putIfAbsent(lastPosition, block));
+                lastPosition++;
+            }
+            return lastPosition == positionCount;
+        }
+
+        @Override
+        public GroupByIdBlock getResult()
+        {
+            checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
+            checkState(!finished, "result has produced");
+            finished = true;
+            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+        }
     }
 }
