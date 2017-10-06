@@ -47,19 +47,27 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.discovery.client.AnnouncementHttpServerInfo;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.event.client.EventModule;
+import io.airlift.http.server.HttpServer;
+import io.airlift.http.server.HttpServerBinder;
+import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.LocalAnnouncementHttpServerInfo;
+import io.airlift.http.server.TheServlet;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
@@ -68,6 +76,7 @@ import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.servlet.Filter;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -82,11 +91,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.isDirectory;
@@ -167,6 +179,10 @@ public class TestingPrestoServer
             List<Module> additionalModules)
             throws Exception
     {
+        Logger logger = Logger.getLogger("org.glassfish.jersey.server");
+        logger.setLevel(Level.OFF);
+        System.out.println("TURNED OFF LOGGING FOR JERSEY");
+
         this.coordinator = coordinator;
         baseDataDir = Files.createTempDirectory("PrestoTest");
 
@@ -191,6 +207,14 @@ public class TestingPrestoServer
         if (coordinator) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
+            serverProperties.put("failure-detector.http-client.http2.enabled", "true");
+            serverProperties.put("memoryManager.http-client.http2.enabled", "true");
+            serverProperties.put("node-manager.http-client.http2.enabled", "true");
+            serverProperties.put("exchange.http-client.http2.enabled", "true");
+            serverProperties.put("scheduler.http-client.http2.enabled", "true");
+        }
+        else {
+            serverProperties.put("exchange.http-client.http2.enabled", "true");
         }
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
@@ -234,10 +258,10 @@ public class TestingPrestoServer
 
         Injector injector = app
                 .strictConfig()
+//                .quiet()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(serverProperties.build())
                 .setOptionalConfigurationProperties(optionalProperties)
-                .quiet()
                 .initialize();
 
         injector.getInstance(Announcer.class).start();
@@ -453,5 +477,37 @@ public class TestingPrestoServer
             }
         }
         throw new RuntimeException("Presto announcement not found: " + announcements);
+    }
+}
+
+class TestingHttpServerModule
+        implements Module
+{
+    private final int httpPort;
+
+    public TestingHttpServerModule()
+    {
+        this(0);
+    }
+
+    public TestingHttpServerModule(int httpPort)
+    {
+        this.httpPort = httpPort;
+    }
+
+    @Override
+    public void configure(Binder binder)
+    {
+        binder.disableCircularProxies();
+
+        HttpServerConfig config = new HttpServerConfig().setShowStackTrace(false).setHttpPort(httpPort);
+
+        binder.bind(HttpServerConfig.class).toInstance(config);
+        binder.bind(HttpServerInfo.class).in(Scopes.SINGLETON);
+        binder.bind(TestingHttpServer.class).in(Scopes.SINGLETON);
+        binder.bind(HttpServer.class).to(Key.get(TestingHttpServer.class));
+        newSetBinder(binder, Filter.class, TheServlet.class);
+        newSetBinder(binder, HttpServerBinder.HttpResourceBinding.class, TheServlet.class);
+        binder.bind(AnnouncementHttpServerInfo.class).to(LocalAnnouncementHttpServerInfo.class);
     }
 }
