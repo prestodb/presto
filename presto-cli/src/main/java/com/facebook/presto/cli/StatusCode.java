@@ -11,25 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.cli;
 
-import static io.airlift.airline.SingleCommand.singleCommand;
+public enum StatusCode {
+    SUCCESS(0),
+    NON_TERMINATED_STATEMENT(145),
+    NO_COLUMNS(146),
+    ABORTED_BY_USER(147),
+    QUERY_GONE(148),
+    OTHER(149);
 
-public final class Presto
-{
-    private Presto() {}
+    private final int statusCode;
 
-    public static void main(String[] args)
-            throws Exception
+    StatusCode(int statusCode)
     {
-        Console console = singleCommand(Console.class).parse(args);
+        this.statusCode = statusCode;
+    }
 
-        if (console.helpOption.showHelpIfRequested() ||
-                console.versionOption.showVersionIfRequested()) {
-            return;
-        }
-
-        StatusCode statusCode = console.run();
-        System.exit(statusCode.getStatusCode());
+    public int getStatusCode()
+    {
+        return statusCode;
     }
 }

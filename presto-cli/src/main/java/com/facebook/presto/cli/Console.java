@@ -52,6 +52,9 @@ import static com.facebook.presto.cli.Completion.commandCompleter;
 import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
+import static com.facebook.presto.cli.StatusCode.NON_TERMINATED_STATEMENT;
+import static com.facebook.presto.cli.StatusCode.OTHER;
+import static com.facebook.presto.cli.StatusCode.SUCCESS;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
 import static com.facebook.presto.client.ClientSession.withPreparedStatements;
@@ -71,7 +74,6 @@ import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "presto", description = "Presto interactive console")
 public class Console
-        implements Runnable
 {
     private static final String PROMPT_NAME = "presto";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
@@ -90,8 +92,7 @@ public class Console
     @Inject
     public ClientOptions clientOptions = new ClientOptions();
 
-    @Override
-    public void run()
+    public StatusCode run()
     {
         ClientSession session = clientOptions.toClientSession();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
@@ -142,10 +143,11 @@ public class Console
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
                 clientOptions.authenticationEnabled)) {
             if (hasQuery) {
-                executeCommand(queryRunner, query, clientOptions.outputFormat);
+                return executeCommand(queryRunner, query, clientOptions.outputFormat, session.isStopOnError());
             }
             else {
                 runConsole(queryRunner, session, exiting);
+                return SUCCESS;
             }
         }
     }
@@ -303,21 +305,29 @@ public class Console
         return statement instanceof Use;
     }
 
-    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    private static StatusCode executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean stopOnError)
     {
+        StatusCode statusCode = null;
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                process(queryRunner, split.statement(), outputFormat, false);
+                statusCode = process(queryRunner, split.statement(), outputFormat, false);
+                if (stopOnError && statusCode != SUCCESS) {
+                    return statusCode;
+                }
             }
         }
         if (!isEmptyStatement(splitter.getPartialStatement())) {
             System.err.println("Non-terminated statement: " + splitter.getPartialStatement());
+            statusCode = NON_TERMINATED_STATEMENT;
         }
+
+        return statusCode;
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
+    private static StatusCode process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
+        StatusCode statusCode;
         String finalSql;
         try {
             finalSql = preprocessQuery(
@@ -330,11 +340,12 @@ public class Console
             if (queryRunner.getSession().isDebug()) {
                 e.printStackTrace();
             }
-            return;
+            statusCode = OTHER;
+            return statusCode;
         }
 
         try (Query query = queryRunner.startQuery(finalSql)) {
-            query.renderOutput(System.out, outputFormat, interactive);
+            statusCode = query.renderOutput(System.out, outputFormat, interactive);
 
             ClientSession session = queryRunner.getSession();
 
@@ -369,7 +380,10 @@ public class Console
             if (queryRunner.getSession().isDebug()) {
                 e.printStackTrace();
             }
+            return OTHER;
         }
+
+        return statusCode;
     }
 
     private static MemoryHistory getHistory()

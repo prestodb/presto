@@ -44,7 +44,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
-public abstract class AbstractTestingPrestoClient<T>
+public abstract class
+        AbstractTestingPrestoClient<T>
         implements Closeable
 {
     private final TestingPrestoServer prestoServer;
@@ -77,7 +78,7 @@ public abstract class AbstractTestingPrestoClient<T>
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
-        ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), true, new Duration(2, TimeUnit.MINUTES));
+        ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), true, new Duration(2, TimeUnit.MINUTES), true);
 
         try (StatementClient client = new StatementClient(httpClient, clientSession, sql)) {
             while (client.isValid()) {
@@ -113,7 +114,7 @@ public abstract class AbstractTestingPrestoClient<T>
         }
     }
 
-    private static ClientSession toClientSession(Session session, URI server, boolean debug, Duration clientRequestTimeout)
+    private static ClientSession toClientSession(Session session, URI server, boolean debug, Duration clientRequestTimeout, boolean stopOnError)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
@@ -136,7 +137,8 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getPreparedStatements(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 debug,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                stopOnError);
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
