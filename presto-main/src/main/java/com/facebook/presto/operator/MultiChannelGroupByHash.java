@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -241,6 +242,13 @@ public class MultiChannelGroupByHash
         return false;
     }
 
+    @VisibleForTesting
+    @Override
+    public int getCapacity()
+    {
+        return hashCapacity;
+    }
+
     private int putIfAbsent(int position, Page page)
     {
         long rawHash = hashGenerator.hashPosition(position, page);
@@ -343,8 +351,7 @@ public class MultiChannelGroupByHash
                 currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
-            // TODO enable this
-            // return false;
+            return false;
         }
         preallocatedMemoryInBytes = 0;
 

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.BigintOperators;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -202,6 +203,13 @@ public class BigintGroupByHash
         return BigintType.hash(valuesByGroupId.get(groupId));
     }
 
+    @VisibleForTesting
+    @Override
+    public int getCapacity()
+    {
+        return hashCapacity;
+    }
+
     private int putIfAbsent(int position, Block block)
     {
         if (block.isNull(position)) {
@@ -264,8 +272,7 @@ public class BigintGroupByHash
         preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES) + (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
-            // TODO enable this
-            // return false;
+            return false;
         }
         preallocatedMemoryInBytes = 0;
 

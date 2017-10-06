@@ -18,6 +18,8 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.TestingSession;
@@ -31,11 +33,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringSequenceBlock;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -287,5 +291,165 @@ public class TestGroupByHash
 
         // assert we call update memory every time we rehash; the rehash count = log2(length / FILL_RATIO)
         assertEquals(rehashCount.get(), log2(length / 0.75, RoundingMode.FLOOR));
+    }
+
+    @Test(dataProvider = "dataType")
+    public void testMemoryReservationYield(Type type)
+            throws Exception
+    {
+        // Create a page with positionCount >> expected size of groupByHash
+        int length = 1_000_000;
+        Block valuesBlock;
+        if (type == VARCHAR) {
+            valuesBlock = createStringSequenceBlock(0, length);
+        }
+        else if (type == BIGINT) {
+            valuesBlock = createLongSequenceBlock(0, length);
+        }
+        else {
+            throw new IllegalArgumentException("unsupported data type");
+        }
+        Block hashBlock = getHashBlock(ImmutableList.of(type), valuesBlock);
+        Page page = new Page(valuesBlock, hashBlock);
+        AtomicInteger currentQuota = new AtomicInteger(0);
+        AtomicInteger allowedQuota = new AtomicInteger(3);
+        UpdateMemory updateMemory = () -> {
+            if (currentQuota.get() < allowedQuota.get()) {
+                currentQuota.getAndIncrement();
+                return true;
+            }
+            return false;
+        };
+        int yields = 0;
+
+        // test addPage
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, updateMemory);
+        boolean finish = false;
+        Work<?> addPageWork = groupByHash.addPage(page);
+        while (!finish) {
+            finish = addPageWork.process();
+            if (!finish) {
+                assertEquals(currentQuota.get(), allowedQuota.get());
+                // assert if we are blocked, we are going to be blocked again without changing allowedQuota
+                assertFalse(addPageWork.process());
+                assertEquals(currentQuota.get(), allowedQuota.get());
+                yields++;
+                allowedQuota.getAndAdd(3);
+            }
+        }
+
+        // assert there is not anything missing
+        assertEquals(length, groupByHash.getGroupCount());
+        // assert we yield for every 3 rehashes
+        // currentQuota is essentially the count we have successfully rehashed
+        // the rehash count is 20 = log(1_000_000 / 0.75)
+        assertEquals(currentQuota.get(), 20);
+        assertEquals(currentQuota.get() / 3, yields);
+
+        // test getGroupIds
+        currentQuota.set(0);
+        allowedQuota.set(3);
+        yields = 0;
+        groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, updateMemory);
+
+        finish = false;
+        Work<GroupByIdBlock> getGroupIdsWork = groupByHash.getGroupIds(page);
+        while (!finish) {
+            finish = getGroupIdsWork.process();
+            if (!finish) {
+                assertEquals(currentQuota.get(), allowedQuota.get());
+                // assert if we are blocked, we are going to be blocked again without changing allowedQuota
+                assertFalse(getGroupIdsWork.process());
+                assertEquals(currentQuota.get(), allowedQuota.get());
+                yields++;
+                allowedQuota.getAndAdd(3);
+            }
+        }
+        // assert there is not anything missing
+        assertEquals(length, groupByHash.getGroupCount());
+        assertEquals(length, getGroupIdsWork.getResult().getPositionCount());
+        // assert we yield for every 3 rehashes
+        // currentQuota is essentially the count we have successfully rehashed
+        // the rehash count is 20 = log2(1_000_000 / 0.75)
+        assertEquals(currentQuota.get(), 20);
+        assertEquals(currentQuota.get() / 3, yields);
+    }
+
+    @Test
+    public void testMemoryReservationYieldWithDictionary()
+            throws Exception
+    {
+        // Create a page with positionCount >> expected size of groupByHash
+        int dictionaryLength = 1_000;
+        int length = 2_000_000;
+        int[] ids = IntStream.range(0, dictionaryLength).toArray();
+        DictionaryId dictionaryId = randomDictionaryId();
+        Block valuesBlock = new DictionaryBlock(dictionaryLength, createStringSequenceBlock(0, length), ids, dictionaryId);
+        Block hashBlock = new DictionaryBlock(dictionaryLength, getHashBlock(ImmutableList.of(VARCHAR), valuesBlock), ids, dictionaryId);
+        Page page = new Page(valuesBlock, hashBlock);
+        AtomicInteger currentQuota = new AtomicInteger(0);
+        AtomicInteger allowedQuota = new AtomicInteger(3);
+        UpdateMemory updateMemory = () -> {
+            if (currentQuota.get() < allowedQuota.get()) {
+                currentQuota.getAndIncrement();
+                return true;
+            }
+            return false;
+        };
+        int yields = 0;
+
+        // test addPage
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 1, true, JOIN_COMPILER, updateMemory);
+
+        boolean finish = false;
+        Work<?> addPageWork = groupByHash.addPage(page);
+        while (!finish) {
+            finish = addPageWork.process();
+            if (!finish) {
+                assertEquals(currentQuota.get(), allowedQuota.get());
+                // assert if we are blocked, we are going to be blocked again without changing allowedQuota
+                assertFalse(addPageWork.process());
+                assertEquals(currentQuota.get(), allowedQuota.get());
+                yields++;
+                allowedQuota.getAndAdd(3);
+            }
+        }
+
+        // assert there is not anything missing
+        assertEquals(dictionaryLength, groupByHash.getGroupCount());
+        // assert we yield for every 3 rehashes
+        // currentQuota is essentially the count we have successfully rehashed
+        // the rehash count is 10 = log(1_000 / 0.75)
+        assertEquals(currentQuota.get(), 10);
+        assertEquals(currentQuota.get() / 3, yields);
+
+        // test getGroupIds
+        currentQuota.set(0);
+        allowedQuota.set(3);
+        yields = 0;
+        groupByHash = createGroupByHash(ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 1, true, JOIN_COMPILER, updateMemory);
+
+        finish = false;
+        Work<GroupByIdBlock> getGroupIdsWork = groupByHash.getGroupIds(page);
+        while (!finish) {
+            finish = getGroupIdsWork.process();
+            if (!finish) {
+                assertEquals(currentQuota.get(), allowedQuota.get());
+                // assert if we are blocked, we are going to be blocked again without changing allowedQuota
+                assertFalse(getGroupIdsWork.process());
+                assertEquals(currentQuota.get(), allowedQuota.get());
+                yields++;
+                allowedQuota.getAndAdd(3);
+            }
+        }
+
+        // assert there is not anything missing
+        assertEquals(dictionaryLength, groupByHash.getGroupCount());
+        assertEquals(dictionaryLength, getGroupIdsWork.getResult().getPositionCount());
+        // assert we yield for every 3 rehashes
+        // currentQuota is essentially the count we have successfully rehashed
+        // the rehash count is 10 = log2(1_000 / 0.75)
+        assertEquals(currentQuota.get(), 10);
+        assertEquals(currentQuota.get() / 3, yields);
     }
 }
