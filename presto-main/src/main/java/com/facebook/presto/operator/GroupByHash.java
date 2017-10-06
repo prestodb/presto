@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
 import java.util.Optional;
@@ -73,4 +74,7 @@ public interface GroupByHash
     boolean contains(int position, Page page, int[] hashChannels);
 
     long getRawHash(int groupyId);
+
+    @VisibleForTesting
+    int getCapacity();
 }

@@ -30,6 +30,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -265,6 +266,12 @@ public class InMemoryHashAggregationBuilder
             types.add(aggregator.getIntermediateType());
         }
         return types;
+    }
+
+    @VisibleForTesting
+    public int getCapacity()
+    {
+        return groupByHash.getCapacity();
     }
 
     private Iterator<Page> buildResult(IntIterator groupIds)
