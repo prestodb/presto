@@ -44,6 +44,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
@@ -80,13 +81,19 @@ public class MultiChannelGroupByHash
     private long hashCollisions;
     private double expectedHashCollisions;
 
+    // reserve enough memory before rehash
+    private final UpdateMemory updateMemory;
+    private long preallocatedMemoryInBytes;
+    private long currentPageSizeInBytes;
+
     public MultiChannelGroupByHash(
             List<? extends Type> hashTypes,
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
             int expectedSize,
             boolean processDictionary,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            UpdateMemory updateMemory)
     {
         this.hashTypes = ImmutableList.copyOf(requireNonNull(hashTypes, "hashTypes is null"));
 
@@ -138,6 +145,10 @@ public class MultiChannelGroupByHash
 
         groupAddressByGroupId = new LongBigArray();
         groupAddressByGroupId.ensureCapacity(maxFill);
+
+        // This interface is used for actively reserving memory (push model) for rehash.
+        // The caller can also query memory usage on this object (pull model)
+        this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
     }
 
     @Override
@@ -159,7 +170,8 @@ public class MultiChannelGroupByHash
                 sizeOf(groupAddressByHash) +
                 sizeOf(groupIdsByHash) +
                 groupAddressByGroupId.sizeOf() +
-                sizeOf(rawHashByHashPosition);
+                sizeOf(rawHashByHashPosition) +
+                preallocatedMemoryInBytes;
     }
 
     @Override
@@ -198,6 +210,7 @@ public class MultiChannelGroupByHash
     @Override
     public void addPage(Page page)
     {
+        currentPageSizeInBytes = page.getRetainedSizeInBytes();
         if (canProcessDictionary(page)) {
             addDictionaryPage(page);
             return;
@@ -214,6 +227,7 @@ public class MultiChannelGroupByHash
     @Override
     public GroupByIdBlock getGroupIds(Page page)
     {
+        currentPageSizeInBytes = page.getRetainedSizeInBytes();
         int positionCount = page.getPositionCount();
 
         // we know the exact size required for the block
@@ -344,7 +358,19 @@ public class MultiChannelGroupByHash
         if (newCapacityLong > Integer.MAX_VALUE) {
             throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
-        int newCapacity = (int) newCapacityLong;
+        int newCapacity = toIntExact(newCapacityLong);
+
+        // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
+        // This includes the new capacity for groupAddressByHash, rawHashByHashPosition, groupIdsByHash, and groupAddressByGroupId as well as the size of the current page
+        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES + Byte.BYTES) +
+                (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES +
+                currentPageSizeInBytes;
+        if (!updateMemory.update()) {
+            // reserved memory but has exceeded the limit
+            // TODO enable this
+            // return;
+        }
+        preallocatedMemoryInBytes = 0;
 
         int newMask = newCapacity - 1;
         long[] newKey = new long[newCapacity];

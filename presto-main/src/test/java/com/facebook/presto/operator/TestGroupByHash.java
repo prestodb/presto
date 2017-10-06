@@ -18,23 +18,29 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringSequenceBlock;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.TypeUtils.getHashBlock;
+import static com.google.common.math.DoubleMath.log2;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -45,6 +51,12 @@ public class TestGroupByHash
     private static final int[] CONTAINS_CHANNELS = new int[] {0};
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+
+    @DataProvider
+    public Object[][] dataType()
+    {
+        return new Object[][] {{VARCHAR}, {BIGINT}};
+    }
 
     @Test
     public void testAddPage()
@@ -232,5 +244,42 @@ public class TestGroupByHash
         for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
             assertTrue(groupByHash.contains(i, new Page(valuesBlock, hashBlock), CONTAINS_CHANNELS));
         }
+    }
+
+    @Test(dataProvider = "dataType")
+    public void testUpdateMemory(Type type)
+            throws Exception
+    {
+        // Create a page with positionCount >> expected size of groupByHash
+        int length = 1_000_000;
+        Block valuesBlock;
+        if (type == VARCHAR) {
+            valuesBlock = createStringSequenceBlock(0, length);
+        }
+        else if (type == BIGINT) {
+            valuesBlock = createLongSequenceBlock(0, length);
+        }
+        else {
+            throw new IllegalArgumentException("unsupported data type");
+        }
+        Block hashBlock = getHashBlock(ImmutableList.of(type), valuesBlock);
+
+        // Create group by hash with extremely small size
+        AtomicInteger rehashCount = new AtomicInteger();
+        GroupByHash groupByHash = createGroupByHash(
+                ImmutableList.of(type),
+                new int[] {0},
+                Optional.of(1),
+                1,
+                false,
+                JOIN_COMPILER,
+                () -> {
+                    rehashCount.incrementAndGet();
+                    return true;
+                });
+        groupByHash.addPage(new Page(valuesBlock, hashBlock));
+
+        // assert we call update memory every time we rehash; the rehash count = log2(length / FILL_RATIO)
+        assertEquals(rehashCount.get(), log2(length / 0.75, RoundingMode.FLOOR));
     }
 }
