@@ -188,19 +188,6 @@
                                         <exclude>LICENSE</exclude>
                                     </excludes>
                                 </filter>
-                                <filter>
-                                    <artifact>com.google.code.findbugs:annotations</artifact>
-                                    <excludes>
-                                        <exclude>**</exclude>
-                                    </excludes>
-                                </filter>
-                                <!-- TODO: fix in okhttp: https://github.com/square/okhttp/pull/3421 -->
-                                <filter>
-                                    <artifact>com.squareup.okhttp3:okhttp</artifact>
-                                    <excludes>
-                                        <exclude>publicsuffixes.gz</exclude>
-                                    </excludes>
-                                </filter>
                             </filters>
                         </configuration>
                     </execution>
