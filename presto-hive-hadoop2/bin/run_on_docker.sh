@@ -81,7 +81,9 @@ docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down || true
 trap termination_handler INT TERM
 
 # pull docker images
-docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
+if [[ "$CONTINUOUS_INTEGRATION" == 'true' ]]; then
+    docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
+fi
 
 # start containers
 docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
