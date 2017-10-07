@@ -2,7 +2,7 @@ version: '2'
 services:
 
   java-8-base:
-    image: 'teradatalabs/centos6-java8-oracle:${DOCKER_IMAGES_VERSION}'
+    image: 'prestodb/centos6-oj8:${DOCKER_IMAGES_VERSION}'
     volumes:
       - ../..:/docker/volumes/conf
 
@@ -22,7 +22,6 @@ services:
       - '19888:19888'
       - '50070:50070'
       - '50075:50075'
-    command: bash -c "/root/change_timezone.sh Asia/Kathmandu && /root/startup.sh"
 
   presto-master:
     extends:
