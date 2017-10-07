@@ -163,7 +163,7 @@ function terminate() {
 }
 
 function getAvailableEnvironments() {
-  for i in $(ls -d $DOCKER_CONF_LOCATION/*/); do echo ${i%%/}; done\
+  for i in $(ls -d $DOCKER_CONF_LOCATION/*/); do echo ${i%%/}; done \
      | grep -v files | grep -v common | xargs -n1 basename
 }
 
