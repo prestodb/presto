@@ -98,7 +98,6 @@ import io.airlift.slice.SliceUtf8;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -255,12 +254,12 @@ public class ExpressionAnalyzer
     public Type analyze(Expression expression, Scope scope)
     {
         Visitor visitor = new Visitor(scope);
-        return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda()));
+        return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)));
     }
 
-    private Type analyze(Expression expression, Scope scope, Context context)
+    private Type analyze(Expression expression, Scope baseScope, Context context)
     {
-        Visitor visitor = new Visitor(scope);
+        Visitor visitor = new Visitor(baseScope);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
@@ -282,11 +281,11 @@ public class ExpressionAnalyzer
     private class Visitor
             extends StackableAstVisitor<Type, Context>
     {
-        private final Scope scope;
+        private final Scope baseScope;
 
-        private Visitor(Scope scope)
+        public Visitor(Scope baseScope)
         {
-            this.scope = requireNonNull(scope, "scope is null");
+            this.baseScope = requireNonNull(baseScope, "baseScope is null");
         }
 
         @SuppressWarnings("SuspiciousMethodCalls")
@@ -347,10 +346,9 @@ public class ExpressionAnalyzer
         protected Type visitSymbolReference(SymbolReference node, StackableAstVisitorContext<Context> context)
         {
             if (context.getContext().isInLambda()) {
-                LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getNameToLambdaArgumentDeclarationMap().get(node.getName());
-                if (lambdaArgumentDeclaration != null) {
-                    Type result = getExpressionType(lambdaArgumentDeclaration);
-                    return setExpressionType(node, result);
+                Optional<ResolvedField> resolvedField = context.getContext().getScope().tryResolveField(node, QualifiedName.of(node.getName()));
+                if (resolvedField.isPresent() && context.getContext().getFieldToLambdaArgumentDeclaration().containsKey(FieldId.from(resolvedField.get()))) {
+                    return setExpressionType(node, resolvedField.get().getType());
                 }
             }
             Type type = symbolTypes.get(Symbol.from(node));
@@ -360,24 +358,26 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, StackableAstVisitorContext<Context> context)
         {
+            ResolvedField resolvedField = context.getContext().getScope().resolveField(node, QualifiedName.of(node.getValue()));
+            return handleResolvedField(node, resolvedField, context);
+        }
+
+        private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
+        {
+            return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getType(), context);
+        }
+
+        private Type handleResolvedField(Expression node, FieldId fieldId, Type resolvedType, StackableAstVisitorContext<Context> context)
+        {
             if (context.getContext().isInLambda()) {
-                LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getNameToLambdaArgumentDeclarationMap().get(node.getValue());
+                LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getFieldToLambdaArgumentDeclaration().get(fieldId);
                 if (lambdaArgumentDeclaration != null) {
-                    lambdaArgumentReferences.put(NodeRef.of(node), lambdaArgumentDeclaration);
-                    Type result = getExpressionType(lambdaArgumentDeclaration);
-                    return setExpressionType(node, result);
+                    // Lambda argument reference is not a column reference
+                    lambdaArgumentReferences.put(NodeRef.of((Identifier) node), lambdaArgumentDeclaration);
+                    return setExpressionType(node, resolvedType);
                 }
             }
-            return handleResolvedField(node, scope.resolveField(node, QualifiedName.of(node.getValue())));
-        }
 
-        private Type handleResolvedField(Expression node, ResolvedField resolvedField)
-        {
-            return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getType());
-        }
-
-        private Type handleResolvedField(Expression node, FieldId fieldId, Type resolvedType)
-        {
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
             return setExpressionType(node, resolvedType);
@@ -388,16 +388,17 @@ public class ExpressionAnalyzer
         {
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
 
-            if (!context.getContext().isInLambda()) {
-                // If this Dereference looks like column reference, try match it to column first.
-                if (qualifiedName != null) {
-                    Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
-                    if (resolvedField.isPresent()) {
-                        return handleResolvedField(node, resolvedField.get());
+            // If this Dereference looks like column reference, try match it to column first.
+            if (qualifiedName != null) {
+                Scope scope = context.getContext().getScope();
+                Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
+                if (resolvedField.isPresent()) {
+                    if (!context.getContext().isInLambda() || !context.getContext().getFieldToLambdaArgumentDeclaration().containsKey(FieldId.from(resolvedField.get()))) {
+                        return handleResolvedField(node, resolvedField.get(), context);
                     }
-                    if (!scope.isColumnReference(qualifiedName)) {
-                        throw missingAttributeException(node, qualifiedName);
-                    }
+                }
+                if (!scope.isColumnReference(qualifiedName)) {
+                    throw missingAttributeException(node, qualifiedName);
                 }
             }
 
@@ -792,11 +793,11 @@ public class ExpressionAnalyzer
                                         parameters,
                                         isDescribe);
                                 if (context.getContext().isInLambda()) {
-                                    for (LambdaArgumentDeclaration argument : context.getContext().getNameToLambdaArgumentDeclarationMap().values()) {
+                                    for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
                                     }
                                 }
-                                return innerExpressionAnalyzer.analyze(expression, scope, context.getContext().expectingLambda(types)).getTypeSignature();
+                                return innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types)).getTypeSignature();
                             }));
                 }
                 else {
@@ -969,7 +970,7 @@ public class ExpressionAnalyzer
             }
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             Scope subqueryScope = Scope.builder()
-                    .withParent(scope)
+                    .withParent(context.getContext().getScope())
                     .build();
             Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
 
@@ -1000,7 +1001,7 @@ public class ExpressionAnalyzer
         protected Type visitExists(ExistsPredicate node, StackableAstVisitorContext<Context> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            Scope subqueryScope = Scope.builder().withParent(scope).build();
+            Scope subqueryScope = Scope.builder().withParent(context.getContext().getScope()).build();
             analyzer.analyze(node.getSubquery(), subqueryScope);
 
             existsSubqueries.add(NodeRef.of(node));
@@ -1035,7 +1036,7 @@ public class ExpressionAnalyzer
                     }
                     break;
                 default:
-                    checkState(false, "Unexpected comparison type: %s", node.getComparisonType());
+                    throw new IllegalStateException(format("Unexpected comparison type: %s", node.getComparisonType()));
             }
 
             return setExpressionType(node, BOOLEAN);
@@ -1044,8 +1045,8 @@ public class ExpressionAnalyzer
         @Override
         public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<Context> context)
         {
-            Type type = scope.getRelationType().getFieldByIndex(node.getFieldIndex()).getType();
-            return handleResolvedField(node, new FieldId(scope.getRelationId(), node.getFieldIndex()), type);
+            Type type = baseScope.getRelationType().getFieldByIndex(node.getFieldIndex()).getType();
+            return handleResolvedField(node, new FieldId(baseScope.getRelationId(), node.getFieldIndex()), type, context);
         }
 
         @Override
@@ -1063,18 +1064,30 @@ public class ExpressionAnalyzer
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node,
                         format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
             }
-            verify(types.size() == lambdaArguments.size());
 
-            Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap = new HashMap<>();
-            if (context.getContext().isInLambda()) {
-                nameToLambdaArgumentDeclarationMap.putAll(context.getContext().getNameToLambdaArgumentDeclarationMap());
-            }
+            ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
-                nameToLambdaArgumentDeclarationMap.put(lambdaArgument.getName().getValue(), lambdaArgument);
-                setExpressionType(lambdaArgument, types.get(i));
+                Type type = types.get(i);
+                fields.add(Field.newUnqualified(lambdaArgument.getName().getValue(), type));
+                setExpressionType(lambdaArgument, type);
             }
-            Type returnType = process(node.getBody(), new StackableAstVisitorContext<Context>(Context.inLambda(nameToLambdaArgumentDeclarationMap)));
+
+            Scope lambdaScope = Scope.builder()
+                    .withParent(context.getContext().getScope())
+                    .withRelationType(RelationId.of(node), new RelationType(fields.build()))
+                    .build();
+
+            ImmutableMap.Builder<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration = ImmutableMap.builder();
+            if (context.getContext().isInLambda()) {
+                fieldToLambdaArgumentDeclaration.putAll(context.getContext().getFieldToLambdaArgumentDeclaration());
+            }
+            for (LambdaArgumentDeclaration lambdaArgument : lambdaArguments) {
+                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, QualifiedName.of(lambdaArgument.getName().getValue()));
+                fieldToLambdaArgumentDeclaration.put(FieldId.from(resolvedField), lambdaArgument);
+            }
+
+            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
             FunctionType functionType = new FunctionType(types, returnType);
             return setExpressionType(node, functionType);
         }
@@ -1117,6 +1130,7 @@ public class ExpressionAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
         }
 
+        @Override
         public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
         {
             if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT) {
@@ -1252,6 +1266,8 @@ public class ExpressionAnalyzer
 
     private static class Context
     {
+        private final Scope scope;
+
         // functionInputTypes and nameToLambdaDeclarationMap can be null or non-null independently. All 4 combinations are possible.
 
         // The list of types when expecting a lambda (i.e. processing lambda parameters of a function); null otherwise.
@@ -1259,53 +1275,60 @@ public class ExpressionAnalyzer
         private final List<Type> functionInputTypes;
         // The mapping from names to corresponding lambda argument declarations when inside a lambda; null otherwise.
         // Empty map means that the all lambda expressions surrounding the current node has no arguments.
-        private final Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap;
+        private final Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration;
 
         private Context(
+                Scope scope,
                 List<Type> functionInputTypes,
-                Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
+                Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
         {
+            this.scope = requireNonNull(scope, "scope is null");
             this.functionInputTypes = functionInputTypes;
-            this.nameToLambdaArgumentDeclarationMap = nameToLambdaArgumentDeclarationMap;
+            this.fieldToLambdaArgumentDeclaration = fieldToLambdaArgumentDeclaration;
         }
 
-        public static Context notInLambda()
+        static Context notInLambda(Scope scope)
         {
-            return new Context(null, null);
+            return new Context(scope, null, null);
         }
 
-        public static Context inLambda(Map<String, LambdaArgumentDeclaration> nameToLambdaArgumentDeclarationMap)
+        static Context inLambda(Scope scope, Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
         {
-            return new Context(null, requireNonNull(nameToLambdaArgumentDeclarationMap, "nameToLambdaArgumentDeclarationMap is null"));
+            return new Context(scope, null, requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"));
         }
 
-        public Context expectingLambda(List<Type> functionInputTypes)
+        Context expectingLambda(List<Type> functionInputTypes)
         {
-            return new Context(requireNonNull(functionInputTypes, "functionInputTypes is null"), this.nameToLambdaArgumentDeclarationMap);
+            return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration);
         }
 
-        public Context notExpectingLambda()
+        Context notExpectingLambda()
         {
-            return new Context(null, this.nameToLambdaArgumentDeclarationMap);
+            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration);
         }
 
-        public boolean isInLambda()
+        Scope getScope()
         {
-            return nameToLambdaArgumentDeclarationMap != null;
+            return scope;
         }
 
-        public boolean isExpectingLambda()
+        boolean isInLambda()
+        {
+            return fieldToLambdaArgumentDeclaration != null;
+        }
+
+        boolean isExpectingLambda()
         {
             return functionInputTypes != null;
         }
 
-        public Map<String, LambdaArgumentDeclaration> getNameToLambdaArgumentDeclarationMap()
+        Map<FieldId, LambdaArgumentDeclaration> getFieldToLambdaArgumentDeclaration()
         {
             checkState(isInLambda());
-            return nameToLambdaArgumentDeclarationMap;
+            return fieldToLambdaArgumentDeclaration;
         }
 
-        public List<Type> getFunctionInputTypes()
+        List<Type> getFunctionInputTypes()
         {
             checkState(isExpectingLambda());
             return functionInputTypes;
