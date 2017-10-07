@@ -93,7 +93,7 @@ class OutputBufferMemoryManager
         return bufferedBytes.get() / (double) maxBufferedBytes;
     }
 
-    private boolean isFull()
+    public boolean isFull()
     {
         return bufferedBytes.get() > maxBufferedBytes && blockOnFull.get();
     }

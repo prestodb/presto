@@ -113,6 +113,12 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
+    public boolean isFull()
+    {
+        return memoryManager.isFull() || !state.get().canAddPages();
+    }
+
+    @Override
     public OutputBufferInfo getInfo()
     {
         //
