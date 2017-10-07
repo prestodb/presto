@@ -141,6 +141,11 @@ public class SqlTask
         });
     }
 
+    public boolean isOutputBufferFull()
+    {
+        return outputBuffer.isFull();
+    }
+
     private static final class UpdateSystemMemory
             implements SystemMemoryUsageListener
     {
@@ -243,6 +248,7 @@ public class SqlTask
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
+                isOutputBufferFull(),
                 memoryReservation);
     }
 
