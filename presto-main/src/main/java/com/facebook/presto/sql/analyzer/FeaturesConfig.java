@@ -49,9 +49,9 @@ public class FeaturesConfig
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
-    private boolean enableIntermediateAggregations = false;
+    private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
-    private boolean exchangeCompressionEnabled = false;
+    private boolean exchangeCompressionEnabled;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
