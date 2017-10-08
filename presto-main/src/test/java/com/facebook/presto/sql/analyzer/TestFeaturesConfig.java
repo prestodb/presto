@@ -23,7 +23,6 @@ import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
-import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -72,40 +71,6 @@ public class TestFeaturesConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
-                .put("experimental.resource-groups-enabled", "true")
-                .put("experimental.iterative-optimizer-enabled", "false")
-                .put("experimental.iterative-optimizer-timeout", "10s")
-                .put("deprecated.legacy-array-agg", "true")
-                .put("deprecated.legacy-order-by", "true")
-                .put("deprecated.legacy-map-subscript", "true")
-                .put("distributed-index-joins-enabled", "true")
-                .put("distributed-joins-enabled", "false")
-                .put("fast-inequality-joins", "false")
-                .put("colocated-joins-enabled", "true")
-                .put("reorder-joins", "false")
-                .put("redistribute-writes", "false")
-                .put("optimizer.optimize-metadata-queries", "true")
-                .put("optimizer.optimize-hash-generation", "false")
-                .put("optimizer.optimize-single-distinct", "false")
-                .put("optimizer.optimize-mixed-distinct-aggregations", "true")
-                .put("optimizer.push-table-write-through-union", "false")
-                .put("optimizer.dictionary-aggregation", "true")
-                .put("optimizer.push-aggregation-through-join", "false")
-                .put("regex-library", "RE2J")
-                .put("re2j.dfa-states-limit", "42")
-                .put("re2j.dfa-retries", "42")
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.aggregation-operator-unspill-memory-limit", "100MB")
-                .put("experimental.spiller-spill-path", "/tmp/custom/spill/path1,/tmp/custom/spill/path2")
-                .put("experimental.spiller-threads", "42")
-                .put("experimental.spiller-max-used-space-threshold", "0.8")
-                .put("experimental.memory-revoking-threshold", "0.2")
-                .put("experimental.memory-revoking-target", "0.8")
-                .put("exchange.compression-enabled", "true")
-                .put("optimizer.enable-intermediate-aggregations", "true")
-                .put("optimizer.force-single-node-output", "true")
-                .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
                 .put("experimental.iterative-optimizer-enabled", "false")
@@ -176,6 +141,5 @@ public class TestFeaturesConfig
                 .setForceSingleNodeOutput(true);
 
         assertFullMapping(properties, expected);
-        assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
     }
 }
