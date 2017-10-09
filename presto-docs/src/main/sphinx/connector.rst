@@ -22,6 +22,7 @@ from different data sources.
     connector/mysql
     connector/postgresql
     connector/redis
+    connector/redshift
     connector/sqlserver
     connector/system
     connector/thrift

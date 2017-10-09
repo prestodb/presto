@@ -91,6 +91,7 @@
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
         <module>presto-postgresql</module>
+        <module>presto-redshift</module>
         <module>presto-sqlserver</module>
         <module>presto-mongodb</module>
         <module>presto-bytecode</module>
