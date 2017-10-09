@@ -43,6 +43,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMaxCallbackThreads(1000)
                 .setQueryExecutionPolicy("all-at-once")
                 .setQueryMaxRunTime(new Duration(100, TimeUnit.DAYS))
+                .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(1)
                 .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES)));
@@ -68,6 +69,7 @@ public class TestQueryManagerConfig
                 .put("query.remote-task.max-callback-threads", "10")
                 .put("query.execution-policy", "phased")
                 .put("query.max-run-time", "2h")
+                .put("query.max-execution-time", "3h")
                 .put("query.max-cpu-time", "2d")
                 .put("query-manager.initialization-required-workers", "200")
                 .put("query-manager.initialization-timeout", "1m")
@@ -90,6 +92,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMaxCallbackThreads(10)
                 .setQueryExecutionPolicy("phased")
                 .setQueryMaxRunTime(new Duration(2, TimeUnit.HOURS))
+                .setQueryMaxExecutionTime(new Duration(3, TimeUnit.HOURS))
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(200)
                 .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES));
