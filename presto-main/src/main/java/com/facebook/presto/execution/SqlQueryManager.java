@@ -209,7 +209,7 @@ public class SqlQueryManager
                 }
 
                 try {
-                    enforceQueryMaxRunTimeLimits();
+                    enforeTimeLimits();
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error enforcing query timeout limits");
@@ -551,17 +551,22 @@ public class SqlQueryManager
     }
 
     /**
-     * Enforce timeout at the query level
+     * Enforce query max runtime/execution time limits
      */
-    public void enforceQueryMaxRunTimeLimits()
+    public void enforeTimeLimits()
     {
         for (QueryExecution query : queries.values()) {
             if (query.getState().isDone()) {
                 continue;
             }
             Duration queryMaxRunTime = SystemSessionProperties.getQueryMaxRunTime(query.getSession());
-            DateTime executionStartTime = query.getQueryInfo().getQueryStats().getCreateTime();
-            if (executionStartTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
+            Duration queryMaxExecutionTime = SystemSessionProperties.getQueryMaxExecutionTime(query.getSession());
+            DateTime executionStartTime = query.getQueryInfo().getQueryStats().getExecutionStartTime();
+            DateTime createTime = query.getQueryInfo().getQueryStats().getCreateTime();
+            if (executionStartTime != null && executionStartTime.plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
+                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
+            }
+            if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
         }
