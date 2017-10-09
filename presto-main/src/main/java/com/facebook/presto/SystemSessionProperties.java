@@ -172,7 +172,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         QUERY_MAX_RUN_TIME,
-                        "Maximum run time of a query",
+                        "Maximum run time of a query (includes the queueing time)",
                         VARCHAR,
                         Duration.class,
                         queryManagerConfig.getQueryMaxRunTime(),
