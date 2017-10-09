@@ -824,10 +824,6 @@ public class InternalResourceGroup
 
     private int computeSchedulingWeight()
     {
-        if (runningQueries.size() + descendantRunningQueries >= targetRunningQueries) {
-            return burstSchedulingWeight;
-        }
-
         return schedulingWeight;
     }
 
