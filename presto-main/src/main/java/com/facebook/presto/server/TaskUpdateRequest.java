@@ -14,7 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.TaskSource;
+import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
