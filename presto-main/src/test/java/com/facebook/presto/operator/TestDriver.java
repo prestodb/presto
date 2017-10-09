@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;

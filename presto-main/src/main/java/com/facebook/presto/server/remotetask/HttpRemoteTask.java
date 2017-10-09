@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;

@@ -15,7 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
