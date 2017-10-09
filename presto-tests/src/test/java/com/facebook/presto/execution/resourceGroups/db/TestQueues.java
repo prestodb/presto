@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
@@ -27,6 +28,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -42,7 +44,10 @@ import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSele
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.rejectingSession;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForCompleteQueryCount;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForRunningQueryCount;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.testing.Assertions.assertContains;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
@@ -217,5 +222,40 @@ public class TestQueues
         QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
         waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
+    }
+
+    @Test(timeOut = 60_000)
+    public void testQueryExecutionTimeLimit()
+            throws Exception
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setSource("dashboard")
+                .setSystemProperty(QUERY_MAX_EXECUTION_TIME, "1ms")
+                .build();
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+        QueryId firstQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQuery, FAILED);
+        assertEquals(queryManager.getQueryInfo(firstQuery).getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
+        assertContains(queryManager.getQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
+        // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 0, null, null, null, null, null, null, null, 3L);
+        dbConfigurationManager.load();
+        QueryId secondQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
+        //this query should immediately get queued
+        waitForQueryState(queryRunner, secondQuery, QUEUED);
+        // after a 5s wait this query should still be QUEUED, not FAILED as the max execution time should be enforced after the query starts running
+        Thread.sleep(5_000);
+        assertEquals(queryManager.getQueryInfo(secondQuery).getState(), QUEUED);
+        // reconfigure the resource group to run the second query
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, null, 3L);
+        dbConfigurationManager.load();
+        // cancel the first one and let the second one start
+        queryManager.cancelQuery(firstQuery);
+        // wait until the second one is FAILED
+        waitForQueryState(queryRunner, secondQuery, FAILED);
     }
 }
