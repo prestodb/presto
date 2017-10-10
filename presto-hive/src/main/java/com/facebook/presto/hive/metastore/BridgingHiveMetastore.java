@@ -180,7 +180,7 @@ public class BridgingHiveMetastore
         }
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
         table.getSd().getCols().add(
-                new FieldSchema(columnName, columnType.getHiveTypeName(), columnComment));
+                new FieldSchema(columnName, columnType.getHiveTypeName().toString(), columnComment));
         alterTable(databaseName, tableName, table);
     }
 

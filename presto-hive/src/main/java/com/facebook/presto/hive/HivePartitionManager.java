@@ -128,17 +128,19 @@ public class HivePartitionManager
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(connectorId, table);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
-        List<HiveBucket> buckets = getHiveBucketNumbers(table, effectivePredicate);
-        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
         if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(partitionColumns, ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle);
+            return new HivePartitionResult(partitionColumns, ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle);
         }
+
+        List<HiveBucket> buckets = getHiveBucketNumbers(table, effectivePredicate);
+        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
                     partitionColumns,
-                    ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, buckets)),
+                    ImmutableList.of(new HivePartition(tableName, buckets)),
+                    compactEffectivePredicate,
                     effectivePredicate,
                     TupleDomain.none(),
                     hiveBucketHandle);
@@ -164,14 +166,14 @@ public class HivePartitionManager
                             maxPartitions));
                 }
                 partitionCount++;
-                partitions.add(new HivePartition(tableName, compactEffectivePredicate, partitionName, values.get(), buckets));
+                partitions.add(new HivePartition(tableName, partitionName, values.get(), buckets));
             }
         }
 
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitionColumns, partitions.build(), remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle);
+        return new HivePartitionResult(partitionColumns, partitions.build(), compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle);
     }
 
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)

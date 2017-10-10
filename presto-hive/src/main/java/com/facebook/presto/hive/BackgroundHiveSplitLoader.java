@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.HiveFileIterator;
 import com.facebook.presto.hive.util.ResumableTask;
 import com.facebook.presto.hive.util.ResumableTasks;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -98,6 +99,7 @@ public class BackgroundHiveSplitLoader
 
     private final String connectorId;
     private final Table table;
+    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final List<HiveBucket> buckets;
     private final HdfsEnvironment hdfsEnvironment;
@@ -134,6 +136,7 @@ public class BackgroundHiveSplitLoader
             String connectorId,
             Table table,
             Iterable<HivePartitionMetadata> partitions,
+            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             Optional<HiveBucketHandle> bucketHandle,
             List<HiveBucket> buckets,
             ConnectorSession session,
@@ -147,6 +150,7 @@ public class BackgroundHiveSplitLoader
     {
         this.connectorId = connectorId;
         this.table = table;
+        this.compactEffectivePredicate = compactEffectivePredicate;
         this.bucketHandle = bucketHandle;
         this.buckets = buckets;
         this.maxSplitSize = getMaxSplitSize(session);
@@ -293,7 +297,7 @@ public class BackgroundHiveSplitLoader
         String partitionName = partition.getHivePartition().getPartitionId();
         Properties schema = getPartitionSchema(table, partition.getPartition());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-        TupleDomain<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
+        TupleDomain<HiveColumnHandle> effectivePredicate = (TupleDomain<HiveColumnHandle>) compactEffectivePredicate;
         Optional<Domain> pathDomain = getPathDomain(effectivePredicate);
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
@@ -341,7 +345,7 @@ public class BackgroundHiveSplitLoader
         if (!buckets.isEmpty()) {
             int bucketCount = buckets.get(0).getBucketCount();
             List<LocatedFileStatus> list = listAndSortBucketFiles(iterator, bucketCount);
-            List<Iterator<HiveSplit>> iteratorList = new ArrayList<>();
+            List<Iterator<InternalHiveSplit>> iteratorList = new ArrayList<>();
 
             for (HiveBucket bucket : buckets) {
                 int bucketNumber = bucket.getBucketNumber();
@@ -374,7 +378,7 @@ public class BackgroundHiveSplitLoader
             // HiveFileIterator skips hidden files automatically.
             int bucketCount = bucketHandle.get().getBucketCount();
             List<LocatedFileStatus> list = listAndSortBucketFiles(iterator, bucketCount);
-            List<Iterator<HiveSplit>> iteratorList = new ArrayList<>();
+            List<Iterator<InternalHiveSplit>> iteratorList = new ArrayList<>();
 
             for (int bucketIndex = 0; bucketIndex < bucketCount; bucketIndex++) {
                 LocatedFileStatus file = list.get(bucketIndex);
@@ -410,7 +414,7 @@ public class BackgroundHiveSplitLoader
             List<HivePartitionKey> partitionKeys,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveType> columnCoercions,
+            Map<Integer, HiveTypeName> columnCoercions,
             Optional<Domain> pathDomain)
             throws IOException
     {
@@ -449,11 +453,11 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private void addToHiveSplitSourceRoundRobin(List<Iterator<HiveSplit>> iteratorList)
+    private void addToHiveSplitSourceRoundRobin(List<Iterator<InternalHiveSplit>> iteratorList)
     {
         while (true) {
             boolean done = true;
-            for (Iterator<HiveSplit> hiveSplitIterator : iteratorList) {
+            for (Iterator<InternalHiveSplit> hiveSplitIterator : iteratorList) {
                 if (hiveSplitIterator.hasNext()) {
                     hiveSplitSource.addToQueue(hiveSplitIterator.next());
                     done = false;
@@ -507,7 +511,7 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private Iterator<HiveSplit> createHiveSplitIterator(
+    private Iterator<InternalHiveSplit> createHiveSplitIterator(
             String partitionName,
             String path,
             BlockLocation[] blockLocations,
@@ -520,7 +524,7 @@ public class BackgroundHiveSplitLoader
             ConnectorSession session,
             OptionalInt bucketNumber,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveType> columnCoercions,
+            Map<Integer, HiveTypeName> columnCoercions,
             Optional<Domain> pathDomain)
             throws IOException
     {
@@ -533,12 +537,12 @@ public class BackgroundHiveSplitLoader
         if (splittable) {
             PeekingIterator<BlockLocation> blockLocationIterator = Iterators.peekingIterator(Arrays.stream(blockLocations).iterator());
 
-            return new AbstractIterator<HiveSplit>()
+            return new AbstractIterator<InternalHiveSplit>()
             {
                 private long chunkOffset = 0;
 
                 @Override
-                protected HiveSplit computeNext()
+                protected InternalHiveSplit computeNext()
                 {
                     if (!blockLocationIterator.hasNext()) {
                         return endOfData();
@@ -566,10 +570,7 @@ public class BackgroundHiveSplitLoader
                     // adjust the actual chunk size to account for the overrun when chunks are slightly bigger than necessary (see above)
                     long chunkLength = Math.min(targetChunkSize, blockLocation.getLength() - chunkOffset);
 
-                    HiveSplit result = new HiveSplit(
-                            connectorId,
-                            table.getDatabaseName(),
-                            table.getTableName(),
+                    InternalHiveSplit result = new InternalHiveSplit(
                             partitionName,
                             path,
                             blockLocation.getOffset() + chunkOffset,
@@ -580,7 +581,6 @@ public class BackgroundHiveSplitLoader
                             addresses,
                             bucketNumber,
                             forceLocalScheduling && hasRealAddress(addresses),
-                            effectivePredicate,
                             columnCoercions);
 
                     chunkOffset += chunkLength;
@@ -602,10 +602,7 @@ public class BackgroundHiveSplitLoader
                 addresses = toHostAddress(blockLocations[0].getHosts());
             }
 
-            return Iterators.singletonIterator(new HiveSplit(
-                    connectorId,
-                    table.getDatabaseName(),
-                    table.getTableName(),
+            return Iterators.singletonIterator(new InternalHiveSplit(
                     partitionName,
                     path,
                     start,
@@ -616,7 +613,6 @@ public class BackgroundHiveSplitLoader
                     addresses,
                     bucketNumber,
                     forceLocalScheduling && hasRealAddress(addresses),
-                    effectivePredicate,
                     columnCoercions));
         }
     }

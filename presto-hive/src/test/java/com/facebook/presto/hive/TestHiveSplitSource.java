@@ -14,18 +14,21 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.OptionalInt;
+import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -35,7 +38,14 @@ public class TestHiveSplitSource
     public void testOutstandingSplitCount()
             throws Exception
     {
-        HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        HiveSplitSource hiveSplitSource = new HiveSplitSource(
+                "client-id",
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5));
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -60,7 +70,14 @@ public class TestHiveSplitSource
     public void testFail()
             throws Exception
     {
-        HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        HiveSplitSource hiveSplitSource = new HiveSplitSource(
+                "client-id",
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5));
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -108,7 +125,14 @@ public class TestHiveSplitSource
     public void testReaderWaitsForSplits()
             throws Exception
     {
-        final HiveSplitSource hiveSplitSource = new HiveSplitSource(10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
+        final HiveSplitSource hiveSplitSource = new HiveSplitSource(
+                "client-id",
+                "database",
+                "table",
+                TupleDomain.all(),
+                10,
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5));
 
         final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
@@ -145,7 +169,7 @@ public class TestHiveSplitSource
 
             // wait for thread to get the split
             ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
-            assertSame(split.getInfo(), 33);
+            assertEquals(((HiveSplit) split).getSchema().getProperty("id"), "33");
         }
         finally {
             // make sure the thread exits
@@ -168,31 +192,29 @@ public class TestHiveSplitSource
     }
 
     private static class TestSplit
-            implements ConnectorSplit
+            extends InternalHiveSplit
     {
-        private final int id;
-
         private TestSplit(int id)
         {
-            this.id = id;
+            super(
+                    "partition-name",
+                    "path",
+                    0,
+                    100,
+                    100,
+                    properties("id", String.valueOf(id)),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    OptionalInt.empty(),
+                    false,
+                    ImmutableMap.of());
         }
 
-        @Override
-        public boolean isRemotelyAccessible()
+        private static Properties properties(String key, String value)
         {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<HostAddress> getAddresses()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Object getInfo()
-        {
-            return id;
+            Properties properties = new Properties();
+            properties.put(key, value);
+            return properties;
         }
     }
 }

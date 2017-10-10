@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -31,24 +30,22 @@ public class HivePartition
     public static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
 
     private final SchemaTableName tableName;
-    private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final String partitionId;
     private final Map<ColumnHandle, NullableValue> keys;
     private final List<HiveBucket> buckets;
 
-    public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate, List<HiveBucket> buckets)
+    public HivePartition(SchemaTableName tableName, List<HiveBucket> buckets)
     {
-        this(tableName, effectivePredicate, UNPARTITIONED_ID, ImmutableMap.of(), buckets);
+        this(tableName, UNPARTITIONED_ID, ImmutableMap.of(), buckets);
     }
 
-    public HivePartition(SchemaTableName tableName,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+    public HivePartition(
+            SchemaTableName tableName,
             String partitionId,
             Map<ColumnHandle, NullableValue> keys,
             List<HiveBucket> buckets)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.partitionId = requireNonNull(partitionId, "partitionId is null");
         this.keys = ImmutableMap.copyOf(requireNonNull(keys, "keys is null"));
         this.buckets = requireNonNull(buckets, "bucket number is null");
@@ -57,11 +54,6 @@ public class HivePartition
     public SchemaTableName getTableName()
     {
         return tableName;
-    }
-
-    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
-    {
-        return effectivePredicate;
     }
 
     public String getPartitionId()
