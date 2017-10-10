@@ -269,6 +269,7 @@ public class HiveWriterFactory
                 schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumns.stream()
                         .map(DataColumn::getHiveType)
                         .map(HiveType::getHiveTypeName)
+                        .map(HiveTypeName::toString)
                         .collect(joining(":")));
                 target = locationService.targetPath(locationHandle, partitionName);
                 write = locationService.writePath(locationHandle, partitionName).get();

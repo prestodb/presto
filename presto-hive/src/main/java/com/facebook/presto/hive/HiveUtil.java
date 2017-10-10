@@ -529,7 +529,7 @@ public final class HiveUtil
 
     public static Optional<DecimalType> getDecimalType(HiveType hiveType)
     {
-        return getDecimalType(hiveType.getHiveTypeName());
+        return getDecimalType(hiveType.getHiveTypeName().toString());
     }
 
     public static Optional<DecimalType> getDecimalType(String hiveTypeName)

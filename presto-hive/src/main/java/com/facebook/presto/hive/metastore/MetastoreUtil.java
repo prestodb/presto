@@ -176,7 +176,7 @@ public class MetastoreUtil
             partString += partStringSep;
             partString += partKey.getName();
             partTypesString += partTypesStringSep;
-            partTypesString += partKey.getType().getHiveTypeName();
+            partTypesString += partKey.getType().getHiveTypeName().toString();
             if (partStringSep.length() == 0) {
                 partStringSep = "/";
                 partTypesStringSep = ":";
@@ -515,7 +515,7 @@ public class MetastoreUtil
             else {
                 ddl.append(", ");
             }
-            ddl.append(typeToThriftType(column.getType().getHiveTypeName()));
+            ddl.append(typeToThriftType(column.getType().getHiveTypeName().toString()));
             ddl.append(' ');
             ddl.append(column.getName());
         }
@@ -564,7 +564,7 @@ public class MetastoreUtil
 
     private static FieldSchema toMetastoreApiFieldSchema(Column column)
     {
-        return new FieldSchema(column.getName(), column.getType().getHiveTypeName(), column.getComment().orElse(null));
+        return new FieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null));
     }
 
     private static Column fromMetastoreApiFieldSchema(FieldSchema fieldSchema)

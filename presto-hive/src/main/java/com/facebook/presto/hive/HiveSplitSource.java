@@ -14,10 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.util.AsyncQueue;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 
 import java.io.FileNotFoundException;
 import java.util.Iterator;
@@ -29,18 +32,35 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Maps.transformValues;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
+import static java.util.Objects.requireNonNull;
 
 class HiveSplitSource
         implements ConnectorSplitSource
 {
-    private final AsyncQueue<ConnectorSplit> queue;
+    private final String connectorId;
+    private final String databaseName;
+    private final String tableName;
+    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+    private final AsyncQueue<InternalHiveSplit> queue;
     private final AtomicReference<Throwable> throwable = new AtomicReference<>();
     private final HiveSplitLoader splitLoader;
     private volatile boolean closed;
 
-    HiveSplitSource(int maxOutstandingSplits, HiveSplitLoader splitLoader, Executor executor)
+    HiveSplitSource(
+            String connectorId,
+            String databaseName,
+            String tableName,
+            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
+            int maxOutstandingSplits,
+            HiveSplitLoader splitLoader,
+            Executor executor)
     {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.databaseName = requireNonNull(databaseName, "databaseName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.queue = new AsyncQueue<>(maxOutstandingSplits, executor);
         this.splitLoader = splitLoader;
     }
@@ -51,17 +71,17 @@ class HiveSplitSource
         return queue.size();
     }
 
-    CompletableFuture<?> addToQueue(Iterator<? extends ConnectorSplit> splits)
+    CompletableFuture<?> addToQueue(Iterator<? extends InternalHiveSplit> splits)
     {
         CompletableFuture<?> lastResult = CompletableFuture.completedFuture(null);
         while (splits.hasNext()) {
-            ConnectorSplit split = splits.next();
+            InternalHiveSplit split = splits.next();
             lastResult = addToQueue(split);
         }
         return lastResult;
     }
 
-    CompletableFuture<?> addToQueue(ConnectorSplit split)
+    CompletableFuture<?> addToQueue(InternalHiveSplit split)
     {
         if (throwable.get() == null) {
             return queue.offer(split);
@@ -97,7 +117,28 @@ class HiveSplitSource
     {
         checkState(!closed, "Provider is already closed");
 
-        CompletableFuture<List<ConnectorSplit>> future = queue.getBatchAsync(maxSize);
+        CompletableFuture<List<ConnectorSplit>> future = queue.getBatchAsync(maxSize).thenApply(internalSplits -> {
+            ImmutableList.Builder<ConnectorSplit> result = ImmutableList.builder();
+            for (InternalHiveSplit internalSplit : internalSplits) {
+                result.add(new HiveSplit(
+                        connectorId,
+                        databaseName,
+                        tableName,
+                        internalSplit.getPartitionName(),
+                        internalSplit.getPath(),
+                        internalSplit.getStart(),
+                        internalSplit.getLength(),
+                        internalSplit.getFileSize(),
+                        internalSplit.getSchema(),
+                        internalSplit.getPartitionKeys(),
+                        internalSplit.getAddresses(),
+                        internalSplit.getBucketNumber(),
+                        internalSplit.isForceLocalScheduling(),
+                        (TupleDomain<HiveColumnHandle>) compactEffectivePredicate,
+                        transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType)));
+            }
+            return result.build();
+        });
 
         // Before returning, check if there is a registered failure.
         // If so, we want to throw the error, instead of returning because the scheduler can block

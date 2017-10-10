@@ -22,6 +22,7 @@ import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.HiveTypeName;
 import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.RecordFileWriter;
 import com.facebook.presto.hive.TypeTranslator;
@@ -464,6 +465,7 @@ public enum FileFormat
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
                 .map(type -> toHiveType(typeTranslator, type))
                 .map(HiveType::getHiveTypeName)
+                .map(HiveTypeName::toString)
                 .collect(joining(":")));
         return schema;
     }

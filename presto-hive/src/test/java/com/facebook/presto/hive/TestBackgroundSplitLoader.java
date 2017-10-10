@@ -98,7 +98,7 @@ public class TestBackgroundSplitLoader
                 TEST_FILES,
                 TupleDomain.none());
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         assertEquals(drain(hiveSplitSource).size(), 2);
@@ -112,7 +112,7 @@ public class TestBackgroundSplitLoader
                 TEST_FILES,
                 RETURNED_PATH_DOMAIN);
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -132,7 +132,7 @@ public class TestBackgroundSplitLoader
                 PARTITIONED_TABLE,
                 Optional.empty());
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -153,7 +153,7 @@ public class TestBackgroundSplitLoader
                                 getRegularColumnHandles(TEST_CONNECTOR_ID, PARTITIONED_TABLE),
                                 BUCKET_COUNT)));
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -190,7 +190,7 @@ public class TestBackgroundSplitLoader
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
-            TupleDomain<HiveColumnHandle> tupleDomain,
+            TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             List<HiveBucket> hiveBuckets,
             Table table,
             Optional<HiveBucketHandle> bucketHandle)
@@ -198,7 +198,7 @@ public class TestBackgroundSplitLoader
         List<HivePartitionMetadata> hivePartitionMetadatas =
                 ImmutableList.of(
                         new HivePartitionMetadata(
-                                new HivePartition(new SchemaTableName("testSchema", "table_name"), tupleDomain, ImmutableList.of()),
+                                new HivePartition(new SchemaTableName("testSchema", "table_name"), ImmutableList.of()),
                                 Optional.empty(),
                                 ImmutableMap.of()));
 
@@ -209,6 +209,7 @@ public class TestBackgroundSplitLoader
                 TEST_CONNECTOR_ID,
                 table,
                 hivePartitionMetadatas,
+                compactEffectivePredicate,
                 bucketHandle,
                 hiveBuckets,
                 connectorSession,
@@ -221,9 +222,15 @@ public class TestBackgroundSplitLoader
                 false);
     }
 
-    private static HiveSplitSource hiveSplitSource(BackgroundHiveSplitLoader backgroundHiveSplitLoader)
+    private static HiveSplitSource hiveSplitSource(
+            BackgroundHiveSplitLoader backgroundHiveSplitLoader,
+            TupleDomain<HiveColumnHandle> compactEffectivePredicate)
     {
         return new HiveSplitSource(
+                TEST_CONNECTOR_ID,
+                SIMPLE_TABLE.getDatabaseName(),
+                SIMPLE_TABLE.getTableName(),
+                compactEffectivePredicate,
                 1,
                 backgroundHiveSplitLoader,
                 EXECUTOR);
