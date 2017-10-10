@@ -56,6 +56,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -232,6 +233,7 @@ public class TestBackgroundSplitLoader
                 SIMPLE_TABLE.getTableName(),
                 compactEffectivePredicate,
                 1,
+                new DataSize(32, MEGABYTE),
                 backgroundHiveSplitLoader,
                 EXECUTOR);
     }

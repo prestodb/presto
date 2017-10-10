@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
@@ -23,6 +24,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class HivePartitionKey
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HivePartitionKey.class).instanceSize() +
+            ClassLayout.parseClass(String.class).instanceSize() * 2;
+
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     private final String name;
     private final String value;
@@ -49,6 +53,11 @@ public final class HivePartitionKey
     public String getValue()
     {
         return value;
+    }
+
+    public int getEstimatedSizeInBytes()
+    {
+        return INSTANCE_SIZE + name.length() * Character.BYTES + value.length() * Character.BYTES;
     }
 
     @Override

@@ -21,20 +21,27 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.io.FileNotFoundException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.transformValues;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
+import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 class HiveSplitSource
         implements ConnectorSplitSource
@@ -44,9 +51,13 @@ class HiveSplitSource
     private final String tableName;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final AsyncQueue<InternalHiveSplit> queue;
+    private final int maxOutstandingSplitsBytes;
+
     private final AtomicReference<Throwable> throwable = new AtomicReference<>();
     private final HiveSplitLoader splitLoader;
     private volatile boolean closed;
+
+    private final AtomicLong estimatedSplitSizeInBytes = new AtomicLong();
 
     HiveSplitSource(
             String connectorId,
@@ -54,6 +65,7 @@ class HiveSplitSource
             String tableName,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             int maxOutstandingSplits,
+            DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             Executor executor)
     {
@@ -62,6 +74,7 @@ class HiveSplitSource
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.queue = new AsyncQueue<>(maxOutstandingSplits, executor);
+        this.maxOutstandingSplitsBytes = toIntExact(maxOutstandingSplitsSize.toBytes());
         this.splitLoader = splitLoader;
     }
 
@@ -73,7 +86,7 @@ class HiveSplitSource
 
     CompletableFuture<?> addToQueue(Iterator<? extends InternalHiveSplit> splits)
     {
-        CompletableFuture<?> lastResult = CompletableFuture.completedFuture(null);
+        CompletableFuture<?> lastResult = completedFuture(null);
         while (splits.hasNext()) {
             InternalHiveSplit split = splits.next();
             lastResult = addToQueue(split);
@@ -84,9 +97,16 @@ class HiveSplitSource
     CompletableFuture<?> addToQueue(InternalHiveSplit split)
     {
         if (throwable.get() == null) {
+            if (estimatedSplitSizeInBytes.addAndGet(split.getEstimatedSizeInBytes()) > maxOutstandingSplitsBytes) {
+                // This limit should never be hit given there is a limit of maxOutstandingSplits.
+                // If it's hit, it means individual splits are huge.
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, format(
+                        "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
+                        databaseName, tableName, succinctBytes(maxOutstandingSplitsBytes), getOutstandingSplitCount()));
+            }
             return queue.offer(split);
         }
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 
     void noMoreSplits()
@@ -119,7 +139,9 @@ class HiveSplitSource
 
         CompletableFuture<List<ConnectorSplit>> future = queue.getBatchAsync(maxSize).thenApply(internalSplits -> {
             ImmutableList.Builder<ConnectorSplit> result = ImmutableList.builder();
+            int totalEstimatedSizeInBytes = 0;
             for (InternalHiveSplit internalSplit : internalSplits) {
+                totalEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
                 result.add(new HiveSplit(
                         connectorId,
                         databaseName,
@@ -137,6 +159,7 @@ class HiveSplitSource
                         (TupleDomain<HiveColumnHandle>) compactEffectivePredicate,
                         transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType)));
             }
+            estimatedSplitSizeInBytes.addAndGet(-totalEstimatedSizeInBytes);
             return result.build();
         });
 
