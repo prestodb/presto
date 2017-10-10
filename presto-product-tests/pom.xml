@@ -28,14 +28,32 @@
         <dependency>
             <groupId>com.teradata.tempto</groupId>
             <artifactId>tempto-core</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.javassist</groupId>
+                    <artifactId>javassist</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.teradata.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.javassist</groupId>
+                    <artifactId>javassist</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.teradata.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.javassist</groupId>
+                    <artifactId>javassist</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
