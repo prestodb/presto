@@ -179,9 +179,9 @@ public class TestingPrestoServer
             List<Module> additionalModules)
             throws Exception
     {
-        Logger logger = Logger.getLogger("org.glassfish.jersey.server");
-        logger.setLevel(Level.OFF);
-        System.out.println("TURNED OFF LOGGING FOR JERSEY");
+//        Logger logger = Logger.getLogger("org.glassfish.jersey.server");
+//        logger.setLevel(Level.OFF);
+//        System.out.println("TURNED OFF LOGGING FOR JERSEY");
 
         this.coordinator = coordinator;
         baseDataDir = Files.createTempDirectory("PrestoTest");
