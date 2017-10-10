@@ -14,10 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -28,6 +31,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -44,6 +50,7 @@ public class TestHiveSplitSource
                 "table",
                 TupleDomain.all(),
                 10,
+                new DataSize(32, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5));
 
@@ -76,6 +83,7 @@ public class TestHiveSplitSource
                 "table",
                 TupleDomain.all(),
                 10,
+                new DataSize(32, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5));
 
@@ -131,6 +139,7 @@ public class TestHiveSplitSource
                 "table",
                 TupleDomain.all(),
                 10,
+                new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5));
 
@@ -174,6 +183,55 @@ public class TestHiveSplitSource
         finally {
             // make sure the thread exits
             getterThread.interrupt();
+        }
+    }
+
+    @Test
+    public void testOutstandingSplitSize()
+            throws Exception
+    {
+        DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
+        HiveSplitSource hiveSplitSource = new HiveSplitSource(
+                "client-id",
+                "database",
+                "table",
+                TupleDomain.all(),
+                10000,
+                maxOutstandingSplitsSize,
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5));
+        InternalHiveSplit testSplit = new InternalHiveSplit(
+                "partition-name",
+                "path",
+                0,
+                100,
+                100,
+                new Properties(),
+                ImmutableList.of(new HivePartitionKey("pk_col", "pk_value")),
+                ImmutableList.of(HostAddress.fromString("localhost")),
+                OptionalInt.empty(),
+                false,
+                ImmutableMap.of());
+        int testSplitSizeInBytes = testSplit.getEstimatedSizeInBytes();
+
+        int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
+        for (int i = 0; i < maxSplitCount; i++) {
+            hiveSplitSource.addToQueue(testSplit);
+            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
+        }
+
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(maxSplitCount)).size(), maxSplitCount);
+
+        for (int i = 0; i < maxSplitCount; i++) {
+            hiveSplitSource.addToQueue(testSplit);
+            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
+        }
+        try {
+            hiveSplitSource.addToQueue(testSplit);
+            fail("expect failure");
+        }
+        catch (PrestoException e) {
+            assertContains(e.getMessage(), "Split buffering for database.table exceeded memory limit");
         }
     }
 

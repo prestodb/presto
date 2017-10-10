@@ -16,6 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -28,6 +30,16 @@ import static java.util.Objects.requireNonNull;
 
 public class InternalHiveSplit
 {
+    // Overhead of ImmutableList and ImmutableMap is not accounted because of its complexity.
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
+            ClassLayout.parseClass(String.class).instanceSize() +
+            ClassLayout.parseClass(Properties.class).instanceSize() +
+            ClassLayout.parseClass(String.class).instanceSize() +
+            ClassLayout.parseClass(OptionalInt.class).instanceSize();
+    private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
+            ClassLayout.parseClass(String.class).instanceSize();
+    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
+
     private final String path;
     private final long start;
     private final long length;
@@ -130,6 +142,26 @@ public class InternalHiveSplit
     public Map<Integer, HiveTypeName> getColumnCoercions()
     {
         return columnCoercions;
+    }
+
+    public int getEstimatedSizeInBytes()
+    {
+        int result = INSTANCE_SIZE;
+        result += path.length() * Character.BYTES;
+        result += SizeOf.sizeOfObjectArray(partitionKeys.size());
+        for (HivePartitionKey partitionKey : partitionKeys) {
+            result += partitionKey.getEstimatedSizeInBytes();
+        }
+        result += SizeOf.sizeOfObjectArray(addresses.size());
+        for (HostAddress address : addresses) {
+            result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
+        }
+        result += partitionName.length() * Character.BYTES;
+        result += SizeOf.sizeOfObjectArray(columnCoercions.size());
+        for (HiveTypeName hiveTypeName : columnCoercions.values()) {
+            result += INTEGER_INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
+        }
+        return result;
     }
 
     @Override
