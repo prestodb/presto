@@ -16,7 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 interface UpdateablePriorityQueue<E>
         extends Iterable<E>
 {
-    boolean addOrUpdate(E element, int priority);
+    boolean addOrUpdate(E element, long priority);
 
     boolean contains(E element);
 
