@@ -131,6 +131,20 @@ public class RetryingPrestoThriftServiceProvider
         }
 
         @Override
+        public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(
+                PrestoThriftSchemaTableName schemaTableName,
+                List<String> indexColumnNames,
+                List<String> outputColumnNames,
+                PrestoThriftPageResult keys,
+                PrestoThriftTupleDomain outputConstraint,
+                int maxSplitCount,
+                PrestoThriftNullableToken nextToken)
+                throws PrestoThriftServiceException
+        {
+            return retry.runAsync("getLookupSplits", () -> getClient().getIndexSplits(schemaTableName, indexColumnNames, outputColumnNames, keys, outputConstraint, maxSplitCount, nextToken));
+        }
+
+        @Override
         public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
         {
             return retry.runAsync("getRows", () -> getClient().getRows(splitId, columns, maxBytes, nextToken));
@@ -146,7 +160,7 @@ public class RetryingPrestoThriftServiceProvider
                 client.close();
             }
             catch (Exception e) {
-                log.warn("Error closing client", e);
+                log.warn(e, "Error closing client");
             }
             client = null;
         }

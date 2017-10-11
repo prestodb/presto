@@ -27,7 +27,7 @@ public class TestThriftIntegrationSmokeTest
     public TestThriftIntegrationSmokeTest()
             throws Exception
     {
-        super(() -> createThriftQueryRunner(2, 2));
+        super(() -> createThriftQueryRunner(2, 2, false));
     }
 
     @Override

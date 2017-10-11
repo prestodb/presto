@@ -30,7 +30,8 @@ public class TestThriftConnectorConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(ThriftConnectorConfig.class)
                 .setMaxResponseSize(new DataSize(16, MEGABYTE))
                 .setMetadataRefreshThreads(1)
-                .setRetryDriverThreads(8));
+                .setRetryDriverThreads(8)
+                .setLookupRequestsConcurrency(1));
     }
 
     @Test
@@ -40,12 +41,14 @@ public class TestThriftConnectorConfig
                 .put("presto-thrift.max-response-size", "2MB")
                 .put("presto-thrift.metadata-refresh-threads", "10")
                 .put("presto-thrift.retry-driver-threads", "16")
+                .put("presto-thrift.lookup-requests-concurrency", "8")
                 .build();
 
         ThriftConnectorConfig expected = new ThriftConnectorConfig()
                 .setMaxResponseSize(new DataSize(2, MEGABYTE))
                 .setMetadataRefreshThreads(10)
-                .setRetryDriverThreads(16);
+                .setRetryDriverThreads(16)
+                .setLookupRequestsConcurrency(8);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
