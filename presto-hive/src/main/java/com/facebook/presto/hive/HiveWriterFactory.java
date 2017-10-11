@@ -70,8 +70,10 @@ import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
@@ -478,9 +480,9 @@ public class HiveWriterFactory
             else {
                 String valueString = value.toString();
                 if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(valueString)) {
-                    throw new PrestoException(
-                            HIVE_INVALID_PARTITION_VALUE,
-                            format("Cannot use %s as value of a partition column in Hive. Partition keys in Hive can only contain characters in the range of 0x20 - 0x7E.", valueString));
+                    throw new PrestoException(HIVE_INVALID_PARTITION_VALUE,
+                            "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " +
+                                    base16().withSeparator(" ", 2).encode(valueString.getBytes(UTF_8)));
                 }
                 partitionValues.add(valueString);
             }
