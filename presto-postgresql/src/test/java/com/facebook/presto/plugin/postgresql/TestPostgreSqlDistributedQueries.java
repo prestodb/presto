@@ -13,6 +13,21 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.function.IntFunction;
+
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
+
 import com.facebook.presto.tests.AbstractTestQueries;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -21,22 +36,9 @@ import com.facebook.presto.tests.datatype.DataType;
 import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
+
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
-
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.function.Function;
-
-import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
-import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestPostgreSqlDistributedQueries
@@ -144,7 +146,7 @@ public class TestPostgreSqlDistributedQueries
         return unicodeDataTypeTest(DataType::varcharDataType).addRoundTrip(varcharDataType(), "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!");
     }
 
-    private DataTypeTest unicodeDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
+    private DataTypeTest unicodeDataTypeTest(IntFunction<DataType<String>> dataTypeFactory)
     {
         String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
         String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";

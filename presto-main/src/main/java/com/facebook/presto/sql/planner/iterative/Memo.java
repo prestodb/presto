@@ -16,6 +16,9 @@ package com.facebook.presto.sql.planner.iterative;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -58,8 +61,8 @@ public class Memo
     private final PlanNodeIdAllocator idAllocator;
     private final int rootGroup;
 
-    private final Map<Integer, PlanNode> membership = new HashMap<>();
-    private final Map<Integer, Integer> referenceCounts = new HashMap<>();
+    private final Int2ObjectOpenHashMap<PlanNode> membership = new Int2ObjectOpenHashMap<>();
+    private final Int2IntOpenHashMap referenceCounts = new Int2IntOpenHashMap();
 
     private int nextGroupId;
 

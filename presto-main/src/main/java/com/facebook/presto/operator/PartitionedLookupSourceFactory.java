@@ -13,6 +13,33 @@
  */
 package com.facebook.presto.operator;
 
+import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
+import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.OptionalInt;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
+import java.util.function.IntPredicate;
+import java.util.function.Supplier;
+
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.NotThreadSafe;
+
 import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -24,33 +51,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.Immutable;
-import javax.annotation.concurrent.NotThreadSafe;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.OptionalInt;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Function;
-import java.util.function.IntPredicate;
-import java.util.function.Supplier;
-
-import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
-import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
-import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 public final class PartitionedLookupSourceFactory
         implements LookupSourceFactory
@@ -79,7 +80,7 @@ public final class PartitionedLookupSourceFactory
     private SpillingInfo spillingInfo = new SpillingInfo(0, ImmutableSet.of());
 
     @GuardedBy("lock")
-    private Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
+    private Int2ObjectOpenHashMap<SpilledLookupSourceHandle> spilledPartitions = new Int2ObjectOpenHashMap<>();
 
     @GuardedBy("lock")
     private TrackingLookupSourceSupplier lookupSourceSupplier;

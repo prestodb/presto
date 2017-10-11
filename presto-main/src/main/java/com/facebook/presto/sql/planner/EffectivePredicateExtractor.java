@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -267,7 +268,7 @@ public class EffectivePredicateExtractor
         return node.getSource().accept(this, context);
     }
 
-    private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, SymbolReference>>> mapping)
+    private Expression deriveCommonPredicates(PlanNode node, IntFunction<Collection<Map.Entry<Symbol, SymbolReference>>> mapping)
     {
         // Find the predicates that can be pulled up from each source
         List<Set<Expression>> sourceOutputConjuncts = new ArrayList<>();
