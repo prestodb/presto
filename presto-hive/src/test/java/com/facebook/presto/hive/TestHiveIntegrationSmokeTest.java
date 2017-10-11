@@ -2020,13 +2020,13 @@ public class TestHiveIntegrationSmokeTest
     {
         assertUpdate("CREATE TABLE invalid_partition_value (a int, b varchar) WITH (partitioned_by = ARRAY['b'])");
         assertQueryFails(
-                "INSERT INTO invalid_partition_value VALUES (4, '\n')",
-                "Cannot use \n as value of a partition column in Hive. Partition keys in Hive can only contain characters in the range of 0x20 - 0x7E.");
+                "INSERT INTO invalid_partition_value VALUES (4, 'test' || chr(13))",
+                "\\QHive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: 74 65 73 74 0D\\E");
         assertUpdate("DROP TABLE invalid_partition_value");
 
         assertQueryFails(
-                "CREATE TABLE invalid_partition_value (a, b) WITH (partitioned_by = ARRAY['b']) AS SELECT 4, '\n'",
-                "Cannot use \n as value of a partition column in Hive. Partition keys in Hive can only contain characters in the range of 0x20 - 0x7E.");
+                "CREATE TABLE invalid_partition_value (a, b) WITH (partitioned_by = ARRAY['b']) AS SELECT 4, chr(9731)",
+                "\\QHive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: E2 98 83\\E");
     }
 
     private Session getParallelWriteSession()
