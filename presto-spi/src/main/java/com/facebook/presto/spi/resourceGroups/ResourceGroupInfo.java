@@ -30,7 +30,7 @@ public class ResourceGroupInfo
     private final ResourceGroupId id;
 
     private final DataSize softMemoryLimit;
-    private final int maxRunningQueries;
+    private final int hardConcurrencyLimit;
     private final Duration runningTimeLimit;
     private final int maxQueuedQueries;
     private final Duration queuedTimeLimit;
@@ -47,7 +47,7 @@ public class ResourceGroupInfo
     public ResourceGroupInfo(
             @JsonProperty("id") ResourceGroupId id,
             @JsonProperty("softMemoryLimit") DataSize softMemoryLimit,
-            @JsonProperty("maxRunningQueries") int maxRunningQueries,
+            @JsonProperty("hardConcurrencyLimit") int hardConcurrencyLimit,
             @JsonProperty("runningTimeLimit") Duration runningTimeLimit,
             @JsonProperty("maxQueuedQueries") int maxQueuedQueries,
             @JsonProperty("queuedTimeLimit") Duration queuedTimeLimit,
@@ -57,13 +57,13 @@ public class ResourceGroupInfo
             @JsonProperty("numAggregatedRunningQueries") int numAggregatedRunningQueries,
             @JsonProperty("numAggregatedQueuedQueries") int numAggregatedQueuedQueries)
     {
-        this(id, softMemoryLimit, maxRunningQueries, runningTimeLimit, maxQueuedQueries, queuedTimeLimit, state, numEligibleSubGroups, memoryUsage, numAggregatedRunningQueries, numAggregatedQueuedQueries, emptyList());
+        this(id, softMemoryLimit, hardConcurrencyLimit, runningTimeLimit, maxQueuedQueries, queuedTimeLimit, state, numEligibleSubGroups, memoryUsage, numAggregatedRunningQueries, numAggregatedQueuedQueries, emptyList());
     }
 
     public ResourceGroupInfo(
             ResourceGroupId id,
             DataSize softMemoryLimit,
-            int maxRunningQueries,
+            int hardConcurrencyLimit,
             Duration runningTimeLimit,
             int maxQueuedQueries,
             Duration queuedTimeLimit,
@@ -76,7 +76,7 @@ public class ResourceGroupInfo
     {
         this.id = requireNonNull(id, "id is null");
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
-        this.maxRunningQueries = maxRunningQueries;
+        this.hardConcurrencyLimit = hardConcurrencyLimit;
         this.runningTimeLimit = runningTimeLimit;
         this.maxQueuedQueries = maxQueuedQueries;
         this.queuedTimeLimit = queuedTimeLimit;
@@ -101,9 +101,17 @@ public class ResourceGroupInfo
     }
 
     @JsonProperty
+    public int getHardConcurrencyLimit()
+    {
+        return hardConcurrencyLimit;
+    }
+
+    @JsonProperty
+    @Deprecated
     public int getMaxRunningQueries()
     {
-        return maxRunningQueries;
+        // TODO: Remove when dependent tools are updated
+        return hardConcurrencyLimit;
     }
 
     @JsonProperty
@@ -171,7 +179,7 @@ public class ResourceGroupInfo
         return new ResourceGroupInfo(
                 getId(),
                 getSoftMemoryLimit(),
-                getMaxRunningQueries(),
+                getHardConcurrencyLimit(),
                 getRunningTimeLimit(),
                 getMaxQueuedQueries(),
                 getQueuedTimeLimit(),

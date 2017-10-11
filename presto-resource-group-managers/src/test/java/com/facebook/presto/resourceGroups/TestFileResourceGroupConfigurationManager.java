@@ -106,7 +106,7 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getHardCpuLimit(), new Duration(1, DAYS));
         assertEquals(global.getCpuQuotaGenerationMillisPerSecond(), 1000 * 24);
         assertEquals(global.getMaxQueuedQueries(), 1000);
-        assertEquals(global.getMaxRunningQueries(), 100);
+        assertEquals(global.getHardConcurrencyLimit(), 100);
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
         assertEquals(global.getSchedulingWeight(), 0);
         assertEquals(global.getJmxExport(), true);
@@ -116,7 +116,7 @@ public class TestFileResourceGroupConfigurationManager
         ResourceGroup sub = new TestingResourceGroup(new ResourceGroupId(new ResourceGroupId("global"), "sub"));
         manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), 1, Optional.empty()));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
-        assertEquals(sub.getMaxRunningQueries(), 3);
+        assertEquals(sub.getHardConcurrencyLimit(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
         assertEquals(sub.getSchedulingPolicy(), null);
         assertEquals(sub.getSchedulingWeight(), 5);

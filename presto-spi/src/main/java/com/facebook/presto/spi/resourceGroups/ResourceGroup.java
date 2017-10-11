@@ -50,13 +50,13 @@ public interface ResourceGroup
      */
     void setCpuQuotaGenerationMillisPerSecond(long rate);
 
-    int getMaxRunningQueries();
+    int getHardConcurrencyLimit();
 
     /**
      * Maximum number of concurrently running queries, after which
      * new queries will queue instead of starting.
      */
-    void setMaxRunningQueries(int maxRunningQueries);
+    void setHardConcurrencyLimit(int hardConcurrencyLimit);
 
     int getMaxQueuedQueries();
 

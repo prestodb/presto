@@ -91,7 +91,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long softMemoryLimitBytes;
     @GuardedBy("root")
-    private int maxRunningQueries;
+    private int hardConcurrencyLimit;
     @GuardedBy("root")
     private int maxQueuedQueries;
     @GuardedBy("root")
@@ -152,7 +152,7 @@ public class InternalResourceGroup
             return new ResourceGroupInfo(
                     id,
                     DataSize.succinctBytes(softMemoryLimitBytes),
-                    maxRunningQueries,
+                    hardConcurrencyLimit,
                     runningTimeLimit,
                     maxQueuedQueries,
                     queuedTimeLimit,
@@ -173,7 +173,7 @@ public class InternalResourceGroup
                     getState(),
                     DataSize.succinctBytes(softMemoryLimitBytes),
                     DataSize.succinctBytes(cachedMemoryUsageBytes),
-                    maxRunningQueries,
+                    hardConcurrencyLimit,
                     maxQueuedQueries,
                     runningTimeLimit,
                     queuedTimeLimit,
@@ -183,7 +183,7 @@ public class InternalResourceGroup
                             .map(subGroup -> new ResourceGroupInfo(
                                     subGroup.getId(),
                                     DataSize.succinctBytes(subGroup.softMemoryLimitBytes),
-                                    subGroup.maxRunningQueries,
+                                    subGroup.hardConcurrencyLimit,
                                     subGroup.runningTimeLimit,
                                     subGroup.maxQueuedQueries,
                                     subGroup.queuedTimeLimit,
@@ -262,7 +262,7 @@ public class InternalResourceGroup
             int waitingQueuedQueries = 0;
             for (InternalResourceGroup subGroup : subGroups.values()) {
                 if (subGroup.canRunMore()) {
-                    waitingQueuedQueries += min(subGroup.getQueuedQueries(), subGroup.getMaxRunningQueries() - subGroup.getRunningQueries());
+                    waitingQueuedQueries += min(subGroup.getQueuedQueries(), subGroup.getHardConcurrencyLimit() - subGroup.getRunningQueries());
                 }
             }
 
@@ -355,21 +355,21 @@ public class InternalResourceGroup
 
     @Managed
     @Override
-    public int getMaxRunningQueries()
+    public int getHardConcurrencyLimit()
     {
         synchronized (root) {
-            return maxRunningQueries;
+            return hardConcurrencyLimit;
         }
     }
 
     @Managed
     @Override
-    public void setMaxRunningQueries(int maxRunningQueries)
+    public void setHardConcurrencyLimit(int hardConcurrencyLimit)
     {
-        checkArgument(maxRunningQueries >= 0, "maxRunningQueries is negative");
+        checkArgument(hardConcurrencyLimit >= 0, "hardConcurrencyLimit is negative");
         synchronized (root) {
             boolean oldCanRun = canRunMore();
-            this.maxRunningQueries = maxRunningQueries;
+            this.hardConcurrencyLimit = hardConcurrencyLimit;
             if (canRunMore() != oldCanRun) {
                 updateEligiblility();
             }
@@ -826,17 +826,17 @@ public class InternalResourceGroup
                 return false;
             }
 
-            int maxRunning = maxRunningQueries;
+            int hardConcurrencyLimit = this.hardConcurrencyLimit;
             if (cpuUsageMillis >= softCpuLimitMillis) {
                 // Linear penalty between soft and hard limit
                 double penalty = (cpuUsageMillis - softCpuLimitMillis) / (double) (hardCpuLimitMillis - softCpuLimitMillis);
-                maxRunning = (int) Math.floor(maxRunning * (1 - penalty));
+                hardConcurrencyLimit = (int) Math.floor(hardConcurrencyLimit * (1 - penalty));
                 // Always penalize by at least one
-                maxRunning = min(maxRunningQueries - 1, maxRunning);
+                hardConcurrencyLimit = min(this.hardConcurrencyLimit - 1, hardConcurrencyLimit);
                 // Always allow at least one running query
-                maxRunning = Math.max(1, maxRunning);
+                hardConcurrencyLimit = Math.max(1, hardConcurrencyLimit);
             }
-            return runningQueries.size() + descendantRunningQueries < maxRunning &&
+            return runningQueries.size() + descendantRunningQueries < hardConcurrencyLimit &&
                     cachedMemoryUsageBytes <= softMemoryLimitBytes;
         }
     }

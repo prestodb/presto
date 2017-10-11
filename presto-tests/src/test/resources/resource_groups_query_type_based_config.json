@@ -3,7 +3,7 @@
     {
       "name": "global",
       "softMemoryLimit": "1MB",
-      "maxRunning": 100,
+      "hardConcurrencyLimit": 100,
       "maxQueued": 1000,
       "softCpuLimit": "1h",
       "hardCpuLimit": "1d",
@@ -11,43 +11,43 @@
         {
           "name": "select",
           "softMemoryLimit": "2MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 4
         },
         {
           "name": "explain",
           "softMemoryLimit": "2MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 4
         },
         {
           "name": "insert",
           "softMemoryLimit": "2MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 4
         },
         {
           "name": "delete",
           "softMemoryLimit": "2MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 4
         },
         {
           "name": "describe",
           "softMemoryLimit": "2MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 4
         },
         {
           "name": "data_definition",
           "softMemoryLimit": "2MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 4
         },
         {
           "name": "other",
           "softMemoryLimit": "2MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 4
         }
       ]
