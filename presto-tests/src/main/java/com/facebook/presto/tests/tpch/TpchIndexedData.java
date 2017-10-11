@@ -46,7 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
-class TpchIndexedData
+public class TpchIndexedData
 {
     private final Map<Set<TpchScaledColumn>, IndexedTable> indexedTables;
 

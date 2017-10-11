@@ -320,6 +320,21 @@ service PrestoThriftService {
   PrestoThriftSplitBatch prestoGetSplits(1:  PrestoThriftSchemaTableName schemaTableName, 2:  PrestoThriftNullableColumnSet desiredColumns, 3:  PrestoThriftTupleDomain outputConstraint, 4:  i32 maxSplitCount, 5:  PrestoThriftNullableToken nextToken) throws (1: PrestoThriftServiceException ex1);
 
   /**
+   * Returns a batch of index splits for the given batch of keys.
+   * This method is called if index join strategy is chosen for a query.
+   * 
+   * @param schemaTableName schema and table name
+   * @param indexColumnNames specifies columns and their order for keys
+   * @param outputColumnNames a list of column names to return
+   * @param keys keys for which records need to be returned
+   * @param outputConstraint constraint on the returned data
+   * @param maxSplitCount maximum number of splits to return
+   * @param nextToken token from a previous split batch or {@literal null} if it is the first call
+   * @return a batch of splits
+   */
+  PrestoThriftSplitBatch prestoGetIndexSplits(1:  PrestoThriftSchemaTableName schemaTableName, 2:  list<string> indexColumnNames, 3:  list<string> outputColumnNames, 4:  PrestoThriftPageResult keys, 5:  PrestoThriftTupleDomain outputConstraint, 6:  i32 maxSplitCount, 7:  PrestoThriftNullableToken nextToken) throws (1: PrestoThriftServiceException ex1);
+
+  /**
    * Returns a batch of rows for the given split.
    * 
    * @param splitId split id as returned in split batch

@@ -23,7 +23,7 @@ public class TestThriftDistributedQueries
     public TestThriftDistributedQueries()
             throws Exception
     {
-        super(() -> createThriftQueryRunner(3, 3));
+        super(() -> createThriftQueryRunner(3, 3, false));
     }
 
     @Override
