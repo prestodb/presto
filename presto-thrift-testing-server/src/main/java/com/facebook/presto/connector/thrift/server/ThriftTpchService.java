@@ -119,7 +119,7 @@ public class ThriftTpchService
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
             columns.add(new PrestoThriftColumnMetadata(column.getSimplifiedColumnName(), getTypeString(column.getType()), null, false));
         }
-        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null));
+        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, null));
     }
 
     @Override

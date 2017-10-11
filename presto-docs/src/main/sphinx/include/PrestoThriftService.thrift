@@ -175,6 +175,13 @@ struct PrestoThriftTableMetadata {
   1:  PrestoThriftSchemaTableName schemaTableName;
   2:  list<PrestoThriftColumnMetadata> columns;
   3: optional string comment;
+
+  /**
+   * Returns a list of key sets which can be used for index lookups.
+   * The list is expected to have only unique key sets.
+   * {@code set<set<string>>} is not used here because some languages (like php) don't support it.
+   */
+  4: optional list<set<string>> indexableKeys;
 }
 
 struct PrestoThriftBlock {

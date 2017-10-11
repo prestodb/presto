@@ -13,23 +13,18 @@
  */
 package com.facebook.presto.connector.thrift.api;
 
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.swift.codec.ThriftConstructor;
 import com.facebook.swift.codec.ThriftField;
 import com.facebook.swift.codec.ThriftStruct;
-import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -38,16 +33,19 @@ public final class PrestoThriftTableMetadata
     private final PrestoThriftSchemaTableName schemaTableName;
     private final List<PrestoThriftColumnMetadata> columns;
     private final String comment;
+    private final List<Set<String>> indexableKeys;
 
     @ThriftConstructor
     public PrestoThriftTableMetadata(
             @ThriftField(name = "schemaTableName") PrestoThriftSchemaTableName schemaTableName,
             @ThriftField(name = "columns") List<PrestoThriftColumnMetadata> columns,
-            @ThriftField(name = "comment") @Nullable String comment)
+            @ThriftField(name = "comment") @Nullable String comment,
+            @ThriftField(name = "indexableKeys") @Nullable List<Set<String>> indexableKeys)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.comment = comment;
+        this.indexableKeys = indexableKeys;
     }
 
     @ThriftField(1)
@@ -69,20 +67,16 @@ public final class PrestoThriftTableMetadata
         return comment;
     }
 
-    public ConnectorTableMetadata toConnectorTableMetadata(TypeManager typeManager)
+    /**
+     * Returns a list of key sets which can be used for index lookups.
+     * The list is expected to have only unique key sets.
+     * {@code set<set<string>>} is not used here because some languages (like php) don't support it.
+     */
+    @Nullable
+    @ThriftField(value = 4, requiredness = OPTIONAL)
+    public List<Set<String>> getIndexableKeys()
     {
-        return new ConnectorTableMetadata(
-                schemaTableName.toSchemaTableName(),
-                columnMetadata(typeManager),
-                ImmutableMap.of(),
-                Optional.ofNullable(comment));
-    }
-
-    private List<ColumnMetadata> columnMetadata(TypeManager typeManager)
-    {
-        return columns.stream()
-                .map(column -> column.toColumnMetadata(typeManager))
-                .collect(toImmutableList());
+        return indexableKeys;
     }
 
     @Override
