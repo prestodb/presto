@@ -347,10 +347,12 @@ public class TestResourceGroups
         group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         group1.setMaxQueuedQueries(2);
         group1.setMaxRunningQueries(2);
+        group1.setTargetRunningQueries(2);
         InternalResourceGroup group2 = root.getOrCreateSubGroup("2");
         group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         group2.setMaxQueuedQueries(2);
         group2.setMaxRunningQueries(2);
+        group2.setTargetRunningQueries(2);
         group2.setSchedulingWeight(2);
 
         Set<MockQueryExecution> group1Queries = fillGroupTo(group1, ImmutableSet.of(), 2);

@@ -29,16 +29,18 @@ public interface H2ResourceGroupsDao
     void updateResourceGroupsGlobalProperties(@Bind("name") String name);
 
     @SqlUpdate("INSERT INTO resource_groups\n" +
-            "(resource_group_id, name, soft_memory_limit, max_queued, max_running, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, queued_time_limit, running_time_limit, parent)\n" +
-            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :max_running, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :queued_time_limit, :running_time_limit, :parent)")
+            "(resource_group_id, name, soft_memory_limit, max_queued, target_running, max_running, scheduling_policy, scheduling_weight, burst_scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, queued_time_limit, running_time_limit, parent)\n" +
+            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :target_running, :max_running, :scheduling_policy, :scheduling_weight, :burst_scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :queued_time_limit, :running_time_limit, :parent)")
     void insertResourceGroup(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String name,
             @Bind("soft_memory_limit") String softMemoryLimit,
             @Bind("max_queued") int maxQueued,
+            @Bind("target_running") int targetRunning,
             @Bind("max_running") int maxRunning,
             @Bind("scheduling_policy") String schedulingPolicy,
             @Bind("scheduling_weight") Integer schedulingWeight,
+            @Bind("burst_scheduling_weight") Integer burstSchedulingWeight,
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
@@ -51,9 +53,11 @@ public interface H2ResourceGroupsDao
             ", name = :name\n" +
             ", soft_memory_limit = :soft_memory_limit\n" +
             ", max_queued = :max_queued\n" +
+            ", target_running = :target_running\n" +
             ", max_running = :max_running\n" +
             ", scheduling_policy = :scheduling_policy\n" +
             ", scheduling_weight = :scheduling_weight\n" +
+            ", burst_scheduling_weight = :burst_scheduling_weight\n" +
             ", jmx_export = :jmx_export\n" +
             ", soft_cpu_limit = :soft_cpu_limit\n" +
             ", hard_cpu_limit = :hard_cpu_limit\n" +
@@ -66,9 +70,11 @@ public interface H2ResourceGroupsDao
             @Bind("name") String resourceGroup,
             @Bind("soft_memory_limit") String softMemoryLimit,
             @Bind("max_queued") int maxQueued,
+            @Bind("target_running") int targetRunning,
             @Bind("max_running") int maxRunning,
             @Bind("scheduling_policy") String schedulingPolicy,
             @Bind("scheduling_weight") Integer schedulingWeight,
+            @Bind("burst_scheduling_weight") Integer burstSchedulingWeight,
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,

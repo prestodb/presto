@@ -32,9 +32,11 @@ public class ResourceGroupSpecBuilder
     private final ResourceGroupNameTemplate nameTemplate;
     private final String softMemoryLimit;
     private final int maxQueued;
+    private final Optional<Integer> targetRunning;
     private final int maxRunning;
     private final Optional<String> schedulingPolicy;
     private final Optional<Integer> schedulingWeight;
+    private final Optional<Integer> burstSchedulingWeight;
     private final Optional<Boolean> jmxExport;
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
@@ -48,9 +50,11 @@ public class ResourceGroupSpecBuilder
             ResourceGroupNameTemplate nameTemplate,
             String softMemoryLimit,
             int maxQueued,
+            Optional<Integer> targetRunning,
             int maxRunning,
             Optional<String> schedulingPolicy,
             Optional<Integer> schedulingWeight,
+            Optional<Integer> burstSchedulingWeight,
             Optional<Boolean> jmxExport,
             Optional<String> softCpuLimit,
             Optional<String> hardCpuLimit,
@@ -62,9 +66,11 @@ public class ResourceGroupSpecBuilder
         this.nameTemplate = nameTemplate;
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         this.maxQueued = maxQueued;
+        this.targetRunning = requireNonNull(targetRunning, "targetRunning is null");
         this.maxRunning = maxRunning;
         this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null");
         this.schedulingWeight = schedulingWeight;
+        this.burstSchedulingWeight = requireNonNull(burstSchedulingWeight, "burstSchedulingWeight is null");
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null").map(Duration::valueOf);
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null").map(Duration::valueOf);
@@ -109,9 +115,11 @@ public class ResourceGroupSpecBuilder
                 nameTemplate,
                 softMemoryLimit,
                 maxQueued,
+                targetRunning,
                 maxRunning,
                 schedulingPolicy,
                 schedulingWeight,
+                burstSchedulingWeight,
                 Optional.of(subGroups.build()),
                 jmxExport,
                 softCpuLimit,
@@ -131,11 +139,19 @@ public class ResourceGroupSpecBuilder
             ResourceGroupNameTemplate nameTemplate = new ResourceGroupNameTemplate(resultSet.getString("name"));
             String softMemoryLimit = resultSet.getString("soft_memory_limit");
             int maxQueued = resultSet.getInt("max_queued");
+            Optional<Integer> targetRunning = Optional.of(resultSet.getInt("target_running"));
+            if (resultSet.wasNull()) {
+                targetRunning = Optional.empty();
+            }
             int maxRunning = resultSet.getInt("max_running");
             Optional<String> schedulingPolicy = Optional.ofNullable(resultSet.getString("scheduling_policy"));
             Optional<Integer> schedulingWeight = Optional.of(resultSet.getInt("scheduling_weight"));
             if (resultSet.wasNull()) {
                 schedulingWeight = Optional.empty();
+            }
+            Optional<Integer> burstSchedulingWeight = Optional.of(resultSet.getInt("burst_scheduling_weight"));
+            if (resultSet.wasNull()) {
+                burstSchedulingWeight = Optional.empty();
             }
             Optional<Boolean> jmxExport = Optional.of(resultSet.getBoolean("jmx_export"));
             if (resultSet.wasNull()) {
@@ -154,9 +170,11 @@ public class ResourceGroupSpecBuilder
                     nameTemplate,
                     softMemoryLimit,
                     maxQueued,
+                    targetRunning,
                     maxRunning,
                     schedulingPolicy,
                     schedulingWeight,
+                    burstSchedulingWeight,
                     jmxExport,
                     softCpuLimit,
                     hardCpuLimit,
