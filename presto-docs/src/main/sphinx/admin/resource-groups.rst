@@ -35,7 +35,7 @@ Resource Group Properties
 * ``maxQueued`` (required): maximum number of queued queries. Once this limit is reached
   new queries will be rejected.
 
-* ``maxRunning`` (required): maximum number of running queries.
+* ``hardConcurrencyLimit`` (required): maximum number of running queries.
 
 * ``softMemoryLimit`` (required): maximum amount of distributed memory this
   group may use before new queries become queued. May be specified as
@@ -132,7 +132,7 @@ all other users are subject to the following limits:
         {
           "name": "global",
           "softMemoryLimit": "80%",
-          "maxRunning": 100,
+          "hardConcurrencyLimit": 100,
           "maxQueued": 1000,
           "schedulingPolicy": "weighted",
           "jmxExport": true,
@@ -140,14 +140,14 @@ all other users are subject to the following limits:
             {
               "name": "data_definition_${USER}",
               "softMemoryLimit": "10%",
-              "maxRunning": 3,
+              "hardConcurrencyLimit": 3,
               "maxQueued": 10,
               "schedulingWeight": 1
             },
             {
               "name": "adhoc_${USER}",
               "softMemoryLimit": "10%",
-              "maxRunning": 2,
+              "hardConcurrencyLimit": 2,
               "maxQueued": 1,
               "schedulingWeight": 9,
               "schedulingPolicy": "query_priority"
@@ -155,7 +155,7 @@ all other users are subject to the following limits:
             {
               "name": "pipeline",
               "softMemoryLimit": "20%",
-              "maxRunning": 5,
+              "hardConcurrencyLimit": 5,
               "maxQueued": 100,
               "schedulingWeight": 1,
               "jmxExport": true,
@@ -163,7 +163,7 @@ all other users are subject to the following limits:
                 {
                   "name": "pipeline_${USER}",
                   "softMemoryLimit": "10%",
-                  "maxRunning": 1,
+                  "hardConcurrencyLimit": 1,
                   "maxQueued": 100,
                   "schedulingPolicy": "query_priority"
                 }
@@ -174,7 +174,7 @@ all other users are subject to the following limits:
         {
           "name": "admin",
           "softMemoryLimit": "100%",
-          "maxRunning": 200,
+          "hardConcurrencyLimit": 200,
           "maxQueued": 100,
           "schedulingPolicy": "query_priority",
           "jmxExport": true

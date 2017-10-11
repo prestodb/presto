@@ -29,7 +29,7 @@ public class TestingResourceGroup
     private Duration softCpuLimit;
     private Duration hardCpuLimit;
     private long quotaGenerationRate;
-    private int maxRunning;
+    private int hardConcurrencyLimit;
     private int maxQueued;
     private int schedulingWeight;
     private SchedulingPolicy policy;
@@ -97,15 +97,15 @@ public class TestingResourceGroup
     }
 
     @Override
-    public int getMaxRunningQueries()
+    public int getHardConcurrencyLimit()
     {
-        return maxRunning;
+        return hardConcurrencyLimit;
     }
 
     @Override
-    public void setMaxRunningQueries(int maxRunningQueries)
+    public void setHardConcurrencyLimit(int hardConcurrencyLimit)
     {
-        maxRunning = maxRunningQueries;
+        this.hardConcurrencyLimit = hardConcurrencyLimit;
     }
 
     @Override

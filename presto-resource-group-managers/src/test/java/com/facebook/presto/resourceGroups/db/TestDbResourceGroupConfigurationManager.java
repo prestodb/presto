@@ -159,14 +159,14 @@ public class TestDbResourceGroupConfigurationManager
         do {
             MILLISECONDS.sleep(500);
         }
-        while (globalSub.getMaxQueuedQueries() != 0 || globalSub.getMaxRunningQueries() != 0);
+        while (globalSub.getMaxQueuedQueries() != 0 || globalSub.getHardConcurrencyLimit() != 0);
     }
 
     private static void assertEqualsResourceGroup(
             InternalResourceGroup group,
             String softMemoryLimit,
             int maxQueued,
-            int maxRunning,
+            int hardConcurrencyLimit,
             SchedulingPolicy schedulingPolicy,
             int schedulingWeight,
             boolean jmxExport,
@@ -177,7 +177,7 @@ public class TestDbResourceGroupConfigurationManager
     {
         assertEquals(group.getSoftMemoryLimit(), DataSize.valueOf(softMemoryLimit));
         assertEquals(group.getInfo().getMaxQueuedQueries(), maxQueued);
-        assertEquals(group.getInfo().getMaxRunningQueries(), maxRunning);
+        assertEquals(group.getInfo().getHardConcurrencyLimit(), hardConcurrencyLimit);
         assertEquals(group.getSchedulingPolicy(), schedulingPolicy);
         assertEquals(group.getSchedulingWeight(), schedulingWeight);
         assertEquals(group.getJmxExport(), jmxExport);
