@@ -50,7 +50,6 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_INVALID_RESPONSE;
-import static com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName.fromSchemaTableName;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -169,7 +168,7 @@ public class ThriftMetadata
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
         return clientProvider.runOnAnyHost(client -> {
-            PrestoThriftNullableTableMetadata thriftTableMetadata = client.getTableMetadata(fromSchemaTableName(schemaTableName));
+            PrestoThriftNullableTableMetadata thriftTableMetadata = client.getTableMetadata(new PrestoThriftSchemaTableName(schemaTableName));
             if (thriftTableMetadata.getTableMetadata() == null) {
                 return Optional.empty();
             }
