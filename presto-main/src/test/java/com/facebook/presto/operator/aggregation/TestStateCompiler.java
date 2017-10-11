@@ -240,12 +240,6 @@ public class TestStateCompiler
         assertEquals(deserializedState.getAnotherBlock().getSlice(1, 0, 9), singleState.getAnotherBlock().getSlice(1, 0, 9));
     }
 
-    //see SliceBigArray::getSize
-    private long getSize(Slice slice)
-    {
-        return slice.length() + SLICE_INSTANCE_SIZE;
-    }
-
     private long getComplexStateRetainedSize(TestComplexState state)
     {
         long retainedSize = ClassLayout.parseClass(state.getClass()).instanceSize();
@@ -268,25 +262,25 @@ public class TestStateCompiler
         return retainedSize;
     }
 
-    private static long getBlockBigArrayReferenceCountMapOverhead(TestComplexState state)
+    private static long getReferenceCountMapOverhead(TestComplexState state)
     {
         long overhead = 0;
         // reflection is necessary because TestComplexState implementation is generated
         Field[] stateFields = state.getClass().getDeclaredFields();
         try {
             for (Field stateField : stateFields) {
-                if (stateField.getType() != BlockBigArray.class) {
+                if (stateField.getType() != BlockBigArray.class && stateField.getType() != SliceBigArray.class) {
                     continue;
                 }
                 stateField.setAccessible(true);
-                Field[] blockBigArrayFields = stateField.getType().getDeclaredFields();
-                for (Field blockBigArrayField : blockBigArrayFields) {
-                    if (blockBigArrayField.getType() != ReferenceCountMap.class) {
+                Field[] bigArrayFields = stateField.getType().getDeclaredFields();
+                for (Field bigArrayField : bigArrayFields) {
+                    if (bigArrayField.getType() != ReferenceCountMap.class) {
                         continue;
                     }
-                    blockBigArrayField.setAccessible(true);
-                    MethodHandle sizeOf = Reflection.methodHandle(blockBigArrayField.getType(), "sizeOf", null);
-                    overhead += (long) sizeOf.invokeWithArguments(blockBigArrayField.get(stateField.get(state)));
+                    bigArrayField.setAccessible(true);
+                    MethodHandle sizeOf = Reflection.methodHandle(bigArrayField.getType(), "sizeOf", null);
+                    overhead += (long) sizeOf.invokeWithArguments(bigArrayField.get(stateField.get(state)));
                 }
             }
         }
@@ -305,9 +299,9 @@ public class TestStateCompiler
         TestComplexState groupedState = factory.createGroupedState();
         long initialRetainedSize = getComplexStateRetainedSize(groupedState);
         assertEquals(groupedState.getEstimatedSize(), initialRetainedSize);
-        // BlockBigArray has an internal map that can grow in size when getting more blocks
+        // BlockBigArray or SliceBigArray has an internal map that can grow in size when getting more blocks
         // need to handle the map overhead separately
-        initialRetainedSize -= getBlockBigArrayReferenceCountMapOverhead(groupedState);
+        initialRetainedSize -= getReferenceCountMapOverhead(groupedState);
         for (int i = 0; i < 1000; i++) {
             long retainedSize = 0;
             ((GroupedAccumulatorState) groupedState).setGroupId(i);
@@ -316,10 +310,10 @@ public class TestStateCompiler
             groupedState.setDouble(2.0);
             groupedState.setByte((byte) 3);
             Slice slice = utf8Slice("test");
-            retainedSize += getSize(slice);
+            retainedSize += slice.getRetainedSize();
             groupedState.setSlice(slice);
             slice = wrappedDoubleArray(1.0, 2.0, 3.0);
-            retainedSize += getSize(slice);
+            retainedSize += slice.getRetainedSize();
             groupedState.setAnotherSlice(slice);
             groupedState.setYetAnotherSlice(null);
             Block array = createLongsBlock(45);
@@ -333,7 +327,7 @@ public class TestStateCompiler
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
-            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * (i + 1) + getBlockBigArrayReferenceCountMapOverhead(groupedState));
+            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * (i + 1) + getReferenceCountMapOverhead(groupedState));
         }
 
         for (int i = 0; i < 1000; i++) {
@@ -344,10 +338,10 @@ public class TestStateCompiler
             groupedState.setDouble(2.0);
             groupedState.setByte((byte) 3);
             Slice slice = utf8Slice("test");
-            retainedSize += getSize(slice);
+            retainedSize += slice.getRetainedSize();
             groupedState.setSlice(slice);
             slice = wrappedDoubleArray(1.0, 2.0, 3.0);
-            retainedSize += getSize(slice);
+            retainedSize += slice.getRetainedSize();
             groupedState.setAnotherSlice(slice);
             groupedState.setYetAnotherSlice(null);
             Block array = createLongsBlock(45);
@@ -361,7 +355,7 @@ public class TestStateCompiler
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
-            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * 1000 + getBlockBigArrayReferenceCountMapOverhead(groupedState));
+            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * 1000 + getReferenceCountMapOverhead(groupedState));
         }
     }
 
