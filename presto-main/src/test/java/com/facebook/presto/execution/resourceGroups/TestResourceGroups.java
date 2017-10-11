@@ -347,10 +347,12 @@ public class TestResourceGroups
         group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         group1.setMaxQueuedQueries(2);
         group1.setHardConcurrencyLimit(2);
+        group1.setSoftConcurrencyLimit(2);
         InternalResourceGroup group2 = root.getOrCreateSubGroup("2");
         group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         group2.setMaxQueuedQueries(2);
         group2.setHardConcurrencyLimit(2);
+        group2.setSoftConcurrencyLimit(2);
         group2.setSchedulingWeight(2);
 
         Set<MockQueryExecution> group1Queries = fillGroupTo(group1, ImmutableSet.of(), 2);
@@ -539,6 +541,7 @@ public class TestResourceGroups
         assertEquals(stateInfo.getSubGroups().get(1).getNumEligibleSubGroups(), 0);
         assertEquals(stateInfo.getSubGroups().get(1).getNumAggregatedRunningQueries(), 1);
         assertEquals(stateInfo.getSubGroups().get(1).getNumAggregatedQueuedQueries(), 9);
+        assertEquals(stateInfo.getSoftConcurrencyLimit(), root.getSoftConcurrencyLimit());
         assertEquals(stateInfo.getHardConcurrencyLimit(), root.getHardConcurrencyLimit());
         assertEquals(stateInfo.getRunningTimeLimit(), new Duration(Long.MAX_VALUE, MILLISECONDS));
         assertEquals(stateInfo.getMaxQueuedQueries(), root.getMaxQueuedQueries());

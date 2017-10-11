@@ -32,6 +32,7 @@ public class ResourceGroupSpecBuilder
     private final ResourceGroupNameTemplate nameTemplate;
     private final String softMemoryLimit;
     private final int maxQueued;
+    private final Optional<Integer> softConcurrencyLimit;
     private final int hardConcurrencyLimit;
     private final Optional<String> schedulingPolicy;
     private final Optional<Integer> schedulingWeight;
@@ -48,6 +49,7 @@ public class ResourceGroupSpecBuilder
             ResourceGroupNameTemplate nameTemplate,
             String softMemoryLimit,
             int maxQueued,
+            Optional<Integer> softConcurrencyLimit,
             int hardConcurrencyLimit,
             Optional<String> schedulingPolicy,
             Optional<Integer> schedulingWeight,
@@ -62,6 +64,7 @@ public class ResourceGroupSpecBuilder
         this.nameTemplate = nameTemplate;
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         this.maxQueued = maxQueued;
+        this.softConcurrencyLimit = requireNonNull(softConcurrencyLimit, "softConcurrencyLimit is null");
         this.hardConcurrencyLimit = hardConcurrencyLimit;
         this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null");
         this.schedulingWeight = schedulingWeight;
@@ -109,6 +112,7 @@ public class ResourceGroupSpecBuilder
                 nameTemplate,
                 softMemoryLimit,
                 maxQueued,
+                softConcurrencyLimit,
                 hardConcurrencyLimit,
                 schedulingPolicy,
                 schedulingWeight,
@@ -131,6 +135,10 @@ public class ResourceGroupSpecBuilder
             ResourceGroupNameTemplate nameTemplate = new ResourceGroupNameTemplate(resultSet.getString("name"));
             String softMemoryLimit = resultSet.getString("soft_memory_limit");
             int maxQueued = resultSet.getInt("max_queued");
+            Optional<Integer> softConcurrencyLimit = Optional.of(resultSet.getInt("soft_concurrency_limit"));
+            if (resultSet.wasNull()) {
+                softConcurrencyLimit = Optional.empty();
+            }
             int hardConcurrencyLimit = resultSet.getInt("hard_concurrency_limit");
             Optional<String> schedulingPolicy = Optional.ofNullable(resultSet.getString("scheduling_policy"));
             Optional<Integer> schedulingWeight = Optional.of(resultSet.getInt("scheduling_weight"));
@@ -154,6 +162,7 @@ public class ResourceGroupSpecBuilder
                     nameTemplate,
                     softMemoryLimit,
                     maxQueued,
+                    softConcurrencyLimit,
                     hardConcurrencyLimit,
                     schedulingPolicy,
                     schedulingWeight,

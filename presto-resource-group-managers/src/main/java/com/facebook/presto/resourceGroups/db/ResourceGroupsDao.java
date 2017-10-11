@@ -37,6 +37,7 @@ public interface ResourceGroupsDao
             "  name VARCHAR(250) NOT NULL,\n" +
             "  soft_memory_limit VARCHAR(128) NOT NULL,\n" +
             "  max_queued INT NOT NULL,\n" +
+            "  soft_concurrency_limit INT NULL,\n" +
             "  hard_concurrency_limit INT NOT NULL,\n" +
             "  scheduling_policy VARCHAR(128) NULL,\n" +
             "  scheduling_weight INT NULL,\n" +
@@ -51,9 +52,9 @@ public interface ResourceGroupsDao
             ")")
     void createResourceGroupsTable();
 
-    @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, hard_concurrency_limit," +
-            "  scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, " +
-            "  queued_time_limit, running_time_limit, parent\n" +
+    @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, " +
+            "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
+            "  hard_cpu_limit, queued_time_limit, running_time_limit, parent\n" +
             "FROM resource_groups")
     @Mapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups();

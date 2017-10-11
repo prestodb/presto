@@ -40,6 +40,7 @@ public class ResourceGroupSpec
     private final Optional<DataSize> softMemoryLimit;
     private final Optional<Double> softMemoryLimitFraction;
     private final int maxQueued;
+    private final Optional<Integer> softConcurrencyLimit;
     private final int hardConcurrencyLimit;
     private final Optional<SchedulingPolicy> schedulingPolicy;
     private final Optional<Integer> schedulingWeight;
@@ -55,6 +56,7 @@ public class ResourceGroupSpec
             @JsonProperty("name") ResourceGroupNameTemplate name,
             @JsonProperty("softMemoryLimit") String softMemoryLimit,
             @JsonProperty("maxQueued") int maxQueued,
+            @JsonProperty("softConcurrencyLimit") Optional<Integer> softConcurrencyLimit,
             @JsonProperty("hardConcurrencyLimit") int hardConcurrencyLimit,
             @JsonProperty("schedulingPolicy") Optional<String> schedulingPolicy,
             @JsonProperty("schedulingWeight") Optional<Integer> schedulingWeight,
@@ -73,8 +75,11 @@ public class ResourceGroupSpec
         this.name = requireNonNull(name, "name is null");
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
+        this.softConcurrencyLimit = softConcurrencyLimit;
         checkArgument(hardConcurrencyLimit >= 0, "hardConcurrencyLimit is negative");
         this.hardConcurrencyLimit = hardConcurrencyLimit;
+        softConcurrencyLimit.ifPresent(soft -> checkArgument(soft >= 0, "softConcurrencyLimit is negative"));
+        softConcurrencyLimit.ifPresent(soft -> checkArgument(hardConcurrencyLimit >= soft, "hardConcurrencyLimit must be greater than or equal to softConcurrencyLimit"));
         this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SchedulingPolicy.valueOf(value.toUpperCase()));
         this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
@@ -112,6 +117,11 @@ public class ResourceGroupSpec
     public int getMaxQueued()
     {
         return maxQueued;
+    }
+
+    public Optional<Integer> getSoftConcurrencyLimit()
+    {
+        return softConcurrencyLimit;
     }
 
     public int getHardConcurrencyLimit()
@@ -177,6 +187,7 @@ public class ResourceGroupSpec
         return (name.equals(that.name) &&
                 softMemoryLimit.equals(that.softMemoryLimit) &&
                 maxQueued == that.maxQueued &&
+                softConcurrencyLimit.equals(that.softConcurrencyLimit) &&
                 hardConcurrencyLimit == that.hardConcurrencyLimit &&
                 schedulingPolicy.equals(that.schedulingPolicy) &&
                 schedulingWeight.equals(that.schedulingWeight) &&
@@ -197,6 +208,7 @@ public class ResourceGroupSpec
         return (name.equals(other.name) &&
                 softMemoryLimit.equals(other.softMemoryLimit) &&
                 maxQueued == other.maxQueued &&
+                softConcurrencyLimit.equals(other.softConcurrencyLimit) &&
                 hardConcurrencyLimit == other.hardConcurrencyLimit &&
                 schedulingPolicy.equals(other.schedulingPolicy) &&
                 schedulingWeight.equals(other.schedulingWeight) &&
@@ -214,6 +226,7 @@ public class ResourceGroupSpec
                 name,
                 softMemoryLimit,
                 maxQueued,
+                softConcurrencyLimit,
                 hardConcurrencyLimit,
                 schedulingPolicy,
                 schedulingWeight,
@@ -232,6 +245,7 @@ public class ResourceGroupSpec
                 .add("name", name)
                 .add("softMemoryLimit", softMemoryLimit)
                 .add("maxQueued", maxQueued)
+                .add("softConcurrencyLimit", softConcurrencyLimit)
                 .add("hardConcurrencyLimit", hardConcurrencyLimit)
                 .add("schedulingPolicy", schedulingPolicy)
                 .add("schedulingWeight", schedulingWeight)

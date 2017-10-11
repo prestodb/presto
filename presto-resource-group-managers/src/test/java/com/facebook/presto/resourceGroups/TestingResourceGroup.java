@@ -29,6 +29,7 @@ public class TestingResourceGroup
     private Duration softCpuLimit;
     private Duration hardCpuLimit;
     private long quotaGenerationRate;
+    private int softConcurrencyLimit;
     private int hardConcurrencyLimit;
     private int maxQueued;
     private int schedulingWeight;
@@ -94,6 +95,18 @@ public class TestingResourceGroup
     public void setCpuQuotaGenerationMillisPerSecond(long rate)
     {
         quotaGenerationRate = rate;
+    }
+
+    @Override
+    public int getSoftConcurrencyLimit()
+    {
+        return softConcurrencyLimit;
+    }
+
+    @Override
+    public void setSoftConcurrencyLimit(int softConcurrencyLimit)
+    {
+        this.softConcurrencyLimit = softConcurrencyLimit;
     }
 
     @Override

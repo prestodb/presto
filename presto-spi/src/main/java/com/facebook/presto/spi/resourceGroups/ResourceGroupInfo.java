@@ -30,6 +30,7 @@ public class ResourceGroupInfo
     private final ResourceGroupId id;
 
     private final DataSize softMemoryLimit;
+    private final int softConcurrencyLimit;
     private final int hardConcurrencyLimit;
     private final Duration runningTimeLimit;
     private final int maxQueuedQueries;
@@ -47,6 +48,7 @@ public class ResourceGroupInfo
     public ResourceGroupInfo(
             @JsonProperty("id") ResourceGroupId id,
             @JsonProperty("softMemoryLimit") DataSize softMemoryLimit,
+            @JsonProperty("softConcurrencyLimit") int softConcurrencyLimit,
             @JsonProperty("hardConcurrencyLimit") int hardConcurrencyLimit,
             @JsonProperty("runningTimeLimit") Duration runningTimeLimit,
             @JsonProperty("maxQueuedQueries") int maxQueuedQueries,
@@ -57,12 +59,13 @@ public class ResourceGroupInfo
             @JsonProperty("numAggregatedRunningQueries") int numAggregatedRunningQueries,
             @JsonProperty("numAggregatedQueuedQueries") int numAggregatedQueuedQueries)
     {
-        this(id, softMemoryLimit, hardConcurrencyLimit, runningTimeLimit, maxQueuedQueries, queuedTimeLimit, state, numEligibleSubGroups, memoryUsage, numAggregatedRunningQueries, numAggregatedQueuedQueries, emptyList());
+        this(id, softMemoryLimit, softConcurrencyLimit, hardConcurrencyLimit, runningTimeLimit, maxQueuedQueries, queuedTimeLimit, state, numEligibleSubGroups, memoryUsage, numAggregatedRunningQueries, numAggregatedQueuedQueries, emptyList());
     }
 
     public ResourceGroupInfo(
             ResourceGroupId id,
             DataSize softMemoryLimit,
+            int softConcurrencyLimit,
             int hardConcurrencyLimit,
             Duration runningTimeLimit,
             int maxQueuedQueries,
@@ -76,6 +79,7 @@ public class ResourceGroupInfo
     {
         this.id = requireNonNull(id, "id is null");
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
+        this.softConcurrencyLimit = softConcurrencyLimit;
         this.hardConcurrencyLimit = hardConcurrencyLimit;
         this.runningTimeLimit = runningTimeLimit;
         this.maxQueuedQueries = maxQueuedQueries;
@@ -98,6 +102,12 @@ public class ResourceGroupInfo
     public DataSize getSoftMemoryLimit()
     {
         return softMemoryLimit;
+    }
+
+    @JsonProperty
+    public int getSoftConcurrencyLimit()
+    {
+        return softConcurrencyLimit;
     }
 
     @JsonProperty
@@ -179,6 +189,7 @@ public class ResourceGroupInfo
         return new ResourceGroupInfo(
                 getId(),
                 getSoftMemoryLimit(),
+                getSoftConcurrencyLimit(),
                 getHardConcurrencyLimit(),
                 getRunningTimeLimit(),
                 getMaxQueuedQueries(),

@@ -36,6 +36,7 @@ public class ResourceGroupStateInfo
 
     private final List<ResourceGroupInfo> subGroups;
 
+    private final int softConcurrencyLimit;
     private final int hardConcurrencyLimit;
     private final int maxQueuedQueries;
     private final Duration runningTimeLimit;
@@ -49,6 +50,7 @@ public class ResourceGroupStateInfo
             @JsonProperty("state") ResourceGroupState state,
             @JsonProperty("softMemoryLimit") DataSize softMemoryLimit,
             @JsonProperty("memoryUsage") DataSize memoryUsage,
+            @JsonProperty("softConcurrencyLimit") int softConcurrencyLimit,
             @JsonProperty("hardConcurrencyLimit") int hardConcurrencyLimit,
             @JsonProperty("maxQueuedQueries") int maxQueuedQueries,
             @JsonProperty("runningTimeLimit") Duration runningTimeLimit,
@@ -63,6 +65,7 @@ public class ResourceGroupStateInfo
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
 
+        this.softConcurrencyLimit = softConcurrencyLimit;
         this.hardConcurrencyLimit = hardConcurrencyLimit;
         this.maxQueuedQueries = maxQueuedQueries;
 
@@ -97,6 +100,12 @@ public class ResourceGroupStateInfo
     public DataSize getMemoryUsage()
     {
         return memoryUsage;
+    }
+
+    @JsonProperty
+    public int getSoftConcurrencyLimit()
+    {
+        return softConcurrencyLimit;
     }
 
     @JsonProperty
