@@ -13,16 +13,20 @@
  */
 package com.facebook.presto.operator;
 
-import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
-import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
-import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
+import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,20 +40,16 @@ import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.Immutable;
-import javax.annotation.concurrent.NotThreadSafe;
-
-import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
+import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
+import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
