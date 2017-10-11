@@ -91,6 +91,8 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long softMemoryLimitBytes;
     @GuardedBy("root")
+    private int softConcurrencyLimit;
+    @GuardedBy("root")
     private int hardConcurrencyLimit;
     @GuardedBy("root")
     private int maxQueuedQueries;
@@ -153,6 +155,7 @@ public class InternalResourceGroup
                     id,
                     DataSize.succinctBytes(softMemoryLimitBytes),
                     hardConcurrencyLimit,
+                    softConcurrencyLimit,
                     runningTimeLimit,
                     maxQueuedQueries,
                     queuedTimeLimit,
@@ -173,6 +176,7 @@ public class InternalResourceGroup
                     getState(),
                     DataSize.succinctBytes(softMemoryLimitBytes),
                     DataSize.succinctBytes(cachedMemoryUsageBytes),
+                    softConcurrencyLimit,
                     hardConcurrencyLimit,
                     maxQueuedQueries,
                     runningTimeLimit,
@@ -183,6 +187,7 @@ public class InternalResourceGroup
                             .map(subGroup -> new ResourceGroupInfo(
                                     subGroup.getId(),
                                     DataSize.succinctBytes(subGroup.softMemoryLimitBytes),
+                                    subGroup.softConcurrencyLimit,
                                     subGroup.hardConcurrencyLimit,
                                     subGroup.runningTimeLimit,
                                     subGroup.maxQueuedQueries,
@@ -353,6 +358,27 @@ public class InternalResourceGroup
         }
     }
 
+    @Override
+    public int getSoftConcurrencyLimit()
+    {
+        synchronized (root) {
+            return softConcurrencyLimit;
+        }
+    }
+
+    @Override
+    public void setSoftConcurrencyLimit(int softConcurrencyLimit)
+    {
+        checkArgument(softConcurrencyLimit >= 0, "softConcurrencyLimit is negative");
+        synchronized (root) {
+            boolean oldCanRun = canRunMore();
+            this.softConcurrencyLimit = softConcurrencyLimit;
+            if (canRunMore() != oldCanRun) {
+                updateEligiblility();
+            }
+        }
+    }
+
     @Managed
     @Override
     public int getHardConcurrencyLimit()
@@ -410,7 +436,7 @@ public class InternalResourceGroup
         synchronized (root) {
             this.schedulingWeight = weight;
             if (parent.isPresent() && parent.get().schedulingPolicy == WEIGHTED && parent.get().eligibleSubGroups.contains(this)) {
-                parent.get().eligibleSubGroups.addOrUpdate(this, weight);
+                parent.get().eligibleSubGroups.addOrUpdate(this, computeSchedulingWeight());
             }
         }
     }
@@ -769,14 +795,23 @@ public class InternalResourceGroup
         }
     }
 
-    private static int getSubGroupSchedulingPriority(SchedulingPolicy policy, InternalResourceGroup group)
+    private static long getSubGroupSchedulingPriority(SchedulingPolicy policy, InternalResourceGroup group)
     {
         if (policy == QUERY_PRIORITY) {
             return group.getHighestQueryPriority();
         }
         else {
-            return group.getSchedulingWeight();
+            return group.computeSchedulingWeight();
         }
+    }
+
+    private long computeSchedulingWeight()
+    {
+        if (runningQueries.size() + descendantRunningQueries >= softConcurrencyLimit) {
+            return schedulingWeight;
+        }
+
+        return (long) Integer.MAX_VALUE * schedulingWeight;
     }
 
     private boolean isDirty()
@@ -828,6 +863,7 @@ public class InternalResourceGroup
 
             int hardConcurrencyLimit = this.hardConcurrencyLimit;
             if (cpuUsageMillis >= softCpuLimitMillis) {
+                // TODO: Consider whether cpu limit math should be performed on softConcurrency or hardConcurrency
                 // Linear penalty between soft and hard limit
                 double penalty = (cpuUsageMillis - softCpuLimitMillis) / (double) (hardCpuLimitMillis - softCpuLimitMillis);
                 hardConcurrencyLimit = (int) Math.floor(hardConcurrencyLimit * (1 - penalty));

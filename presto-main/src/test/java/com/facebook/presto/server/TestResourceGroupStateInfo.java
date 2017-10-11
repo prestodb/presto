@@ -46,6 +46,7 @@ public class TestResourceGroupStateInfo
                 new DataSize(10, GIGABYTE),
                 new DataSize(100, BYTE),
                 10,
+                10,
                 100,
                 new Duration(1, HOURS),
                 new Duration(10, HOURS),
@@ -77,6 +78,7 @@ public class TestResourceGroupStateInfo
                 ImmutableList.of(new ResourceGroupInfo(
                         subGroupId,
                         new DataSize(1, GIGABYTE),
+                        10,
                         10,
                         new Duration(1, HOURS),
                         100,

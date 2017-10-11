@@ -50,6 +50,15 @@ public interface ResourceGroup
      */
     void setCpuQuotaGenerationMillisPerSecond(long rate);
 
+    int getSoftConcurrencyLimit();
+
+    /**
+     * Number of concurrently running queries after which new queries will only run if
+     * all peer resource groups below their soft limits are ineligible or if all
+     * eligible peers are above soft limits.
+     */
+    void setSoftConcurrencyLimit(int softConcurrencyLimit);
+
     int getHardConcurrencyLimit();
 
     /**
