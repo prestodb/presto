@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.transaction.TransactionManager;
@@ -32,6 +33,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -130,6 +132,22 @@ public class QuerySessionSupplier
 
         if (context.getLanguage() != null) {
             sessionBuilder.setLocale(Locale.forLanguageTag(context.getLanguage()));
+        }
+
+        if (sessionPropertyConfigurationManager.get() != null) {
+            SessionConfigurationContext configContext = new SessionConfigurationContext(
+                    context.getIdentity().getUser(),
+                    Optional.ofNullable(context.getSource()),
+                    context.getClientTags());
+            for (Entry<String, String> entry : sessionPropertyConfigurationManager.get().getSystemSessionProperties(configContext).entrySet()) {
+                sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+            }
+            for (Entry<String, Map<String, String>> catalogProperties : sessionPropertyConfigurationManager.get().getCatalogSessionProperties(configContext).entrySet()) {
+                String catalog = catalogProperties.getKey();
+                for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
+                    sessionBuilder.setCatalogSessionProperty(catalog, entry.getKey(), entry.getValue());
+                }
+            }
         }
 
         for (Entry<String, String> entry : context.getSystemProperties().entrySet()) {
