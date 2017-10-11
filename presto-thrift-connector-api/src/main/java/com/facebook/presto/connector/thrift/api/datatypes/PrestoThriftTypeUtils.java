@@ -14,10 +14,14 @@
 package com.facebook.presto.connector.thrift.api.datatypes;
 
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.function.BiFunction;
+
+import static com.google.common.base.Preconditions.checkState;
 
 final class PrestoThriftTypeUtils
 {
@@ -50,6 +54,33 @@ final class PrestoThriftTypeUtils
         return result.apply(nulls, longs);
     }
 
+    public static PrestoThriftBlock fromLongBasedColumn(RecordSet recordSet, int columnIndex, int positions, BiFunction<boolean[], long[], PrestoThriftBlock> result)
+    {
+        if (positions == 0) {
+            return result.apply(null, null);
+        }
+        boolean[] nulls = null;
+        long[] longs = null;
+        RecordCursor cursor = recordSet.cursor();
+        for (int position = 0; position < positions; position++) {
+            checkState(cursor.advanceNextPosition(), "cursor has less values than expected");
+            if (cursor.isNull(columnIndex)) {
+                if (nulls == null) {
+                    nulls = new boolean[positions];
+                }
+                nulls[position] = true;
+            }
+            else {
+                if (longs == null) {
+                    longs = new long[positions];
+                }
+                longs[position] = cursor.getLong(columnIndex);
+            }
+        }
+        checkState(!cursor.advanceNextPosition(), "cursor has more values than expected");
+        return result.apply(nulls, longs);
+    }
+
     public static PrestoThriftBlock fromIntBasedBlock(Block block, Type type, BiFunction<boolean[], int[], PrestoThriftBlock> result)
     {
         int positions = block.getPositionCount();
@@ -72,6 +103,33 @@ final class PrestoThriftTypeUtils
                 ints[position] = (int) type.getLong(block, position);
             }
         }
+        return result.apply(nulls, ints);
+    }
+
+    public static PrestoThriftBlock fromIntBasedColumn(RecordSet recordSet, int columnIndex, int positions, BiFunction<boolean[], int[], PrestoThriftBlock> result)
+    {
+        if (positions == 0) {
+            return result.apply(null, null);
+        }
+        boolean[] nulls = null;
+        int[] ints = null;
+        RecordCursor cursor = recordSet.cursor();
+        for (int position = 0; position < positions; position++) {
+            checkState(cursor.advanceNextPosition(), "cursor has less values than expected");
+            if (cursor.isNull(columnIndex)) {
+                if (nulls == null) {
+                    nulls = new boolean[positions];
+                }
+                nulls[position] = true;
+            }
+            else {
+                if (ints == null) {
+                    ints = new int[positions];
+                }
+                ints[position] = (int) cursor.getLong(columnIndex);
+            }
+        }
+        checkState(!cursor.advanceNextPosition(), "cursor has more values than expected");
         return result.apply(nulls, ints);
     }
 
