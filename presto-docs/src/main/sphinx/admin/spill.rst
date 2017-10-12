@@ -1,3 +1,7 @@
+=============
+Spill to Disk
+=============
+
 .. contents::
     :local:
     :backlinks: none
@@ -16,7 +20,7 @@ implemented on the application level to address specific needs of Presto.
 
 Properties related to spilling are described in :ref:`tuning-spilling`.
 
-Memory management and spill
+Memory Management and Spill
 ---------------------------
 
 By default, Presto kills queries if the memory requested by the query execution
@@ -42,9 +46,9 @@ runs completely in memory.
 Please note that enabling spill-to-disk does not guarantee execution of all
 memory intensive queries. It is still possible that the query runner will fail
 to divide intermediate data into chunks small enough that every chunk fits into
-memory, leading to `Out of memory` errors while loading the data from disk.
+memory, leading to ``Out of memory`` errors while loading the data from disk.
 
-Spill disk space
+Spill Disk Space
 ----------------
 
 Spilling intermediate results to disk and retrieving them back is expensive
@@ -59,10 +63,10 @@ it is recommended to monitor the disk saturation of the configured spill paths.
 
 Presto treats spill paths as independent disks (see `JBOD
 <https://en.wikipedia.org/wiki/Non-RAID_drive_architectures#JBOD>`_), so
-there is no need to use RAID matrices for spill.
+there is no need to use RAID for spill.
 
-Supported operations
-------------------------
+Supported Operations
+--------------------
 
 Not all operations support spilling to disk, and each handles spilling
 differently. Currently, the mechanism is implemented for the following
