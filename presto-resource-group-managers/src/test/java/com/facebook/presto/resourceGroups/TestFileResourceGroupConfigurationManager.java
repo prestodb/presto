@@ -18,21 +18,19 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -47,6 +45,7 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_bad_group_id.json", "Invalid resource group name. 'glo.bal' contains a '.'");
         assertFails("resource_groups_config_bad_query_priority_scheduling_policy.json", "Must use \"weighted\" scheduling policy when using scheduling weight");
         assertFails("resource_groups_config_bad_weighted_scheduling_policy.json", "Must specify scheduling weight for each sub group when using \"weighted\" scheduling policy");
+        assertFails("resource_groups_config_unused_field.json", "Unknown property at line 8:6: maxFoo");
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No matching configuration found for: missing")
@@ -135,10 +134,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResourceFilePath(fileName));
-        return new FileResourceGroupConfigurationManager(
-                (poolId, listener) -> {},
-                config,
-                jsonCodec(ManagerSpec.class));
+        return new FileResourceGroupConfigurationManager((poolId, listener) -> {}, config);
     }
 
     private String getResourceFilePath(String fileName)
@@ -153,17 +149,7 @@ public class TestFileResourceGroupConfigurationManager
             fail("Expected parsing to fail");
         }
         catch (RuntimeException e) {
-            Throwable cause = e.getCause();
-            if (cause == null) {
-                cause = e;
-            }
-            else {
-                assertTrue(cause instanceof JsonMappingException);
-                cause = cause.getCause();
-            }
-            assertTrue(cause instanceof IllegalArgumentException);
-            assertTrue(Pattern.matches(expectedPattern, cause.getMessage()),
-                    "\nExpected (re) :" + expectedPattern + "\nActual        :" + cause.getMessage());
+            assertThat(e.getMessage()).matches(expectedPattern);
         }
     }
 }
