@@ -35,6 +35,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.adhocSession;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.dashboardSession;
@@ -107,8 +108,8 @@ public class TestQueues
         waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
         waitForRunningQueryCount(queryRunner, 1);
         // Update db to allow for 1 more running query in dashboard resource group
-        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, null, 1L);
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, null, 3L);
+        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
         QueryId thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
@@ -155,8 +156,8 @@ public class TestQueues
         waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
 
         // Allow one more query to run and resubmit third query
-        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, null, 1L);
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, null, 3L);
+        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
@@ -168,7 +169,7 @@ public class TestQueues
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
 
         // Lower running queries in dashboard resource groups and reload the config
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, 3L);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
 
         // Cancel query and verify that third query is still queued
@@ -192,7 +193,7 @@ public class TestQueues
         int selectorCount = getSelectors(queryRunner).size();
         dao.insertSelector(4, "user.*", "(?i).*reject.*");
         dbConfigurationManager.load();
-        assertEquals(dao.getSelectors().size(), selectorCount + 1);
+        assertEquals(getSelectors(queryRunner).size(), selectorCount + 1);
         // Verify the query can be submitted
         queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, RUNNING);
@@ -207,7 +208,7 @@ public class TestQueues
     public void testRunningTimeLimit()
             throws Exception
     {
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, "3s", 3L);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, "3s", 3L, TEST_ENVIRONMENT);
         QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
     }
@@ -216,7 +217,7 @@ public class TestQueues
     public void testQueuedTimeLimit()
             throws Exception
     {
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, "5s", null, 3L);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, "5s", null, 3L, TEST_ENVIRONMENT);
         QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
         QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
@@ -242,7 +243,7 @@ public class TestQueues
         assertEquals(queryManager.getQueryInfo(firstQuery).getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
         assertContains(queryManager.getQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, null, null, 3L);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
         QueryId secondQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         //this query should immediately get queued
@@ -251,7 +252,7 @@ public class TestQueues
         Thread.sleep(5_000);
         assertEquals(queryManager.getQueryInfo(secondQuery).getState(), QUEUED);
         // reconfigure the resource group to run the second query
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, null, null, 3L);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
         // cancel the first one and let the second one start
         queryManager.cancelQuery(firstQuery);
