@@ -96,20 +96,21 @@ public class DistributedQueryRunner
             int workersCount,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
-            SqlParserOptions parserOptions)
+            SqlParserOptions parserOptions,
+            String environment)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
         try {
             long start = System.nanoTime();
-            discoveryServer = closer.register(new TestingDiscoveryServer(ENVIRONMENT));
+            discoveryServer = closer.register(new TestingDiscoveryServer(environment));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
             for (int i = 1; i < workersCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions, environment));
                 servers.add(worker);
             }
 
@@ -119,7 +120,7 @@ public class DistributedQueryRunner
                     .putAll(extraProperties)
                     .putAll(coordinatorProperties)
                     .build();
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions));
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions, environment));
             servers.add(coordinator);
 
             this.servers = servers.build();
@@ -161,7 +162,18 @@ public class DistributedQueryRunner
         }
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions)
+    public DistributedQueryRunner(
+            Session defaultSession,
+            int workersCount,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            SqlParserOptions parserOptions)
+            throws Exception
+    {
+        this(defaultSession, workersCount, extraProperties, coordinatorProperties, parserOptions, ENVIRONMENT);
+    }
+
+    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment)
             throws Exception
     {
         long start = System.nanoTime();
@@ -180,7 +192,7 @@ public class DistributedQueryRunner
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri, parserOptions, ImmutableList.of());
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, parserOptions, ImmutableList.of());
 
         log.info("Created TestingPrestoServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
