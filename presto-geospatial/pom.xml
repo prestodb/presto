@@ -8,7 +8,7 @@
     </parent>
 
     <artifactId>presto-geospatial</artifactId>
-    <description>Presto - Geo Spatial Plugin</description>
+    <description>Presto - Geospatial Plugin</description>
     <packaging>presto-plugin</packaging>
 
     <properties>
