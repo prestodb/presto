@@ -74,10 +74,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -92,6 +89,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -139,7 +137,6 @@ public final class SqlQueryExecution
     private final ExecutionPolicy executionPolicy;
     private final List<Expression> parameters;
     private final SplitSchedulerStats schedulerStats;
-    private final SettableFuture<QueryOutputInfo> outputInfo = SettableFuture.create();
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -423,8 +420,8 @@ public final class SqlQueryExecution
             return;
         }
 
-        // record field names
-        stateMachine.setOutputFieldNames(outputStageExecutionPlan.getFieldNames());
+        // record output field
+        stateMachine.setColumns(outputStageExecutionPlan.getFieldNames(), outputStageExecutionPlan.getFragment().getTypes());
 
         PartitioningHandle partitioningHandle = plan.getRoot().getFragment().getPartitioningScheme().getPartitioning().getHandle();
         OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
@@ -450,20 +447,6 @@ public final class SqlQueryExecution
                 schedulerStats);
 
         queryScheduler.set(scheduler);
-
-        Futures.addCallback(scheduler.getRootStageOutputBufferLocations(), new FutureCallback<QueryOutputInfo>()
-        {
-            @Override
-            public void onSuccess(QueryOutputInfo result)
-            {
-                outputInfo.set(result);
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-            }
-        });
 
         // if query was canceled during scheduler creation, abort the scheduler
         // directly since the callback may have already fired
@@ -517,9 +500,9 @@ public final class SqlQueryExecution
     }
 
     @Override
-    public ListenableFuture<QueryOutputInfo> getOutputInfo()
+    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        return Futures.nonCancellationPropagating(outputInfo);
+        stateMachine.addOutputInfoListener(listener);
     }
 
     @Override

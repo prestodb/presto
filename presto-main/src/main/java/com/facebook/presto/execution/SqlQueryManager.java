@@ -68,6 +68,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -274,16 +275,17 @@ public class SqlQueryManager
     }
 
     @Override
-    public ListenableFuture<QueryOutputInfo> getOutputInfo(QueryId queryId)
+    public void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
     {
         requireNonNull(queryId, "queryId is null");
+        requireNonNull(listener, "listener is null");
 
         QueryExecution query = queries.get(queryId);
         if (query == null) {
-            return immediateFailedFuture(new NoSuchElementException());
+            throw new NoSuchElementException();
         }
 
-        return query.getOutputInfo();
+        query.addOutputInfoListener(listener);
     }
 
     @Override

@@ -50,7 +50,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
@@ -363,7 +362,7 @@ public class StatementResource
                 BlockEncodingSerde blockEncodingSerde)
         {
             Query result = new Query(sessionContext, query, queryManager, sessionPropertyManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
-            result.updateOutputInfoWhenReady();
+            result.queryManager.addOutputInfoListener(result.queryId, result::setQueryOutputInfo);
             return result;
         }
 
@@ -394,25 +393,6 @@ public class StatementResource
             this.timeoutExecutor = timeoutExecutor;
             requireNonNull(blockEncodingSerde, "serde is null");
             this.serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
-        }
-
-        private void updateOutputInfoWhenReady()
-        {
-            // wait for query to start
-            ListenableFuture<QueryOutputInfo> outputLocationsFuture = queryManager.getOutputInfo(queryId);
-            Futures.addCallback(outputLocationsFuture, new FutureCallback<QueryOutputInfo>()
-            {
-                @Override
-                public void onSuccess(QueryOutputInfo outputInfo)
-                {
-                    setQueryOutputInfo(outputInfo);
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                }
-            });
         }
 
         public void cancel()
@@ -644,28 +624,29 @@ public class StatementResource
 
         private synchronized void setQueryOutputInfo(QueryOutputInfo outputInfo)
         {
-            if (columns != null) {
-                return;
+            // if first callback, set column names
+            if (columns == null) {
+                List<String> columnNames = outputInfo.getColumnNames();
+                List<Type> columnTypes = outputInfo.getColumnTypes();
+                checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
+
+                ImmutableList.Builder<Column> list = ImmutableList.builder();
+                for (int i = 0; i < columnNames.size(); i++) {
+                    String name = columnNames.get(i);
+                    TypeSignature typeSignature = columnTypes.get(i).getTypeSignature();
+                    String type = typeSignature.toString();
+                    list.add(new Column(name, type, new ClientTypeSignature(typeSignature)));
+                }
+                columns = list.build();
+                types = outputInfo.getColumnTypes();
             }
 
-            List<String> columnNames = outputInfo.getColumnNames();
-            List<Type> columnTypes = outputInfo.getColumnTypes();
-            checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
-
-            ImmutableList.Builder<Column> list = ImmutableList.builder();
-            for (int i = 0; i < columnNames.size(); i++) {
-                String name = columnNames.get(i);
-                TypeSignature typeSignature = columnTypes.get(i).getTypeSignature();
-                String type = typeSignature.toString();
-                list.add(new Column(name, type, new ClientTypeSignature(typeSignature)));
-            }
-            columns = list.build();
-            types = outputInfo.getColumnTypes();
-
-            for (URI outputLocation : outputInfo.getBufferLocations().values()) {
+            for (URI outputLocation : outputInfo.getBufferLocations()) {
                 exchangeClient.addLocation(outputLocation);
             }
-            exchangeClient.noMoreLocations();
+            if (outputInfo.isNoMoreBufferLocations()) {
+                exchangeClient.noMoreLocations();
+            }
         }
 
         private ListenableFuture<?> queryDoneFuture(QueryState currentState)

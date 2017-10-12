@@ -22,12 +22,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public interface QueryManager
 {
     List<QueryInfo> getAllQueryInfo();
 
-    ListenableFuture<QueryOutputInfo> getOutputInfo(QueryId queryId);
+    void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener);
 
     ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState);
 

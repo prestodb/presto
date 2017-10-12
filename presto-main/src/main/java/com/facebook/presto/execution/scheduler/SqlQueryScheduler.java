@@ -42,7 +42,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
@@ -134,8 +133,9 @@ public class SqlQueryScheduler
         // Only fetch a distribution once per query to assure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
 
+        OutputBufferId rootBufferId = Iterables.getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         List<SqlStageExecution> stages = createStages(
-                Optional.empty(),
+                (fragmentId, exchangeLocations, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, exchangeLocations, noMoreExchangeLocations),
                 new AtomicInteger(),
                 locationFactory,
                 plan.withBucketToPartition(Optional.of(new int[1])),
@@ -173,29 +173,6 @@ public class SqlQueryScheduler
             }
         });
 
-        // when scheduling of the root stage completes, set output buffer info
-        rootStage.addStateChangeListener(state -> {
-            if (rootStageOutputBufferLocations.isDone()) {
-                return;
-            }
-            if (state == SCHEDULED || state == RUNNING) {
-                Set<OutputBufferId> bufferIds = rootStage.getOutputBuffers().getBuffers().keySet();
-                ImmutableSetMultimap.Builder<OutputBufferId, URI> outputBufferLocations = ImmutableSetMultimap.builder();
-                for (RemoteTask task : rootStage.getAllTasks()) {
-                    URI taskUri = task.getTaskStatus().getSelf();
-                    for (OutputBufferId bufferId : bufferIds) {
-                        URI uri = uriBuilderFrom(taskUri).appendPath("results").appendPath(bufferId.toString()).build();
-                        outputBufferLocations.put(bufferId, uri);
-                    }
-                }
-
-                rootStageOutputBufferLocations.set(new QueryOutputInfo(
-                        plan.getFieldNames(),
-                        plan.getFragment().getTypes(),
-                        outputBufferLocations.build()));
-            }
-        });
-
         for (SqlStageExecution stage : stages) {
             stage.addStateChangeListener(state -> {
                 if (queryStateMachine.isDone()) {
@@ -218,8 +195,16 @@ public class SqlQueryScheduler
         }
     }
 
+    private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<URI> exchangeLocations, boolean noMoreExchangeLocations)
+    {
+        Set<URI> bufferLocations = exchangeLocations.stream()
+                .map(location -> uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build())
+                .collect(toImmutableSet());
+        queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
+    }
+
     private List<SqlStageExecution> createStages(
-            Optional<SqlStageExecution> parent,
+            ExchangeLocationsConsumer parent,
             AtomicInteger nextStageId,
             LocationFactory locationFactory,
             StageExecutionPlan plan,
@@ -292,7 +277,7 @@ public class SqlQueryScheduler
         ImmutableSet.Builder<SqlStageExecution> childStagesBuilder = ImmutableSet.builder();
         for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
             List<SqlStageExecution> subTree = createStages(
-                    Optional.of(stage),
+                    stage::addExchangeLocations,
                     nextStageId,
                     locationFactory,
                     subStagePlan.withBucketToPartition(bucketToPartition),
@@ -487,14 +472,19 @@ public class SqlQueryScheduler
         }
     }
 
+    private interface ExchangeLocationsConsumer
+    {
+        void addExchangeLocations(PlanFragmentId fragmentId, Set<URI> exchangeLocations, boolean noMoreExchangeLocations);
+    }
+
     private static class StageLinkage
     {
         private final PlanFragmentId currentStageFragmentId;
-        private final Optional<SqlStageExecution> parent;
+        private final ExchangeLocationsConsumer parent;
         private final Set<OutputBufferManager> childOutputBufferManagers;
         private final Set<StageId> childStageIds;
 
-        public StageLinkage(PlanFragmentId fragmentId, Optional<SqlStageExecution> parent, Set<SqlStageExecution> children)
+        public StageLinkage(PlanFragmentId fragmentId, ExchangeLocationsConsumer parent, Set<SqlStageExecution> children)
         {
             this.currentStageFragmentId = fragmentId;
             this.parent = parent;
@@ -544,13 +534,11 @@ public class SqlQueryScheduler
                     break;
             }
 
-            if (parent.isPresent()) {
-                // Add an exchange location to the parent stage for each new task
-                Set<URI> newExchangeLocations = newTasks.stream()
-                        .map(task -> task.getTaskStatus().getSelf())
-                        .collect(toImmutableSet());
-                parent.get().addExchangeLocations(currentStageFragmentId, newExchangeLocations, noMoreTasks);
-            }
+            // Add an exchange location to the parent stage for each new task
+            Set<URI> newExchangeLocations = newTasks.stream()
+                    .map(task -> task.getTaskStatus().getSelf())
+                    .collect(toImmutableSet());
+            parent.addExchangeLocations(currentStageFragmentId, newExchangeLocations, noMoreTasks);
 
             if (!childOutputBufferManagers.isEmpty()) {
                 // Add an output buffer to the child stages for each new task
