@@ -15,7 +15,6 @@ Presto Documentation
     language
     sql
     migration
-    spill
     develop
     release
 
