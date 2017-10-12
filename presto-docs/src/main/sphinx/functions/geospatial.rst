@@ -1,24 +1,23 @@
-=====================
-GeoSpatial Functions
-=====================
+====================
+Geospatial Functions
+====================
 
-Presto GeoSpatial functions support SQL/MM specification. They are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications. As such, many Presto GeoSpatial functions require, or more accurately, assume that geometries that are operated on are both simple and valid. For example, it does not make sense to calculate the area of a polygon that has a hole defined outside of the polygon, or to construct a polygon from a non-simple boundary line.
+Presto Geospatial functions support the SQL/MM specification.
+They are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
+As such, many Presto Geospatial functions require, or more accurately, assume that
+geometries that are operated on are both simple and valid. For example, it does not
+make sense to calculate the area of a polygon that has a hole defined outside of the
+polygon, or to construct a polygon from a non-simple boundary line.
 
-Presto GeoSpatial functions support the Well-Known Text (WKT) form of spatial objects. Here are the examples:
+Presto Geospatial functions support the Well-Known Text (WKT) form of spatial objects:
 
-POINT (0 0)
-
-LINESTRING (0 0, 1 1, 1 2)
-
-POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1))
-
-MULTIPOINT (0 0, 1 2)
-
-MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))
-
-MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))
-
-GEOMETRYCOLLECTION (POINT(2 3), LINESTRING (2 3, 3 4))
+* ``POINT (0 0)``
+* ``LINESTRING (0 0, 1 1, 1 2)``
+* ``POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1))``
+* ``MULTIPOINT (0 0, 1 2)``
+* ``MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))``
+* ``MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))``
+* ``GEOMETRYCOLLECTION (POINT(2 3), LINESTRING (2 3, 3 4))``
 
 Constructors
 ------------
@@ -29,58 +28,66 @@ Constructors
 
 .. function:: ST_LineFromText(varchar) -> LineString
 
-    Returns a geometry type linestring object from Well-Known Text representation (WKT).
+    Returns a geometry type linestring object from WKT representation.
 
 .. function:: ST_Polygon(varchar) -> Polygon
 
-    Returns a geometry type polygon object from Well-Known Text representation (WKT).
+    Returns a geometry type polygon object from WKT representation.
 
 .. function:: ST_GeometryFromText(varchar) -> Geometry
 
-    Returns a geometry type object from Well-Known Text representation (WKT).
+    Returns a geometry type object from WKT representation.
 
 .. function:: stAsText(Geometry) -> varchar
 
-    Returns the Well-Known Text (WKT) representation of the geometry. For empty geometries, ST_AsText(ST_LineFromText('LINESTRING EMPTY')) will produce 'MULTILINESTRING EMPTY', ST_AsText(ST_Polygon('POLYGON EMPTY')) will produce 'MULTIPOLYGON EMPTY'.
+    Returns the WKT representation of the geometry. For empty geometries,
+    ``ST_AsText(ST_LineFromText('LINESTRING EMPTY'))`` will produce ``'MULTILINESTRING EMPTY'``
+    and ``ST_AsText(ST_Polygon('POLYGON EMPTY'))`` will produce ``'MULTIPOLYGON EMPTY'``.
 
 Relationship Tests
 ------------------
 
 .. function:: ST_Contains(Geometry, Geometry) -> boolean
 
-    Returns TRUE if and only if no points of second geometry lie in the exterior of first geometry, and at least one point of the interior of first geometry lies in the interior of second geometry.
+    Returns ``true`` if and only if no points of the second geometry lie in the exterior
+    of the first geometry, and at least one point of the interior of the first geometry
+    lies in the interior of the second geometry.
 
 .. function:: ST_Crosses(Geometry, Geometry) -> boolean
 
-    Returns TRUE if the supplied geometries have some, but not all, interior points in common.
+    Returns ``true`` if the supplied geometries have some, but not all, interior points in common.
 
 .. function:: ST_Disjoint(Geometry, Geometry) -> boolean
 
-    Returns TRUE if the give geometries do not "spatially intersect" - if they do not share any space together.
+    Returns ``true`` if the give geometries do not *spatially intersect* --
+    if they do not share any space together.
 
 .. function:: ST_Equals(Geometry, Geometry) -> boolean
 
-    Returns TRUE if the given geometries represent the same geometry.
+    Returns ``true`` if the given geometries represent the same geometry.
 
 .. function:: ST_Intersects(Geometry, Geometry) -> boolean
 
-    Returns TRUE if the given geometries spatially intersect in 2-dimensional - (share any portion of space) and FALSE if they don't (they are disjoint)
+    Returns ``true`` if the given geometries spatially intersect in two dimensions
+    (share any portion of space) and ``false`` if they don not (they are disjoint).
 
 .. function:: ST_Overlaps(Geometry, Geometry) -> boolean
 
-    Returns TRUE if the given geometries share space, are of the same dimension, but are not completely contained by each other.
+    Returns ``true`` if the given geometries share space, are of the same dimension,
+    but are not completely contained by each other.
 
 .. function:: ST_Relate(Geometry, Geometry) -> boolean
 
-    Returns TRUE if first geometry is spatially related to second geometry.
+    Returns ``true`` if first geometry is spatially related to second geometry.
 
 .. function:: ST_Touches(Geometry, Geometry) -> boolean
 
-    Returns TRUE if the given geometries have at least one point in common, but their interiors do not intersect.
+    Returns ``true`` if the given geometries have at least one point in common,
+    but their interiors do not intersect.
 
 .. function:: ST_Within(Geometry, Geometry) -> boolean
 
-    Returns TRUE if first geometry is completely inside second geometry.
+    Returns ``true`` if first geometry is completely inside second geometry.
 
 Operations
 ----------
@@ -114,7 +121,8 @@ Accessors
 
 .. function:: ST_Area(Geometry) -> double
 
-    Returns the area of a polygon using Euclidean measurement on a 2-dimensional plane (based on spatial ref) in projected units.
+    Returns the area of a polygon using Euclidean measurement on a two dimensional
+    plane (based on spatial ref) in projected units.
 
 .. function:: ST_Centroid(Geometry) -> Geometry
 
@@ -126,27 +134,30 @@ Accessors
 
 .. function:: ST_Dimension(Geometry) -> bigint
 
-    Returns the inherent dimension of this geometry object, which must be less than or equal to the coordinate dimension.
+    Returns the inherent dimension of this geometry object, which must be
+    less than or equal to the coordinate dimension.
 
 .. function:: ST_Distance(Geometry, Geometry) -> double
 
-    Returns the 2-dimensional cartesian minimum distance (based on spatial ref) between two geometries in projected units.
+    Returns the 2-dimensional cartesian minimum distance (based on spatial ref)
+    between two geometries in projected units.
 
 .. function:: ST_IsClosed(Geometry) -> boolean
 
-    Returns TRUE if the linestring's start and end points are coincident.
+    Returns ``true`` if the linestring's start and end points are coincident.
 
 .. function:: ST_IsEmpty(Geometry) -> boolean
 
-    Returns TRUE if this Geometry is an empty geometrycollection, polygon, point etc.
+    Returns ``true`` if this Geometry is an empty geometrycollection, polygon, point etc.
 
 .. function:: ST_IsRing(Geometry) -> boolean
 
-    Returns TRUE if and only if the line is closed and simple.
+    Returns ``true`` if and only if the line is closed and simple.
 
 .. function:: ST_Length(Geometry) -> double
 
-    Returns the length of a linestring or multi-linestring using Euclidean measurement on a 2-dimensional plane (based on spatial ref) in projected units.
+    Returns the length of a linestring or multi-linestring using Euclidean measurement on a
+    two dimensional plane (based on spatial ref) in projected units.
 
 .. function:: ST_XMax(Geometry) -> double
 
@@ -182,17 +193,18 @@ Accessors
 
 .. function:: ST_NumPoints(Geometry) -> bigint
 
-    Returns the number of points in a geometry. This is an extension to SQL/MM ST_NumPoints which only applies to point and linestring.
+    Returns the number of points in a geometry. This is an extension to the SQL/MM
+    ``ST_NumPoints`` function which only applies to point and linestring.
 
 .. function:: ST_NumInteriorRing(Geometry) -> bigint
 
     Returns the cardinality of the collection of interior rings of a polygon.
 
-===================
-Bing Tile Functions
-===================
+Bing Tiles
+----------
 
-A set of functions to convert between geometries and `Bing tiles <https://msdn.microsoft.com/en-us/library/bb259689.aspx>`_.
+These functions convert between geometries and
+`Bing tiles <https://msdn.microsoft.com/en-us/library/bb259689.aspx>`_.
 
 .. function:: bing_tile(x, y, zoom_level) => BingTile
 
