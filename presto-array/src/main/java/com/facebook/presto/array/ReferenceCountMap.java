@@ -34,7 +34,7 @@ public final class ReferenceCountMap
     /**
      * Increments the reference count of an object by 1 and returns the updated reference count
      */
-    public int incrementReference(Object key)
+    public int incrementAndGet(Object key)
     {
         return addTo(key, 1) + 1;
     }
@@ -42,7 +42,7 @@ public final class ReferenceCountMap
     /**
      * Decrements the reference count of an object by 1 and returns the updated reference count
      */
-    public int decrementReference(Object key)
+    public int decrementAndGet(Object key)
     {
         int previousCount = addTo(key, -1);
         if (previousCount == 1) {
