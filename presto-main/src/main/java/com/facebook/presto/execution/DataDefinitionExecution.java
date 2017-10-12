@@ -30,7 +30,6 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
@@ -42,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.resourceGroups.QueryType.DATA_DEFINITION;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -141,9 +141,9 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public ListenableFuture<QueryOutputInfo> getOutputInfo()
+    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        return SettableFuture.create();
+        // DDL does not have an output
     }
 
     @Override

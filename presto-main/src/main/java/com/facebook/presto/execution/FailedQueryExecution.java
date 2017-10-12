@@ -23,13 +23,13 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -114,9 +114,9 @@ public class FailedQueryExecution
     }
 
     @Override
-    public ListenableFuture<QueryOutputInfo> getOutputInfo()
+    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        return SettableFuture.create();
+        // no-op
     }
 
     @Override
