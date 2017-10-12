@@ -37,6 +37,7 @@ import io.airlift.slice.Slices;
 import org.apache.commons.lang.StringUtils;
 
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
@@ -549,7 +550,7 @@ public final class GeoFunctions
 
     private static void verifySameSpatialReference(OGCGeometry leftGeometry, OGCGeometry rightGeometry)
     {
-        checkArgument(leftGeometry.getEsriSpatialReference().equals(rightGeometry.getEsriSpatialReference()), "Input Geometries Spatial Reference do not match");
+        checkArgument(Objects.equals(leftGeometry.getEsriSpatialReference(), rightGeometry.getEsriSpatialReference()), "Input geometries must have same spatial reference");
     }
 
     // Points centroid is arithmetic mean of the input points
