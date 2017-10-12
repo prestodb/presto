@@ -230,7 +230,7 @@ public class PageProcessor
             for (Block block : page.getBlocks()) {
                 if (!isUnloadedLazyBlock(block)) {
                     block.retainedBytesForEachPart((object, size) -> {
-                        if (referenceCountMap.incrementReference(object) == 1) {
+                        if (referenceCountMap.incrementAndGet(object) == 1) {
                             retainedSizeInBytes += size;
                         }
                     });
@@ -239,7 +239,7 @@ public class PageProcessor
             for (Block previouslyComputedResult : previouslyComputedResults) {
                 if (previouslyComputedResult != null) {
                     previouslyComputedResult.retainedBytesForEachPart((object, size) -> {
-                        if (referenceCountMap.incrementReference(object) == 1) {
+                        if (referenceCountMap.incrementAndGet(object) == 1) {
                             retainedSizeInBytes += size;
                         }
                     });
