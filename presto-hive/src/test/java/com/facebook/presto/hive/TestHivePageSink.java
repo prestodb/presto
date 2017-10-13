@@ -125,7 +125,8 @@ public class TestHivePageSink
     private static long writeTestFile(HiveClientConfig config, ExtendedHiveMetastore metastore, String outputPath)
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle();
-        ConnectorPageSink pageSink = createPageSink(transaction, config, metastore, new Path("file:///" + outputPath));
+        HiveWriterStats stats = new HiveWriterStats();
+        ConnectorPageSink pageSink = createPageSink(transaction, config, metastore, new Path("file:///" + outputPath), stats);
         List<LineItemColumn> columns = getTestColumns();
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
@@ -187,6 +188,7 @@ public class TestHivePageSink
         MaterializedResult expectedResults = toMaterializedResult(getSession(config), columnTypes, ImmutableList.of(page));
         MaterializedResult results = toMaterializedResult(getSession(config), columnTypes, pages);
         assertEquals(results, expectedResults);
+        assertEquals(stats.getInputPageSizeInBytes().getAllTime().getMax(), page.getRetainedSizeInBytes());
         return length;
     }
 
@@ -212,7 +214,7 @@ public class TestHivePageSink
         return provider.createPageSource(transaction, getSession(config), split, ImmutableList.copyOf(getColumnHandles()));
     }
 
-    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, ExtendedHiveMetastore metastore, Path outputPath)
+    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
         LocationHandle locationHandle = new LocationHandle(outputPath, Optional.of(outputPath), false);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
@@ -242,7 +244,8 @@ public class TestHivePageSink
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config));
+                new HiveSessionProperties(config),
+                stats);
         return provider.createPageSink(transaction, getSession(config), handle);
     }
 
