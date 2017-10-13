@@ -65,7 +65,7 @@ public class TestFeaturesConfig
                 .setExchangeCompressionEnabled(false)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughJoin(true)
-                .setForceSingleNodeOutput(false));
+                .setForceSingleNodeOutput(true));
     }
 
     @Test
@@ -103,7 +103,7 @@ public class TestFeaturesConfig
                 .put("experimental.memory-revoking-target", "0.8")
                 .put("exchange.compression-enabled", "true")
                 .put("optimizer.enable-intermediate-aggregations", "true")
-                .put("optimizer.force-single-node-output", "true")
+                .put("optimizer.force-single-node-output", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -138,7 +138,7 @@ public class TestFeaturesConfig
                 .setLegacyOrderBy(true)
                 .setExchangeCompressionEnabled(true)
                 .setEnableIntermediateAggregations(true)
-                .setForceSingleNodeOutput(true);
+                .setForceSingleNodeOutput(false);
 
         assertFullMapping(properties, expected);
     }
