@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.spi;
 
-public interface ConnectorIndex
+import com.facebook.presto.spi.type.Type;
+
+import java.util.List;
+
+public interface IndexPageSource
+        extends ConnectorPageSource
 {
-    ConnectorPageSource lookup(IndexPageSource pageSource);
+    List<Type> getColumnTypes();
 }

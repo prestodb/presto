@@ -15,7 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.IndexPageSource;
 
 import java.util.List;
 
@@ -24,11 +24,11 @@ import static java.util.Objects.requireNonNull;
 public class IndexSplit
         implements ConnectorSplit
 {
-    private final RecordSet keyRecordSet;
+    private final IndexPageSource indexPageSource;
 
-    public IndexSplit(RecordSet keyRecordSet)
+    public IndexSplit(IndexPageSource indexPageSource)
     {
-        this.keyRecordSet = requireNonNull(keyRecordSet, "keyRecordSet is null");
+        this.indexPageSource = requireNonNull(indexPageSource, "indexPageSource is null");
     }
 
     @Override
@@ -49,8 +49,8 @@ public class IndexSplit
         return null;
     }
 
-    public RecordSet getKeyRecordSet()
+    public IndexPageSource getIndexPageSource()
     {
-        return keyRecordSet;
+        return indexPageSource;
     }
 }

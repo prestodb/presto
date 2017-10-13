@@ -247,9 +247,9 @@ public class IndexLoader
         DriverFactory driverFactory = indexBuildDriverFactoryProvider.createStreaming(pageBuffer, indexKeyTuple);
         Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
 
-        PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
+        SimplePageSource pageSource = new SimplePageSource(keyTypes, ImmutableList.of(indexKeyTuple));
         PlanNodeId planNodeId = driverFactory.getSourceId().get();
-        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new ConnectorTransactionHandle() {}, new IndexSplit(pageRecordSet)));
+        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new ConnectorTransactionHandle() {}, new IndexSplit(pageSource)));
         driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(split), true));
 
         return new StreamingIndexedData(outputTypes, keyTypes, indexKeyTuple, pageBuffer, driver);
@@ -335,13 +335,14 @@ public class IndexLoader
 
         public boolean load(List<UpdateRequest> requests)
         {
-            // Generate a RecordSet that only presents index keys that have not been cached and are deduped based on lookupSourceInputChannels
-            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, joinCompiler);
+            // Generate a PageSource that only presents index keys that have not been cached and are deduped based on lookupSourceInputChannels
+            UnloadedIndexPageSource lookupPageSource = new UnloadedIndexPageSource(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, joinCompiler);
+//            UnloadedIndexKeyRecordSet lookupRecordSet = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, joinCompiler);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
                 PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
-                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new ConnectorTransactionHandle() {}, new IndexSplit(recordSetForLookupSource)));
+                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new ConnectorTransactionHandle() {}, new IndexSplit(lookupPageSource)));
                 driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
                     ListenableFuture<?> process = driver.process();
@@ -355,12 +356,17 @@ public class IndexLoader
             }
 
             // Generate a RecordSet that presents unique index keys that have not been cached
-            UnloadedIndexKeyRecordSet indexKeysRecordSet = (lookupSourceInputChannels.equals(allInputChannels))
-                    ? recordSetForLookupSource
-                    : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests, joinCompiler);
+            UnloadedIndexPageSource indexKeysPageSource = (lookupSourceInputChannels.equals(allInputChannels))
+                    ? lookupPageSource
+                    : new UnloadedIndexPageSource(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests, joinCompiler);
+
+//            UnloadedIndexKeyRecordSet indexKeysRecordSet = (lookupSourceInputChannels.equals(allInputChannels))
+//                    ? lookupRecordSet
+//                    : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests, joinCompiler);
 
             // Create lookup source with new data
-            IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(indexKeysRecordSet);
+//            IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(indexKeysRecordSet);
+            IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(indexKeysPageSource);
             if (newValue == null) {
                 clearCachedData();
                 return false;

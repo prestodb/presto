@@ -69,8 +69,9 @@ import com.facebook.presto.operator.exchange.LocalExchange;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
 import com.facebook.presto.operator.exchange.PageChannelSelector;
+import com.facebook.presto.operator.index.DelegatedIndexPageSource;
 import com.facebook.presto.operator.index.DynamicTupleFilterFactory;
-import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
+import com.facebook.presto.operator.index.FieldSetFilteringPageSource;
 import com.facebook.presto.operator.index.IndexBuildDriverFactoryProvider;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.index.IndexLookupSourceFactory;
@@ -86,10 +87,10 @@ import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.IndexPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.NullableValue;
@@ -97,7 +98,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
-import com.facebook.presto.split.MappedRecordSet;
+import com.facebook.presto.split.MappedPageSource;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -1344,11 +1345,11 @@ public class LocalExecutionPlanner
             }
             List<Set<Integer>> overlappingFieldSets = overlappingFieldSetsBuilder.build();
             List<Integer> remappedProbeKeyChannels = remappedProbeKeyChannelsBuilder.build();
-            Function<RecordSet, RecordSet> probeKeyNormalizer = recordSet -> {
+            Function<IndexPageSource, IndexPageSource> probeKeyNormalizer = pageSource -> {
                 if (!overlappingFieldSets.isEmpty()) {
-                    recordSet = new FieldSetFilteringRecordSet(metadata.getFunctionRegistry(), recordSet, overlappingFieldSets);
+                    pageSource = new FieldSetFilteringPageSource(metadata.getFunctionRegistry(), pageSource, overlappingFieldSets);
                 }
-                return new MappedRecordSet(recordSet, remappedProbeKeyChannels);
+                return new DelegatedIndexPageSource(pageSource.getColumnTypes(), new MappedPageSource(pageSource, remappedProbeKeyChannels));
             };
 
             // Declare the input and output schemas for the index and acquire the actual Index

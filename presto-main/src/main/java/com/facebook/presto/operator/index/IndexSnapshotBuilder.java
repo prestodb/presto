@@ -24,6 +24,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -115,6 +117,40 @@ public class IndexSnapshotBuilder
         }
         pages.add(page);
         return true;
+    }
+
+    public IndexSnapshot createIndexSnapshot(UnloadedIndexPageSource indexPageSource)
+    {
+        checkArgument(indexPageSource.getColumnTypes().equals(missingKeysTypes), "indexPageSource must have same schema as missingKeys");
+        checkState(!isMemoryExceeded(), "Max memory exceeded");
+        for (Page page : pages) {
+            outputPagesIndex.addPage(page);
+        }
+        pages.clear();
+
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
+        indexPageSource.reset();
+
+        while (!indexPageSource.isFinished()) {
+            Page page = indexPageSource.getNextPage();
+            IntList missingKeyPositions = new IntArrayList();
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                if (lookupSource.getJoinPosition(position, page, page) < 0) {
+                    missingKeyPositions.add(position);
+                }
+            }
+            if (!missingKeyPositions.isEmpty()) {
+                Page missingKeysPage = page.mask(missingKeyPositions.toIntArray());
+                memoryInBytes += missingKeysPage.getSizeInBytes();
+                if (isMemoryExceeded()) {
+                    return null;
+                }
+
+                missingKeysIndex.addPage(missingKeysPage);
+            }
+        }
+        missingKeys = missingKeysIndex.createLookupSourceSupplier(session, missingKeysChannels).get();
+        return new IndexSnapshot(lookupSource, missingKeys);
     }
 
     public IndexSnapshot createIndexSnapshot(UnloadedIndexKeyRecordSet indexKeysRecordSet)

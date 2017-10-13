@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.tests.tpch;
 
+import com.facebook.presto.operator.index.DelegatedIndexPageSource;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.IndexPageSource;
+import com.facebook.presto.spi.PageSourceRecordSet;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
@@ -180,6 +184,12 @@ public class TpchIndexedData
         public List<String> getOutputColumns()
         {
             return outputColumnNames;
+        }
+
+        public IndexPageSource lookupKeys(IndexPageSource pageSource)
+        {
+            checkArgument(pageSource.getColumnTypes().equals(keyTypes), "Input pageSource keys do not match expected key type");
+            return new DelegatedIndexPageSource(pageSource.getColumnTypes(), new RecordPageSource(lookupKeys(new PageSourceRecordSet(pageSource))));
         }
 
         public RecordSet lookupKeys(RecordSet recordSet)
