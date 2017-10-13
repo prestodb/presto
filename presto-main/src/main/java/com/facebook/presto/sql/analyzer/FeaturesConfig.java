@@ -56,7 +56,7 @@ public class FeaturesConfig
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
     private boolean optimizeMixedDistinctAggregations;
-    private boolean forceSingleNodeOutput;
+    private boolean forceSingleNodeOutput = true;
 
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
