@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>70</version>
+        <version>72</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -47,7 +47,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.6</dep.antlr.version>
-        <dep.airlift.version>0.150</dep.airlift.version>
+        <dep.airlift.version>0.152</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.31</dep.slice.version>
         <dep.aws-sdk.version>1.11.165</dep.aws-sdk.version>
@@ -977,6 +977,13 @@
                 <artifactId>cassandra-driver</artifactId>
                 <version>3.1.4-1</version>
             </dependency>
+
+            <!-- force newer version to be used for dependencies -->
+            <dependency>
+                <groupId>org.javassist</groupId>
+                <artifactId>javassist</artifactId>
+                <version>3.22.0-GA</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -1058,6 +1065,12 @@
                                 <artifactId>guice-multibindings</artifactId>
                                 <expectedVersion>4.0-beta5</expectedVersion>
                                 <resolvedVersion>4.0</resolvedVersion>
+                            </exception>
+                            <exception>
+                                <groupId>org.javassist</groupId>
+                                <artifactId>javassist</artifactId>
+                                <expectedVersion>3.22.0-CR2</expectedVersion>
+                                <resolvedVersion>3.22.0-GA</resolvedVersion>
                             </exception>
                         </exceptions>
                     </configuration>
@@ -1236,28 +1249,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>eclipse-compiler</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <configuration>
-                            <compilerId>eclipse</compilerId>
-                        </configuration>
-                        <dependencies>
-                            <dependency>
-                                <groupId>org.codehaus.plexus</groupId>
-                                <artifactId>plexus-compiler-eclipse</artifactId>
-                                <version>2.6</version>
-                            </dependency>
-                        </dependencies>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>
