@@ -66,19 +66,29 @@ JSON Functions
 
         SELECT json_array_contains('[1, 2, 3]', 2);
 
-.. function:: json_array_get(json_array, index) -> varchar
+.. function:: json_array_get(json_array, index) -> json
+
+   .. warning::
+
+       The semantics of this function are broken. If the extracted element
+       is a string, it will be converted into an invalid ``JSON`` value that
+       is not properly quoted (the value will not be surrounded by quotes
+       and any interior quotes will not be escaped).
+
+       We recommend against using this function. It cannot be fixed without
+       impacting existing usages and may be removed in a future release.
 
    Returns the element at the specified index into the ``json_array``.
    The index is zero-based::
 
-        SELECT json_array_get('["a", "b", "c"]', 0); -- 'a'
-        SELECT json_array_get('["a", "b", "c"]', 1); -- 'b'
+        SELECT json_array_get('["a", [3, 9], "c"]', 0); -- JSON 'a' (invalid JSON)
+        SELECT json_array_get('["a", [3, 9], "c"]', 1); -- JSON '[3,9]'
 
    This function also supports negative indexes for fetching element indexed
    from the end of an array::
 
-        SELECT json_array_get('["c", "b", "a"]', -1); -- 'a'
-        SELECT json_array_get('["c", "b", "a"]', -2); -- 'b'
+        SELECT json_array_get('["c", [3, 9], "a"]', -1); -- JSON 'a' (invalid JSON)
+        SELECT json_array_get('["c", [3, 9], "a"]', -2); -- JSON '[3,9]'
 
    If the element at the specified index doesn't exist, the function returns null::
 
