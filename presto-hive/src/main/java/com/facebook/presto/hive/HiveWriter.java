@@ -30,10 +30,18 @@ public class HiveWriter
     private final String writePath;
     private final String targetPath;
     private final Consumer<HiveWriter> onCommit;
+    private final HiveWriterStats hiveWriterStats;
 
     private long rowCount = 0;
 
-    public HiveWriter(HiveFileWriter fileWriter, Optional<String> partitionName, boolean isNew, String fileName, String writePath, String targetPath, Consumer<HiveWriter> onCommit)
+    public HiveWriter(HiveFileWriter fileWriter,
+            Optional<String> partitionName,
+            boolean isNew,
+            String fileName,
+            String writePath,
+            String targetPath,
+            Consumer<HiveWriter> onCommit,
+            HiveWriterStats hiveWriterStats)
     {
         this.fileWriter = fileWriter;
         this.partitionName = partitionName;
@@ -42,6 +50,7 @@ public class HiveWriter
         this.writePath = writePath;
         this.targetPath = targetPath;
         this.onCommit = onCommit;
+        this.hiveWriterStats = hiveWriterStats;
     }
 
     public long getSystemMemoryUsage()
@@ -56,6 +65,8 @@ public class HiveWriter
 
     public void append(Page dataPage)
     {
+        // getRegionSizeInBytes for each row can be expensive; use getRetainedSizeInBytes for estimation
+        hiveWriterStats.addInputPageSizesInBytes(dataPage.getRetainedSizeInBytes());
         fileWriter.appendRows(dataPage);
         rowCount += dataPage.getPositionCount();
     }

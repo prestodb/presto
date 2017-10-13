@@ -119,6 +119,8 @@ public class HiveWriterFactory
     private final EventClient eventClient;
     private final Map<String, String> sessionProperties;
 
+    private final HiveWriterStats hiveWriterStats;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -138,7 +140,8 @@ public class HiveWriterFactory
             ConnectorSession session,
             NodeManager nodeManager,
             EventClient eventClient,
-            HiveSessionProperties hiveSessionProperties)
+            HiveSessionProperties hiveSessionProperties,
+            HiveWriterStats hiveWriterStats)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -216,6 +219,8 @@ public class HiveWriterFactory
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
         }
+
+        this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -421,7 +426,7 @@ public class HiveWriterFactory
                     hiveWriter.getRowCount()));
         };
 
-        return new HiveWriter(hiveFileWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString(), onCommit);
+        return new HiveWriter(hiveFileWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString(), onCommit, hiveWriterStats);
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)

@@ -218,7 +218,8 @@ public abstract class AbstractTestHiveClientS3
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config));
+                new HiveSessionProperties(config),
+                new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
     }
 
