@@ -13,16 +13,16 @@ Functions and Operators
     functions/bitwise
     functions/decimal
     functions/string
-    functions/binary
-    functions/datetime
     functions/regexp
+    functions/binary
     functions/json
-    functions/url
+    functions/datetime
     functions/aggregate
     functions/window
-    functions/color
     functions/array
     functions/map
     functions/lambda
-    functions/teradata
+    functions/url
     functions/geospatial
+    functions/color
+    functions/teradata
