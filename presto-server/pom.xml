@@ -10,17 +10,31 @@
 
     <artifactId>presto-server</artifactId>
     <name>presto-server</name>
-    <packaging>provisio</packaging>
+    <packaging>pom</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
-        <air.check.skip-findbugs>true</air.check.skip-findbugs>
-        <air.check.skip-dependency>true</air.check.skip-dependency>
         <air.check.skip-dependency-version-check>true</air.check.skip-dependency-version-check>
 
         <!-- Launcher properties -->
         <main-class>com.facebook.presto.server.PrestoServer</main-class>
         <process-name>${project.artifactId}</process-name>
     </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>provision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
