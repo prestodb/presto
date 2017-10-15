@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
 import static com.facebook.presto.spi.type.Chars.isCharType;
@@ -27,9 +27,9 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 
 public class ParquetBinaryColumnReader
-        extends ParquetColumnReader
+        extends ParquetPrimitiveColumnReader
 {
-    public ParquetBinaryColumnReader(ColumnDescriptor descriptor)
+    public ParquetBinaryColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }
@@ -54,7 +54,7 @@ public class ParquetBinaryColumnReader
             }
             type.writeSlice(blockBuilder, value);
         }
-        else {
+        else if (isValueNull()) {
             blockBuilder.appendNull();
         }
     }

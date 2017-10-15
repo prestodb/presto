@@ -20,7 +20,7 @@ public final class ParquetDecimalColumnReaderFactory
 {
     private ParquetDecimalColumnReaderFactory() {}
 
-    public static ParquetColumnReader createReader(RichColumnDescriptor descriptor, int precision, int scale)
+    public static ParquetPrimitiveColumnReader createReader(RichColumnDescriptor descriptor, int precision, int scale)
     {
         DecimalType decimalType = DecimalType.createDecimalType(precision, scale);
         if (decimalType.isShort()) {

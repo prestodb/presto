@@ -13,19 +13,40 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
-import com.facebook.presto.hive.parquet.reader.ParquetReader;
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveSessionProperties;
+import com.facebook.presto.hive.HiveStorageFormat;
+import com.facebook.presto.hive.OrcFileWriterConfig;
+import com.facebook.presto.hive.benchmark.FileFormat;
+import com.facebook.presto.hive.parquet.write.MapKeyValuesSchemaConverter;
+import com.facebook.presto.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
+import com.facebook.presto.hive.parquet.write.SingleLevelArraySchemaConverter;
+import com.facebook.presto.hive.parquet.write.TestMapredParquetOutputFormat;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -33,33 +54,45 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
-import parquet.column.ColumnDescriptor;
 import parquet.column.ParquetProperties.WriterVersion;
 import parquet.hadoop.metadata.CompressionCodecName;
-import parquet.hadoop.metadata.FileMetaData;
-import parquet.hadoop.metadata.ParquetMetadata;
 import parquet.schema.MessageType;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
+import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static com.facebook.presto.hive.HiveUtil.isArrayType;
+import static com.facebook.presto.hive.HiveUtil.isMapType;
+import static com.facebook.presto.hive.HiveUtil.isRowType;
+import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.util.Arrays.stream;
+import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -76,6 +109,11 @@ import static parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 public class ParquetTester
 {
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Asia/Katmandu");
+    private static final boolean OPTIMIZED = true;
+    private static final HiveClientConfig HIVE_CLIENT_CONFIG = getHiveClientConfig();
+    private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG);
+    private static final TestingConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(HIVE_CLIENT_CONFIG, new OrcFileWriterConfig()).getSessionProperties());
+    private static final List<String> TEST_COLUMN = singletonList("test");
 
     private Set<CompressionCodecName> compressions = ImmutableSet.of();
 
@@ -109,43 +147,79 @@ public class ParquetTester
         testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType);
     }
 
+    public void testSingleLevelArraySchemaRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
+            throws Exception
+    {
+        ArrayList<TypeInfo> typeInfos = TypeInfoUtils.getTypeInfosFromTypeString(objectInspector.getTypeName());
+        MessageType schema = SingleLevelArraySchemaConverter.convert(TEST_COLUMN, typeInfos);
+        testRoundTrip(objectInspector, writeValues, readValues, type, Optional.of(schema));
+        if (objectInspector.getTypeName().contains("map<")) {
+            schema = SingleLevelArrayMapKeyValuesSchemaConverter.convert(TEST_COLUMN, typeInfos);
+            testRoundTrip(objectInspector, writeValues, readValues, type, Optional.of(schema));
+        }
+    }
+
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
         // just the values
-        testRoundTripType(objectInspector, writeValues, readValues, type);
+        testRoundTripType(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), Optional.empty());
 
         // all nulls
-        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type);
+        assertRoundTrip(singletonList(objectInspector), new Iterable<?>[] {transform(writeValues, constant(null))},
+                new Iterable<?>[] {transform(writeValues, constant(null))}, TEST_COLUMN, singletonList(type), Optional.empty());
+        if (objectInspector.getTypeName().contains("map<")) {
+            ArrayList<TypeInfo> typeInfos = TypeInfoUtils.getTypeInfosFromTypeString(objectInspector.getTypeName());
+            MessageType schema = MapKeyValuesSchemaConverter.convert(TEST_COLUMN, typeInfos);
+            // just the values
+            testRoundTripType(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {
+                    readValues}, TEST_COLUMN, singletonList(type), Optional.of(schema));
+
+            // all nulls
+            assertRoundTrip(singletonList(objectInspector), new Iterable<?>[] {transform(writeValues, constant(null))},
+                    new Iterable<?>[] {transform(writeValues, constant(null))}, TEST_COLUMN, singletonList(type), Optional.of(schema));
+        }
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
-        // just the values
-        testRoundTripType(objectInspector, writeValues, readValues, type);
-
-        // all nulls
-        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type, parquetSchema);
+        testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), parquetSchema);
     }
 
-    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
+    public void testRoundTrip(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues, List<String> columnNames, List<Type> columnTypes, Optional<MessageType> parquetSchema)
+            throws Exception
+    {
+        // just the values
+        testRoundTripType(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema);
+
+        // all nulls
+        assertRoundTrip(objectInspectors, transformToNulls(writeValues), transformToNulls(readValues), columnNames, columnTypes, parquetSchema);
+    }
+
+    private void testRoundTripType(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues,
+            List<String> columnNames, List<Type> columnTypes, Optional<MessageType> parquetSchema)
             throws Exception
     {
         // forward order
-        assertRoundTrip(objectInspector, writeValues, readValues, type);
+        assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema);
 
         // reverse order
-        assertRoundTrip(objectInspector, reverse(writeValues), reverse(readValues), type);
+        assertRoundTrip(objectInspectors, reverse(writeValues), reverse(readValues), columnNames, columnTypes, parquetSchema);
 
         // forward order with nulls
-        assertRoundTrip(objectInspector, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), type);
+        assertRoundTrip(objectInspectors, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), columnNames, columnTypes, parquetSchema);
 
         // reverse order with nulls
-        assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), type);
+        assertRoundTrip(objectInspectors, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), columnNames, columnTypes, parquetSchema);
     }
 
-    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
+    void assertRoundTrip(List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            Optional<MessageType> parquetSchema)
             throws Exception
     {
         for (WriterVersion version : versions) {
@@ -159,69 +233,156 @@ public class ParquetTester
                             jobConf,
                             tempFile.getFile(),
                             compressionCodecName,
-                            objectInspector,
-                            writeValues.iterator(),
+                            createTableProperties(columnNames, objectInspectors),
+                            getStandardStructObjectInspector(columnNames, objectInspectors),
+                            getIterators(writeValues),
                             parquetSchema);
                     assertFileContents(
-                            jobConf,
-                            tempFile,
-                            readValues,
-                            type);
+                            tempFile.getFile(),
+                            getIterators(readValues),
+                            columnNames,
+                            columnTypes);
                 }
             }
         }
     }
 
-    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
-            throws Exception
-    {
-        assertRoundTrip(objectInspector, writeValues, readValues, type, Optional.empty());
-    }
-
-    private static void assertFileContents(JobConf jobConf,
-            TempFile tempFile,
-            Iterable<?> expectedValues,
-            Type type)
+    private static void assertFileContents(File dataFile,
+            Iterator<?>[] expectedValues,
+            List<String> columnNames,
+            List<Type> columnTypes)
             throws IOException
     {
-        Path path = new Path(tempFile.getFile().toURI());
-        FileSystem fileSystem = path.getFileSystem(jobConf);
-        ParquetMetadata parquetMetadata = ParquetMetadataReader.readFooter(fileSystem, path, fileSystem.getFileStatus(path).getLen());
-        FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
-        MessageType fileSchema = fileMetaData.getSchema();
+        try (ConnectorPageSource pageSource = getFileFormat().createFileFormatReader(
+                SESSION,
+                HDFS_ENVIRONMENT,
+                dataFile,
+                columnNames,
+                columnTypes)) {
+            if (pageSource instanceof RecordPageSource) {
+                assertRecordCursor(columnTypes, expectedValues, ((RecordPageSource) pageSource).getCursor());
+            }
+            else {
+                assertPageSource(columnTypes, expectedValues, pageSource);
+            }
+            assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+        }
+    }
 
-        long size = fileSystem.getFileStatus(path).getLen();
-        FSDataInputStream inputStream = fileSystem.open(path);
-        ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream, new FileFormatDataSourceStats());
+    private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource)
+    {
+        Page page;
+        while ((page = pageSource.getNextPage()) != null) {
+            for (int field = 0; field < page.getChannelCount(); field++) {
+                Block block = page.getBlock(field);
+                for (int i = 0; i < block.getPositionCount(); i++) {
+                    assertTrue(valuesByField[field].hasNext());
+                    Object expected = valuesByField[field].next();
+                    Object actual = decodeObject(types.get(field), block, i);
+                    assertEquals(actual, expected);
+                }
+            }
+        }
+    }
 
-        ParquetReader parquetReader = new ParquetReader(fileSchema, fileSchema, parquetMetadata.getBlocks(), dataSource, TYPE_MANAGER, newSimpleAggregatedMemoryContext());
-        assertEquals(parquetReader.getPosition(), 0);
-
-        int rowsProcessed = 0;
-        Iterator<?> iterator = expectedValues.iterator();
-        for (int batchSize = parquetReader.nextBatch(); batchSize >= 0; batchSize = parquetReader.nextBatch()) {
-            ColumnDescriptor columnDescriptor = fileSchema.getColumns().get(0);
-            Block block = parquetReader.readPrimitive(columnDescriptor, type);
-            for (int i = 0; i < batchSize; i++) {
-                assertTrue(iterator.hasNext());
-                Object expected = iterator.next();
-                Object actual = decodeObject(type, block, i);
+    private static void assertRecordCursor(List<Type> types, Iterator<?>[] valuesByField, RecordCursor cursor)
+    {
+        while (cursor.advanceNextPosition()) {
+            for (int field = 0; field < types.size(); field++) {
+                assertTrue(valuesByField[field].hasNext());
+                Object expected = valuesByField[field].next();
+                Object actual = getActualCursorValue(cursor, types.get(field), field);
                 assertEquals(actual, expected);
             }
-            rowsProcessed += batchSize;
-            assertEquals(parquetReader.getPosition(), rowsProcessed);
         }
-        assertFalse(iterator.hasNext());
+    }
 
-        assertEquals(parquetReader.getPosition(), rowsProcessed);
-        parquetReader.close();
+    private static Object getActualCursorValue(RecordCursor cursor, Type type, int field)
+    {
+        Object fieldFromCursor = getFieldFromCursor(cursor, type, field);
+        if (fieldFromCursor == null) {
+            return null;
+        }
+        if (isStructuralType(type)) {
+            Block block = (Block) fieldFromCursor;
+            if (isArrayType(type)) {
+                Type elementType = ((ArrayType) type).getElementType();
+                return toArrayValue(block, elementType);
+            }
+            else if (isMapType(type)) {
+                MapType mapType = (MapType) type;
+                return toMapValue(block, mapType.getKeyType(), mapType.getValueType());
+            }
+            else if (isRowType(type)) {
+                return toRowValue(block, type.getTypeParameters());
+            }
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return new SqlDecimal((BigInteger) fieldFromCursor, decimalType.getPrecision(), decimalType.getScale());
+        }
+        if (isVarcharType(type)) {
+            return new String(((Slice) fieldFromCursor).getBytes());
+        }
+        if (VARBINARY.equals(type)) {
+            return new SqlVarbinary(((Slice) fieldFromCursor).getBytes());
+        }
+        if (DateType.DATE.equals(type)) {
+            return new SqlDate(((Long) fieldFromCursor).intValue());
+        }
+        if (TimestampType.TIMESTAMP.equals(type)) {
+            return new SqlTimestamp((long) fieldFromCursor, UTC_KEY);
+        }
+        return fieldFromCursor;
+    }
+
+    private static Map toMapValue(Block mapBlock, Type keyType, Type valueType)
+    {
+        Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
+        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
+            map.put(keyType.getObjectValue(SESSION, mapBlock, i), valueType.getObjectValue(SESSION, mapBlock, i + 1));
+        }
+        return Collections.unmodifiableMap(map);
+    }
+
+    private static List toArrayValue(Block arrayBlock, Type elementType)
+    {
+        List<Object> values = new ArrayList<>();
+        for (int position = 0; position < arrayBlock.getPositionCount(); position++) {
+            values.add(elementType.getObjectValue(SESSION, arrayBlock, position));
+        }
+        return Collections.unmodifiableList(values);
+    }
+
+    private static List toRowValue(Block rowBlock, List<Type> fieldTypes)
+    {
+        List<Object> values = new ArrayList<>(rowBlock.getPositionCount());
+        for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+            values.add(fieldTypes.get(i).getObjectValue(SESSION, rowBlock, i));
+        }
+        return Collections.unmodifiableList(values);
+    }
+
+    private static HiveClientConfig getHiveClientConfig()
+    {
+        HiveClientConfig config = new HiveClientConfig();
+        config.setHiveStorageFormat(HiveStorageFormat.PARQUET);
+        config.setParquetOptimizedReaderEnabled(OPTIMIZED);
+        config.setParquetPredicatePushdownEnabled(OPTIMIZED);
+        return config;
+    }
+
+    private static FileFormat getFileFormat()
+    {
+        return OPTIMIZED ? FileFormat.PRESTO_PARQUET : FileFormat.HIVE_PARQUET;
     }
 
     private static DataSize writeParquetColumn(JobConf jobConf,
             File outputFile,
             CompressionCodecName compressionCodecName,
-            ObjectInspector columnObjectInspector,
-            Iterator<?> values,
+            Properties tableProperties,
+            SettableStructObjectInspector objectInspector,
+            Iterator<?>[] valuesByField,
             Optional<MessageType> parquetSchema)
             throws Exception
     {
@@ -231,17 +392,17 @@ public class ParquetTester
                         new Path(outputFile.toURI()),
                         Text.class,
                         compressionCodecName != UNCOMPRESSED,
-                        createTableProperties("test", columnObjectInspector.getTypeName()),
+                        tableProperties,
                         () -> {});
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", columnObjectInspector);
         Object row = objectInspector.create();
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-        while (values.hasNext()) {
-            Object value = values.next();
-            objectInspector.setStructFieldData(row, fields.get(0), value);
-
+        while (stream(valuesByField).allMatch(Iterator::hasNext)) {
+            for (int field = 0; field < fields.size(); field++) {
+                Object value = valuesByField[field].next();
+                objectInspector.setStructFieldData(row, fields.get(field), value);
+            }
             ParquetHiveSerDe serde = new ParquetHiveSerDe();
-            serde.initialize(jobConf, createTableProperties("test", columnObjectInspector.getTypeName()), null);
+            serde.initialize(jobConf, tableProperties, null);
             Writable record = serde.serialize(row, objectInspector);
             recordWriter.write(record);
         }
@@ -249,16 +410,11 @@ public class ParquetTester
         return succinctBytes(outputFile.length());
     }
 
-    static SettableStructObjectInspector createSettableStructObjectInspector(String name, ObjectInspector objectInspector)
-    {
-        return getStandardStructObjectInspector(ImmutableList.of(name), ImmutableList.of(objectInspector));
-    }
-
-    private static Properties createTableProperties(String name, String type)
+    private static Properties createTableProperties(List<String> columnNames, List<ObjectInspector> objectInspectors)
     {
         Properties orderTableProperties = new Properties();
-        orderTableProperties.setProperty("columns", name);
-        orderTableProperties.setProperty("columns.types", type);
+        orderTableProperties.setProperty("columns", Joiner.on(',').join(columnNames));
+        orderTableProperties.setProperty("columns.types", Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
         return orderTableProperties;
     }
 
@@ -290,12 +446,34 @@ public class ParquetTester
         }
     }
 
-    private static <T> Iterable<T> reverse(Iterable<T> iterable)
+    private Iterator<?>[] getIterators(Iterable<?>[] values)
     {
-        return Lists.reverse(ImmutableList.copyOf(iterable));
+        return stream(values).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
     }
 
-    private static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)
+    private Iterable<?>[] transformToNulls(Iterable<?>[] values)
+    {
+        return stream(values)
+                .map(v -> transform(v, constant(null)))
+                .toArray(size -> new Iterable<?>[size]);
+    }
+
+    private static Iterable<?>[] reverse(Iterable<?>[] iterables)
+    {
+        return stream(iterables)
+                .map(ImmutableList::copyOf)
+                .map(Lists::reverse)
+                .toArray(size -> new Iterable<?>[size]);
+    }
+
+    static Iterable<?>[] insertNullEvery(int n, Iterable<?>[] iterables)
+    {
+        return stream(iterables)
+                .map(itr -> insertNullEvery(n, itr))
+                .toArray(size -> new Iterable<?>[size]);
+    }
+
+    static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)
     {
         return () -> new AbstractIterator<T>()
         {

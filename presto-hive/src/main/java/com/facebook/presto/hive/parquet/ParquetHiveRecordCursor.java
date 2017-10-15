@@ -72,6 +72,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveUtil.closeWithSuppression;
 import static com.facebook.presto.hive.HiveUtil.getDecimalType;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.getParquetTupleDomain;
@@ -349,9 +350,10 @@ public class ParquetHiveRecordCursor
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (firstDataPage >= start && firstDataPage < start + length) {
                     if (predicatePushdownEnabled) {
-                        TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(fileSchema, requestedSchema, effectivePredicate);
-                        ParquetPredicate parquetPredicate = buildParquetPredicate(requestedSchema, parquetTupleDomain, fileSchema);
-                        if (predicateMatches(parquetPredicate, block, dataSource, fileSchema, requestedSchema, parquetTupleDomain)) {
+                        Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
+                        TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
+                        ParquetPredicate parquetPredicate = buildParquetPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
+                        if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {
                             offsets.add(block.getStartingPos());
                         }
                     }
