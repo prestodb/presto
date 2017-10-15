@@ -51,6 +51,52 @@ public class TestFileBasedAccessControl
         catch (AccessDeniedException e) {
             // expected
         }
+
+        accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("admin"), "test");
+        accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("bob"), "bob");
+        try {
+            accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("bob"), "test");
+            fail();
+        }
+        catch (AccessDeniedException e) {
+            // expected
+        }
+
+        try {
+            accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("admin"), "secret");
+            fail();
+        }
+        catch (AccessDeniedException e) {
+            // expected
+        }
+
+        accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("admin"), "test");
+        accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("bob"), "bob");
+        try {
+            accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("bob"), "test");
+            fail();
+        }
+        catch (AccessDeniedException e) {
+            // expected
+        }
+
+        try {
+            accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("admin"), "secret");
+            fail();
+        }
+        catch (AccessDeniedException e) {
+            // expected
+        }
+
+        accessControl.checkCanRenameSchema(TRANSACTION_HANDLE, user("admin"), "test", "newtest");
+        try {
+            // Users must own both schemas to rename
+            accessControl.checkCanRenameSchema(TRANSACTION_HANDLE, user("admin"), "test", "secret");
+            fail();
+        }
+        catch (AccessDeniedException e) {
+            // expected
+        }
     }
 
     @Test
