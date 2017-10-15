@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.parquet;
+package com.facebook.presto.hive.parquet.write;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -20,6 +20,7 @@ import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
+import parquet.hadoop.ParquetOutputFormat;
 import parquet.schema.MessageType;
 
 import java.io.IOException;
@@ -42,6 +43,7 @@ public class TestMapredParquetOutputFormat
 
     public TestMapredParquetOutputFormat(Optional<MessageType> schema)
     {
+        super(new ParquetOutputFormat<>(new TestDataWritableWriteSupport()));
         this.schema = requireNonNull(schema, "schema is null");
     }
 

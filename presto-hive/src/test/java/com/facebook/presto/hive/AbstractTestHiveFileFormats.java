@@ -618,6 +618,56 @@ public abstract class AbstractTestHiveFileFormats
         return HiveStorageFormat.class.getClassLoader().loadClass(className).asSubclass(superType).newInstance();
     }
 
+    public static Object getFieldFromCursor(RecordCursor cursor, Type type, int field)
+    {
+        if (cursor.isNull(field)) {
+            return null;
+        }
+        else if (BOOLEAN.equals(type)) {
+            return cursor.getBoolean(field);
+        }
+        else if (TINYINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (SMALLINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (INTEGER.equals(type)) {
+            return (int) cursor.getLong(field);
+        }
+        else if (BIGINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (REAL.equals(type)) {
+            return intBitsToFloat((int) cursor.getLong(field));
+        }
+        else if (DOUBLE.equals(type)) {
+            return cursor.getDouble(field);
+        }
+        else if (isVarcharType(type) || isCharType(type) || VARBINARY.equals(type)) {
+            return cursor.getSlice(field);
+        }
+        else if (DateType.DATE.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (TimestampType.TIMESTAMP.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (isStructuralType(type)) {
+            return cursor.getObject(field);
+        }
+        else if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                return BigInteger.valueOf(cursor.getLong(field));
+            }
+            else {
+                return Decimals.decodeUnscaledValue(cursor.getSlice(field));
+            }
+        }
+        throw new RuntimeException("unknown type");
+    }
+
     protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int rowCount)
     {
         for (int row = 0; row < rowCount; row++) {
@@ -625,69 +675,18 @@ public abstract class AbstractTestHiveFileFormats
             for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                 TestColumn testColumn = testColumns.get(i);
 
-                Object fieldFromCursor;
                 Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(TYPE_MANAGER);
-                if (cursor.isNull(i)) {
-                    fieldFromCursor = null;
-                }
-                else if (BOOLEAN.equals(type)) {
-                    fieldFromCursor = cursor.getBoolean(i);
-                }
-                else if (TINYINT.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (SMALLINT.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (INTEGER.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (BIGINT.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (REAL.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (DOUBLE.equals(type)) {
-                    fieldFromCursor = cursor.getDouble(i);
-                }
-                else if (isVarcharType(type)) {
-                    fieldFromCursor = cursor.getSlice(i);
-                }
-                else if (isCharType(type)) {
-                    fieldFromCursor = cursor.getSlice(i);
-                }
-                else if (VARBINARY.equals(type)) {
-                    fieldFromCursor = cursor.getSlice(i);
-                }
-                else if (DateType.DATE.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (TimestampType.TIMESTAMP.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (isStructuralType(type)) {
-                    fieldFromCursor = cursor.getObject(i);
-                }
-                else if (type instanceof DecimalType) {
-                    DecimalType decimalType = (DecimalType) type;
-                    if (decimalType.isShort()) {
-                        fieldFromCursor = new BigDecimal(BigInteger.valueOf(cursor.getLong(i)), decimalType.getScale());
-                    }
-                    else {
-                        fieldFromCursor = new BigDecimal(Decimals.decodeUnscaledValue(cursor.getSlice(i)), decimalType.getScale());
-                    }
-                }
-                else {
-                    throw new RuntimeException("unknown type");
-                }
-
+                Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
                 if (fieldFromCursor == null) {
                     assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
                 }
+                else if (type instanceof DecimalType) {
+                    DecimalType decimalType = (DecimalType) type;
+                    fieldFromCursor = new BigDecimal((BigInteger) fieldFromCursor, decimalType.getScale());
+                    assertEquals(fieldFromCursor, testColumn.getExpectedValue(), String.format("Wrong value for column %s", testColumn.getName()));
+                }
                 else if (testColumn.getObjectInspector().getTypeName().equals("float")) {
-                    int intBits = (int) ((long) fieldFromCursor);
-                    assertEquals(intBitsToFloat(intBits), (float) testColumn.getExpectedValue(), (float) EPSILON);
+                    assertEquals((float) fieldFromCursor, (float) testColumn.getExpectedValue(), (float) EPSILON);
                 }
                 else if (testColumn.getObjectInspector().getTypeName().equals("double")) {
                     assertEquals((double) fieldFromCursor, (double) testColumn.getExpectedValue(), EPSILON);

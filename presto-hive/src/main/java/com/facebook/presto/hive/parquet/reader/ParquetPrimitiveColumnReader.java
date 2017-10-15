@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
+import com.facebook.presto.hive.parquet.Field;
 import com.facebook.presto.hive.parquet.ParquetDataPage;
 import com.facebook.presto.hive.parquet.ParquetDataPageV1;
 import com.facebook.presto.hive.parquet.ParquetDataPageV2;
 import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
 import com.facebook.presto.hive.parquet.ParquetEncoding;
+import com.facebook.presto.hive.parquet.ParquetTypeUtils;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.hive.parquet.dictionary.ParquetDictionary;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import parquet.bytes.BytesUtils;
 import parquet.column.ColumnDescriptor;
@@ -36,27 +38,29 @@ import parquet.io.ParquetDecodingException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.createDecimalType;
-import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.hive.parquet.ParquetValuesType.DEFINITION_LEVEL;
 import static com.facebook.presto.hive.parquet.ParquetValuesType.REPETITION_LEVEL;
 import static com.facebook.presto.hive.parquet.ParquetValuesType.VALUES;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public abstract class ParquetColumnReader
+public abstract class ParquetPrimitiveColumnReader
 {
-    protected final ColumnDescriptor columnDescriptor;
+    private static final int EMPTY_LEVEL_VALUE = -1;
+    protected final RichColumnDescriptor columnDescriptor;
 
-    protected int definitionLevel;
+    protected int definitionLevel = EMPTY_LEVEL_VALUE;
+    protected int repetitionLevel = EMPTY_LEVEL_VALUE;
     protected ValuesReader valuesReader;
-    protected int nextBatchSize;
 
+    private int nextBatchSize;
     private ParquetLevelReader repetitionReader;
     private ParquetLevelReader definitionReader;
-    private int repetitionLevel;
     private long totalValueCount;
     private ParquetPageReader pageReader;
     private ParquetDictionary dictionary;
@@ -69,7 +73,12 @@ public abstract class ParquetColumnReader
 
     protected abstract void skipValue();
 
-    public static ParquetColumnReader createReader(RichColumnDescriptor descriptor)
+    protected boolean isValueNull()
+    {
+        return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
+    }
+
+    public static ParquetPrimitiveColumnReader createReader(RichColumnDescriptor descriptor)
     {
         switch (descriptor.getType()) {
             case BOOLEAN:
@@ -94,7 +103,7 @@ public abstract class ParquetColumnReader
         }
     }
 
-    private static Optional<ParquetColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
+    private static Optional<ParquetPrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         Optional<Type> type = createDecimalType(descriptor);
         if (type.isPresent()) {
@@ -104,7 +113,7 @@ public abstract class ParquetColumnReader
         return Optional.empty();
     }
 
-    public ParquetColumnReader(ColumnDescriptor columnDescriptor)
+    public ParquetPrimitiveColumnReader(RichColumnDescriptor columnDescriptor)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
         pageReader = null;
@@ -146,83 +155,70 @@ public abstract class ParquetColumnReader
         return columnDescriptor;
     }
 
-    public Block readPrimitive(Type type, IntList positions)
+    public ColumnChunk readPrimitive(Field field)
             throws IOException
     {
+        IntList definitionLevels = new IntArrayList();
+        IntList repetitionLevels = new IntArrayList();
         seek();
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, nextBatchSize);
+        BlockBuilder blockBuilder = field.getType().createBlockBuilder(null, nextBatchSize);
         int valueCount = 0;
         while (valueCount < nextBatchSize) {
             if (page == null) {
                 readNextPage();
             }
-            int numValues = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
-            readValues(blockBuilder, numValues, type, positions);
-            valueCount += numValues;
-            updatePosition(numValues);
+            int valuesToRead = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
+            readValues(blockBuilder, valuesToRead, field.getType(), definitionLevels, repetitionLevels);
+            valueCount += valuesToRead;
         }
         checkArgument(valueCount == nextBatchSize, "valueCount %s not equals to batchSize %s", valueCount, nextBatchSize);
 
         readOffset = 0;
         nextBatchSize = 0;
-        return blockBuilder.build();
+        return new ColumnChunk(blockBuilder.build(), definitionLevels.toIntArray(), repetitionLevels.toIntArray());
     }
 
-    private void readValues(BlockBuilder blockBuilder, int numValues, Type type, IntList positions)
+    private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
-        definitionLevel = definitionReader.readLevel();
-        repetitionLevel = repetitionReader.readLevel();
-        int valueCount = 0;
-        for (int i = 0; i < numValues; i++) {
-            do {
-                readValue(blockBuilder, type);
-                try {
-                    valueCount++;
-                    repetitionLevel = repetitionReader.readLevel();
-                    if (repetitionLevel == 0) {
-                        positions.add(valueCount);
-                        valueCount = 0;
-                        if (i == numValues - 1) {
-                            return;
-                        }
-                    }
-                    definitionLevel = definitionReader.readLevel();
-                }
-                catch (IllegalArgumentException expected) {
-                    // Reading past repetition stream, RunLengthBitPackingHybridDecoder throws IllegalArgumentException
-                    positions.add(valueCount);
-                    return;
-                }
-            }
-            while (repetitionLevel != 0);
+        processValues(valuesToRead, ignored -> {
+            readValue(blockBuilder, type);
+            definitionLevels.add(definitionLevel);
+            repetitionLevels.add(repetitionLevel);
+        });
+    }
+
+    private void skipValues(int valuesToRead)
+    {
+        processValues(valuesToRead, ignored -> skipValue());
+    }
+
+    private void processValues(int valuesToRead, Consumer<Void> valueConsumer)
+    {
+        if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
+            definitionLevel = definitionReader.readLevel();
+            repetitionLevel = repetitionReader.readLevel();
         }
-    }
-
-    private void skipValues(int offset)
-    {
-        definitionLevel = definitionReader.readLevel();
-        repetitionLevel = repetitionReader.readLevel();
-        for (int i = 0; i < offset; i++) {
+        int valueCount = 0;
+        for (int i = 0; i < valuesToRead; i++) {
             do {
-                skipValue();
-                try {
-                    repetitionLevel = repetitionReader.readLevel();
-                    if (i == offset - 1 && repetitionLevel == 0) {
+                valueConsumer.accept(null);
+                valueCount++;
+                if (valueCount == remainingValueCountInPage) {
+                    updateValueCounts(valueCount);
+                    if (!readNextPage()) {
                         return;
                     }
-                    definitionLevel = definitionReader.readLevel();
+                    valueCount = 0;
                 }
-                catch (IllegalArgumentException expected) {
-                    // Reading past repetition stream, RunLengthBitPackingHybridDecoder throws IllegalArgumentException
-                    return;
-                }
+                repetitionLevel = repetitionReader.readLevel();
+                definitionLevel = definitionReader.readLevel();
             }
             while (repetitionLevel != 0);
         }
+        updateValueCounts(valueCount);
     }
 
     private void seek()
-            throws IOException
     {
         checkArgument(currentValueCount <= totalValueCount, "Already read all values in column chunk");
         if (readOffset == 0) {
@@ -236,34 +232,36 @@ public abstract class ParquetColumnReader
             int offset = Math.min(remainingValueCountInPage, readOffset - valuePosition);
             skipValues(offset);
             valuePosition = valuePosition + offset;
-            updatePosition(offset);
         }
         checkArgument(valuePosition == readOffset, "valuePosition %s must be equal to readOffset %s", valuePosition, readOffset);
     }
 
-    private void readNextPage()
-            throws IOException
+    private boolean readNextPage()
     {
+        verify(page == null, "readNextPage has to be called when page is null");
         page = pageReader.readPage();
-        validateParquet(page != null, "Not enough values to read in column chunk");
+        if (page == null) {
+            // we have read all pages
+            return false;
+        }
         remainingValueCountInPage = page.getValueCount();
-
         if (page instanceof ParquetDataPageV1) {
             valuesReader = readPageV1((ParquetDataPageV1) page);
         }
         else {
             valuesReader = readPageV2((ParquetDataPageV2) page);
         }
+        return true;
     }
 
-    private void updatePosition(int numValues)
+    private void updateValueCounts(int valuesRead)
     {
-        if (numValues == remainingValueCountInPage) {
+        if (valuesRead == remainingValueCountInPage) {
             page = null;
             valuesReader = null;
         }
-        remainingValueCountInPage = remainingValueCountInPage - numValues;
-        currentValueCount += numValues;
+        remainingValueCountInPage -= valuesRead;
+        currentValueCount += valuesRead;
     }
 
     private ValuesReader readPageV1(ParquetDataPageV1 page)

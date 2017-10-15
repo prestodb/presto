@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import parquet.column.ColumnDescriptor;
 
 public class ParquetIntColumnReader
-        extends ParquetColumnReader
+        extends ParquetPrimitiveColumnReader
 {
-    public ParquetIntColumnReader(ColumnDescriptor descriptor)
+    public ParquetIntColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }
@@ -31,7 +31,7 @@ public class ParquetIntColumnReader
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             type.writeLong(blockBuilder, valuesReader.readInteger());
         }
-        else {
+        else if (isValueNull()) {
             blockBuilder.appendNull();
         }
     }
