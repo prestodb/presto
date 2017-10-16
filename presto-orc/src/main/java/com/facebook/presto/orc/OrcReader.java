@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
 import com.facebook.presto.orc.metadata.Footer;
@@ -202,7 +201,7 @@ public class OrcReader
         return bufferSize;
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AbstractAggregatedMemoryContext systemMemoryUsage)
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage);
@@ -214,7 +213,7 @@ public class OrcReader
             long offset,
             long length,
             DateTimeZone hiveStorageTimeZone,
-            AbstractAggregatedMemoryContext systemMemoryUsage)
+            AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         return new OrcRecordReader(

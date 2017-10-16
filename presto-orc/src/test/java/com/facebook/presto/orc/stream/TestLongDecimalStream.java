@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
