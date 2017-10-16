@@ -354,6 +354,16 @@ public class DriverContext
         }
     }
 
+    public boolean isExecutionStarted()
+    {
+        return executionStartTime.get() != null;
+    }
+
+    public boolean isFullyBlocked()
+    {
+        return blockedMonitor.get() != null;
+    }
+
     public DriverStats getDriverStats()
     {
         long totalScheduledTime = processWallNanos.get();
