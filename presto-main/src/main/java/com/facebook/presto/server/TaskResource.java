@@ -187,7 +187,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
 
         if (currentState == null || maxWait == null) {
-            TaskStatus taskStatus = taskManager.getTaskInfo(taskId).getTaskStatus();
+            TaskStatus taskStatus = taskManager.getTaskStatus(taskId);
             asyncResponse.resume(taskStatus);
             return;
         }

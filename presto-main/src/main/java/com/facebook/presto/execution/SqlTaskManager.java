@@ -210,7 +210,7 @@ public class SqlTaskManager
     {
         boolean taskCanceled = false;
         for (SqlTask task : tasks.asMap().values()) {
-            if (task.getTaskInfo().getTaskStatus().getState().isDone()) {
+            if (task.getTaskStatus().getState().isDone()) {
                 continue;
             }
             task.failed(new PrestoException(SERVER_SHUTTING_DOWN, format("Server is shutting down. Task %s has been canceled", task.getTaskId())));
@@ -411,7 +411,7 @@ public class SqlTaskManager
         // already merged the final stats, we could miss the stats from this task
         // which would result in an under-count, but we will not get an over-count.
         tasks.asMap().values().stream()
-                .filter(task -> !task.getTaskInfo().getTaskStatus().getState().isDone())
+                .filter(task -> !task.getTaskStatus().getState().isDone())
                 .forEach(task -> tempIoStats.merge(task.getIoStats()));
 
         cachedStats.resetTo(tempIoStats);

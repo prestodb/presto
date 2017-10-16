@@ -295,11 +295,11 @@ public class SqlTask
         requireNonNull(callersCurrentState, "callersCurrentState is null");
 
         if (callersCurrentState.isDone()) {
-            return immediateFuture(getTaskInfo().getTaskStatus());
+            return immediateFuture(getTaskStatus());
         }
 
         ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, input -> getTaskInfo().getTaskStatus());
+        return Futures.transform(futureTaskState, input -> getTaskStatus());
     }
 
     public ListenableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
