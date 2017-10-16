@@ -114,18 +114,23 @@ public class ExchangeClient
         this.maxBufferBytes = Long.MIN_VALUE;
     }
 
-    public synchronized ExchangeClientStatus getStatus()
+    public ExchangeClientStatus getStatus()
     {
-        int bufferedPages = pageBuffer.size();
-        if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
-            bufferedPages--;
-        }
-
-        ImmutableList.Builder<PageBufferClientStatus> exchangeStatus = ImmutableList.builder();
+        // The stats created by this method is only for diagnostics.
+        // It does not guarantee a consistent view between different exchange clients.
+        // Guaranteeing a consistent view introduces significant lock contention.
+        ImmutableList.Builder<PageBufferClientStatus> pageBufferClientStatusBuilder = ImmutableList.builder();
         for (HttpPageBufferClient client : allClients.values()) {
-            exchangeStatus.add(client.getStatus());
+            pageBufferClientStatusBuilder.add(client.getStatus());
         }
-        return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, exchangeStatus.build());
+        List<PageBufferClientStatus> pageBufferClientStatus = pageBufferClientStatusBuilder.build();
+        synchronized (this) {
+            int bufferedPages = pageBuffer.size();
+            if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
+                bufferedPages--;
+            }
+            return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
+        }
     }
 
     public synchronized void addLocation(URI location)
