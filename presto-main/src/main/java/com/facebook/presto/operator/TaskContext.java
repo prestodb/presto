@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -42,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -153,6 +155,16 @@ public class TaskContext
     public TaskState getState()
     {
         return taskStateMachine.getState();
+    }
+
+    public DataSize getMemoryReservation()
+    {
+        return new DataSize(memoryReservation.get(), BYTE);
+    }
+
+    public List<PipelineContext> getPipelineContexts()
+    {
+        return pipelineContexts;
     }
 
     public synchronized ListenableFuture<?> reserveMemory(long bytes)

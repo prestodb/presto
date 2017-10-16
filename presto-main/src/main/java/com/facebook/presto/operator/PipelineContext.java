@@ -343,6 +343,11 @@ public class PipelineContext
         return stat;
     }
 
+    public PipelineStatus getPipelineStatus()
+    {
+        return getPipelineStatus(ImmutableList.copyOf(drivers));
+    }
+
     public PipelineStats getPipelineStats()
     {
         // check for end state to avoid callback ordering problems
@@ -354,13 +359,9 @@ public class PipelineContext
         }
 
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
+        PipelineStatus pipelineStatus = getPipelineStatus(driverContexts);
 
         int totalDriers = completedDrivers.get() + driverContexts.size();
-        int queuedDrivers = 0;
-        int queuedPartitionedDrivers = 0;
-        int runningDrivers = 0;
-        int runningPartitionedDrivers = 0;
-        int blockedDrivers = 0;
         int completedDrivers = this.completedDrivers.get();
 
         Distribution queuedTime = new Distribution(this.queuedTime);
@@ -386,22 +387,6 @@ public class PipelineContext
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
             drivers.add(driverStats);
-
-            if (driverStats.getStartTime() == null) {
-                queuedDrivers++;
-                if (driverContext.isPartitioned()) {
-                    queuedPartitionedDrivers++;
-                }
-            }
-            else if (driverStats.isFullyBlocked()) {
-                blockedDrivers++;
-            }
-            else {
-                runningDrivers++;
-                if (driverContext.isPartitioned()) {
-                    runningPartitionedDrivers++;
-                }
-            }
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
             elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -459,11 +444,11 @@ public class PipelineContext
                 outputPipeline,
 
                 totalDriers,
-                queuedDrivers,
-                queuedPartitionedDrivers,
-                runningDrivers,
-                runningPartitionedDrivers,
-                blockedDrivers,
+                pipelineStatus.getQueuedDrivers(),
+                pipelineStatus.getQueuedPartitionedDrivers(),
+                pipelineStatus.getRunningDrivers(),
+                pipelineStatus.getRunningPartitionedDrivers(),
+                pipelineStatus.getBlockedDrivers(),
                 completedDrivers,
 
                 succinctBytes(memoryReservation.get()),
@@ -512,5 +497,33 @@ public class PipelineContext
         }
 
         return map.replace(key, oldValue, newValue);
+    }
+
+    private PipelineStatus getPipelineStatus(List<DriverContext> driverContexts)
+    {
+        int queuedDrivers = 0;
+        int runningDrivers = 0;
+        int blockedDrivers = 0;
+        int queuedPartitionedDrivers = 0;
+        int runningPartitionedDrivers = 0;
+        for (DriverContext driverContext : driverContexts) {
+            if (!driverContext.isExecutionStarted()) {
+                queuedDrivers++;
+                if (driverContext.isPartitioned()) {
+                    queuedPartitionedDrivers++;
+                }
+            }
+            else if (driverContext.isFullyBlocked()) {
+                blockedDrivers++;
+            }
+            else {
+                runningDrivers++;
+                if (driverContext.isPartitioned()) {
+                    runningPartitionedDrivers++;
+                }
+            }
+        }
+
+        return new PipelineStatus(queuedDrivers, runningDrivers, blockedDrivers, queuedPartitionedDrivers, runningPartitionedDrivers);
     }
 }

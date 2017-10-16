@@ -22,6 +22,8 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.operator.PipelineContext;
+import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -52,6 +54,7 @@ import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTask
@@ -212,7 +215,25 @@ public class SqlTask
             failures = toFailures(taskStateMachine.getFailureCauses());
         }
 
-        TaskStats taskStats = getTaskStats(taskHolder);
+        int queuedPartitionedDrivers = 0;
+        int runningPartitionedDrivers = 0;
+        DataSize memoryReservation = new DataSize(0, BYTE);
+        if (taskHolder.getFinalTaskInfo() != null) {
+            TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
+            queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
+            runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
+            memoryReservation = taskStats.getMemoryReservation();
+        }
+        else if (taskHolder.getTaskExecution() != null) {
+            TaskContext taskContext = taskHolder.getTaskExecution().getTaskContext();
+            for (PipelineContext pipelineContext : taskContext.getPipelineContexts()) {
+                PipelineStatus pipelineStatus = pipelineContext.getPipelineStatus();
+                queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
+                runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
+            }
+            memoryReservation = taskContext.getMemoryReservation();
+        }
+
         return new TaskStatus(taskStateMachine.getTaskId(),
                 taskInstanceId,
                 versionNumber,
@@ -220,9 +241,9 @@ public class SqlTask
                 location,
                 nodeId,
                 failures,
-                taskStats.getQueuedPartitionedDrivers(),
-                taskStats.getRunningPartitionedDrivers(),
-                taskStats.getMemoryReservation());
+                queuedPartitionedDrivers,
+                runningPartitionedDrivers,
+                memoryReservation);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
