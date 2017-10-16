@@ -61,7 +61,7 @@ before_script:
 script:
   - |
     if [[ -v MAVEN_CHECKS ]]; then
-      ./mvnw install -DskipTests -B -T C1
+      ./mvnw install -DskipTests -B -T C1 -P ci
     fi
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
