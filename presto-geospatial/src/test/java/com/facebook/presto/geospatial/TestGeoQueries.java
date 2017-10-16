@@ -267,6 +267,7 @@ public class TestGeoQueries
             throws Exception
     {
         assertFunction("ST_Distance(ST_Point(50, 100), ST_Point(150, 150))", DOUBLE, 111.80339887498948);
+        assertFunction("ST_Distance(ST_Point(50, 100), ST_GeometryFromText('POINT (150 150)'))", DOUBLE, 111.80339887498948);
         assertFunction("ST_Distance(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)'))", DOUBLE, 111.80339887498948);
         assertFunction("ST_Distance(ST_GeometryFromText('MULTIPOINT (50 100, 50 200)'), ST_GeometryFromText('Point (50 100)'))", DOUBLE, 0.0);
         assertFunction("ST_Distance(ST_GeometryFromText('LINESTRING (50 100, 50 200)'), ST_GeometryFromText('LINESTRING (10 10, 20 20)'))", DOUBLE, 85.44003745317531);
