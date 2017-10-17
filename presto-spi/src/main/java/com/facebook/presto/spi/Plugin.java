@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.application.ApplicationFactory;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -65,6 +66,11 @@ public interface Plugin
     }
 
     default Iterable<ResourceGroupConfigurationManagerFactory> getResourceGroupConfigurationManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<ApplicationFactory> getApplicationFactories()
     {
         return emptyList();
     }

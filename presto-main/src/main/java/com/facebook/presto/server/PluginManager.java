@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.application.ApplicationManager;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -20,6 +21,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.application.ApplicationFactory;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -73,6 +75,7 @@ public class PluginManager
 
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
+    private final ApplicationManager applicationManager;
     private final ResourceGroupManager resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final EventListenerManager eventListenerManager;
@@ -91,6 +94,7 @@ public class PluginManager
             PluginManagerConfig config,
             ConnectorManager connectorManager,
             Metadata metadata,
+            ApplicationManager applicationManager,
             ResourceGroupManager resourceGroupManager,
             AccessControlManager accessControlManager,
             EventListenerManager eventListenerManager,
@@ -112,6 +116,7 @@ public class PluginManager
 
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.applicationManager = requireNonNull(applicationManager, "applicationManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
@@ -208,6 +213,11 @@ public class PluginManager
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
+        }
+
+        for (ApplicationFactory applicationFactory : plugin.getApplicationFactories()) {
+            log.info("Registering application %s", applicationFactory.getName());
+            applicationManager.addApplicationFactory(applicationFactory);
         }
     }
 
