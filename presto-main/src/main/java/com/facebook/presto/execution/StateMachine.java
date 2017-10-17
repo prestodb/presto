@@ -39,8 +39,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Simple state machine which holds a single state.  Callers can register for
- * state change events, and can wait for the state to change.
+ * Simple state machine which holds a single state. Callers can register for state change events.
  */
 @ThreadSafe
 public class StateMachine<T>
@@ -126,8 +125,6 @@ public class StateMachine<T>
             if (isTerminalState(state)) {
                 this.stateChangeListeners.clear();
             }
-
-            lock.notifyAll();
         }
 
         fireStateChanged(newState, futureStateChange, stateChangeListeners);
@@ -201,8 +198,6 @@ public class StateMachine<T>
             if (isTerminalState(state)) {
                 this.stateChangeListeners.clear();
             }
-
-            lock.notifyAll();
         }
 
         fireStateChanged(newState, futureStateChange, stateChangeListeners);
