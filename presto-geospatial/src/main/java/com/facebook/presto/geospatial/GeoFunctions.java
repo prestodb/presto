@@ -55,12 +55,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public final class GeoFunctions
 {
-    // EPSG:4326 spatial reference refers to World Geodetic System (WGS) 1984
-    // This is the default spatial reference used by the OGCGeometry.fromText() method.
-    // The same spatial reference must be used when creating geometries through other means
-    // (e.g., ST_Point(x, y)) to avoid failures in verifySameSpatialReference().
-    private static final SpatialReference DEFAULT_SPATIAL_REFERENCE = SpatialReference.create(4326);
-
     private GeoFunctions() {}
 
     @Description("Returns a Geometry type LineString object from Well-Known Text representation (WKT)")
@@ -68,9 +62,16 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice parseLine(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
-        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+        OGCGeometry geometry = geometryFromText(input);
         validateType("ST_LineFromText", geometry, EnumSet.of(LINE_STRING));
         return serialize(geometry);
+    }
+
+    private static OGCGeometry geometryFromText(Slice input)
+    {
+        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+        geometry.setSpatialReference(null);
+        return geometry;
     }
 
     @Description("Returns a Geometry type Point object with the given coordinate values")
@@ -78,7 +79,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stPoint(@SqlType(StandardTypes.DOUBLE) double x, @SqlType(StandardTypes.DOUBLE) double y)
     {
-        OGCGeometry geometry = createFromEsriGeometry(new Point(x, y), DEFAULT_SPATIAL_REFERENCE);
+        OGCGeometry geometry = createFromEsriGeometry(new Point(x, y), null);
         return serialize(geometry);
     }
 
@@ -87,7 +88,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stPolygon(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
-        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+        OGCGeometry geometry = geometryFromText(input);
         validateType("ST_Polygon", geometry, EnumSet.of(POLYGON));
         return serialize(geometry);
     }
@@ -107,7 +108,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stGeometryFromText(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
-        return serialize(OGCGeometry.fromText(input.toStringUtf8()));
+        return serialize(geometryFromText(input));
     }
 
     @SqlNullable
