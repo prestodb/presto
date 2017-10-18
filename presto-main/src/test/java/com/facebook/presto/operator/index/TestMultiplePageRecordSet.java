@@ -14,10 +14,8 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.IndexPageSource;
-import com.facebook.presto.spi.PageSourceRecordSet;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
@@ -35,7 +33,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestPageSourceRecordSet
+public class TestMultiplePageRecordSet
 {
     @Test
     public void testRecordSetConversion()
@@ -80,8 +78,8 @@ public class TestPageSourceRecordSet
                                 // test structural type
                                 arrayBlockOf(BIGINT, 12, 56),
                                 arrayBlockOf(BIGINT, 12, 34, 56))));
-        IndexPageSource pageSource = new DelegatedIndexPageSource(recordSet.getColumnTypes(), new RecordPageSource(recordSet));
-        RecordSet recordSet1 = new PageSourceRecordSet(pageSource);
+        PageSet pageSet = SimplePageSet.fromRecordSet(recordSet);
+        RecordSet recordSet1 = new MultiplePageRecordSet(pageSet);
         RecordCursor cursor = recordSet1.cursor();
         assertTrue(cursor.advanceNextPosition());
         assertEquals(cursor.getLong(0), 100L);

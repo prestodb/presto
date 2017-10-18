@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.IndexPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -27,7 +27,6 @@ import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -39,17 +38,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public class UnloadedIndexPageSource
-        implements IndexPageSource
+public class UnloadedIndexPageSet
+        implements PageSet
 {
     private final List<Page> pages;
     private final List<Type> types;
-    int currentPage;
-    long completedByte;
-    long memoryUsageBytes;
-    boolean closed;
 
-    public UnloadedIndexPageSource(
+    public UnloadedIndexPageSet(
             Session session,
             IndexSnapshot existingSnapshot,
             Set<Integer> channelsForDistinct,
@@ -60,14 +55,7 @@ public class UnloadedIndexPageSource
         requireNonNull(existingSnapshot, "existingSnapshot is null");
         requireNonNull(requests, "requests is null");
         this.types = requireNonNull(types, "types is null");
-        currentPage = 0;
-        completedByte = 0;
         pages = buildPages(session, existingSnapshot, channelsForDistinct, types, requests, joinCompiler);
-        long memoryUsageBytes = 0;
-        for (Page page : pages) {
-            memoryUsageBytes += page.getRetainedSizeInBytes();
-        }
-        this.memoryUsageBytes = memoryUsageBytes;
     }
 
     @Override
@@ -146,52 +134,8 @@ public class UnloadedIndexPageSource
     }
 
     @Override
-    public long getCompletedBytes()
+    public List<Page> getPages()
     {
-        return completedByte;
-    }
-
-    @Override
-    public long getReadTimeNanos()
-    {
-        return 0;
-    }
-
-    public void reset()
-    {
-        completedByte = 0;
-        closed = false;
-        currentPage = 0;
-    }
-
-    @Override
-    public boolean isFinished()
-    {
-        return closed || currentPage >= pages.size();
-    }
-
-    @Override
-    public Page getNextPage()
-    {
-        if (isFinished()) {
-            return null;
-        }
-        Page page = pages.get(currentPage);
-        completedByte += page.getSizeInBytes();
-        currentPage++;
-        return page;
-    }
-
-    @Override
-    public long getSystemMemoryUsage()
-    {
-        return memoryUsageBytes;
-    }
-
-    @Override
-    public void close()
-            throws IOException
-    {
-        closed = true;
+        return pages;
     }
 }

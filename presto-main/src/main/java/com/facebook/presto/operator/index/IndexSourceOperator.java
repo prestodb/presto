@@ -24,8 +24,8 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SplitOperatorInfo;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.IndexPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -49,7 +49,7 @@ public class IndexSourceOperator
         private final PlanNodeId sourceId;
         private final ConnectorIndex index;
         private final List<Type> types;
-        private final Function<IndexPageSource, IndexPageSource> probeKeyNormalizer;
+        private final Function<PageSet, PageSet> probeKeyNormalizer;
         private boolean closed;
 
         public IndexSourceOperatorFactory(
@@ -57,7 +57,7 @@ public class IndexSourceOperator
                 PlanNodeId sourceId,
                 ConnectorIndex index,
                 List<Type> types,
-                Function<IndexPageSource, IndexPageSource> probeKeyNormalizer)
+                Function<PageSet, PageSet> probeKeyNormalizer)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -102,7 +102,7 @@ public class IndexSourceOperator
     private final PlanNodeId planNodeId;
     private final ConnectorIndex index;
     private final List<Type> types;
-    private final Function<IndexPageSource, IndexPageSource> probeKeyNormalizer;
+    private final Function<PageSet, PageSet> probeKeyNormalizer;
 
     private Operator source;
 
@@ -111,7 +111,7 @@ public class IndexSourceOperator
             PlanNodeId planNodeId,
             ConnectorIndex index,
             List<Type> types,
-            Function<IndexPageSource, IndexPageSource> probeKeyNormalizer)
+            Function<PageSet, PageSet> probeKeyNormalizer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -140,9 +140,9 @@ public class IndexSourceOperator
 
         IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
 
-        // Normalize the incoming IndexPageSource to something that can be consumed by the index
-        IndexPageSource normalizedIndexPageSource = probeKeyNormalizer.apply(indexSplit.getIndexPageSource());
-        ConnectorPageSource result = index.lookup(normalizedIndexPageSource);
+        // Normalize the incoming PageSet to something that can be consumed by the index
+        PageSet normalizedIndexPageSet = probeKeyNormalizer.apply(indexSplit.getIndexPageSet());
+        ConnectorPageSource result = index.lookup(normalizedIndexPageSet);
         source = new PageSourceOperator(result, types, operatorContext);
 
         Object splitInfo = split.getInfo();

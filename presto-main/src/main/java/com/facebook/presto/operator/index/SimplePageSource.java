@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.spi.IndexPageSource;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 import java.util.List;
@@ -23,18 +22,16 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePageSource
-        implements IndexPageSource
+        implements ConnectorPageSource
 {
     private final List<Page> pages;
-    private final List<Type> types;
     private int currentPage;
     private long completedByte;
     private boolean closed;
     private final long systemMemoryUsage;
 
-    SimplePageSource(List<Type> types, List<Page> pages)
+    public SimplePageSource(List<Page> pages)
     {
-        this.types = requireNonNull(types, "types is empty");
         this.pages = requireNonNull(pages, "pages is null");
         long systemMemoryUsage = 0;
         for (Page page : pages) {
@@ -42,12 +39,6 @@ public class SimplePageSource
         }
         this.currentPage = 0;
         this.systemMemoryUsage = systemMemoryUsage;
-    }
-
-    @Override
-    public List<Type> getColumnTypes()
-    {
-        return types;
     }
 
     @Override

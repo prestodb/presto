@@ -27,7 +27,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -47,8 +47,9 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftPageResult.fromRecordSet;
+import static com.facebook.presto.connector.thrift.api.PrestoThriftPageResult.fromPageSet;
 import static com.facebook.presto.connector.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -73,7 +74,7 @@ public class ThriftIndexPageSource
     private final List<String> outputColumnNames;
     private final List<Type> outputColumnTypes;
     private final PrestoThriftTupleDomain outputConstraint;
-    private final PrestoThriftPageResult keys;
+    private final List<PrestoThriftPageResult> keys;
     private final long maxBytesPerResponse;
     private final int lookupRequestsConcurrency;
 
@@ -81,7 +82,7 @@ public class ThriftIndexPageSource
     private long completedBytes;
 
     private CompletableFuture<?> statusFuture;
-    private ListenableFuture<PrestoThriftSplitBatch> splitFuture;
+    private List<ListenableFuture<PrestoThriftSplitBatch>> splitFuture;
     private ListenableFuture<PrestoThriftPageResult> dataSignalFuture;
 
     private final List<PrestoThriftSplit> splits = new ArrayList<>();
@@ -98,7 +99,7 @@ public class ThriftIndexPageSource
             ThriftIndexHandle indexHandle,
             List<ColumnHandle> lookupColumns,
             List<ColumnHandle> outputColumns,
-            RecordSet keys,
+            PageSet keys,
             long maxBytesPerResponse,
             int lookupRequestsConcurrency)
     {
@@ -125,7 +126,7 @@ public class ThriftIndexPageSource
         this.outputColumnNames = outputColumnNames.build();
         this.outputColumnTypes = outputColumnTypes.build();
 
-        this.keys = fromRecordSet(requireNonNull(keys, "keys is null"));
+        this.keys = fromPageSet(requireNonNull(keys, "keys is null"));
 
         checkArgument(maxBytesPerResponse > 0, "maxBytesPerResponse is zero or negative");
         this.maxBytesPerResponse = maxBytesPerResponse;
@@ -242,16 +243,24 @@ public class ThriftIndexPageSource
         if (splitFuture == null) {
             // didn't start fetching splits, send the first request now
             splitsClient = clientProvider.anyHostClient();
-            splitFuture = sendSplitRequest(splitsClient, null);
+            splitFuture = keys.stream().map(key -> sendSplitRequest(splitsClient, key, null)).collect(toImmutableList());
             statusFuture = toCompletableFuture(nonCancellationPropagating(splitFuture));
         }
-        if (!splitFuture.isDone()) {
-            // split request is in progress
+        Map<Boolean, List<ListenableFuture<PrestoThriftSplitBatch>>> result = splitFuture.stream()
+                .collect(Collectors.partitioningBy(future -> future.isDone()));
+        if (!result.containsKey(true)) {
+            // no result returned yet, split request is in progress
             return false;
         }
         // split request is ready
-        PrestoThriftSplitBatch batch = getFutureValue(splitFuture);
-        splits.addAll(batch.getSplits());
+        List<PrestoThriftSplitBatch> batches = result.get(true).stream().map(future -> getFutureValue(future)).collect(toImmutableList());
+        for (PrestoThriftSplitBatch batch : batches) {
+            splits.addAll(batch.getSplits());
+            if (batch.getNextToken() != null) {
+                splitFuture.add(sendSplitRequest(splitsClient, null, batch.getNextToken()));
+            }
+        }
+
         // check if it's possible to request more splits
         if (batch.getNextToken() != null) {
             // can get more splits, send request
@@ -259,15 +268,15 @@ public class ThriftIndexPageSource
             statusFuture = toCompletableFuture(nonCancellationPropagating(splitFuture));
             return false;
         }
-        else {
-            // no more splits
-            splitFuture = null;
-            statusFuture = null;
-            haveSplits = true;
-            splitsClient.close();
-            splitsClient = null;
-            return true;
-        }
+        if {
+        // no more splits
+        splitFuture = null;
+        statusFuture = null;
+        haveSplits = true;
+        splitsClient.close();
+        splitsClient = null;
+        return true;
+    }
     }
 
     private void updateSignalAndStatusFutures()
@@ -284,14 +293,14 @@ public class ThriftIndexPageSource
         sendDataRequest(context, null);
     }
 
-    private ListenableFuture<PrestoThriftSplitBatch> sendSplitRequest(PrestoThriftService client, @Nullable PrestoThriftId nextToken)
+    private ListenableFuture<PrestoThriftSplitBatch> sendSplitRequest(PrestoThriftService client, PrestoThriftPageResult key, @Nullable PrestoThriftId nextToken)
     {
         long start = System.nanoTime();
         ListenableFuture<PrestoThriftSplitBatch> future = client.getIndexSplits(
                 schemaTableName,
                 lookupColumnNames,
                 outputColumnNames,
-                keys,
+                key,
                 outputConstraint,
                 MAX_SPLIT_COUNT,
                 new PrestoThriftNullableToken(nextToken));

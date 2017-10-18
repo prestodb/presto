@@ -25,10 +25,12 @@ import com.facebook.swift.codec.ThriftStruct;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.integerData;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedBlock;
+import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedBlocks;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedColumn;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
@@ -124,6 +126,11 @@ public final class PrestoThriftInteger
     public static PrestoThriftBlock fromBlock(Block block)
     {
         return fromIntBasedBlock(block, INTEGER, (nulls, ints) -> integerData(new PrestoThriftInteger(nulls, ints)));
+    }
+
+    public static PrestoThriftBlock fromBlocks(Collection<Block> blocks)
+    {
+        return fromIntBasedBlocks(blocks, INTEGER, (nulls, ints) -> integerData(new PrestoThriftInteger(nulls, ints)));
     }
 
     public static PrestoThriftBlock fromRecordSetColumn(RecordSet recordSet, int columnIndex, int totalRecords)

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
+import java.util.Collection;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -51,6 +52,36 @@ final class PrestoThriftTypeUtils
                 longs[position] = type.getLong(block, position);
             }
         }
+        return result.apply(nulls, longs);
+    }
+
+    public static PrestoThriftBlock fromLongBasedBlocks(Collection<Block> blocks, Type type, BiFunction<boolean[], long[], PrestoThriftBlock> result)
+    {
+        int totalPositions = blocks.stream().mapToInt(Block::getPositionCount).sum();
+
+        if (totalPositions == 0) {
+            return result.apply(null, null);
+        }
+        boolean[] nulls = null;
+        long[] longs = null;
+        int resultPosition = 0;
+        for (Block block : blocks) {
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                if (block.isNull(position)) {
+                    if (nulls == null) {
+                        nulls = new boolean[totalPositions];
+                    }
+                    nulls[resultPosition] = true;
+                }
+                else {
+                    if (longs == null) {
+                        longs = new long[totalPositions];
+                    }
+                    longs[resultPosition] = (int) type.getLong(block, position);
+                }
+            }
+        }
+
         return result.apply(nulls, longs);
     }
 
@@ -103,6 +134,36 @@ final class PrestoThriftTypeUtils
                 ints[position] = (int) type.getLong(block, position);
             }
         }
+        return result.apply(nulls, ints);
+    }
+
+    public static PrestoThriftBlock fromIntBasedBlocks(Collection<Block> blocks, Type type, BiFunction<boolean[], int[], PrestoThriftBlock> result)
+    {
+        int totalPositions = blocks.stream().mapToInt(Block::getPositionCount).sum();
+
+        if (totalPositions == 0) {
+            return result.apply(null, null);
+        }
+        boolean[] nulls = null;
+        int[] ints = null;
+        int resultPosition = 0;
+        for (Block block : blocks) {
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                if (block.isNull(position)) {
+                    if (nulls == null) {
+                        nulls = new boolean[totalPositions];
+                    }
+                    nulls[resultPosition] = true;
+                }
+                else {
+                    if (ints == null) {
+                        ints = new int[totalPositions];
+                    }
+                    ints[resultPosition] = (int) type.getLong(block, position);
+                }
+            }
+        }
+
         return result.apply(nulls, ints);
     }
 

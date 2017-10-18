@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.connector.thrift.api;
 
-import com.facebook.presto.operator.index.PageRecordSet;
+import com.facebook.presto.operator.index.SimplePageSet;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -34,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
-import static com.facebook.presto.connector.thrift.api.PrestoThriftPageResult.fromRecordSet;
+import static com.facebook.presto.connector.thrift.api.PrestoThriftPageResult.fromPageSet;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -46,6 +47,7 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -152,8 +154,8 @@ public class TestReadWrite
     {
         testReadWrite(random, records, blocks -> {
             List<Type> types = columns.stream().map(ColumnDefinition::getType).collect(toImmutableList());
-            PageRecordSet inputRecordSet = new PageRecordSet(types, new Page(blocks.toArray(new Block[blocks.size()])));
-            return fromRecordSet(inputRecordSet);
+            PageSet inputRecordSet = new SimplePageSet(types, ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))));
+            return getOnlyElement(fromPageSet(inputRecordSet));
         });
     }
 
@@ -167,9 +169,9 @@ public class TestReadWrite
 
         // convert column data to thrift ("write step")
         PrestoThriftPageResult batch = convert.apply(inputBlocks);
-
+        List<Type> types = columns.stream().map(ColumnDefinition::getType).collect(toImmutableList());
         // convert thrift data to page/blocks ("read step")
-        Page page = batch.toPage(columns.stream().map(ColumnDefinition::getType).collect(toImmutableList()));
+        Page page = batch.toPage(types);
 
         // compare the result with original input
         assertNotNull(page);

@@ -1,5 +1,3 @@
-package com.facebook.presto.operator.index;
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,37 +11,45 @@ package com.facebook.presto.operator.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.operator.index;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.Session;
+import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.IndexPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static org.testng.Assert.assertEquals;
 
-public class TestFieldSetFilteringPageSource
+public class TestUnloadedIndexPageSet
 {
     @Test
-    public void test()
+    void Test()
     {
-        TypeManager typeManager = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-
         ArrayType arrayOfBigintType = new ArrayType(BIGINT);
         RecordSet recordSet = new InMemoryRecordSet(
                 ImmutableList.of(BIGINT, BIGINT, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE, arrayOfBigintType, arrayOfBigintType),
@@ -67,8 +73,8 @@ public class TestFieldSetFilteringPageSource
                                 arrayBlockOf(BIGINT, 12, 34, 56),
                                 arrayBlockOf(BIGINT, 12, 34, 56)),
                         ImmutableList.of(
-                                100L,
-                                100L,
+                                102L,
+                                102L,
                                 // test same time in different time zone to make sure equal check was done properly
                                 packDateTimeWithZone(103, getTimeZoneKeyForOffset(123)),
                                 packDateTimeWithZone(100, getTimeZoneKeyForOffset(234)),
@@ -76,21 +82,41 @@ public class TestFieldSetFilteringPageSource
                                 arrayBlockOf(BIGINT, 12, 34, 56),
                                 arrayBlockOf(BIGINT, 12, 34, 56)),
                         ImmutableList.of(
-                                100L,
-                                100L,
+                                103L,
+                                103L,
                                 // test same time in different time zone to make sure equal check was done properly
                                 packDateTimeWithZone(100, getTimeZoneKeyForOffset(123)),
                                 packDateTimeWithZone(100, getTimeZoneKeyForOffset(234)),
                                 // test structural type
                                 arrayBlockOf(BIGINT, 12, 56),
                                 arrayBlockOf(BIGINT, 12, 34, 56))));
+        Page page = new RecordPageSource(recordSet).getNextPage();
+        UpdateRequest updateRequest = new UpdateRequest(page.getBlocks());
+        Function<PageSet, PageSet> probeKeyNormalizer = pageSource -> pageSource;
 
-        IndexPageSource pageSource = new DelegatedIndexPageSource(recordSet.getColumnTypes(), new RecordPageSource(recordSet));
-        FieldSetFilteringPageSource fieldSetFilteringRecordSet = new FieldSetFilteringPageSource(
-                functionRegistry,
-                pageSource,
-                ImmutableList.of(ImmutableSet.of(0, 1), ImmutableSet.of(2, 3), ImmutableSet.of(4, 5)));
-        Page page = fieldSetFilteringRecordSet.getNextPage();
-        assertEquals(page.getPositionCount(), 1);
+        Session session = testSessionBuilder().build();
+        ConnectorIndex connectorIndex = new ConnectorIndex()
+        {
+            @Override
+            public ConnectorPageSource lookup(PageSet pageSet)
+            {
+                return new SimplePageSource(pageSet.getPages());
+            }
+        };
+        OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(0, new PlanNodeId("0"), connectorIndex, recordSet.getColumnTypes(), probeKeyNormalizer);
+        IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider = new IndexBuildDriverFactoryProvider(
+                0,
+                0,
+                new PlanNodeId("0"),
+                true,
+                ImmutableList.of(operatorFactory),
+                Optional.empty());
+        JoinCompiler joinCompiler = new JoinCompiler();
+        IndexLoader indexLoader = new IndexLoader(ImmutableSet.of(0), ImmutableList.of(0, 1, 2, 4), OptionalInt.of(0), recordSet.getColumnTypes(), indexBuildDriverFactoryProvider, 4, DataSize.valueOf("1MB"),
+                new IndexJoinLookupStats(), new PagesIndex.DefaultFactory(new OrderingCompiler(), joinCompiler, new FeaturesConfig()), joinCompiler);
+        IndexSnapshot indexSnapshot = indexLoader.getIndexSnapshot();
+        UnloadedIndexPageSet unloadedIndexKeyPageSource = new UnloadedIndexPageSet(session, indexSnapshot, ImmutableSet.of(1), recordSet.getColumnTypes(), ImmutableList.of(updateRequest), joinCompiler);
+        Page resultIndexPage = unloadedIndexKeyPageSource.getPages().stream().findFirst().get();
+        assertEquals(resultIndexPage.getPositionCount(), 3);
     }
 }

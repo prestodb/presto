@@ -17,10 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -119,9 +116,9 @@ public class IndexSnapshotBuilder
         return true;
     }
 
-    public IndexSnapshot createIndexSnapshot(UnloadedIndexPageSource indexPageSource)
+    public IndexSnapshot createIndexSnapshot(UnloadedIndexPageSet indexPageSet)
     {
-        checkArgument(indexPageSource.getColumnTypes().equals(missingKeysTypes), "indexPageSource must have same schema as missingKeys");
+        checkArgument(indexPageSet.getColumnTypes().equals(missingKeysTypes), "indexPageSource must have same schema as missingKeys");
         checkState(!isMemoryExceeded(), "Max memory exceeded");
         for (Page page : pages) {
             outputPagesIndex.addPage(page);
@@ -129,10 +126,8 @@ public class IndexSnapshotBuilder
         pages.clear();
 
         LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
-        indexPageSource.reset();
 
-        while (!indexPageSource.isFinished()) {
-            Page page = indexPageSource.getNextPage();
+        for (Page page : indexPageSet.getPages()) {
             IntList missingKeyPositions = new IntArrayList();
             for (int position = 0; position < page.getPositionCount(); position++) {
                 if (lookupSource.getJoinPosition(position, page, page) < 0) {
@@ -150,49 +145,6 @@ public class IndexSnapshotBuilder
             }
         }
         missingKeys = missingKeysIndex.createLookupSourceSupplier(session, missingKeysChannels).get();
-        return new IndexSnapshot(lookupSource, missingKeys);
-    }
-
-    public IndexSnapshot createIndexSnapshot(UnloadedIndexKeyRecordSet indexKeysRecordSet)
-    {
-        checkArgument(indexKeysRecordSet.getColumnTypes().equals(missingKeysTypes), "indexKeysRecordSet must have same schema as missingKeys");
-        checkState(!isMemoryExceeded(), "Max memory exceeded");
-        for (Page page : pages) {
-            outputPagesIndex.addPage(page);
-        }
-        pages.clear();
-
-        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
-
-        // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
-        PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
-        UnloadedIndexKeyRecordCursor indexKeysRecordCursor = indexKeysRecordSet.cursor();
-        while (indexKeysRecordCursor.advanceNextPosition()) {
-            Block[] blocks = indexKeysRecordCursor.getBlocks();
-            Page page = indexKeysRecordCursor.getPage();
-            int position = indexKeysRecordCursor.getPosition();
-            if (lookupSource.getJoinPosition(position, page, page) < 0) {
-                missingKeysPageBuilder.declarePosition();
-                for (int i = 0; i < blocks.length; i++) {
-                    Block block = blocks[i];
-                    Type type = indexKeysRecordCursor.getType(i);
-                    type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
-                }
-            }
-        }
-        Page missingKeysPage = missingKeysPageBuilder.build();
-
-        memoryInBytes += missingKeysPage.getSizeInBytes();
-        if (isMemoryExceeded()) {
-            return null;
-        }
-
-        // only update missing keys if we have new missing keys
-        if (!missingKeysPageBuilder.isEmpty()) {
-            missingKeysIndex.addPage(missingKeysPage);
-            missingKeys = missingKeysIndex.createLookupSourceSupplier(session, missingKeysChannels).get();
-        }
-
         return new IndexSnapshot(lookupSource, missingKeys);
     }
 

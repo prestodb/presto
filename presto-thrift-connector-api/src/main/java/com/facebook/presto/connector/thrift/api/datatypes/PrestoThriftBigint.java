@@ -25,10 +25,12 @@ import com.facebook.swift.codec.ThriftStruct;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.bigintData;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromLongBasedBlock;
+import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromLongBasedBlocks;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromLongBasedColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
@@ -124,6 +126,11 @@ public final class PrestoThriftBigint
     public static PrestoThriftBlock fromBlock(Block block)
     {
         return fromLongBasedBlock(block, BIGINT, (nulls, longs) -> bigintData(new PrestoThriftBigint(nulls, longs)));
+    }
+
+    public static PrestoThriftBlock fromBlocks(Collection<Block> blocks)
+    {
+        return fromLongBasedBlocks(blocks, BIGINT, (nulls, longs) -> bigintData(new PrestoThriftBigint(nulls, longs)));
     }
 
     public static PrestoThriftBlock fromRecordSetColumn(RecordSet recordSet, int columnIndex, int totalRecords)

@@ -15,5 +15,5 @@ package com.facebook.presto.spi;
 
 public interface ConnectorIndex
 {
-    ConnectorPageSource lookup(IndexPageSource pageSource);
+    ConnectorPageSource lookup(PageSet keyPageSet);
 }

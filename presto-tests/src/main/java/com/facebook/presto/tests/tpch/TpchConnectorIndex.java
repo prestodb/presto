@@ -15,7 +15,7 @@ package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.IndexPageSource;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.tests.tpch.TpchIndexedData.IndexedTable;
 import com.google.common.base.Function;
 
@@ -24,11 +24,11 @@ import static java.util.Objects.requireNonNull;
 class TpchConnectorIndex
         implements ConnectorIndex
 {
-    private final Function<IndexPageSource, IndexPageSource> keyFormatter;
-    private final Function<IndexPageSource, IndexPageSource> outputFormatter;
+    private final Function<PageSet, PageSet> keyFormatter;
+    private final Function<ConnectorPageSource, ConnectorPageSource> outputFormatter;
     private final IndexedTable indexedTable;
 
-    public TpchConnectorIndex(Function<IndexPageSource, IndexPageSource> keyFormatter, Function<IndexPageSource, IndexPageSource> outputFormatter, IndexedTable indexedTable)
+    public TpchConnectorIndex(Function<PageSet, PageSet> keyFormatter, Function<ConnectorPageSource, ConnectorPageSource> outputFormatter, IndexedTable indexedTable)
     {
         this.keyFormatter = requireNonNull(keyFormatter, "keyFormatter is null");
         this.outputFormatter = requireNonNull(outputFormatter, "outputFormatter is null");
@@ -36,14 +36,14 @@ class TpchConnectorIndex
     }
 
     @Override
-    public ConnectorPageSource lookup(IndexPageSource rawInputPageSource)
+    public ConnectorPageSource lookup(PageSet rawInputPageSet)
     {
         // convert the input record set from the column ordering in the query to
         // match the column ordering of the index
-        IndexPageSource inputPageSource = keyFormatter.apply(rawInputPageSource);
+        PageSet inputPageSource = keyFormatter.apply(rawInputPageSet);
 
         // lookup the values in the index
-        IndexPageSource rawOutputPageSource = indexedTable.lookupKeys(inputPageSource);
+        ConnectorPageSource rawOutputPageSource = indexedTable.lookupKeys(inputPageSource);
 
         // convert the output record set of the index into the column ordering
         // expect by the query

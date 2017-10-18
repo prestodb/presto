@@ -17,7 +17,7 @@ import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceP
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.PageSet;
 
 import java.util.List;
 
@@ -51,9 +51,9 @@ public class ThriftConnectorIndex
     }
 
     @Override
-    public ConnectorPageSource lookup(RecordSet recordSet)
+    public ConnectorPageSource lookup(PageSet pageSet)
     {
-        return new ThriftIndexPageSource(clientProvider, indexHandle, lookupColumns, outputColumns, recordSet, maxBytesPerResponse, lookupRequestsConcurrency);
+        return new ThriftIndexPageSource(clientProvider, indexHandle, lookupColumns, outputColumns, pageSet, maxBytesPerResponse, lookupRequestsConcurrency);
     }
 
     @Override

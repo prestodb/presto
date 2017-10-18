@@ -17,8 +17,9 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-public interface IndexPageSource
-        extends ConnectorPageSource
+public interface PageSet
 {
     List<Type> getColumnTypes();
+
+    List<Page> getPages();
 }

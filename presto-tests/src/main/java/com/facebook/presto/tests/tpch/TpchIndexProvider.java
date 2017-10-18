@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.tests.tpch;
 
-import com.facebook.presto.operator.index.DelegatedIndexPageSource;
+import com.facebook.presto.operator.index.MappedPageSet;
+import com.facebook.presto.operator.index.MultiplePageRecordSet;
+import com.facebook.presto.operator.index.SimplePageSet;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.IndexPageSource;
-import com.facebook.presto.spi.PageSourceRecordSet;
-import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
@@ -88,11 +89,11 @@ public class TpchIndexProvider
 
         // Compute how to map from the final lookup schema to the table index key order
         List<Integer> keyRemap = computeRemap(handleToNames(finalLookupSchema), table.getKeyColumns());
-        Function<IndexPageSource, IndexPageSource> keyFormatter = key -> new DelegatedIndexPageSource(key.getColumnTypes(), new MappedPageSource(new RecordPageSource(new AppendingRecordSet(new PageSourceRecordSet(key), rawFixedValues, rawFixedTypes)), keyRemap));
+        Function<PageSet, PageSet> keyFormatter = key -> new MappedPageSet(SimplePageSet.fromRecordSet(new AppendingRecordSet(new MultiplePageRecordSet(key), rawFixedValues, rawFixedTypes)), keyRemap);
 
         // Compute how to map from the output of the indexed data to the expected output schema
         List<Integer> outputRemap = computeRemap(table.getOutputColumns(), handleToNames(outputSchema));
-        Function<IndexPageSource, IndexPageSource> outputFormatter = output -> new DelegatedIndexPageSource(output.getColumnTypes(), new MappedPageSource(output, outputRemap));
+        Function<ConnectorPageSource, ConnectorPageSource> outputFormatter = output -> new MappedPageSource(output, outputRemap);
 
         return new TpchConnectorIndex(keyFormatter, outputFormatter, table);
     }

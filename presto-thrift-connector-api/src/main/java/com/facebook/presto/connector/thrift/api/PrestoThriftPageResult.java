@@ -14,8 +14,7 @@
 package com.facebook.presto.connector.thrift.api;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.swift.codec.ThriftConstructor;
@@ -29,10 +28,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromRecordSetColumn;
+import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -125,18 +125,23 @@ public final class PrestoThriftPageResult
                 .toString();
     }
 
-    public static PrestoThriftPageResult fromRecordSet(RecordSet recordSet)
+    public static List<PrestoThriftPageResult> fromPageSet(PageSet pageset)
     {
-        List<Type> types = recordSet.getColumnTypes();
+        return pageset.getPages().stream().map(page -> fromPage(pageset.getColumnTypes(), page)).collect(toImmutableList());
+    }
+
+    public static PrestoThriftPageResult fromPage(List<Type> types, Page page)
+    {
         int numberOfColumns = types.size();
-        int positions = totalRecords(recordSet);
+        int positions = page.getPositionCount();
         if (numberOfColumns == 0) {
             return new PrestoThriftPageResult(ImmutableList.of(), positions, null);
         }
         List<PrestoThriftBlock> thriftBlocks = new ArrayList<>(numberOfColumns);
         for (int columnIndex = 0; columnIndex < numberOfColumns; columnIndex++) {
-            thriftBlocks.add(fromRecordSetColumn(recordSet, columnIndex, positions));
+            thriftBlocks.add(fromBlock(page.getBlock(columnIndex), types.get(columnIndex)));
         }
+
         return new PrestoThriftPageResult(thriftBlocks, positions, null);
     }
 
@@ -147,15 +152,5 @@ public final class PrestoThriftPageResult
                     "Incorrect number of records for column with index %s: expected %s, got %s",
                     i, expectedNumberOfRows, columnBlocks.get(i).numberOfRecords());
         }
-    }
-
-    private static int totalRecords(RecordSet recordSet)
-    {
-        RecordCursor cursor = recordSet.cursor();
-        int result = 0;
-        while (cursor.advanceNextPosition()) {
-            result++;
-        }
-        return result;
     }
 }
