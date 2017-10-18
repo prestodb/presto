@@ -186,7 +186,7 @@ public class TestHiveSplitSource
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testOutstandingSplitSize()
             throws Exception
     {
