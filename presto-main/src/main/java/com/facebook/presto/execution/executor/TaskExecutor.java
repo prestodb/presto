@@ -251,6 +251,16 @@ public class TaskExecutor
 
     public void removeTask(TaskHandle taskHandle)
     {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskHandle.getTaskId())) {
+            doRemoveTask(taskHandle);
+        }
+
+        // replace blocked splits that were terminated
+        addNewEntrants();
+    }
+
+    private void doRemoveTask(TaskHandle taskHandle)
+    {
         List<PrioritizedSplitRunner> splits;
         synchronized (this) {
             tasks.remove(taskHandle);
@@ -273,9 +283,6 @@ public class TaskExecutor
         completedTasksPerLevel.incrementAndGet(computeLevel(threadUsageNanos));
 
         log.debug("Task finished or failed " + taskHandle.getTaskId());
-
-        // replace blocked splits that were terminated
-        addNewEntrants();
     }
 
     public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
