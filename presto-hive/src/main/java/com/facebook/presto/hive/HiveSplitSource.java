@@ -33,13 +33,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.transformValues;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -100,9 +97,9 @@ class HiveSplitSource
             if (estimatedSplitSizeInBytes.addAndGet(split.getEstimatedSizeInBytes()) > maxOutstandingSplitsBytes) {
                 // This limit should never be hit given there is a limit of maxOutstandingSplits.
                 // If it's hit, it means individual splits are huge.
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, format(
-                        "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
-                        databaseName, tableName, succinctBytes(maxOutstandingSplitsBytes), getOutstandingSplitCount()));
+                // TODO: throw an exception when this is hit.
+                // For bucketed tables, push back mechanism is not respected when building splits for each partition.
+                // For such tables, the throw here could fire and fail the query.
             }
             return queue.offer(split);
         }
