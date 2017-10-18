@@ -67,6 +67,13 @@ public final class GeoFunctions
         return serialize(geometry);
     }
 
+    private static OGCGeometry geometryFromText(Slice input)
+    {
+        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+        geometry.setSpatialReference(null);
+        return geometry;
+    }
+
     @Description("Returns a Geometry type Point object with the given coordinate values")
     @ScalarFunction("ST_Point")
     @SqlType(GEOMETRY_TYPE_NAME)
