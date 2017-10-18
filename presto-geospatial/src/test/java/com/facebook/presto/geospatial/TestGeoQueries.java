@@ -297,7 +297,7 @@ public class TestGeoQueries
         assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))')))", VARCHAR, "MULTIPOLYGON EMPTY");
         assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))')))", VARCHAR, "GEOMETRYCOLLECTION (LINESTRING (1 1, 2 1), MULTIPOLYGON (((0 1, 1 1, 1 2, 0 2, 0 1)), ((2 1, 3 1, 3 3, 1 3, 1 2, 2 2, 2 1))))");
         assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('LINESTRING (2 0, 2 3)')))", VARCHAR, "LINESTRING (2 1, 2 3)");
-        assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))'), ST_GeometryFromText('LINESTRING (-1 1, 1 -1, 1 2)')))", VARCHAR, "GEOMETRYCOLLECTION (POINT (-5.9700999704851220e-18 -5.9698882122483090e-18), LINESTRING (1 0, 1 1))");
+        assertFunction("ST_AsText(ST_Intersection(ST_GeometryFromText('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))'), ST_GeometryFromText('LINESTRING (0 0, 1 -1, 1 2)')))", VARCHAR, "GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 0, 1 1))");
     }
 
     @Test
