@@ -239,6 +239,7 @@ public class TopologyAwareNodeSelector
             fullCandidatesConsidered++;
             int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
             if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
+                min = totalSplitCount;
                 bestQueueNotFull = node;
             }
         }
