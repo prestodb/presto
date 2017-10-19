@@ -68,17 +68,20 @@ public class SpnegoFilter
 {
     private static final Logger LOG = Logger.get(SpnegoFilter.class);
 
+    private static final String BASIC_AUTHENTICATION_PREFIX = "Basic ";
     private static final String NEGOTIATE_SCHEME = "Negotiate";
     private static final String INCLUDE_REALM_HEADER = "X-Airlift-Realm-In-Challenge";
 
     private final GSSManager gssManager = GSSManager.getInstance();
     private final LoginContext loginContext;
     private final GSSCredential serverCredential;
+    private final SecurityConfig securityConfig;
 
     @Inject
-    public SpnegoFilter(KerberosConfig config)
+    public SpnegoFilter(KerberosConfig config, SecurityConfig securityConfig)
     {
         System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
+        this.securityConfig = securityConfig;
 
         try {
             String hostname = InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
@@ -174,6 +177,11 @@ public class SpnegoFilter
                 catch (GSSException | RuntimeException e) {
                     throw new RuntimeException("Authentication error for token: " + parts[1], e);
                 }
+            }
+            else if (header.startsWith(BASIC_AUTHENTICATION_PREFIX)
+                            && securityConfig.getAuthenticationType() == SecurityConfig.AuthenticationType.MIXED) { // Pass to ldap
+                    nextFilter.doFilter(servletRequest, servletResponse);
+                    return;
             }
         }
 

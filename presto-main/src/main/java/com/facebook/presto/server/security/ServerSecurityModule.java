@@ -26,6 +26,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.LDAP;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.MIXED;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -53,6 +54,15 @@ public class ServerSecurityModule
                             .addBinding()
                             .to(LdapFilter.class)
                             .in(Scopes.SINGLETON);
+                });
+        bindSecurityConfig(
+                securityConfig -> securityConfig.getAuthenticationType() == MIXED,
+                binder -> {
+                    configBinder(binder).bindConfig(LdapConfig.class);
+                    configBinder(binder).bindConfig(KerberosConfig.class);
+                    Multibinder<Filter> multibinder =  Multibinder.newSetBinder(binder, Filter.class, TheServlet.class);
+                    multibinder.addBinding().to(SpnegoFilter.class).in(Scopes.SINGLETON);
+                    multibinder.addBinding().to(LdapFilter.class).in(Scopes.SINGLETON);
                 });
     }
 

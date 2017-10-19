@@ -78,6 +78,7 @@ public class LdapFilter
     private static final Logger log = Logger.get(LdapFilter.class);
 
     private static final String BASIC_AUTHENTICATION_PREFIX = "Basic ";
+    private static final String NEGOTIATE_SCHEME = "Negotiate";
     private static final String LDAP_CONTEXT_FACTORY = "com.sun.jndi.ldap.LdapCtxFactory";
 
     private final String ldapUrl;
@@ -86,10 +87,12 @@ public class LdapFilter
     private final Optional<String> userBaseDistinguishedName;
     private final Map<String, String> basicEnvironment;
     private final LoadingCache<Credentials, Principal> authenticationCache;
+    private final SecurityConfig securityConfig;
 
     @Inject
-    public LdapFilter(LdapConfig serverConfig)
+    public LdapFilter(LdapConfig serverConfig, SecurityConfig securityConfig)
     {
+        this.securityConfig = securityConfig;
         this.ldapUrl = requireNonNull(serverConfig.getLdapUrl(), "ldapUrl is null");
         this.userBindSearchPattern = requireNonNull(serverConfig.getUserBindSearchPattern(), "userBindSearchPattern is null");
         this.groupAuthorizationSearchPattern = Optional.ofNullable(serverConfig.getGroupAuthorizationSearchPattern());
@@ -159,6 +162,11 @@ public class LdapFilter
 
         try {
             String header = request.getHeader(AUTHORIZATION);
+            if (header != null && header.startsWith(NEGOTIATE_SCHEME)
+                    && securityConfig.getAuthenticationType() == SecurityConfig.AuthenticationType.MIXED) {
+                nextFilter.doFilter(servletRequest, servletResponse);
+                return;
+            }
             Credentials credentials = getCredentials(header);
             Principal principal = getPrincipal(credentials);
 
