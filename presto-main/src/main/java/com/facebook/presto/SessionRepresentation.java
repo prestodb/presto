@@ -23,9 +23,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
+import java.security.Principal;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -212,7 +214,7 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(user, Optional.empty()),
+                new Identity(user, InternalPrincipal.createPrincipal(principal)),
                 source,
                 catalog,
                 schema,
@@ -228,5 +230,52 @@ public final class SessionRepresentation
                 ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements);
+    }
+
+    private static class InternalPrincipal
+            implements Principal
+    {
+        private final String name;
+
+        private InternalPrincipal(String name)
+        {
+            this.name = requireNonNull(name, "name is null");
+        }
+
+        @Override
+        public String getName()
+        {
+            return name;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            InternalPrincipal that = (InternalPrincipal) o;
+            return Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(name);
+        }
+
+        @Override
+        public String toString()
+        {
+            return name;
+        }
+
+        public static Optional<Principal> createPrincipal(Optional<String> principal)
+        {
+            return principal.map(InternalPrincipal::new);
+        }
     }
 }
