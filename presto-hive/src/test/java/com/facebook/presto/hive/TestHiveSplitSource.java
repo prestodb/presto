@@ -20,6 +20,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -46,13 +47,15 @@ public class TestHiveSplitSource
     {
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
                 "client-id",
+                "query-id",
                 "database",
                 "table",
                 TupleDomain.all(),
                 10,
                 new DataSize(32, MEGABYTE),
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5));
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -79,13 +82,15 @@ public class TestHiveSplitSource
     {
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
                 "client-id",
+                "query-id",
                 "database",
                 "table",
                 TupleDomain.all(),
                 10,
                 new DataSize(32, MEGABYTE),
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5));
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -135,13 +140,15 @@ public class TestHiveSplitSource
     {
         final HiveSplitSource hiveSplitSource = new HiveSplitSource(
                 "client-id",
+                "query-id",
                 "database",
                 "table",
                 TupleDomain.all(),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5));
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
 
         final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
@@ -193,13 +200,15 @@ public class TestHiveSplitSource
         DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
                 "client-id",
+                "query-id",
                 "database",
                 "table",
                 TupleDomain.all(),
                 10000,
                 maxOutstandingSplitsSize,
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5));
+                Executors.newFixedThreadPool(5),
+                new CounterStat());
         InternalHiveSplit testSplit = new InternalHiveSplit(
                 "partition-name",
                 "path",

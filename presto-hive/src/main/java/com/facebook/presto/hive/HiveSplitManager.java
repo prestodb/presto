@@ -33,8 +33,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -82,6 +85,7 @@ public class HiveSplitManager
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
     private final boolean recursiveDfsWalkerEnabled;
+    private final CounterStat highMemorySplitSourceCounter;
 
     @Inject
     public HiveSplitManager(
@@ -101,6 +105,7 @@ public class HiveSplitManager
                 directoryLister,
                 new BoundedExecutor(executorService, hiveClientConfig.getMaxSplitIteratorThreads()),
                 coercionPolicy,
+                new CounterStat(),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
@@ -116,6 +121,7 @@ public class HiveSplitManager
             DirectoryLister directoryLister,
             Executor executor,
             CoercionPolicy coercionPolicy,
+            CounterStat highMemorySplitSourceCounter,
             int maxOutstandingSplits,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
@@ -129,6 +135,7 @@ public class HiveSplitManager
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.executor = new ErrorCodedExecutor(executor);
         this.coercionPolicy = requireNonNull(coercionPolicy, "coercionPolicy is null");
+        this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.minPartitionBatchSize = minPartitionBatchSize;
@@ -180,16 +187,25 @@ public class HiveSplitManager
 
         HiveSplitSource splitSource = new HiveSplitSource(
                 connectorId,
+                session.getQueryId(),
                 table.get().getDatabaseName(),
                 table.get().getTableName(),
                 layout.getCompactEffectivePredicate(),
                 maxOutstandingSplits,
                 new DataSize(32, MEGABYTE),
                 hiveSplitLoader,
-                executor);
+                executor,
+                highMemorySplitSourceCounter);
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getHighMemorySplitSource()
+    {
+        return highMemorySplitSourceCounter;
     }
 
     private Iterable<HivePartitionMetadata> getPartitionMetadata(SemiTransactionalHiveMetastore metastore, Table table, SchemaTableName tableName, List<HivePartition> hivePartitions, Optional<HiveBucketProperty> bucketProperty)

@@ -25,6 +25,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -229,13 +230,15 @@ public class TestBackgroundSplitLoader
     {
         return new HiveSplitSource(
                 TEST_CONNECTOR_ID,
+                "query-id",
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),
                 compactEffectivePredicate,
                 1,
                 new DataSize(32, MEGABYTE),
                 backgroundHiveSplitLoader,
-                EXECUTOR);
+                EXECUTOR,
+                new CounterStat());
     }
 
     private static Table table(

@@ -60,6 +60,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.airlift.stats.CounterStat;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterClass;
@@ -199,6 +200,7 @@ public abstract class AbstractTestHiveClientS3
                 new HadoopDirectoryLister(),
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new HiveCoercionPolicy(TYPE_MANAGER),
+                new CounterStat(),
                 config.getMaxOutstandingSplits(),
                 config.getMinPartitionBatchSize(),
                 config.getMaxPartitionBatchSize(),
