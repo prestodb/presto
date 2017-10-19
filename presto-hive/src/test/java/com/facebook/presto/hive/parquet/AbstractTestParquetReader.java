@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.spi.block.MethodHandleUtil;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
@@ -21,25 +22,39 @@ import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.type.VarcharOperators;
+import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ArrayWritableObjectInspector;
 import org.apache.hadoop.hive.ql.io.parquet.serde.DeepParquetHiveMapInspector;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveArrayInspector;
+import org.apache.hadoop.hive.serde2.io.HiveVarcharWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
+import org.apache.hadoop.io.ArrayWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import parquet.hadoop.ParquetOutputFormat;
 import parquet.hadoop.codec.CodecConfig;
 import parquet.schema.MessageType;
+
+import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -49,6 +64,7 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -401,10 +417,69 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testArrays()
+            throws Exception
+    {
+        ParquetHiveArrayInspector arrInspector = new ParquetHiveArrayInspector(javaStringObjectInspector);
+
+        final ArrayType arrayType = new ArrayType(createUnboundedVarcharType());
+
+        Function transform = new Function<ArrayWritable, List<String>>()
+        {
+            @Nullable
+            @Override
+            public List<String> apply(@Nullable ArrayWritable arrWritable)
+            {
+                if (arrWritable == null) {
+                    return null;
+                }
+                // unwrap the extra ArrayWritable wrapper needed for ParquetHiveArrayInspector see https://issues.apache.org/jira/browse/HIVE-9605
+                // we can remove this extra wrapper once we upgrade hive version to 1.3+
+                return Arrays.stream(((ArrayWritable) arrWritable.get()[0]).get()).map(text -> text != null ? text.toString() : null).collect(Collectors.toList());
+            }
+        };
+
+        // test with no null items in any list
+        tester.testRoundTrip(arrInspector, listSequence(30_000, false), transform, arrayType, false);
+
+        // test with alternate null items in each list
+        tester.testRoundTrip(arrInspector, listSequence(30_000, true), transform, arrayType, false);
+
+        // The following tests fail because the serde that is used to write records fail to handle null and empty lists correctly. even if we insert nulls without wrapping
+        // the writer writes it as [null] and not just null. we either need to upgrade our hive version or use static files generated using those versions to test for null case.
+
+        // test with all null lists
+        // tester.testRoundTrip(arrInspector, intsBetween(0, 30_000).stream().map(unused -> new ArrayWritable(ArrayWritable.class, null)).collect(Collectors.toList()), arrayType);
+
+        // test with all empty lists
+        // tester.testRoundTrip(arrInspector, intsBetween(0, 30_000).stream().map(unused -> new ArrayWritable(ArrayWritable.class, new Writable[0])).collect(Collectors.toList()), arrayType);
+    }
+
+    @Test
     public void testRowSequence() throws Exception
     {
-        // TODO: not sure what object inspector to use for row type
         final RowType rowType = new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty());
+
+        Function transform = new Function<ArrayWritable, List<String>>()
+        {
+            @Nullable
+            @Override
+            public List<String> apply(@Nullable ArrayWritable arrWritable)
+            {
+                if (arrWritable == null) {
+                    return null;
+                }
+
+                return Arrays.stream(arrWritable.get()).map(varchar -> varchar != null ? varchar.toString() : null).collect(Collectors.toList());
+            }
+        };
+
+        StructTypeInfo rowTypeInfo = new StructTypeInfo();
+        rowTypeInfo.setAllStructFieldTypeInfos(Lists.newArrayList(new VarcharTypeInfo(10), new VarcharTypeInfo(10)));
+        rowTypeInfo.setAllStructFieldNames(Lists.newArrayList("field0", "field1"));
+        ArrayWritableObjectInspector rowInspector = new ArrayWritableObjectInspector(rowTypeInfo);
+
+        tester.testRoundTrip(rowInspector, rowSequence(30_000, false), transform, rowType, false);
     }
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
@@ -506,6 +581,39 @@ public abstract class AbstractTestParquetReader
     private static ContiguousSet<Long> longsBetween(long lowerInclusive, long upperExclusive)
     {
         return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.longs());
+    }
+
+    private static final List<ArrayWritable> rowSequence(int numberOfRows, boolean generateAlternateNullValues)
+    {
+        if (numberOfRows == 0) {
+            return ImmutableList.of();
+        }
+
+        return intsBetween(0, numberOfRows).stream().map((unused) -> generateRows(generateAlternateNullValues)).collect(Collectors.toList());
+    }
+
+    private static final ArrayWritable generateRows(boolean generateAlternateNullItems)
+    {
+        final HiveVarcharWritable varcharWritable = new HiveVarcharWritable();
+        varcharWritable.set("col-1");
+
+        return new ArrayWritable(HiveVarcharWritable.class, new HiveVarcharWritable[]{varcharWritable, varcharWritable});
+    }
+
+    private static final List<ArrayWritable> listSequence(int numberOfLists, boolean generateAlternateNullValues)
+    {
+        if (numberOfLists == 0) {
+            return ImmutableList.of();
+        }
+
+        return intsBetween(0, numberOfLists).stream().map((unused) -> generateList(generateAlternateNullValues)).collect(Collectors.toList());
+    }
+
+    private static final ArrayWritable generateList(boolean generateAlternateNullItems)
+    {
+        // Using Text instead of plain strings as ArrayWritable takes string[] and tries to convert them to UTF8 instances which does not allow nulls.
+        final ArrayWritable arrayWritable = new ArrayWritable(Text.class, intsBetween(0, 4).stream().map(v -> generateAlternateNullItems && v % 2 == 0 ? null : new Text("item-" + v)).toArray(Text[]::new));
+        return new ArrayWritable(ArrayWritable.class, new Writable[]{arrayWritable});
     }
 
     private static final List<Map<String, String>> mapSequence(int numberOfMaps, boolean generateAlternateNullValues)

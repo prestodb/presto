@@ -17,7 +17,9 @@ import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
@@ -99,36 +101,57 @@ public class ParquetTester
     public void testRoundTrip(ObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
             throws Exception
     {
-        testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterType);
+        testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterType, true);
     }
 
     public <W, R> void testRoundTrip(ObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType)
             throws Exception
     {
-        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType);
+        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType, true);
+    }
+
+    public <W, R> void testRoundTrip(ObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType, boolean testWithNulls)
+            throws Exception
+    {
+        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType, testWithNulls);
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
-        // just the values
-        testRoundTripType(objectInspector, writeValues, readValues, type);
+        testRoundTrip(objectInspector, writeValues, readValues, type, true);
+    }
 
-        // all nulls
-        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type);
+    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, boolean testWithNulls)
+            throws Exception
+    {
+        // just the values
+        testRoundTripType(objectInspector, writeValues, readValues, type, testWithNulls);
+
+        if (testWithNulls)
+        {
+            assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type);
+        }
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
-        // just the values
-        testRoundTripType(objectInspector, writeValues, readValues, type);
-
-        // all nulls
-        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type, parquetSchema);
+        testRoundTrip(objectInspector,writeValues,readValues, type,parquetSchema, true);
     }
 
-    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
+    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema, boolean testWithNulls)
+            throws Exception
+    {
+        // just the values
+        testRoundTripType(objectInspector, writeValues, readValues, type, testWithNulls);
+
+        if (testWithNulls) {
+            assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type, parquetSchema);
+        }
+    }
+
+    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, boolean testWithNulls)
             throws Exception
     {
         // forward order
@@ -137,11 +160,13 @@ public class ParquetTester
         // reverse order
         assertRoundTrip(objectInspector, reverse(writeValues), reverse(readValues), type);
 
-        // forward order with nulls
-        assertRoundTrip(objectInspector, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), type);
+        if (testWithNulls) {
+            // forward order with nulls
+            assertRoundTrip(objectInspector, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), type);
 
-        // reverse order with nulls
-        assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), type);
+            // reverse order with nulls
+            assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), type);
+        }
     }
 
     public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
@@ -199,12 +224,15 @@ public class ParquetTester
         int rowsProcessed = 0;
         Iterator<?> iterator = expectedValues.iterator();
         for (int batchSize = parquetReader.nextBatch(); batchSize >= 0; batchSize = parquetReader.nextBatch()) {
-            ColumnDescriptor columnDescriptor = fileSchema.getColumns().get(0);
-            Block block = null;
+            Block block;
             if (type instanceof MapType) {
                 block = parquetReader.readMap(type, Lists.newArrayList("test"));
-            }
-            else {
+            } else if (type instanceof ArrayType) {
+                block = parquetReader.readArray(type, Lists.newArrayList("test"));
+            } else if (type instanceof RowType) {
+                block = parquetReader.readStruct(type, Lists.newArrayList("test"));
+            } else {
+                ColumnDescriptor columnDescriptor = fileSchema.getColumns().get(0);
                 block = parquetReader.readPrimitive(columnDescriptor, type);
             }
 
