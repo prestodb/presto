@@ -93,6 +93,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -544,6 +545,7 @@ public abstract class AbstractTestHiveClient
                 new HadoopDirectoryLister(),
                 newDirectExecutorService(),
                 new HiveCoercionPolicy(TYPE_MANAGER),
+                new CounterStat(),
                 100,
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),

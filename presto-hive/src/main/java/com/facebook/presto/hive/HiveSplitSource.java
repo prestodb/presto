@@ -21,6 +21,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 
 import java.io.FileNotFoundException;
@@ -28,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -36,6 +39,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.transformValues;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -43,7 +47,10 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 class HiveSplitSource
         implements ConnectorSplitSource
 {
+    private static final Logger log = Logger.get(HiveSplit.class);
+
     private final String connectorId;
+    private final String queryId;
     private final String databaseName;
     private final String tableName;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
@@ -56,23 +63,30 @@ class HiveSplitSource
 
     private final AtomicLong estimatedSplitSizeInBytes = new AtomicLong();
 
+    private final CounterStat highMemorySplitSourceCounter;
+    private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
+
     HiveSplitSource(
             String connectorId,
+            String queryId,
             String databaseName,
             String tableName,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
-            Executor executor)
+            Executor executor,
+            CounterStat highMemorySplitSourceCounter)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.queue = new AsyncQueue<>(maxOutstandingSplits, executor);
         this.maxOutstandingSplitsBytes = toIntExact(maxOutstandingSplitsSize.toBytes());
-        this.splitLoader = splitLoader;
+        this.splitLoader = requireNonNull(splitLoader, "splitLoader is null");
+        this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
     }
 
     @VisibleForTesting
@@ -100,6 +114,11 @@ class HiveSplitSource
                 // TODO: throw an exception when this is hit.
                 // For bucketed tables, push back mechanism is not respected when building splits for each partition.
                 // For such tables, the throw here could fire and fail the query.
+                if (loggedHighMemoryWarning.compareAndSet(false, true)) {
+                    highMemorySplitSourceCounter.update(1);
+                    log.warn("Split buffering for %s.%s in query %s exceeded memory limit (%s). %s splits are buffered.",
+                            databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getOutstandingSplitCount());
+                }
             }
             return queue.offer(split);
         }
