@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -54,7 +55,7 @@ public class RetryDriver
     private final Duration maxSleepTime;
     private final double scaleFactor;
     private final Duration maxRetryTime;
-    private final Optional<Runnable> retryRunnable;
+    private final Optional<Consumer<Exception>> onFailure;
     private final Predicate<Exception> stopRetrying;
     private final Function<Exception, Exception> classifier;
     private final ListeningScheduledExecutorService retryExecutorService;
@@ -65,7 +66,7 @@ public class RetryDriver
             Duration maxSleepTime,
             double scaleFactor,
             Duration maxRetryTime,
-            Optional<Runnable> retryRunnable,
+            Optional<Consumer<Exception>> onFailure,
             Predicate<Exception> stopRetrying,
             Function<Exception, Exception> classifier,
             ListeningScheduledExecutorService retryExecutorService)
@@ -75,7 +76,7 @@ public class RetryDriver
         this.maxSleepTime = maxSleepTime;
         this.scaleFactor = scaleFactor;
         this.maxRetryTime = maxRetryTime;
-        this.retryRunnable = retryRunnable;
+        this.onFailure = onFailure;
         this.stopRetrying = stopRetrying;
         this.classifier = classifier;
         this.retryExecutorService = retryExecutorService;
@@ -101,27 +102,27 @@ public class RetryDriver
 
     public final RetryDriver maxAttempts(int maxAttempts)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, retryRunnable, stopRetrying, classifier, retryExecutorService);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, onFailure, stopRetrying, classifier, retryExecutorService);
     }
 
     public final RetryDriver exponentialBackoff(Duration minSleepTime, Duration maxSleepTime, Duration maxRetryTime, double scaleFactor)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, retryRunnable, stopRetrying, classifier, retryExecutorService);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, onFailure, stopRetrying, classifier, retryExecutorService);
     }
 
-    public final RetryDriver onRetry(Runnable retryRunnable)
+    public final RetryDriver onFailure(Consumer<Exception> onFailure)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, Optional.ofNullable(retryRunnable), stopRetrying, classifier, retryExecutorService);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, Optional.ofNullable(onFailure), stopRetrying, classifier, retryExecutorService);
     }
 
     public RetryDriver stopRetryingWhen(Predicate<Exception> stopRetrying)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, retryRunnable, stopRetrying, classifier, retryExecutorService);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, onFailure, stopRetrying, classifier, retryExecutorService);
     }
 
     public RetryDriver withClassifier(Function<Exception, Exception> classifier)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, retryRunnable, stopRetrying, classifier, retryExecutorService);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, onFailure, stopRetrying, classifier, retryExecutorService);
     }
 
     /**
@@ -148,6 +149,7 @@ public class RetryDriver
                 throw propagate(ie);
             }
             catch (Exception e) {
+                onFailure.ifPresent(exceptionConsumer -> exceptionConsumer.accept(e));
                 if (retryStatus.shouldStopRetry(e)) {
                     recordFailure(retryStatus, stats);
                     throw propagate(e);
@@ -203,6 +205,7 @@ public class RetryDriver
         }
 
         return Futures.catchingAsync(resultFuture, Exception.class, e -> {
+            onFailure.ifPresent(exceptionConsumer -> exceptionConsumer.accept(e));
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
                 recordFailure(retryStatus, stats);
@@ -266,9 +269,7 @@ public class RetryDriver
 
         void nextAttempt()
         {
-            if (attempts.incrementAndGet() > 1) {
-                retryRunnable.ifPresent(Runnable::run);
-            }
+            attempts.incrementAndGet();
         }
     }
 
