@@ -432,7 +432,14 @@ public final class PartitionedLookupSourceFactory
         @Override
         public void close()
         {
-            LookupSource lookupSource = suppliedLookupSources.remove(this);
+            LookupSource lookupSource;
+            lock.readLock().lock();
+            try {
+                lookupSource = suppliedLookupSources.remove(this);
+            }
+            finally {
+                lock.readLock().unlock();
+            }
             if (lookupSource != null) {
                 lookupSource.close();
             }
