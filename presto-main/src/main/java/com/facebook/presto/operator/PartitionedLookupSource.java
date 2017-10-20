@@ -17,11 +17,14 @@ import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -184,9 +187,16 @@ public class PartitionedLookupSource
             return;
         }
 
-        if (outerPositionTracker != null) {
-            outerPositionTracker.commit();
+        try (Closer closer = Closer.create()) {
+            if (outerPositionTracker != null) {
+                closer.register(outerPositionTracker::commit);
+            }
+            Arrays.stream(lookupSources).forEach(closer::register);
         }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
         closed = true;
     }
 
