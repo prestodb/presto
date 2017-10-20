@@ -90,6 +90,7 @@ public class HivePageSink
 
     private final ConnectorSession session;
 
+    private long writtenBytes;
     private long systemMemoryUsage;
 
     public HivePageSink(
@@ -162,6 +163,12 @@ public class HivePageSink
     }
 
     @Override
+    public long getCompletedBytes()
+    {
+        return writtenBytes;
+    }
+
+    @Override
     public long getSystemMemoryUsage()
     {
         return systemMemoryUsage;
@@ -189,6 +196,10 @@ public class HivePageSink
                     .ifPresent(verificationTasks::add);
         }
         List<Slice> result = partitionUpdates.build();
+
+        writtenBytes = writers.stream()
+                .mapToLong(HiveWriter::getWrittenBytes)
+                .sum();
 
         if (verificationTasks.isEmpty()) {
             return Futures.immediateFuture(result);
@@ -289,8 +300,12 @@ public class HivePageSink
 
             HiveWriter writer = writers.get(writerIndex);
 
+            long currentWritten = writer.getWrittenBytes();
             long currentMemory = writer.getSystemMemoryUsage();
+
             writer.append(pageForWriter);
+
+            writtenBytes += (writer.getWrittenBytes() - currentWritten);
             systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
 
             currentWriterPositions.clear();

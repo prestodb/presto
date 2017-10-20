@@ -24,8 +24,8 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.OutputStreamSliceOutput;
-import io.airlift.slice.SliceOutput;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -53,6 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcFileWriter
         implements HiveFileWriter
 {
+    private final CountingOutputStream outputStream;
     private final OrcWriter orcWriter;
     private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
@@ -71,13 +72,11 @@ public class OrcFileWriter
             DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory)
     {
-        if (!(outputStream instanceof SliceOutput)) {
-            outputStream = new OutputStreamSliceOutput(outputStream);
-        }
+        this.outputStream = new CountingOutputStream(outputStream);
 
         if (isDwrf) {
             orcWriter = createDwrfWriter(
-                    (SliceOutput) outputStream,
+                    new OutputStreamSliceOutput(this.outputStream),
                     columnNames,
                     fileColumnTypes,
                     compression,
@@ -92,7 +91,7 @@ public class OrcFileWriter
         }
         else {
             orcWriter = createOrcWriter(
-                    (SliceOutput) outputStream,
+                    new OutputStreamSliceOutput(this.outputStream),
                     columnNames,
                     fileColumnTypes,
                     compression,
@@ -117,6 +116,12 @@ public class OrcFileWriter
         }
         this.nullBlocks = nullBlocks.build();
         this.validationInputFactory = validationInputFactory;
+    }
+
+    @Override
+    public long getWrittenBytes()
+    {
+        return outputStream.getCount();
     }
 
     @Override
