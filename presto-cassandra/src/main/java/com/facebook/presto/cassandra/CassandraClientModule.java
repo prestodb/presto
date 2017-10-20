@@ -126,6 +126,10 @@ public class CassandraClientModule
         }
         clusterBuilder.withSocketOptions(socketOptions);
 
+        if (config.getUseSSL()) {
+            clusterBuilder.withSSL();
+        }
+
         if (config.getUsername() != null && config.getPassword() != null) {
             clusterBuilder.withCredentials(config.getUsername(), config.getPassword());
         }

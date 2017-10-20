@@ -46,6 +46,7 @@ public class CassandraClientConfig
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
     private int nativeProtocolPort = 9042;
+    private boolean useSSL = false;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
     private boolean allowDropTable;
@@ -97,6 +98,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setNativeProtocolPort(int nativeProtocolPort)
     {
         this.nativeProtocolPort = nativeProtocolPort;
+        return this;
+    }
+
+    public boolean getUseSSL()
+    {
+        return useSSL;
+    }
+
+    @Config(("cassandra.use-ssl"))
+    public CassandraClientConfig setUseSSL(boolean useSSL)
+    {
+        this.useSSL = useSSL;
         return this;
     }
 
