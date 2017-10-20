@@ -2,6 +2,11 @@
 Release 0.186
 =============
 
+.. warning::
+
+    This release has a stability issue that may cause query failures in large deployments
+    due to HTTP requests timing out.
+
 General Changes
 ---------------
 
