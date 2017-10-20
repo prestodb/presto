@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -129,6 +130,9 @@ public class JdbcRecordSink
                 long utcMillis = TimeUnit.DAYS.toMillis(value);
                 long localMillis = ISOChronology.getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
                 statement.setDate(next(), new Date(localMillis));
+            }
+            else if (TimestampType.TIMESTAMP.equals(columnTypes.get(field))) {
+                statement.setTimestamp(next(), new java.sql.Timestamp(value));
             }
             else {
                 statement.setLong(next(), value);
