@@ -81,6 +81,8 @@ public class PartitionedLookupSource
     @Nullable
     private final OuterPositionTracker outerPositionTracker;
 
+    private boolean closed;
+
     private PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, Optional<OuterPositionTracker> outerPositionTracker)
     {
         this.lookupSources = lookupSources.toArray(new LookupSource[lookupSources.size()]);
@@ -178,9 +180,14 @@ public class PartitionedLookupSource
     @Override
     public void close()
     {
+        if (closed) {
+            return;
+        }
+
         if (outerPositionTracker != null) {
             outerPositionTracker.commit();
         }
+        closed = true;
     }
 
     private int decodePartition(long partitionedJoinPosition)
