@@ -53,6 +53,11 @@ public class HiveWriter
         this.hiveWriterStats = hiveWriterStats;
     }
 
+    public long getWrittenBytes()
+    {
+        return fileWriter.getWrittenBytes();
+    }
+
     public long getSystemMemoryUsage()
     {
         return fileWriter.getSystemMemoryUsage();

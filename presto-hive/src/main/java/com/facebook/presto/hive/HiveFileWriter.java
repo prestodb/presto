@@ -19,6 +19,8 @@ import java.util.Optional;
 
 public interface HiveFileWriter
 {
+    long getWrittenBytes();
+
     long getSystemMemoryUsage();
 
     void appendRows(Page dataPage);
