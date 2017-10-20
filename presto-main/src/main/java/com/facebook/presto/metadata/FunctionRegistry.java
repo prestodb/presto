@@ -326,6 +326,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionRegistry
@@ -354,18 +355,28 @@ public class FunctionRegistry
                 .build(CacheLoader.from(this::doGetSpecializedFunctionKey));
 
         // TODO the function map should be updated, so that this cast can be removed
+
+        // We have observed repeated compilation of MethodHandle that leads to full GCs.
+        // We notice that flushing the following caches mitigate the problem.
+        // We suspect that it is a JVM bug that is related to stale/corrupted profiling data associated
+        // with generated classes and/or dynamically-created MethodHandles.
+        // This might also mitigate problems like deoptimization storm or unintended interpreted execution.
+
         specializedScalarCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> ((SqlScalarFunction) key.getFunction())
                         .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
 
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> ((SqlAggregationFunction) key.getFunction())
                         .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
 
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key ->
                 {
                     if (key.getFunction() instanceof SqlAggregationFunction) {
