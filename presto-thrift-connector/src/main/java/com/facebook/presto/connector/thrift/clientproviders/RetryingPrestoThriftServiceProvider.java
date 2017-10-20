@@ -15,7 +15,6 @@ package com.facebook.presto.connector.thrift.clientproviders;
 
 import com.facebook.presto.connector.thrift.ThriftConnectorConfig;
 import com.facebook.presto.connector.thrift.annotations.ForRetryDriver;
-import com.facebook.presto.connector.thrift.annotations.NonRetrying;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableSchemaName;
@@ -53,12 +52,15 @@ public class RetryingPrestoThriftServiceProvider
         implements PrestoThriftServiceProvider
 {
     private static final Logger log = Logger.get(RetryingPrestoThriftServiceProvider.class);
-    private final PrestoThriftServiceProvider original;
+    private final ConnectedThriftServiceProvider original;
     private final RetryDriver retry;
     private final Stats stats = new Stats();
 
     @Inject
-    public RetryingPrestoThriftServiceProvider(@NonRetrying PrestoThriftServiceProvider original, @ForRetryDriver ListeningScheduledExecutorService retryExecutor, ThriftConnectorConfig config)
+    public RetryingPrestoThriftServiceProvider(
+            ConnectedThriftServiceProvider original,
+            @ForRetryDriver ListeningScheduledExecutorService retryExecutor,
+            ThriftConnectorConfig config)
     {
         this.original = requireNonNull(original, "original is null");
         requireNonNull(retryExecutor, "retryExecutor is null");
@@ -73,14 +75,6 @@ public class RetryingPrestoThriftServiceProvider
                         config.getMaxRetrySleepTime(),
                         config.getMaxRetryDuration(),
                         config.getRetryScaleFactor());
-    }
-
-    private static Exception classifyException(Exception e)
-    {
-        if (e instanceof TApplicationException || e instanceof RuntimeTApplicationException) {
-            return new PrestoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by a remote thrift server", e);
-        }
-        return e;
     }
 
     @Managed
@@ -106,15 +100,15 @@ public class RetryingPrestoThriftServiceProvider
     private static final class RetryingService
             implements PrestoThriftService
     {
-        private final Supplier<PrestoThriftService> clientSupplier;
+        private final Supplier<ConnectedThriftService> clientSupplier;
         private final RetryDriver retry;
-        private PrestoThriftService client;
+        private ConnectedThriftService client;
         private Stats stats;
 
-        public RetryingService(Supplier<PrestoThriftService> clientSupplier, RetryDriver retry, Stats stats)
+        RetryingService(Supplier<ConnectedThriftService> clientSupplier, RetryDriver retry, Stats stats)
         {
             this.clientSupplier = requireNonNull(clientSupplier, "clientSupplier is null");
-            this.retry = retry.onRetry(this::close);
+            this.retry = retry.onFailure(this::processFailure);
             this.stats = requireNonNull(stats, "stats is null");
         }
 
@@ -191,6 +185,22 @@ public class RetryingPrestoThriftServiceProvider
             }
             client = null;
         }
+
+        private void processFailure(Exception e)
+        {
+            if (client != null) {
+                client.getHostLocationHandle().reportFailure(e);
+                this.close();
+            }
+        }
+    }
+
+    private static Exception classifyException(Exception e)
+    {
+        if (e instanceof TApplicationException || e instanceof RuntimeTApplicationException) {
+            return new PrestoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by a remote thrift server", e);
+        }
+        return e;
     }
 
     public static class Stats

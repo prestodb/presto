@@ -11,15 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.thrift.location;
+package com.facebook.presto.connector.thrift.clientproviders;
 
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.connector.thrift.api.PrestoThriftService;
+import com.facebook.presto.connector.thrift.location.HostLocationHandle;
 
-import java.util.List;
-
-public interface HostLocationProvider
+public interface ConnectedThriftService
+        extends PrestoThriftService
 {
-    HostLocationHandle getAnyHost();
-
-    HostLocationHandle getAnyOf(List<HostAddress> hosts);
+    HostLocationHandle getHostLocationHandle();
 }

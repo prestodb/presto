@@ -11,19 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.thrift.annotations;
 
-import com.google.inject.BindingAnnotation;
+package com.facebook.presto.connector.thrift.location;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import com.facebook.presto.spi.HostAddress;
 
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-@BindingAnnotation
-@Target(PARAMETER)
-@Retention(RUNTIME)
-public @interface NonRetrying
+public interface HostLocationHandle
 {
+    HostAddress getHostAddress();
+
+    void reportFailure(Exception e);
 }
