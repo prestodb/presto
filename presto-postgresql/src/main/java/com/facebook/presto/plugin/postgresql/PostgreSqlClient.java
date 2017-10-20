@@ -17,7 +17,9 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -27,10 +29,17 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
+
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
+    private static final Map<Type, String> POSTGRES_SQL_TYPES = ImmutableMap.<Type, String>builder()
+            .put(TINYINT, "smallint")
+            .build();
+
     @Inject
     public PostgreSqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
             throws SQLException
@@ -77,5 +86,17 @@ public class PostgreSqlClient
                 escapeNamePattern(schemaName, escape),
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE"});
+    }
+
+    @Override
+    protected String toSqlType(Type type)
+    {
+        String sqlType = POSTGRES_SQL_TYPES.get(type);
+        if (sqlType != null) {
+            return sqlType;
+        }
+        else {
+            return super.toSqlType(type);
+        }
     }
 }
