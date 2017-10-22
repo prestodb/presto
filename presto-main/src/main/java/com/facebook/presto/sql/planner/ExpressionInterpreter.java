@@ -384,7 +384,7 @@ public class ExpressionInterpreter
                     throw new UnsupportedOperationException("not yet implemented");
                 }
             }
-            throw new UnsupportedOperationException("Inputs or cursor myst be set");
+            throw new UnsupportedOperationException("Inputs or cursor must be set");
         }
 
         @Override
