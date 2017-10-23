@@ -209,7 +209,7 @@ public class SqlQueryManager
                 }
 
                 try {
-                    enforeTimeLimits();
+                    enforceTimeLimits();
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error enforcing query timeout limits");
@@ -553,7 +553,7 @@ public class SqlQueryManager
     /**
      * Enforce query max runtime/execution time limits
      */
-    public void enforeTimeLimits()
+    public void enforceTimeLimits()
     {
         for (QueryExecution query : queries.values()) {
             if (query.getState().isDone()) {
