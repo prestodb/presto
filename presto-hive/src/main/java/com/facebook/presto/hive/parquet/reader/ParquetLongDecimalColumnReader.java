@@ -31,14 +31,14 @@ public class ParquetLongDecimalColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, int mapRowNum)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary value = valuesReader.readBytes();
             type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(new BigInteger(value.getBytes())));
         }
         else {
-            handleNull(blockBuilder, isNullAtRowNum, isMapKey, mapRowNum);
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, isMapVal, mapRowNum);
         }
     }
 

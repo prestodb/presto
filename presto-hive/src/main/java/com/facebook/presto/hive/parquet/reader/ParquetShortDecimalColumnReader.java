@@ -32,7 +32,7 @@ public class ParquetShortDecimalColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, int mapRowNum)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             long decimalValue;
@@ -49,7 +49,7 @@ public class ParquetShortDecimalColumnReader
             type.writeLong(blockBuilder, decimalValue);
         }
         else {
-            handleNull(blockBuilder, isNullAtRowNum, isMapKey, mapRowNum);
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, isMapVal, mapRowNum);
         }
     }
 

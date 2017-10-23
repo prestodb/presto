@@ -40,9 +40,7 @@ import org.apache.hadoop.hive.serde2.io.HiveVarcharWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.io.Text;
@@ -440,12 +438,12 @@ public abstract class AbstractTestParquetReader
         };
 
         // test with no null items in any list
-        tester.testRoundTrip(arrInspector, listSequence(30_000, false), transform, arrayType, false);
+        tester.testRoundTrip(arrInspector, listSequence(30_000, false), transform, arrayType);
 
         // test with alternate null items in each list
-        tester.testRoundTrip(arrInspector, listSequence(30_000, true), transform, arrayType, false);
+        tester.testRoundTrip(arrInspector, listSequence(30_000, true), transform, arrayType);
 
-        // The following tests fail because the serde that is used to write records fail to handle null and empty lists correctly. even if we insert nulls without wrapping
+        // The following two tests fail because the serde that is used to write records fail to handle null and empty lists correctly. even if we insert nulls without wrapping
         // the writer writes it as [null] and not just null. we either need to upgrade our hive version or use static files generated using those versions to test for null case.
 
         // test with all null lists
@@ -479,7 +477,9 @@ public abstract class AbstractTestParquetReader
         rowTypeInfo.setAllStructFieldNames(Lists.newArrayList("field0", "field1"));
         ArrayWritableObjectInspector rowInspector = new ArrayWritableObjectInspector(rowTypeInfo);
 
-        tester.testRoundTrip(rowInspector, rowSequence(30_000, false), transform, rowType, false);
+        tester.testRoundTrip(rowInspector, rowSequence(30_000, false), transform, rowType);
+
+        tester.testRoundTrip(rowInspector, rowSequence(30_000, true), transform, rowType);
     }
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
@@ -592,7 +592,7 @@ public abstract class AbstractTestParquetReader
         return intsBetween(0, numberOfRows).stream().map((unused) -> generateRows(generateAlternateNullValues)).collect(Collectors.toList());
     }
 
-    private static final ArrayWritable generateRows(boolean generateAlternateNullItems)
+    private static final ArrayWritable generateRows(boolean generateNullValues)
     {
         final HiveVarcharWritable varcharWritable = new HiveVarcharWritable();
         varcharWritable.set("col-1");

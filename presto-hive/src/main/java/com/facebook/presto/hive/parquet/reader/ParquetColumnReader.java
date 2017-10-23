@@ -66,7 +66,7 @@ public abstract class ParquetColumnReader
     private int remainingValueCountInPage;
     private int readOffset;
 
-    protected abstract void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, int mapRowNum);
+    protected abstract void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum);
 
     protected abstract void skipValue();
 
@@ -147,7 +147,7 @@ public abstract class ParquetColumnReader
         return columnDescriptor;
     }
 
-    public Block readPrimitive(Type type, IntList positions, Optional<boolean[]> isNullAtRowNum, boolean isMapKey)
+    public Block readPrimitive(Type type, IntList positions, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal)
             throws IOException
     {
         seek();
@@ -158,7 +158,7 @@ public abstract class ParquetColumnReader
                 readNextPage();
             }
             int numValues = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
-            int valuesRead = readValues(blockBuilder, numValues, type, positions, isNullAtRowNum, isMapKey);
+            int valuesRead = readValues(blockBuilder, numValues, type, positions, isNullAtRowNum, isMapKey, isMapVal);
             valueCount += numValues;
             updatePosition(valuesRead);
         }
@@ -169,7 +169,7 @@ public abstract class ParquetColumnReader
         return blockBuilder.build();
     }
 
-    private int readValues(BlockBuilder blockBuilder, int numValues, Type type, IntList positions, Optional<boolean[]> isNullAtRowNum, boolean isMapKey)
+    private int readValues(BlockBuilder blockBuilder, int numValues, Type type, IntList positions, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal)
     {
         int totalValsReadFromPage = 0;
         for (int i = 0; i < numValues; i++) {
@@ -177,7 +177,7 @@ public abstract class ParquetColumnReader
             do {
                 definitionLevel = definitionReader.readLevel();
                 repetitionLevel = repetitionReader.readLevel();
-                readValue(blockBuilder, type, isNullAtRowNum, isMapKey, positions.size());
+                readValue(blockBuilder, type, isNullAtRowNum, isMapKey, isMapVal, positions.size());
                 int pCount = blockBuilder.getPositionCount();
                 try {
                     totalValsReadFromPage++;
@@ -336,19 +336,25 @@ public abstract class ParquetColumnReader
         }
     }
 
-    protected void handleNull(BlockBuilder blockBuilder, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, int mapRowNum)
+    protected void handleNull(BlockBuilder blockBuilder, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int position)
     {
         // if isNullAtRowNum is already set to true for a position that indicates we are in call tree of a map'/s
         // processing and the key is null. to keep the key and val length equal we make sure we do not append null
         // for both the key and value. we only want to set the is NullAtRowNum to true if the key is null as null
         // values for maps are not allowed.
         if (isMapKey) {
-            isNullAtRowNum.map((arr) -> arr[mapRowNum] = true);
+            isNullAtRowNum.map((arr) -> arr[position] = true);
+        }
+        // if this not a map processing and definitionLeve is 0, it inidicates a complex structure(list or row)
+        // is it self null.
+        else if (!isMapKey && !isMapVal && definitionLevel == 0 && isNullAtRowNum.isPresent()) {
+            isNullAtRowNum.map((arr) -> arr[position] = true);
+            blockBuilder.appendNull();
         }
         // if isNullAtRowNum is not present, that means this is not call tree of a map's value processing
         // if it is present , then this is call tree of map's value and in that case we only append null
         // if the key was not null.
-        else if (!isNullAtRowNum.isPresent() || !isNullAtRowNum.get()[mapRowNum]) {
+        else if (!isNullAtRowNum.isPresent() || !isNullAtRowNum.get()[position]) {
             // we only append null if either this is not a map value processing call tree
             // or if in case this is a map value call tree, the key at this position is not set to null.
             blockBuilder.appendNull();

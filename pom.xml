@@ -1045,6 +1045,7 @@
                         </violationsFiles>
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
+                            <exclusionPattern>com/google/common/base/Function</exclusionPattern>
                         </exclusionPatterns>
                     </configuration>
                 </plugin>

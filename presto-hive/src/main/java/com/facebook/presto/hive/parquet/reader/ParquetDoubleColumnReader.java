@@ -28,13 +28,13 @@ public class ParquetDoubleColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, int mapRowNum)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             type.writeDouble(blockBuilder, valuesReader.readDouble());
         }
         else {
-            handleNull(blockBuilder, isNullAtRowNum, isMapKey, mapRowNum);
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, isMapVal, mapRowNum);
         }
     }
 

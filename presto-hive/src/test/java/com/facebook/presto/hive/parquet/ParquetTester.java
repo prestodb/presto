@@ -101,57 +101,36 @@ public class ParquetTester
     public void testRoundTrip(ObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
             throws Exception
     {
-        testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterType, true);
+        testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterType);
     }
 
     public <W, R> void testRoundTrip(ObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType)
             throws Exception
     {
-        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType, true);
-    }
-
-    public <W, R> void testRoundTrip(ObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType, boolean testWithNulls)
-            throws Exception
-    {
-        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType, testWithNulls);
+        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType);
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
-        testRoundTrip(objectInspector, writeValues, readValues, type, true);
-    }
-
-    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, boolean testWithNulls)
-            throws Exception
-    {
         // just the values
-        testRoundTripType(objectInspector, writeValues, readValues, type, testWithNulls);
+        testRoundTripType(objectInspector, writeValues, readValues, type);
 
-        if (testWithNulls)
-        {
-            assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type);
-        }
+        // all nulls
+        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type);
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
-        testRoundTrip(objectInspector,writeValues,readValues, type,parquetSchema, true);
-    }
-
-    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema, boolean testWithNulls)
-            throws Exception
-    {
         // just the values
-        testRoundTripType(objectInspector, writeValues, readValues, type, testWithNulls);
+        testRoundTripType(objectInspector, writeValues, readValues, type);
 
-        if (testWithNulls) {
-            assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type, parquetSchema);
-        }
+        // all nulls
+        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type, parquetSchema);
     }
 
-    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, boolean testWithNulls)
+    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
         // forward order
@@ -160,13 +139,11 @@ public class ParquetTester
         // reverse order
         assertRoundTrip(objectInspector, reverse(writeValues), reverse(readValues), type);
 
-        if (testWithNulls) {
-            // forward order with nulls
-            assertRoundTrip(objectInspector, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), type);
+        // forward order with nulls
+        assertRoundTrip(objectInspector, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), type);
 
-            // reverse order with nulls
-            assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), type);
-        }
+        // reverse order with nulls
+        assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), type);
     }
 
     public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
@@ -227,11 +204,14 @@ public class ParquetTester
             Block block;
             if (type instanceof MapType) {
                 block = parquetReader.readMap(type, Lists.newArrayList("test"));
-            } else if (type instanceof ArrayType) {
+            }
+            else if (type instanceof ArrayType) {
                 block = parquetReader.readArray(type, Lists.newArrayList("test"));
-            } else if (type instanceof RowType) {
+            }
+            else if (type instanceof RowType) {
                 block = parquetReader.readStruct(type, Lists.newArrayList("test"));
-            } else {
+            }
+            else {
                 ColumnDescriptor columnDescriptor = fileSchema.getColumns().get(0);
                 block = parquetReader.readPrimitive(columnDescriptor, type);
             }

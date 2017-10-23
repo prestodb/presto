@@ -31,14 +31,14 @@ public class ParquetTimestampColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, int mapRowNum)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
             type.writeLong(blockBuilder, getTimestampMillis(binary));
         }
         else {
-            handleNull(blockBuilder, isNullAtRowNum, isMapKey, mapRowNum);
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, isMapVal, mapRowNum);
         }
     }
 

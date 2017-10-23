@@ -195,7 +195,7 @@ public abstract class AbstractRowBlock
     private void checkReadablePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
+            throw new IllegalArgumentException(position + " position is not valid, max position = " + getPositionCount());
         }
     }
 }

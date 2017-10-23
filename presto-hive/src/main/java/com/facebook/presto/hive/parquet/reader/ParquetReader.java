@@ -150,17 +150,17 @@ public class ParquetReader
     public Block readArray(Type type, List<String> path)
             throws IOException
     {
-        return readArray(type, path, new IntArrayList(), new boolean[batchSize], false);
+        return readArray(type, path, new IntArrayList(), new boolean[batchSize], false, false);
     }
 
-    private Block readArray(Type type, List<String> path, IntList elementOffsets, boolean[] isNullAtRowNum, boolean isMapKey)
+    private Block readArray(Type type, List<String> path, IntList elementOffsets, boolean[] isNullAtRowNum, boolean isMapKey, boolean isMapVal)
             throws IOException
     {
         List<Type> parameters = type.getTypeParameters();
         checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %d", parameters.size());
         path.add(ARRAY_TYPE_NAME);
         Type elementType = parameters.get(0);
-        Block block = readBlock(ARRAY_ELEMENT_NAME, elementType, path, elementOffsets, Optional.of(isNullAtRowNum), isMapKey);
+        Block block = readBlock(ARRAY_ELEMENT_NAME, elementType, path, elementOffsets, Optional.of(isNullAtRowNum), isMapKey, isMapVal);
         path.remove(ARRAY_TYPE_NAME);
 
         if (elementOffsets.isEmpty()) {
@@ -193,8 +193,8 @@ public class ParquetReader
         IntList keyOffsets = new IntArrayList();
         IntList valueOffsets = new IntArrayList();
         path.add(MAP_TYPE_NAME);
-        blocks[0] = readBlock(MAP_KEY_NAME, parameters.get(0), path, keyOffsets, Optional.of(isNullAtRowNum), true);
-        blocks[1] = readBlock(MAP_VALUE_NAME, parameters.get(1), path, valueOffsets, Optional.of(isNullAtRowNum), false);
+        blocks[0] = readBlock(MAP_KEY_NAME, parameters.get(0), path, keyOffsets, Optional.of(isNullAtRowNum), true, false);
+        blocks[1] = readBlock(MAP_VALUE_NAME, parameters.get(1), path, valueOffsets, Optional.of(isNullAtRowNum), false, true);
         path.remove(MAP_TYPE_NAME);
 
         if (blocks[0].getPositionCount() == 0) {
@@ -215,10 +215,10 @@ public class ParquetReader
     public Block readStruct(Type type, List<String> path)
             throws IOException
     {
-        return readStruct(type, path, new IntArrayList(), new boolean[batchSize], false);
+        return readStruct(type, path, new IntArrayList(), new boolean[batchSize], false, false);
     }
 
-    private Block readStruct(Type type, List<String> path, IntList elementOffsets, boolean[] isNullAtRowNum, boolean isMapKey)
+    private Block readStruct(Type type, List<String> path, IntList elementOffsets, boolean[] isNullAtRowNum, boolean isMapKey, boolean isMapVal)
             throws IOException
     {
         List<TypeSignatureParameter> parameters = type.getTypeSignature().getParameters();
@@ -227,7 +227,10 @@ public class ParquetReader
             NamedTypeSignature namedTypeSignature = parameters.get(i).getNamedTypeSignature();
             Type fieldType = typeManager.getType(namedTypeSignature.getTypeSignature());
             String name = namedTypeSignature.getName();
-            blocks[i] = readBlock(name, fieldType, path, new IntArrayList(), Optional.of(isNullAtRowNum), isMapKey);
+            // I gotta sent is map processing boolean , if it is map processing we append null only
+            // if the isNullAtRownum is not set, if its not map processing we always append null.
+            // We still need to figure out how we are going to handle actual null values.
+            blocks[i] = readBlock(name, fieldType, path, new IntArrayList(), Optional.of(isNullAtRowNum), isMapKey, isMapVal);
         }
 
         int blockSize = blocks[0].getPositionCount();
@@ -242,10 +245,10 @@ public class ParquetReader
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)
             throws IOException
     {
-        return readPrimitive(columnDescriptor, type, new IntArrayList(), Optional.of(new boolean[batchSize]), false);
+        return readPrimitive(columnDescriptor, type, new IntArrayList(), Optional.empty(), false, false);
     }
 
-    private Block readPrimitive(ColumnDescriptor columnDescriptor, Type type, IntList offsets, Optional<boolean[]> isNullAtRowNum, boolean isMapKey)
+    private Block readPrimitive(ColumnDescriptor columnDescriptor, Type type, IntList offsets, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal)
             throws IOException
     {
         ParquetColumnReader columnReader = columnReadersMap.get(columnDescriptor);
@@ -260,7 +263,7 @@ public class ParquetReader
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
-        return columnReader.readPrimitive(type, offsets, isNullAtRowNum, isMapKey);
+        return columnReader.readPrimitive(type, offsets, isNullAtRowNum, isMapKey, isMapVal);
     }
 
     private byte[] allocateBlock(int length)
@@ -291,7 +294,7 @@ public class ParquetReader
         }
     }
 
-    private Block readBlock(String name, Type type, List<String> path, IntList offsets, Optional<boolean[]> isNullAtRowNum, boolean isMapKey)
+    private Block readBlock(String name, Type type, List<String> path, IntList offsets, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal)
             throws IOException
     {
         path.add(name);
@@ -304,16 +307,16 @@ public class ParquetReader
         Block block;
         boolean[] isNullAtRow = isNullAtRowNum.orElse(new boolean[batchSize]);
         if (ROW.equals(type.getTypeSignature().getBase())) {
-            block = readStruct(type, path, offsets, isNullAtRow, isMapKey);
+            block = readStruct(type, path, offsets, isNullAtRow, isMapKey, isMapVal);
         }
         else if (MAP.equals(type.getTypeSignature().getBase())) {
             block = readMap(type, path, offsets, isNullAtRow);
         }
         else if (ARRAY.equals(type.getTypeSignature().getBase())) {
-            block = readArray(type, path, offsets, isNullAtRow, isMapKey);
+            block = readArray(type, path, offsets, isNullAtRow, isMapKey, isMapVal);
         }
         else {
-            block = readPrimitive(descriptor.get(), type, offsets, isNullAtRowNum, isMapKey);
+            block = readPrimitive(descriptor.get(), type, offsets, isNullAtRowNum, isMapKey, isMapVal);
         }
         path.remove(name);
         return block;
