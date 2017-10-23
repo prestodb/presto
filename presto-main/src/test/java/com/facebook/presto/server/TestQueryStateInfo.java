@@ -213,6 +213,7 @@ public class TestQueryStateInfo
         assertEquals(progress.getCpuTimeMillis(), Duration.valueOf("24m").toMillis());
         assertEquals(progress.getScheduledTimeMillis(), Duration.valueOf("23m").toMillis());
         assertEquals(progress.getBlockedTimeMillis(), Duration.valueOf("26m").toMillis());
+        assertEquals(progress.getCurrentMemoryBytes(), DataSize.valueOf("21GB").toBytes());
         assertEquals(progress.getPeakMemoryBytes(), DataSize.valueOf("22GB").toBytes());
         assertEquals(progress.getInputRows(), 28);
         assertEquals(progress.getInputBytes(), DataSize.valueOf("27GB").toBytes());

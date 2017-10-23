@@ -34,6 +34,7 @@ public class TestQueryProgressStats
                 22222,
                 3333,
                 444,
+                100000,
                 34230492,
                 1000,
                 100000,
@@ -50,6 +51,7 @@ public class TestQueryProgressStats
         assertEquals(actual.getCpuTimeMillis(), 22222);
         assertEquals(actual.getScheduledTimeMillis(), 3333);
         assertEquals(actual.getBlockedTimeMillis(), 444);
+        assertEquals(actual.getCurrentMemoryBytes(), 100000);
         assertEquals(actual.getPeakMemoryBytes(), 34230492);
         assertEquals(actual.getInputRows(), 1000);
         assertEquals(actual.getInputBytes(), 100000);
