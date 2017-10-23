@@ -19,6 +19,7 @@ import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.TransformWork;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
@@ -44,13 +45,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryHashAggregationBuilder
@@ -463,40 +462,5 @@ public class InMemoryHashAggregationBuilder
             types.add(new Aggregator(factory, step, Optional.empty()).getType());
         }
         return types.build();
-    }
-
-    private static class TransformWork<I, O>
-            implements Work<O>
-    {
-        private final Work<I> prerequisite;
-        private final Function<I, O> transform;
-
-        private boolean finished;
-        private O result;
-
-        public TransformWork(Work<I> prerequisite, Function<I, O> transform)
-        {
-            this.prerequisite = requireNonNull(prerequisite, "prerequisite is null");
-            this.transform = requireNonNull(transform, "transform is null");
-        }
-
-        @Override
-        public boolean process()
-        {
-            checkState(!finished);
-            finished = prerequisite.process();
-            if (!finished) {
-                return false;
-            }
-            result = transform.apply(prerequisite.getResult());
-            return true;
-        }
-
-        @Override
-        public O getResult()
-        {
-            checkState(finished, "process has not finished");
-            return result;
-        }
     }
 }
