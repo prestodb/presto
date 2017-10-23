@@ -87,7 +87,7 @@ public class NodePartitioningManager
 
             bucketFunction = partitioningProvider.getBucketFunction(
                     partitioningHandle.getTransactionHandle().orElse(null),
-                    session.toConnectorSession(),
+                    session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                     partitioningHandle.getConnectorHandle(),
                     partitionChannelTypes,
                     bucketToPartition.get().length);
@@ -111,7 +111,7 @@ public class NodePartitioningManager
 
         Map<Integer, Node> bucketToNode = partitioningProvider.getBucketToNode(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle());
         checkArgument(bucketToNode != null, "No partition map %s", partitioningHandle);
         checkArgument(!bucketToNode.isEmpty(), "Partition map %s is empty", partitioningHandle);
@@ -138,7 +138,7 @@ public class NodePartitioningManager
 
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
