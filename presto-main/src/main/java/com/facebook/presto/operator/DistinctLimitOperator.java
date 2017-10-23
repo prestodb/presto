@@ -18,12 +18,14 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -96,13 +98,17 @@ public class DistinctLimitOperator
     private final List<Type> types;
 
     private final PageBuilder pageBuilder;
-    private Page outputPage;
+    private Page inputPage;
     private long remainingLimit;
 
     private boolean finishing;
 
     private final GroupByHash groupByHash;
     private long nextDistinctId;
+
+    // for yield when memory is not available
+    private GroupByIdBlock groupByIds;
+    private Work<GroupByIdBlock> unfinishedWork;
 
     public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler)
     {
@@ -117,12 +123,13 @@ public class DistinctLimitOperator
             distinctTypes.add(types.get(channel));
         }
         this.groupByHash = createGroupByHash(
-                operatorContext.getSession(),
                 distinctTypes.build(),
                 Ints.toArray(distinctChannels),
                 hashChannel,
                 Math.min((int) limit, 10_000),
-                joinCompiler);
+                isDictionaryAggregationEnabled(operatorContext.getSession()),
+                joinCompiler,
+                this::updateMemoryReservation);
         this.pageBuilder = new PageBuilder(types);
         remainingLimit = limit;
     }
@@ -149,35 +156,45 @@ public class DistinctLimitOperator
     @Override
     public boolean isFinished()
     {
-        return (finishing && outputPage == null) || (remainingLimit == 0 && outputPage == null);
+        return !hasUnfinishedInput() && (finishing || remainingLimit == 0);
     }
 
     @Override
     public boolean needsInput()
     {
-        operatorContext.setMemoryReservation(groupByHash.getEstimatedSize());
-        return !finishing && remainingLimit > 0 && outputPage == null;
+        return !finishing && remainingLimit > 0 && !hasUnfinishedInput();
     }
 
     @Override
     public void addInput(Page page)
     {
         checkState(needsInput());
-        operatorContext.setMemoryReservation(groupByHash.getEstimatedSize());
 
-        pageBuilder.reset();
+        inputPage = page;
+        unfinishedWork = groupByHash.getGroupIds(page);
+        processUnfinishedWork();
+        updateMemoryReservation();
+    }
 
-        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
-        boolean done = work.process();
-        // TODO: this class does not yield wrt memory limit; enable it
-        verify(done);
-        GroupByIdBlock ids = work.getResult();
-        for (int position = 0; position < ids.getPositionCount(); position++) {
-            if (ids.getGroupId(position) == nextDistinctId) {
+    @Override
+    public Page getOutput()
+    {
+        if (unfinishedWork != null && !processUnfinishedWork()) {
+            return null;
+        }
+
+        if (groupByIds == null) {
+            return null;
+        }
+
+        verify(pageBuilder.getPositionCount() == 0);
+        verify(inputPage != null);
+        for (int position = 0; position < groupByIds.getPositionCount(); position++) {
+            if (groupByIds.getGroupId(position) == nextDistinctId) {
                 pageBuilder.declarePosition();
                 for (int channel = 0; channel < types.size(); channel++) {
                     Type type = types.get(channel);
-                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                    type.appendTo(inputPage.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
                 }
                 remainingLimit--;
                 nextDistinctId++;
@@ -186,16 +203,55 @@ public class DistinctLimitOperator
                 }
             }
         }
+        groupByIds = null;
+        inputPage = null;
+
+        Page result = null;
         if (!pageBuilder.isEmpty()) {
-            outputPage = pageBuilder.build();
+            result = pageBuilder.build();
+            pageBuilder.reset();
         }
+
+        updateMemoryReservation();
+        return result;
     }
 
-    @Override
-    public Page getOutput()
+    private boolean processUnfinishedWork()
     {
-        Page result = outputPage;
-        outputPage = null;
-        return result;
+        verify(unfinishedWork != null);
+        if (!unfinishedWork.process()) {
+            return false;
+        }
+        groupByIds = unfinishedWork.getResult();
+        unfinishedWork = null;
+        return true;
+    }
+
+    private boolean hasUnfinishedInput()
+    {
+        return inputPage != null || unfinishedWork != null;
+    }
+
+    /**
+     * Update memory usage.
+     *
+     * @return true if the reservation is within the limit
+     */
+    // TODO: update in the interface after the new memory tracking framework is landed (#9049)
+    // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
+    // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
+    private boolean updateMemoryReservation()
+    {
+        // Operator/driver will be blocked on memory after we call setMemoryReservation.
+        // If memory is not available, once we return, this operator will be blocked until memory is available.
+        operatorContext.setMemoryReservation(groupByHash.getEstimatedSize());
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
+    }
+
+    @VisibleForTesting
+    public int getCapacity()
+    {
+        return groupByHash.getCapacity();
     }
 }

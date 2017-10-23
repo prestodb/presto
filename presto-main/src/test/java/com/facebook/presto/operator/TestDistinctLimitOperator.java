@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -26,18 +27,24 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestDistinctLimitOperator
@@ -63,6 +70,12 @@ public class TestDistinctLimitOperator
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
+    }
+
+    @DataProvider
+    public Object[][] dataType()
+    {
+        return new Object[][] {{VARCHAR}, {BIGINT}};
     }
 
     @DataProvider(name = "hashEnabledValues")
@@ -135,5 +148,25 @@ public class TestDistinctLimitOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test(dataProvider = "dataType")
+    public void testMemoryReservationYield(Type type)
+    {
+        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
+
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(type),
+                ImmutableList.of(0),
+                Integer.MAX_VALUE,
+                Optional.of(1),
+                joinCompiler);
+
+        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 170_000);
+        assertGreaterThan(result.getYieldCount(), 5);
+        assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
+        assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 5_000 * 500);
     }
 }
