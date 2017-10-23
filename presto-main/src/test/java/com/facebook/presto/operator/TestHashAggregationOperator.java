@@ -16,8 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.memory.AggregatedMemoryContext;
-import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
@@ -25,14 +23,11 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -62,9 +57,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.GroupByHashYieldResult;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static com.facebook.presto.operator.OperatorAssertion.dropChannel;
-import static com.facebook.presto.operator.OperatorAssertion.finishOperator;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.OperatorAssertion.without;
@@ -83,11 +80,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThan;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -95,8 +89,6 @@ import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -393,149 +385,36 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "dataType")
     public void testMemoryReservationYield(Type type)
     {
-        // create pages with sizes doubling so that we can enforce at least one rehash for every new page added
-        List<Integer> hashChannels = Ints.asList(0);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(true, hashChannels, type);
-        int length = 500;
-        int expectedPositionCount = 0;
-        for (int i = 0; i < 5_000; i++) {
-            expectedPositionCount += length;
-            rowPagesBuilder.addSequencePage(length, length * i);
-        }
-        List<Page> input = rowPagesBuilder.build();
+        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
+        OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                        0,
+                        new PlanNodeId("test"),
+                        ImmutableList.of(type),
+                        ImmutableList.of(0),
+                        ImmutableList.of(),
+                        Step.SINGLE,
+                        ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
+                        Optional.of(1),
+                        Optional.empty(),
+                        1,
+                        new DataSize(16, MEGABYTE),
+                        joinCompiler);
 
-        // mock an adjustable memory pool
-        QueryId queryId = new QueryId("test_query");
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        QueryContext queryContext = new QueryContext(
-                queryId,
-                new DataSize(512, MEGABYTE),
-                memoryPool,
-                new MemoryPool(new MemoryPoolId("test-system"), new DataSize(512, MEGABYTE)),
-                executor,
-                scheduledExecutor,
-                new DataSize(512, MEGABYTE),
-                new SpillSpaceTracker(new DataSize(512, MEGABYTE)));
+        // get result with yield; pick a relatively small buffer for aggregator's memory usage
+        GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, this::getHashCapacity, 350_000);
+        assertGreaterThan(result.getYieldCount(), 5);
+        assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
 
-        DriverContext driverContext = createTaskContext(queryContext, executor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
-                .addDriverContext();
-
-        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                ImmutableList.of(type),
-                hashChannels,
-                ImmutableList.of(),
-                Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
-                rowPagesBuilder.getHashChannel(),
-                Optional.empty(),
-                1,
-                new DataSize(16, MEGABYTE),
-                joinCompiler);
-
-        // Pick a relatively small buffer for aggregator's memory usage
-        long maxAggregatorMemoryInBytes = 350_000;
-
-        // test operator behavior
-        int yieldCount = 0;
-        long expectedReservedExtraBytes = 0;
-        Operator operator = operatorFactory.createOperator(driverContext);
-        for (Page page : input) {
-            // unblocked
-            assertTrue(operator.needsInput());
-
-            // saturate the pool with a tiny memory left for aggregator (not GroupByHash)
-            long reservedMemoryInBytes = memoryPool.getFreeBytes() - maxAggregatorMemoryInBytes;
-            memoryPool.reserve(queryId, reservedMemoryInBytes);
-
-            long oldMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-            int oldCapacity = getHashCapacity(operator);
-
-            // add a page and verify different behaviors
-            operator.addInput(page);
-
-            long newMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-
-            // We are below the 1MB GUARANTEED_MEMORY limit (also need some buffer for aggregator).
-            // For such cases, the operator is blocked by memory
-            if (newMemoryUsage < (1 << 20) + maxAggregatorMemoryInBytes) {
-                // assert non-blocking
-                assertTrue(operator.needsInput());
-                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
-                // free the pool for the next iteration
-                memoryPool.free(queryId, reservedMemoryInBytes);
-                continue;
-            }
-
-            long actualIncreasedMemory = newMemoryUsage - oldMemoryUsage;
-
-            if (operator.needsInput()) {
-                // We have successfully added a page
-
-                // Assert we are not blocked
-                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
-
-                // assert the hash capacity is not changed; otherwise, we should have yielded
-                assertTrue(oldCapacity == getHashCapacity(operator));
-
-                // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
-                assertLessThan(actualIncreasedMemory, maxAggregatorMemoryInBytes);
-
-                // free the pool for the next iteration
-                memoryPool.free(queryId, reservedMemoryInBytes);
-            }
-            else {
-                // We failed to finish the page processing i.e. we yielded
-                yieldCount++;
-
-                // Assert we are blocked
-                assertFalse(operator.getOperatorContext().isWaitingForMemory().isDone());
-
-                // Hash table capacity should not change
-                assertEquals(oldCapacity, getHashCapacity(operator));
-
-                // Increased memory is no smaller than the hash table size and no greater than the hash table size + the memory used by aggregator
-                if (type == VARCHAR) {
-                    // groupAddressByHash, groupIdsByHash, and rawHashByHashPosition double by hashCapacity; while groupAddressByGroupId double by maxFill = hashCapacity / 0.75
-                    expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES + Byte.BYTES) + page.getRetainedSizeInBytes();
-                }
-                else {
-                    // groupIds and values double by hashCapacity; while valuesByGroupId double by maxFill = hashCapacity / 0.75
-                    expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES) + page.getRetainedSizeInBytes();
-                }
-                assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, expectedReservedExtraBytes + maxAggregatorMemoryInBytes);
-
-                // Output should be blocked as well
-                assertNull(operator.getOutput());
-
-                // Free the pool to unblock
-                memoryPool.free(queryId, reservedMemoryInBytes);
-
-                // Trigger a process
-                operator.getOutput();
-
-                // Hash table capacity has increased
-                assertGreaterThan(getHashCapacity(operator), oldCapacity);
-
-                // Assert the estimated reserved memory before rehash is very close to the one after rehash
-                long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-                assertBetweenInclusive(rehashedMemoryUsage * 1.0 / newMemoryUsage, 0.99, 1.01);
-
-                // unblocked
-                assertTrue(operator.needsInput());
+        int count = 0;
+        for (Page page : result.getOutput()) {
+            // value + hash + aggregation result
+            assertEquals(page.getChannelCount(), 3);
+            for (int i = 0; i < page.getPositionCount(); i++) {
+                assertEquals(page.getBlock(2).getLong(i, 0), 1);
+                count++;
             }
         }
-        // Assert we both have yielded for couple of times
-        assertGreaterThan(yieldCount, 5);
-
-        // Assert expectedReservedExtraBytes >> maxAggregatorMemoryInBytes
-        assertGreaterThan(expectedReservedExtraBytes, 20L << 20);
-
-        // we have the same number of counts
-        int actualPositionCount = finishOperator(operator).stream().mapToInt(Page::getPositionCount).sum();
-        assertEquals(expectedPositionCount, actualPositionCount);
+        assertEquals(count, 5_000 * 500);
     }
 
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 3MB")
@@ -804,7 +683,7 @@ public class TestHashAggregationOperator
                 .addDriverContext();
     }
 
-    private static int getHashCapacity(Operator operator)
+    private int getHashCapacity(Operator operator)
     {
         assertTrue(operator instanceof HashAggregationOperator);
         HashAggregationBuilder aggregationBuilder = ((HashAggregationOperator) operator).getAggregationBuilder();
