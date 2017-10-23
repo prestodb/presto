@@ -69,6 +69,7 @@ public class TestResourceGroupStateInfo
                                 1541,
                                 566038,
                                 1680000,
+                                0,
                                 24,
                                 124539,
                                 8283750,
@@ -120,6 +121,7 @@ public class TestResourceGroupStateInfo
         assertEquals(progressStats.getCpuTimeMillis(), 1541);
         assertEquals(progressStats.getScheduledTimeMillis(), 566038);
         assertEquals(progressStats.getBlockedTimeMillis(), 1680000);
+        assertEquals(progressStats.getCurrentMemoryBytes(), 0);
         assertEquals(progressStats.getPeakMemoryBytes(), 24);
         assertEquals(progressStats.getInputRows(), 124539);
         assertEquals(progressStats.getInputBytes(), 8283750);
