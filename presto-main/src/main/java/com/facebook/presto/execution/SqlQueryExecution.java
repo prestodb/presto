@@ -28,6 +28,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -88,6 +89,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -126,6 +128,7 @@ public final class SqlQueryExecution
     private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
     private final ExecutorService queryExecutor;
+    private final ScheduledExecutorService schedulerExecutor;
     private final FailureDetector failureDetector;
 
     private final QueryExplainer queryExplainer;
@@ -156,6 +159,7 @@ public final class SqlQueryExecution
             LocationFactory locationFactory,
             int scheduleSplitBatchSize,
             ExecutorService queryExecutor,
+            ScheduledExecutorService schedulerExecutor,
             FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
             QueryExplainer queryExplainer,
@@ -176,6 +180,7 @@ public final class SqlQueryExecution
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+            this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
@@ -440,6 +445,7 @@ public final class SqlQueryExecution
                 plan.isSummarizeTaskInfos(),
                 scheduleSplitBatchSize,
                 queryExecutor,
+                schedulerExecutor,
                 failureDetector,
                 rootOutputBuffers,
                 nodeTaskMap,
@@ -633,7 +639,8 @@ public final class SqlQueryExecution
         private final QueryExplainer queryExplainer;
         private final PlanFlattener planFlattener;
         private final LocationFactory locationFactory;
-        private final ExecutorService executor;
+        private final ExecutorService queryExecutor;
+        private final ScheduledExecutorService schedulerExecutor;
         private final FailureDetector failureDetector;
         private final NodeTaskMap nodeTaskMap;
         private final Map<String, ExecutionPolicy> executionPolicies;
@@ -652,7 +659,8 @@ public final class SqlQueryExecution
                 PlanOptimizers planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
                 TransactionManager transactionManager,
-                @ForQueryExecution ExecutorService executor,
+                @ForQueryExecution ExecutorService queryExecutor,
+                @ForScheduler ScheduledExecutorService schedulerExecutor,
                 FailureDetector failureDetector,
                 NodeTaskMap nodeTaskMap,
                 QueryExplainer queryExplainer,
@@ -674,7 +682,8 @@ public final class SqlQueryExecution
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             requireNonNull(featuresConfig, "featuresConfig is null");
-            this.executor = requireNonNull(executor, "executor is null");
+            this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+            this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
@@ -710,7 +719,8 @@ public final class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,
-                    executor,
+                    queryExecutor,
+                    schedulerExecutor,
                     failureDetector,
                     nodeTaskMap,
                     queryExplainer,

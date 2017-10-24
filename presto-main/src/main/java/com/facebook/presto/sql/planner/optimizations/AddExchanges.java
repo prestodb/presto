@@ -109,6 +109,7 @@ import static com.facebook.presto.sql.planner.FragmentTableScanCounter.countSour
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
@@ -192,6 +193,7 @@ public class AddExchanges
         private final boolean distributedIndexJoins;
         private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
+        private final boolean scaleWriters;
 
         public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
@@ -201,6 +203,7 @@ public class AddExchanges
             this.session = session;
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
+            this.scaleWriters = SystemSessionProperties.isScaleWriters(session);
             this.preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session);
         }
 
@@ -548,8 +551,13 @@ public class AddExchanges
             PlanWithProperties source = node.getSource().accept(this, context);
 
             Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
-            if (!partitioningScheme.isPresent() && redistributeWrites) {
-                partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+            if (!partitioningScheme.isPresent()) {
+                if (scaleWriters) {
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                }
+                else if (redistributeWrites) {
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                }
             }
 
             if (partitioningScheme.isPresent() && !source.getProperties().isNodePartitionedOn(partitioningScheme.get().getPartitioning(), false)) {

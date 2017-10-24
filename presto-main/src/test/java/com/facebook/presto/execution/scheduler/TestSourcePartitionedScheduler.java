@@ -93,7 +93,7 @@ public class TestSourcePartitionedScheduler
     public static final OutputBufferId OUT = new OutputBufferId(0);
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
+    private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
     private final LocationFactory locationFactory = new MockLocationFactory();
     private final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
@@ -116,7 +116,7 @@ public class TestSourcePartitionedScheduler
     @AfterClass(alwaysRun = true)
     public void destroyExecutor()
     {
-        executor.shutdownNow();
+        queryExecutor.shutdownNow();
         scheduledExecutor.shutdownNow();
         finalizerService.destroy();
     }
@@ -488,11 +488,11 @@ public class TestSourcePartitionedScheduler
         SqlStageExecution stage = new SqlStageExecution(stageId,
                 locationFactory.createStageLocation(stageId),
                 tableScanPlan.getFragment(),
-                new MockRemoteTaskFactory(executor, scheduledExecutor),
+                new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),
                 TEST_SESSION,
                 true,
                 nodeTaskMap,
-                executor,
+                queryExecutor,
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats());
 

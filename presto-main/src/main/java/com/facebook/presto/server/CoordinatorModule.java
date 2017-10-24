@@ -106,6 +106,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Use;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
@@ -118,6 +119,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
@@ -129,8 +131,8 @@ import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -209,6 +211,9 @@ public class CoordinatorModule
                     config.setMaxConnectionsPerServer(250);
                 });
 
+        binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
+                .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));
+
         // query execution
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
                 .toInstance(newCachedThreadPool(threadsNamed("query-execution-%s")));
@@ -286,18 +291,23 @@ public class CoordinatorModule
 
     public static class ExecutorCleanup
     {
-        private final ExecutorService executor;
+        private final List<ExecutorService> executors;
 
         @Inject
-        public ExecutorCleanup(@ForQueryExecution ExecutorService executor)
+        public ExecutorCleanup(
+                @ForQueryExecution ExecutorService queryExecutionExecutor,
+                @ForScheduler ScheduledExecutorService schedulerExecutor)
         {
-            this.executor = requireNonNull(executor, "executor is null");
+            executors = ImmutableList.<ExecutorService>builder()
+                    .add(queryExecutionExecutor)
+                    .add(schedulerExecutor)
+                    .build();
         }
 
         @PreDestroy
         public void shutdown()
         {
-            executor.shutdownNow();
+            executors.forEach(ExecutorService::shutdownNow);
         }
     }
 }

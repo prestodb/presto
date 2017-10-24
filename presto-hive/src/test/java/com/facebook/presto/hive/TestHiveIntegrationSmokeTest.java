@@ -1615,6 +1615,34 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testScaleWriters()
+    {
+        // small table that will only have one writer
+        assertUpdate(
+                Session.builder(getSession())
+                        .setSystemProperty("scale_writers", "true")
+                        .setSystemProperty("writer_min_size", "32MB")
+                        .build(),
+                "CREATE TABLE scale_writers_small AS SELECT * FROM tpch.tiny.orders",
+                (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
+
+        assertEquals(computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_small").getOnlyValue(), 1L);
+
+        // large table that will scale writers to all machines
+        assertUpdate(
+                Session.builder(getSession())
+                        .setSystemProperty("scale_writers", "true")
+                        .setSystemProperty("writer_min_size", "4MB")
+                        .build(),
+                "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf2.orders",
+                (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
+
+        assertEquals(
+                computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_large"),
+                computeActual("SELECT count(*) FROM system.runtime.nodes"));
+    }
+
+    @Test
     public void testShowCreateTable()
             throws Exception
     {

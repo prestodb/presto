@@ -25,6 +25,7 @@ import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -44,6 +45,8 @@ public class TestFeaturesConfig
                 .setColocatedJoinsEnabled(false)
                 .setJoinReorderingEnabled(true)
                 .setRedistributeWrites(true)
+                .setScaleWriters(false)
+                .setWriterMinSize(new DataSize(32, MEGABYTE))
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeHashGeneration(true)
                 .setOptimizeSingleDistinct(true)
@@ -92,6 +95,8 @@ public class TestFeaturesConfig
                 .put("colocated-joins-enabled", "true")
                 .put("reorder-joins", "false")
                 .put("redistribute-writes", "false")
+                .put("scale-writers", "true")
+                .put("writer-min-size", "42GB")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
@@ -129,6 +134,8 @@ public class TestFeaturesConfig
                 .setColocatedJoinsEnabled(true)
                 .setJoinReorderingEnabled(false)
                 .setRedistributeWrites(false)
+                .setScaleWriters(true)
+                .setWriterMinSize(new DataSize(42, GIGABYTE))
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeSingleDistinct(false)
