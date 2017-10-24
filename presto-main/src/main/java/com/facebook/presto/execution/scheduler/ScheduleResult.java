@@ -28,6 +28,7 @@ public class ScheduleResult
 {
     public enum BlockedReason
     {
+        WRITER_SCALING,
         SPLIT_QUEUES_FULL,
         WAITING_FOR_SOURCE
     }

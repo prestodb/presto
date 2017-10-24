@@ -54,6 +54,8 @@ public final class SystemSessionProperties
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
+    public static final String SCALE_WRITERS = "scale_writers";
+    public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
@@ -152,6 +154,20 @@ public final class SystemSessionProperties
                         "Force parallel distributed writes",
                         featuresConfig.isRedistributeWrites(),
                         false),
+                booleanSessionProperty(
+                        SCALE_WRITERS,
+                        "Scale out writers based on throughput (use minimum necessary)",
+                        featuresConfig.isScaleWriters(),
+                        false),
+                new PropertyMetadata<>(
+                        WRITER_MIN_SIZE,
+                        "Target minimum size of writer output when scaling writers",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getWriterMinSize(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
                 booleanSessionProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
@@ -413,6 +429,16 @@ public final class SystemSessionProperties
     public static boolean isRedistributeWrites(Session session)
     {
         return session.getSystemProperty(REDISTRIBUTE_WRITES, Boolean.class);
+    }
+
+    public static boolean isScaleWriters(Session session)
+    {
+        return session.getSystemProperty(SCALE_WRITERS, Boolean.class);
+    }
+
+    public static DataSize getWriterMinSize(Session session)
+    {
+        return session.getSystemProperty(WRITER_MIN_SIZE, DataSize.class);
     }
 
     public static boolean isPushTableWriteThroughUnion(Session session)
