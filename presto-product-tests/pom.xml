@@ -24,6 +24,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.presto.hadoop</groupId>
+                    <artifactId>hadoop-apache2</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.teradata.tempto</groupId>

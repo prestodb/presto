@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.security.authentication.util.KerberosName;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,6 +37,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
@@ -46,10 +48,13 @@ public class FileBasedSystemAccessControl
     public static final String NAME = "file";
 
     private final List<CatalogAccessControlRule> catalogRules;
+    private final List<ImpersonateAccessControlRule> impersonateRules;
 
-    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules)
+    private FileBasedSystemAccessControl(List<CatalogAccessControlRule> catalogRules,
+                                         List<ImpersonateAccessControlRule> impersonateRules)
     {
         this.catalogRules = catalogRules;
+        this.impersonateRules = impersonateRules;
     }
 
     public static class Factory
@@ -79,12 +84,16 @@ public class FileBasedSystemAccessControl
                     path = path.toAbsolutePath();
                 }
                 path.toFile().canRead();
-
+                KerberosName.setRules("DEFAULT");
+                FileBasedSystemAccessControlRules rules = jsonCodec(FileBasedSystemAccessControlRules.class)
+                        .fromJson(Files.readAllBytes(path));
                 ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
                 catalogRulesBuilder.addAll(jsonCodec(FileBasedSystemAccessControlRules.class)
                         .fromJson(Files.readAllBytes(path))
                         .getCatalogRules());
-
+                catalogRulesBuilder.addAll(rules.getCatalogRules());
+                ImmutableList.Builder<ImpersonateAccessControlRule> impersonateRulesBuilder = ImmutableList.builder();
+                impersonateRulesBuilder.addAll(rules.getImpersonateRules());
                 // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
                 // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
                 catalogRulesBuilder.add(new CatalogAccessControlRule(
@@ -92,7 +101,7 @@ public class FileBasedSystemAccessControl
                         Optional.of(Pattern.compile(".*")),
                         Optional.of(Pattern.compile("system"))));
 
-                return new FileBasedSystemAccessControl(catalogRulesBuilder.build());
+                return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), impersonateRulesBuilder.build());
             }
             catch (SecurityException | IOException | InvalidPathException e) {
                 throw new RuntimeException(e);
@@ -103,6 +112,9 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
+        if (!canImpersonate(principal, userName)) {
+            denySetUser(principal, userName);
+        }
     }
 
     @Override
@@ -141,6 +153,25 @@ public class FileBasedSystemAccessControl
         return false;
     }
 
+    private boolean canImpersonate(Principal principal, String user)
+    {
+        try {
+            String shortName = new KerberosName(principal.getName()).getShortName();
+            if (shortName.equals(user)) {
+                return true;
+            }
+            for (ImpersonateAccessControlRule rule : impersonateRules) {
+                Optional<Boolean> allowed = rule.match(shortName, user);
+                if (allowed.isPresent()) {
+                    return allowed.get();
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return false;
+    }
     @Override
     public void checkCanCreateSchema(Identity identity, CatalogSchemaName schema)
     {
