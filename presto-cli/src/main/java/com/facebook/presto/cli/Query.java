@@ -95,7 +95,7 @@ public class Query
 
     public String getStartedTransactionId()
     {
-        return client.getStartedtransactionId();
+        return client.getStartedTransactionId();
     }
 
     public boolean isClearTransactionId()

@@ -654,8 +654,8 @@ public class PrestoConnection
         client.getSetCatalog().ifPresent(catalog::set);
         client.getSetSchema().ifPresent(schema::set);
 
-        if (client.getStartedtransactionId() != null) {
-            transactionId.set(client.getStartedtransactionId());
+        if (client.getStartedTransactionId() != null) {
+            transactionId.set(client.getStartedTransactionId());
         }
         if (client.isClearTransactionId()) {
             transactionId.set(null);
