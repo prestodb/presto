@@ -29,6 +29,7 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -345,7 +346,7 @@ public class PipelineContext
 
     public PipelineStatus getPipelineStatus()
     {
-        return getPipelineStatus(ImmutableList.copyOf(drivers));
+        return getPipelineStatus(drivers.iterator());
     }
 
     public PipelineStats getPipelineStats()
@@ -359,7 +360,7 @@ public class PipelineContext
         }
 
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
-        PipelineStatus pipelineStatus = getPipelineStatus(driverContexts);
+        PipelineStatus pipelineStatus = getPipelineStatus(driverContexts.iterator());
 
         int totalDriers = completedDrivers.get() + driverContexts.size();
         int completedDrivers = this.completedDrivers.get();
@@ -499,14 +500,15 @@ public class PipelineContext
         return map.replace(key, oldValue, newValue);
     }
 
-    private PipelineStatus getPipelineStatus(List<DriverContext> driverContexts)
+    private static PipelineStatus getPipelineStatus(Iterator<DriverContext> driverContextsIterator)
     {
         int queuedDrivers = 0;
         int runningDrivers = 0;
         int blockedDrivers = 0;
         int queuedPartitionedDrivers = 0;
         int runningPartitionedDrivers = 0;
-        for (DriverContext driverContext : driverContexts) {
+        while (driverContextsIterator.hasNext()) {
+            DriverContext driverContext = driverContextsIterator.next();
             if (!driverContext.isExecutionStarted()) {
                 queuedDrivers++;
                 if (driverContext.isPartitioned()) {
