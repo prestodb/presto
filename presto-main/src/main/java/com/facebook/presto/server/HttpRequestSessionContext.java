@@ -60,6 +60,8 @@ import static java.lang.String.format;
 public final class HttpRequestSessionContext
         implements SessionContext
 {
+    private static final Splitter DOT_SPLITTER = Splitter.on('.');
+
     private final String catalog;
     private final String schema;
 
@@ -106,7 +108,7 @@ public final class HttpRequestSessionContext
         for (Entry<String, String> entry : parseSessionHeaders(servletRequest).entrySet()) {
             String fullPropertyName = entry.getKey();
             String propertyValue = entry.getValue();
-            List<String> nameParts = Splitter.on('.').splitToList(fullPropertyName);
+            List<String> nameParts = DOT_SPLITTER.splitToList(fullPropertyName);
             if (nameParts.size() == 1) {
                 String propertyName = nameParts.get(0);
 
@@ -265,7 +267,7 @@ public final class HttpRequestSessionContext
 
     private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest)
     {
-        Map<String, String> preparedStatements = new HashMap<>();
+        ImmutableMap.Builder<String, String> preparedStatements = ImmutableMap.builder();
         for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
             List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
             assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
@@ -291,7 +293,7 @@ public final class HttpRequestSessionContext
 
             preparedStatements.put(statementName, sqlString);
         }
-        return preparedStatements;
+        return preparedStatements.build();
     }
 
     private static Optional<TransactionId> parseTransactionId(String transactionId)
