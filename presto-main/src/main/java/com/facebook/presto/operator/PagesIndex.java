@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -74,18 +75,25 @@ public class PagesIndex
     private final List<Type> types;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Block>[] channels;
+    private final boolean eagerCompact;
 
     private int nextBlockToCompact;
     private int positionCount;
     private long pagesMemorySize;
     private long estimatedSize;
 
-    private PagesIndex(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, List<Type> types, int expectedPositions)
+    private PagesIndex(
+            OrderingCompiler orderingCompiler,
+            JoinCompiler joinCompiler,
+            List<Type> types,
+            int expectedPositions,
+            boolean eagerCompact)
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
+        this.eagerCompact = eagerCompact;
 
         //noinspection rawtypes
         channels = (ObjectArrayList<Block>[]) new ObjectArrayList[types.size()];
@@ -106,11 +114,17 @@ public class PagesIndex
     {
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
         private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+        private final boolean eagerCompact;
+
+        public TestingFactory(boolean eagerCompact)
+        {
+            this.eagerCompact = eagerCompact;
+        }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, types, expectedPositions);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -119,18 +133,20 @@ public class PagesIndex
     {
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
+        private final boolean eagerCompact;
 
         @Inject
-        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler)
+        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig)
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, types, expectedPositions);
+            return new PagesIndex(orderingCompiler, joinCompiler, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -181,6 +197,9 @@ public class PagesIndex
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
+            if (eagerCompact) {
+                block = block.copyRegion(0, block.getPositionCount());
+            }
             channels[i].add(block);
             pagesMemorySize += block.getRetainedSizeInBytes();
         }
@@ -189,7 +208,6 @@ public class PagesIndex
             long sliceAddress = encodeSyntheticAddress(pageIndex, position);
             valueAddresses.add(sliceAddress);
         }
-
         estimatedSize = calculateEstimatedSize();
     }
 
@@ -200,6 +218,9 @@ public class PagesIndex
 
     public void compact()
     {
+        if (eagerCompact) {
+            return;
+        }
         for (int channel = 0; channel < types.size(); channel++) {
             ObjectArrayList<Block> blocks = channels[channel];
             for (int i = nextBlockToCompact; i < blocks.size(); i++) {

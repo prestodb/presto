@@ -67,7 +67,7 @@ public class HashBuildBenchmark
                 ImmutableList.of(),
                 1_500_000,
                 1,
-                new PagesIndex.TestingFactory(),
+                new PagesIndex.TestingFactory(false),
                 false,
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
         DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty());

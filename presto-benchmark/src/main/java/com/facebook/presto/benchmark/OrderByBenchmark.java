@@ -51,7 +51,7 @@ public class OrderByBenchmark
                 ROWS,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory());
+                new PagesIndex.TestingFactory(false));
 
         return ImmutableList.of(tableScanOperator, limitOperator, orderByOperator);
     }

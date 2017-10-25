@@ -296,7 +296,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 ImmutableList.of(),
                 10_000,
                 1,
-                new PagesIndex.TestingFactory(),
+                new PagesIndex.TestingFactory(false),
                 false,
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
 

@@ -148,7 +148,7 @@ public final class TaskTestUtils
                     throw new UnsupportedOperationException();
                 },
                 new TestingBlockEncodingSerde(new TestingTypeManager()),
-                new PagesIndex.TestingFactory(),
+                new PagesIndex.TestingFactory(false),
                 new JoinCompiler(),
                 new LookupJoinOperators(new JoinProbeCompiler()));
     }
