@@ -15,7 +15,8 @@ package com.facebook.presto.redis.util;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.Column;
-import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryData;
+import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -95,16 +96,16 @@ public class RedisLoader
         }
 
         @Override
-        public void addResults(QueryResults results)
+        public void addResults(QueryStatusInfo statusInfo, QueryData data)
         {
-            if (types.get() == null && results.getColumns() != null) {
-                types.set(getTypes(results.getColumns()));
+            if (types.get() == null && statusInfo.getColumns() != null) {
+                types.set(getTypes(statusInfo.getColumns()));
             }
 
-            if (results.getData() != null) {
+            if (data.getData() != null) {
                 checkState(types.get() != null, "Data without types received!");
-                List<Column> columns = results.getColumns();
-                for (List<Object> fields : results.getData()) {
+                List<Column> columns = statusInfo.getColumns();
+                for (List<Object> fields : data.getData()) {
                     String redisKey = tableName + ":" + count.getAndIncrement();
 
                     try (Jedis jedis = jedisPool.getResource()) {

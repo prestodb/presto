@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cli;
 
-import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -72,7 +72,7 @@ public class TableNameCompleter
         ImmutableList.Builder<String> cache = ImmutableList.builder();
         try (StatementClient client = queryRunner.startInternalQuery(query)) {
             while (client.isValid() && !Thread.currentThread().isInterrupted()) {
-                QueryResults results = client.current();
+                QueryData results = client.currentData();
                 if (results.getData() != null) {
                     for (List<Object> row : results.getData()) {
                         cache.add((String) row.get(0));
