@@ -23,18 +23,15 @@ import io.airlift.log.Logger;
 import javax.inject.Inject;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Maps.fromProperties;
-import static java.util.Objects.requireNonNull;
 
 public class StaticCatalogStore
 {
@@ -109,17 +106,5 @@ public class StaticCatalogStore
             }
         }
         return ImmutableList.of();
-    }
-
-    private static Map<String, String> loadProperties(File file)
-            throws Exception
-    {
-        requireNonNull(file, "file is null");
-
-        Properties properties = new Properties();
-        try (FileInputStream in = new FileInputStream(file)) {
-            properties.load(in);
-        }
-        return fromProperties(properties);
     }
 }
