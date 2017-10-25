@@ -95,14 +95,6 @@ public class PrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
-    private static final int YEAR_FIELD = 0;
-    private static final int MONTH_FIELD = 1;
-    private static final int DAY_FIELD = 3;
-    private static final int HOUR_FIELD = 4;
-    private static final int MINUTE_FIELD = 5;
-    private static final int SECOND_FIELD = 6;
-    private static final int MILLIS_FIELD = 7;
-
     private final StatementClient client;
     private final DateTimeZone sessionTimeZone;
     private final String queryId;
