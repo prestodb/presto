@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -81,14 +81,12 @@ public abstract class AbstractTestingPrestoClient<T>
 
         try (StatementClient client = new StatementClient(httpClient, clientSession, sql)) {
             while (client.isValid()) {
-                QueryResults results = client.current();
-
-                resultsSession.addResults(results);
+                resultsSession.addResults(client.currentStatusInfo(), client.currentData());
                 client.advance();
             }
 
             if (!client.isFailed()) {
-                QueryResults results = client.finalResults();
+                QueryStatusInfo results = client.finalStatusInfo();
                 if (results.getUpdateType() != null) {
                     resultsSession.setUpdateType(results.getUpdateType());
                 }
@@ -100,7 +98,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 return new ResultWithQueryId<>(results.getId(), result);
             }
 
-            QueryError error = client.finalResults().getError();
+            QueryError error = client.finalStatusInfo().getError();
             verify(error != null, "no error");
             if (error.getFailureInfo() != null) {
                 throw error.getFailureInfo().toException();

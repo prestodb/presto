@@ -234,14 +234,14 @@ public class PrestoStatement
         try {
             client = connection().startQuery(sql, getStatementSessionProperties());
             if (client.isFailed()) {
-                throw resultsException(client.finalResults());
+                throw resultsException(client.finalStatusInfo());
             }
             executingClient.set(client);
 
             resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer);
 
             // check if this is a query
-            if (client.current().getUpdateType() == null) {
+            if (client.currentStatusInfo().getUpdateType() == null) {
                 currentResult.set(resultSet);
                 return true;
             }
@@ -253,7 +253,7 @@ public class PrestoStatement
 
             connection().updateSession(client);
 
-            Long updateCount = client.finalResults().getUpdateCount();
+            Long updateCount = client.finalStatusInfo().getUpdateCount();
             currentUpdateCount.set((updateCount != null) ? updateCount : 0);
 
             return false;

@@ -71,7 +71,7 @@ public final class OutputHandler
             throws IOException
     {
         while (client.isValid()) {
-            Iterable<List<Object>> data = client.current().getData();
+            Iterable<List<Object>> data = client.currentData().getData();
             if (data != null) {
                 for (List<Object> row : data) {
                     processRow(unmodifiableList(row));
