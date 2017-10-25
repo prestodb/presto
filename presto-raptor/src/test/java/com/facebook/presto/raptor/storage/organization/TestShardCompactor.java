@@ -71,7 +71,7 @@ import static java.util.stream.Collectors.toSet;
 public class TestShardCompactor
 {
     private static final int MAX_SHARD_ROWS = 1000;
-    private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
+    private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
     private OrcStorageManager storageManager;

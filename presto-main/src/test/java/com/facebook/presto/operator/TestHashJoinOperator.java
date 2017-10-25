@@ -1074,7 +1074,7 @@ public class TestHashJoinOperator
                 ImmutableList.of(),
                 100,
                 partitionCount,
-                new PagesIndex.TestingFactory(),
+                new PagesIndex.TestingFactory(false),
                 spillEnabled,
                 singleStreamSpillerFactory);
         PipelineContext buildPipeline = taskContext.addPipelineContext(1, true, true);

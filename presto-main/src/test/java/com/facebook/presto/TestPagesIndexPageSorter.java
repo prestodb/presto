@@ -36,7 +36,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPagesIndexPageSorter
 {
-    private static final PagesIndexPageSorter sorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
+    private static final PagesIndexPageSorter sorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
     @Test
     public void testPageSorter()

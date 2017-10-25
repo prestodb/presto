@@ -76,7 +76,7 @@ public class HashJoinBenchmark
                     ImmutableList.of(),
                     1_500_000,
                     1,
-                    new PagesIndex.TestingFactory(),
+                    new PagesIndex.TestingFactory(false),
                     false,
                     SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
 

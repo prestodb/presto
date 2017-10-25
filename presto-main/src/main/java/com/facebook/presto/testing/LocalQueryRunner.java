@@ -285,7 +285,7 @@ public class LocalQueryRunner
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
-        this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
+        this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler());
         this.indexManager = new IndexManager();
         NodeScheduler nodeScheduler = new NodeScheduler(
@@ -639,7 +639,7 @@ public class LocalQueryRunner
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,
                 blockEncodingSerde,
-                new PagesIndex.TestingFactory(),
+                new PagesIndex.TestingFactory(false),
                 new JoinCompiler(),
                 new LookupJoinOperators(new JoinProbeCompiler()));
 

@@ -57,6 +57,7 @@ public class FeaturesConfig
     private boolean legacyMapSubscript;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
+    private boolean pagesIndexEagerCompactionEnabled;
 
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
@@ -469,6 +470,18 @@ public class FeaturesConfig
     public FeaturesConfig setForceSingleNodeOutput(boolean value)
     {
         this.forceSingleNodeOutput = value;
+        return this;
+    }
+
+    public boolean isPagesIndexEagerCompactionEnabled()
+    {
+        return pagesIndexEagerCompactionEnabled;
+    }
+
+    @Config("pages-index.eager-compaction-enabled")
+    public FeaturesConfig setPagesIndexEagerCompactionEnabled(boolean pagesIndexEagerCompactionEnabled)
+    {
+        this.pagesIndexEagerCompactionEnabled = pagesIndexEagerCompactionEnabled;
         return this;
     }
 }
