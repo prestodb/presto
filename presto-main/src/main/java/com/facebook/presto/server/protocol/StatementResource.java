@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientTypeSignature;
@@ -34,6 +34,9 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.server.ForStatementResource;
+import com.facebook.presto.server.HttpRequestSessionContext;
+import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
