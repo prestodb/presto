@@ -75,12 +75,12 @@
  row_number | bigint | | window | true | |
  sin | double | double | scalar | true | sine |
  sqrt | double | double | scalar | true | square root |
- stddev | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev | double | double | aggregate | true | Returns the variance of the argument |
- stddev_pop | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev_pop | double | double | aggregate | true | Returns the variance of the argument |
- stddev_samp | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev_samp | double | double | aggregate | true | Returns the variance of the argument |
+ stddev | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev | double | double | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev_pop | double | bigint | aggregate | true | Returns the population standard deviation of the argument |
+ stddev_pop | double | double | aggregate | true | Returns the population standard deviation of the argument |
+ stddev_samp | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev_samp | double | double | aggregate | true | Returns the sample standard deviation of the argument |
  sum | bigint | bigint | aggregate | true | |
  sum | double | double | aggregate | true | |
  tan | double | double | scalar | true | tangent |
