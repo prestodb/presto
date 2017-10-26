@@ -32,6 +32,8 @@ public class AccumuloConfig
     public static final String ZOOKEEPERS = "accumulo.zookeepers";
     public static final String USERNAME = "accumulo.username";
     public static final String PASSWORD = "accumulo.password";
+    public static final String KEYTAB = "accumulo.keytab";
+    public static final String AUTHMECH = "accumulo.authmech";
     public static final String ZOOKEEPER_METADATA_ROOT = "accumulo.zookeeper.metadata.root";
     public static final String CARDINALITY_CACHE_SIZE = "accumulo.cardinality.cache.size";
     public static final String CARDINALITY_CACHE_EXPIRE_DURATION = "accumulo.cardinality.cache.expire.duration";
@@ -40,6 +42,8 @@ public class AccumuloConfig
     private String zooKeepers;
     private String username;
     private String password;
+    private String keytab;
+    private String authmech = "plain";
     private String zkMetadataRoot = "/presto-accumulo";
     private int cardinalityCacheSize = 100_000;
     private Duration cardinalityCacheExpiration = new Duration(5, TimeUnit.MINUTES);
@@ -79,14 +83,13 @@ public class AccumuloConfig
     }
 
     @Config(USERNAME)
-    @ConfigDescription("Sets the user to use when interacting with Accumulo. This user will require administrative permissions")
+    @ConfigDescription("Sets the user or kerberos principal to use when interacting with Accumulo. This user will require administrative permissions")
     public AccumuloConfig setUsername(String username)
     {
         this.username = username;
         return this;
     }
 
-    @NotNull
     public String getPassword()
     {
         return this.password;
@@ -99,6 +102,32 @@ public class AccumuloConfig
     {
         this.password = password;
         return this;
+    }
+
+    public String getKeytab()
+    {
+        return this.keytab;
+    }
+
+    @Config(KEYTAB)
+    @ConfigDescription("Sets the path to keytab for kerberos authentication")
+    public AccumuloConfig setKeytab(String keytab)
+    {
+        this.keytab = keytab;
+        return this;
+    }
+
+    @NotNull
+    public String getAuthmech()
+    {
+        return authmech;
+    }
+
+    @Config(AUTHMECH)
+    @ConfigDescription("Sets the authentication mechanism for Accumulo")
+    public void setAuthmech(String authmech)
+    {
+        this.authmech = authmech;
     }
 
     @NotNull

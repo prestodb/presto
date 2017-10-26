@@ -37,7 +37,10 @@ import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
+import org.apache.accumulo.core.client.security.tokens.KerberosToken;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.log4j.JulAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.PatternLayout;
@@ -45,6 +48,9 @@ import org.apache.log4j.PatternLayout;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import java.io.IOException;
+
+import static com.facebook.presto.accumulo.AccumuloErrorCode.BAD_AUTH_CONFIG;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -138,6 +144,8 @@ public class AccumuloModule
         private final String zooKeepers;
         private final String username;
         private final String password;
+        private final String keytab;
+        private final String authmech;
 
         @Inject
         public ConnectorProvider(AccumuloConfig config)
@@ -147,18 +155,42 @@ public class AccumuloModule
             this.zooKeepers = config.getZooKeepers();
             this.username = config.getUsername();
             this.password = config.getPassword();
+            this.keytab = config.getKeytab();
+            this.authmech = config.getAuthmech();
         }
 
         @Override
         public Connector get()
         {
             try {
+                Connector connector;
                 Instance inst = new ZooKeeperInstance(instance, zooKeepers);
-                Connector connector = inst.getConnector(username, new PasswordToken(password.getBytes(UTF_8)));
+                switch (authmech) {
+                    case "kerberos":
+                        if (keytab.isEmpty()) {
+                            throw new PrestoException(BAD_AUTH_CONFIG,
+                                    "Bad configuration for selected authentication mechanism: no principal or keytab");
+                        }
+                        Configuration conf = new Configuration();
+                        conf.set("hadoop.security.authentication", "Kerberos");
+                        UserGroupInformation.setConfiguration(conf);
+                        UserGroupInformation.loginUserFromKeytab(username, keytab);
+                        KerberosToken token = new KerberosToken();
+                        connector = inst.getConnector(token.getPrincipal(), token);
+                        break;
+                    default:
+                        if (password.isEmpty()) {
+                            throw new PrestoException(BAD_AUTH_CONFIG,
+                                    "Bad configuration for selected authentication mechanism: no username or password");
+                        }
+                        connector = inst.getConnector(username, new PasswordToken(password.getBytes(UTF_8)));
+                        break;
+                }
+
                 LOG.info("Connection to instance %s at %s established, user %s", instance, zooKeepers, username);
                 return connector;
             }
-            catch (AccumuloException | AccumuloSecurityException e) {
+            catch (AccumuloException | AccumuloSecurityException | IOException e) {
                 throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
             }
         }

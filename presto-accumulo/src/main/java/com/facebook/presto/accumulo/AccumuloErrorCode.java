@@ -39,7 +39,10 @@ public enum AccumuloErrorCode
     ACCUMULO_TABLE_EXISTS(5, EXTERNAL),
 
     // Thrown when an attempt to start/stop MiniAccumuloCluster fails (testing only)
-    MINI_ACCUMULO(6, EXTERNAL);
+    MINI_ACCUMULO(6, EXTERNAL),
+
+    // Thrown when incomplete credentials provided for selected authentication mechanism
+    BAD_AUTH_CONFIG(7, EXTERNAL);
 
     private final ErrorCode errorCode;
 
