@@ -91,6 +91,8 @@ public class PipelineContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    private final AtomicLong physicalWrittenDataSize = new AtomicLong();
+
     private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
 
     public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, boolean inputPipeline, boolean outputPipeline)
@@ -195,6 +197,8 @@ public class PipelineContext
 
         outputDataSize.update(driverStats.getOutputDataSize().toBytes());
         outputPositions.update(driverStats.getOutputPositions());
+
+        physicalWrittenDataSize.getAndAdd(driverStats.getPhysicalWrittenDataSize().toBytes());
     }
 
     public void start()
@@ -344,6 +348,13 @@ public class PipelineContext
         return stat;
     }
 
+    public long getPhysicalWrittenDataSize()
+    {
+        return drivers.stream()
+                .mapToLong(DriverContext::getPphysicalWrittenDataSize)
+                .sum();
+    }
+
     public PipelineStatus getPipelineStatus()
     {
         return getPipelineStatus(drivers.iterator());
@@ -382,6 +393,8 @@ public class PipelineContext
         long outputDataSize = this.outputDataSize.getTotalCount();
         long outputPositions = this.outputPositions.getTotalCount();
 
+        long physicalWrittenDataSize = this.physicalWrittenDataSize.get();
+
         List<DriverStats> drivers = new ArrayList<>();
 
         Multimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
@@ -410,6 +423,8 @@ public class PipelineContext
 
             outputDataSize += driverStats.getOutputDataSize().toBytes();
             outputPositions += driverStats.getOutputPositions();
+
+            physicalWrittenDataSize += driverStats.getPhysicalWrittenDataSize().toBytes();
         }
 
         // merge the running operator stats into the operator summary
@@ -474,6 +489,8 @@ public class PipelineContext
 
                 succinctBytes(outputDataSize),
                 outputPositions,
+
+                succinctBytes(physicalWrittenDataSize),
 
                 ImmutableList.copyOf(operatorSummaries.values()),
                 drivers);

@@ -336,6 +336,8 @@ public class TaskContext
         long outputDataSize = 0;
         long outputPositions = 0;
 
+        long physicalWrittenDataSize = 0;
+
         for (PipelineStats pipeline : pipelineStats) {
             if (pipeline.getLastEndTime() != null) {
                 lastExecutionEndTime = max(pipeline.getLastEndTime().getMillis(), lastExecutionEndTime);
@@ -366,6 +368,8 @@ public class TaskContext
                 outputDataSize += pipeline.getOutputDataSize().toBytes();
                 outputPositions += pipeline.getOutputPositions();
             }
+
+            physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSize().toBytes();
         }
 
         long startNanos = this.startNanos.get();
@@ -433,6 +437,7 @@ public class TaskContext
                 processedInputPositions,
                 succinctBytes(outputDataSize),
                 outputPositions,
+                succinctBytes(physicalWrittenDataSize),
                 pipelineStats);
     }
 
