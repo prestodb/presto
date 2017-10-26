@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.JoinOperatorInfo.createJoinOperatorInfo;
