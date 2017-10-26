@@ -23,6 +23,7 @@ import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem;
 import com.facebook.presto.hive.s3.PrestoS3FileSystemStats;
+import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
