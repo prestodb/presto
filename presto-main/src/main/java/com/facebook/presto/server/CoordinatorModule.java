@@ -28,6 +28,7 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantTask;
+import com.facebook.presto.execution.PlanFlattener;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
@@ -187,8 +188,9 @@ public class CoordinatorModule
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);
 
-        // query explainer
+        // explainers
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
+        binder.bind(PlanFlattener.class).in(Scopes.SINGLETON);
 
         // execution scheduler
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);

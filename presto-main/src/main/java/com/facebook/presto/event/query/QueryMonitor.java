@@ -102,6 +102,15 @@ public class QueryMonitor
 
     public void queryCreatedEvent(QueryInfo queryInfo)
     {
+        Optional<String> plan = Optional.empty();
+        try {
+            if (queryInfo.getPlan().isPresent()) {
+                plan = Optional.of(objectMapper.writeValueAsString(queryInfo.getPlan().get()));
+            }
+        }
+        catch (JsonProcessingException ignored) {
+        }
+
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
@@ -125,6 +134,7 @@ public class QueryMonitor
                                 queryInfo.getQuery(),
                                 queryInfo.getState().toString(),
                                 queryInfo.getSelf(),
+                                plan,
                                 Optional.empty())));
     }
 
@@ -181,6 +191,11 @@ public class QueryMonitor
                 operatorSummaries.add(objectMapper.writeValueAsString(summary));
             }
 
+            Optional<String> plan = Optional.empty();
+            if (queryInfo.getPlan().isPresent()) {
+                plan = Optional.of(objectMapper.writeValueAsString(queryInfo.getPlan().get()));
+            }
+
             eventListenerManager.queryCompleted(
                     new QueryCompletedEvent(
                             new QueryMetadata(
@@ -189,6 +204,7 @@ public class QueryMonitor
                                     queryInfo.getQuery(),
                                     queryInfo.getState().toString(),
                                     queryInfo.getSelf(),
+                                    plan,
                                     queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
                             new QueryStatistics(
                                     ofMillis(queryStats.getTotalCpuTime().toMillis()),

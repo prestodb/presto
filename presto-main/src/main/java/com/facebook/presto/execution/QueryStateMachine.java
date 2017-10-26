@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.PlanFlattener.FlattenedPlan;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -129,6 +130,8 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<FlattenedPlan>> flattenedPlan = new AtomicReference<>(Optional.empty());
+
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
@@ -440,6 +443,7 @@ public class QueryStateMachine
                 errorCode,
                 inputs.get(),
                 output.get(),
+                flattenedPlan.get(),
                 completeInfo,
                 getResourceGroup().map(ResourceGroupId::toString));
     }
@@ -470,6 +474,11 @@ public class QueryStateMachine
     {
         requireNonNull(output, "output is null");
         this.output.set(output);
+    }
+
+    public void setPlan(FlattenedPlan plan)
+    {
+        this.flattenedPlan.set(Optional.of(plan));
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -787,6 +796,7 @@ public class QueryStateMachine
                 queryInfo.getErrorCode(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
+                queryInfo.getPlan(),
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupName());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));

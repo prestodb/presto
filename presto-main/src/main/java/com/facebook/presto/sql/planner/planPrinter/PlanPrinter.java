@@ -235,6 +235,11 @@ public class PlanPrinter
         return builder.toString();
     }
 
+    public static String textPlanFragment(PlanFragment fragment, Metadata metadata, CostCalculator costCalculator, Session session)
+    {
+        return formatFragment(metadata, costCalculator, session, fragment, Optional.empty(), Optional.empty(), false);
+    }
+
     private static String formatFragment(Metadata metadata, CostCalculator costCalculator, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
