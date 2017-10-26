@@ -297,71 +297,57 @@ public class Validator
 
     private QueryResult executeQueryTest()
     {
-        Query query = queryPair.getTest();
-        QueryResult setupResult = null;
-        QueryResult queryResult = null;
-        try {
-            // setup
-            setupResult = setup(query, testPreQueryResults, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionProperties));
-
-            // if setup is successful -> execute query
-            if (setupResult.getState() == State.SUCCESS) {
-                queryResult = executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), query.getQuery(), testTimeout, sessionProperties);
-            }
-        }
-        finally {
-            int retry = 0;
-            QueryResult tearDownResult;
-            do {
-                tearDownResult = tearDown(query, testPostQueryResults, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionProperties));
-                if (tearDownResult.getState() == State.SUCCESS) {
-                    break;
-                }
-                try {
-                    TimeUnit.MINUTES.sleep(1);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                retry++;
-            }
-            while (retry < testTeardownRetries);
-            // if teardown is not successful the query fails
-            if (tearDownResult.getState() != State.SUCCESS) {
-                if (tearDownResult.getException() != null) {
-                    if (setupResult.getException() != null) {
-                        tearDownResult.addSuppressed(setupResult.getException());
-                    }
-                    if (queryResult.getException() != null) {
-                        tearDownResult.addSuppressed(queryResult.getException());
-                    }
-                }
-                queryResult = tearDownResult;
-            }
-        }
-        return queryResult;
+        return executeQueries(
+                queryPair.getTest(),
+                testPreQueryResults,
+                testGateway,
+                testUsername,
+                testPassword,
+                testTimeout,
+                testPostQueryResults,
+                testTeardownRetries);
     }
 
     private QueryResult executeQueryControl()
     {
-        Query query = queryPair.getControl();
-        QueryResult setupResult = null;
-        QueryResult queryResult = null;
-        try {
-            // setup
-            setupResult = setup(query, controlPreQueryResults, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionProperties));
+        return executeQueries(
+                queryPair.getControl(),
+                controlPreQueryResults,
+                controlGateway,
+                controlUsername,
+                controlPassword,
+                controlTimeout,
+                controlPostQueryResults,
+                controlTeardownRetries);
+    }
 
-            // if setup is successful -> execute query
-            if (setupResult.getState() == State.SUCCESS) {
-                queryResult = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), query.getQuery(), controlTimeout, sessionProperties);
+    private QueryResult executeQueries(
+            Query query,
+            List<QueryResult> preQueryResults,
+            String gateway,
+            String username,
+            String password,
+            Duration timeout,
+            List<QueryResult> postQueryResults,
+            int teardownRetries)
+    {
+        QueryResult setupResult = null;
+        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
+        try {
+            // startup
+            queryResult = setup(query, preQueryResults, preQuery ->
+                    executeQuery(gateway, username, password, query, preQuery, timeout, sessionProperties));
+
+            // if startup is successful -> execute query
+            if (queryResult.getState() == State.SUCCESS) {
+                queryResult = executeQuery(gateway, username, password, query, query.getQuery(), timeout, sessionProperties);
             }
         }
         finally {
             int retry = 0;
             QueryResult tearDownResult;
             do {
-                tearDownResult = tearDown(query, controlPostQueryResults, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionProperties));
+                tearDownResult = tearDown(query, postQueryResults, postQuery -> executeQuery(gateway, username, password, query, postQuery, timeout, sessionProperties));
                 if (tearDownResult.getState() == State.SUCCESS) {
                     break;
                 }
@@ -374,7 +360,7 @@ public class Validator
                 }
                 retry++;
             }
-            while (retry < controlTeardownRetries);
+            while (retry < teardownRetries);
             // if teardown is not successful the query fails
             if (tearDownResult.getState() != State.SUCCESS) {
                 if (tearDownResult.getException() != null) {
