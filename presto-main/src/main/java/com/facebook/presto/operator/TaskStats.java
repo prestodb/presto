@@ -72,6 +72,8 @@ public class TaskStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final DataSize physicalWrittenDataSize;
+
     private final List<PipelineStats> pipelines;
 
     public TaskStats(DateTime createTime, DateTime endTime)
@@ -106,6 +108,7 @@ public class TaskStats
                 0,
                 new DataSize(0, BYTE),
                 0,
+                new DataSize(0, BYTE),
                 ImmutableList.of());
     }
 
@@ -147,6 +150,8 @@ public class TaskStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
             @JsonProperty("pipelines") List<PipelineStats> pipelines)
     {
@@ -199,6 +204,8 @@ public class TaskStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
 
         this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
     }
@@ -376,6 +383,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
     public List<PipelineStats> getPipelines()
     {
         return pipelines;
@@ -426,6 +439,7 @@ public class TaskStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
+                physicalWrittenDataSize,
                 ImmutableList.of());
     }
 
@@ -462,6 +476,7 @@ public class TaskStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
+                physicalWrittenDataSize,
                 pipelines.stream()
                         .map(PipelineStats::summarize)
                         .collect(Collectors.toList()));

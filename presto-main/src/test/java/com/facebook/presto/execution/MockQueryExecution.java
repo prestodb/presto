@@ -147,6 +147,9 @@ public class MockQueryExecution
 
                         new DataSize(28, BYTE),
                         29,
+
+                        new DataSize(30, BYTE),
+
                         ImmutableList.of()),
                 Optional.empty(),
                 Optional.empty(),

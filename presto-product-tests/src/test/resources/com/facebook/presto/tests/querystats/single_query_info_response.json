@@ -51,6 +51,7 @@
     "processedInputPositions": 0,
     "outputDataSize": "0B",
     "outputPositions": 0,
+    "physicalWrittenDataSize": "0B",
     "operatorSummaries": []
   },
   "setSessionProperties": {},

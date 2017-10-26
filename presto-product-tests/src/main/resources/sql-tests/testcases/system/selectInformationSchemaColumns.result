@@ -82,6 +82,7 @@ system| runtime| tasks| processed_input_bytes| bigint| YES| null| null|
 system| runtime| tasks| processed_input_rows| bigint| YES| null| null|
 system| runtime| tasks| output_bytes| bigint| YES| null| null|
 system| runtime| tasks| output_rows| bigint| YES| null| null|
+system| runtime| tasks| physical_written_bytes| bigint| YES| null| null|
 system| runtime| tasks| created| timestamp| YES| null| null|
 system| runtime| tasks| start| timestamp| YES| null| null|
 system| runtime| tasks| last_heartbeat| timestamp| YES| null| null|

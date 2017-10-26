@@ -226,6 +226,7 @@ public class MockRemoteTaskFactory
                             0,
                             0,
                             false,
+                            new DataSize(0, BYTE),
                             new DataSize(0, BYTE)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
@@ -249,6 +250,7 @@ public class MockRemoteTaskFactory
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),
                     false,
+                    stats.getPhysicalWrittenDataSize(),
                     stats.getMemoryReservation());
         }
 

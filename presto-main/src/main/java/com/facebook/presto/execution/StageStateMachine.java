@@ -236,6 +236,8 @@ public class StageStateMachine
         long outputDataSize = 0;
         long outputPositions = 0;
 
+        long physicalWrittenDataSize = 0;
+
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
@@ -279,6 +281,8 @@ public class StageStateMachine
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
+            physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+
             for (PipelineStats pipeline : taskStats.getPipelines()) {
                 for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
                     String id = pipeline.getPipelineId() + "." + operatorStats.getOperatorId();
@@ -320,6 +324,7 @@ public class StageStateMachine
                 succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
                 outputPositions,
+                succinctBytes(physicalWrittenDataSize),
                 ImmutableList.copyOf(operatorToStats.values()));
 
         ExecutionFailureInfo failureInfo = null;

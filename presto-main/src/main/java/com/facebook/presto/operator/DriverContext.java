@@ -354,6 +354,13 @@ public class DriverContext
         }
     }
 
+    public long getPphysicalWrittenDataSize()
+    {
+        return operatorContexts.stream()
+                .mapToLong(OperatorContext::getPhysicalWrittenDataSize)
+                .sum();
+    }
+
     public boolean isExecutionStarted()
     {
         return executionStartTime.get() != null;
@@ -409,6 +416,11 @@ public class DriverContext
             outputPositions = 0;
         }
 
+        long physicalWrittenDataSize = operators.stream()
+                .map(OperatorStats::getPhysicalWrittenDataSize)
+                .mapToLong(DataSize::toBytes)
+                .sum();
+
         long startNanos = this.startNanos.get();
         if (startNanos < createNanos) {
             startNanos = System.nanoTime();
@@ -455,6 +467,7 @@ public class DriverContext
                 processedInputPositions,
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
+                succinctBytes(physicalWrittenDataSize),
                 ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
     }
 

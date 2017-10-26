@@ -338,6 +338,8 @@ public class QueryStateMachine
         long outputDataSize = 0;
         long outputPositions = 0;
 
+        long physicalWrittenDataSize = 0;
+
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
@@ -376,6 +378,9 @@ public class QueryStateMachine
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
+
+            physicalWrittenDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+
             completeInfo = completeInfo && stageInfo.isCompleteInfo();
             operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
@@ -430,6 +435,9 @@ public class QueryStateMachine
                 processedInputPositions,
                 succinctBytes(outputDataSize),
                 outputPositions,
+
+                succinctBytes(physicalWrittenDataSize),
+
                 operatorStatsSummary.build());
 
         return new QueryInfo(queryId,
@@ -872,6 +880,7 @@ public class QueryStateMachine
                 queryStats.getProcessedInputPositions(),
                 queryStats.getOutputDataSize(),
                 queryStats.getOutputPositions(),
+                queryStats.getPhysicalWrittenDataSize(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
     }
 

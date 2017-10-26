@@ -80,6 +80,8 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    private final AtomicLong physicalWrittenDataSize = new AtomicLong();
+
     private final AtomicReference<SettableFuture<?>> memoryFuture;
     private final AtomicReference<SettableFuture<?>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
@@ -214,6 +216,11 @@ public class OperatorContext
     {
         outputDataSize.update(sizeInBytes);
         outputPositions.update(positions);
+    }
+
+    public void recordPhysicalWrittenData(long sizeInBytes)
+    {
+        physicalWrittenDataSize.getAndAdd(sizeInBytes);
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)
@@ -486,6 +493,11 @@ public class OperatorContext
         return outputPositions;
     }
 
+    public long getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize.get();
+    }
+
     @Override
     public String toString()
     {
@@ -521,6 +533,8 @@ public class OperatorContext
                 new Duration(getOutputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
+
+                succinctBytes(physicalWrittenDataSize.get()),
 
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 

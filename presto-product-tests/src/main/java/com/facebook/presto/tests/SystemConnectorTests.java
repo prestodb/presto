@@ -111,6 +111,7 @@ public class SystemConnectorTests
                 "  processed_input_rows," +
                 "  output_bytes," +
                 "  output_rows," +
+                "  physical_written_bytes," +
                 "  created," +
                 "  start," +
                 "  last_heartbeat," +
@@ -120,14 +121,14 @@ public class SystemConnectorTests
             assertThat(query(sql))
                     .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR,
                             BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
-                            BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, LONGNVARCHAR)
+                            BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, LONGNVARCHAR)
                     .hasAnyRows();
         }
         else if (usingTeradataJdbcDriver(connection)) {
             assertThat(query(sql))
                     .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
                             BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
-                            BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
+                            BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
                     .hasAnyRows();
         }
         else {
