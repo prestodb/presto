@@ -119,6 +119,9 @@ public class ClientOptions
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
 
+    @Option(name = "--stop-on-error", title = "stop-on-error", description = "Whether to stop execution immediately if any query fails in batch mode (default: true)", arity = 1)
+    public boolean stopOnError = true;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -145,7 +148,8 @@ public class ClientOptions
                 emptyMap(),
                 null,
                 debug,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                stopOnError);
     }
 
     public static URI parseServer(String server)

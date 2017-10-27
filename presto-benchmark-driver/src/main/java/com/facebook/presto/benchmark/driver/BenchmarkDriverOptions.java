@@ -84,6 +84,9 @@ public class BenchmarkDriverOptions
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
 
+    @Option(name = "--stop-on-error", title = "stop-on-error", description = "Whether to stop execution immediately if any query fails in batch mode (default: true)")
+    public boolean stopOnError = true;
+
     public ClientSession getClientSession()
     {
         return new ClientSession(
@@ -98,7 +101,8 @@ public class BenchmarkDriverOptions
                 toProperties(this.sessionProperties),
                 null,
                 debug,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                stopOnError);
     }
 
     private static URI parseServer(String server)
