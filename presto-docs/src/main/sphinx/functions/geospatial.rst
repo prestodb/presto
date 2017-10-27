@@ -38,7 +38,7 @@ Constructors
 
     Returns a geometry type object from WKT representation.
 
-.. function:: stAsText(Geometry) -> varchar
+.. function:: ST_AsText(Geometry) -> varchar
 
     Returns the WKT representation of the geometry. For empty geometries,
     ``ST_AsText(ST_LineFromText('LINESTRING EMPTY'))`` will produce ``'MULTILINESTRING EMPTY'``
