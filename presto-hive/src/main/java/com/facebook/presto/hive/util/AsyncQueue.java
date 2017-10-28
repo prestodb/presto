@@ -14,6 +14,9 @@
 package com.facebook.presto.hive.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -22,10 +25,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -37,10 +40,10 @@ public class AsyncQueue<T>
     private final Queue<T> elements;
     // This future is completed when the queue transitions from full to not. But it will be replaced by a new instance of future immediately.
     @GuardedBy("this")
-    private CompletableFuture<?> notFullSignal = new CompletableFuture<>();
+    private SettableFuture<?> notFullSignal = SettableFuture.create();
     // This future is completed when the queue transitions from empty to not. But it will be replaced by a new instance of future immediately.
     @GuardedBy("this")
-    private CompletableFuture<?> notEmptySignal = new CompletableFuture<>();
+    private SettableFuture<?> notEmptySignal = SettableFuture.create();
     @GuardedBy("this")
     private boolean finishing = false;
 
@@ -73,31 +76,31 @@ public class AsyncQueue<T>
 
         if (elements.size() == 0) {
             completeAsync(executor, notEmptySignal);
-            notEmptySignal = new CompletableFuture<>();
+            notEmptySignal = SettableFuture.create();
         }
         else if (elements.size() >= targetQueueSize) {
             completeAsync(executor, notFullSignal);
-            notFullSignal = new CompletableFuture<>();
+            notFullSignal = SettableFuture.create();
         }
     }
 
-    public synchronized CompletableFuture<?> offer(T element)
+    public synchronized ListenableFuture<?> offer(T element)
     {
         requireNonNull(element);
 
         if (finishing) {
-            return CompletableFuture.completedFuture(null);
+            return immediateFuture(null);
         }
         elements.add(element);
         int newSize = elements.size();
         if (newSize == 1) {
             completeAsync(executor, notEmptySignal);
-            notEmptySignal = new CompletableFuture<>();
+            notEmptySignal = SettableFuture.create();
         }
         if (newSize >= targetQueueSize) {
             return notFullSignal;
         }
-        return CompletableFuture.completedFuture(null);
+        return immediateFuture(null);
     }
 
     private synchronized List<T> getBatch(int maxSize)
@@ -114,29 +117,29 @@ public class AsyncQueue<T>
         // This checks that the queue size changed from above threshold to below. Therefore, writers shall be notified.
         if (oldSize >= targetQueueSize && oldSize - reduceBy < targetQueueSize) {
             completeAsync(executor, notFullSignal);
-            notFullSignal = new CompletableFuture<>();
+            notFullSignal = SettableFuture.create();
         }
         return result;
     }
 
-    public synchronized CompletableFuture<List<T>> getBatchAsync(int maxSize)
+    public synchronized ListenableFuture<List<T>> getBatchAsync(int maxSize)
     {
         checkArgument(maxSize >= 0, "maxSize must be at least 0");
 
         List<T> list = getBatch(maxSize);
         if (!list.isEmpty()) {
-            return CompletableFuture.completedFuture(list);
+            return immediateFuture(list);
         }
         else if (finishing) {
-            return CompletableFuture.completedFuture(ImmutableList.of());
+            return immediateFuture(ImmutableList.of());
         }
         else {
-            return notEmptySignal.thenApplyAsync(x -> getBatch(maxSize), executor);
+            return Futures.transform(notEmptySignal, x -> getBatch(maxSize), executor);
         }
     }
 
-    private static void completeAsync(Executor executor, CompletableFuture<?> future)
+    private static void completeAsync(Executor executor, SettableFuture<?> future)
     {
-        executor.execute(() -> future.complete(null));
+        executor.execute(() -> future.set(null));
     }
 }
