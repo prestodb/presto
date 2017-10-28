@@ -26,25 +26,16 @@ import static java.util.Objects.requireNonNull;
 public class HivePartitioningHandle
         implements ConnectorPartitioningHandle
 {
-    private final String clientId;
     private final int bucketCount;
     private final List<HiveType> hiveTypes;
 
     @JsonCreator
     public HivePartitioningHandle(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("bucketCount") int bucketCount,
             @JsonProperty("hiveTypes") List<HiveType> hiveTypes)
     {
-        this.clientId = requireNonNull(clientId, "clientId is null");
         this.bucketCount = bucketCount;
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
-    }
-
-    @JsonProperty
-    public String getClientId()
-    {
-        return clientId;
     }
 
     @JsonProperty
@@ -63,7 +54,6 @@ public class HivePartitioningHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("clientId", clientId)
                 .add("bucketCount", bucketCount)
                 .add("hiveTypes", hiveTypes)
                 .toString();
@@ -80,13 +70,12 @@ public class HivePartitioningHandle
         }
         HivePartitioningHandle that = (HivePartitioningHandle) o;
         return bucketCount == that.bucketCount &&
-                Objects.equals(clientId, that.clientId) &&
                 Objects.equals(hiveTypes, that.hiveTypes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(clientId, bucketCount, hiveTypes);
+        return Objects.hash(bucketCount, hiveTypes);
     }
 }

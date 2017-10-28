@@ -170,7 +170,7 @@ public abstract class AbstractTestHiveClientS3
         HiveCluster hiveCluster = new TestingHiveCluster(config, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-s3-%s"));
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config, s3Config));
-        HivePartitionManager hivePartitionManager = new HivePartitionManager(connectorId, TYPE_MANAGER, config);
+        HivePartitionManager hivePartitionManager = new HivePartitionManager(TYPE_MANAGER, config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, config, new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
@@ -182,7 +182,6 @@ public abstract class AbstractTestHiveClientS3
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
-                connectorId,
                 config,
                 metastoreClient,
                 hdfsEnvironment,
@@ -196,7 +195,6 @@ public abstract class AbstractTestHiveClientS3
                 new NodeVersion("test_version"));
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
-                connectorId,
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
                 new NamenodeStats(),
                 hdfsEnvironment,

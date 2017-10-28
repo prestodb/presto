@@ -73,7 +73,6 @@ public class HiveSplitManager
 {
     public static final String PRESTO_OFFLINE = "presto_offline";
 
-    private final String connectorId;
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -90,7 +89,6 @@ public class HiveSplitManager
 
     @Inject
     public HiveSplitManager(
-            HiveConnectorId connectorId,
             HiveClientConfig hiveClientConfig,
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
             NamenodeStats namenodeStats,
@@ -99,7 +97,7 @@ public class HiveSplitManager
             @ForHiveClient ExecutorService executorService,
             CoercionPolicy coercionPolicy)
     {
-        this(connectorId,
+        this(
                 metastoreProvider,
                 namenodeStats,
                 hdfsEnvironment,
@@ -116,7 +114,6 @@ public class HiveSplitManager
     }
 
     public HiveSplitManager(
-            HiveConnectorId connectorId,
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
@@ -131,7 +128,6 @@ public class HiveSplitManager
             int splitLoaderConcurrency,
             boolean recursiveDfsWalkerEnabled)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -174,7 +170,6 @@ public class HiveSplitManager
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table.get(), tableName, partitions, bucketHandle.map(HiveBucketHandle::toBucketProperty));
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
-                connectorId,
                 table.get(),
                 hivePartitions,
                 layout.getCompactEffectivePredicate(),
@@ -189,7 +184,6 @@ public class HiveSplitManager
                 recursiveDfsWalkerEnabled);
 
         HiveSplitSource splitSource = new HiveSplitSource(
-                connectorId,
                 session,
                 table.get().getDatabaseName(),
                 table.get().getTableName(),

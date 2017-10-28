@@ -89,7 +89,6 @@ public class BackgroundHiveSplitLoader
 
     public static final CompletableFuture<?> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
 
-    private final String connectorId;
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
@@ -122,7 +121,6 @@ public class BackgroundHiveSplitLoader
     private volatile boolean stopped;
 
     public BackgroundHiveSplitLoader(
-            String connectorId,
             Table table,
             Iterable<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
@@ -136,7 +134,6 @@ public class BackgroundHiveSplitLoader
             int loaderConcurrency,
             boolean recursiveDirWalkerEnabled)
     {
-        this.connectorId = connectorId;
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.bucketHandle = bucketHandle;
