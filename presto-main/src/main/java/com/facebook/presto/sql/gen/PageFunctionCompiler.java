@@ -96,6 +96,7 @@ import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 public class PageFunctionCompiler
 {
@@ -119,10 +120,15 @@ public class PageFunctionCompiler
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
 
+        // We have observed deoptimization storms that lead to slowness.
+        // We suspect that it is a JVM bug that is related to stale/corrupted profiling data associated
+        // with generated classes, thus the following cache entries are expired after one hour.
+
         if (expressionCacheSize > 0) {
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
+                    .expireAfterWrite(1, HOURS)
                     .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
@@ -135,6 +141,7 @@ public class PageFunctionCompiler
             filterCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
+                    .expireAfterWrite(1, HOURS)
                     .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
