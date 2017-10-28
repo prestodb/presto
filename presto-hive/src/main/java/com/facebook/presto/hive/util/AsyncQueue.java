@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -46,8 +47,10 @@ public class AsyncQueue<T>
     private SettableFuture<?> notEmptySignal = SettableFuture.create();
     @GuardedBy("this")
     private boolean finishing = false;
+    @GuardedBy("this")
+    private int borrowerCount = 0;
 
-    private Executor executor;
+    private final Executor executor;
 
     public AsyncQueue(int targetQueueSize, Executor executor)
     {
@@ -57,9 +60,13 @@ public class AsyncQueue<T>
         this.executor = requireNonNull(executor);
     }
 
+    /**
+     * Returns <tt>true</tt> if all future attempts to retrieve elements from this queue
+     * are guaranteed to return empty.
+     */
     public synchronized boolean isFinished()
     {
-        return finishing && elements.size() == 0;
+        return finishing && borrowerCount == 0 && elements.size() == 0;
     }
 
     public synchronized void finish()
@@ -69,13 +76,20 @@ public class AsyncQueue<T>
         }
         finishing = true;
 
-        if (elements.size() == 0) {
-            completeAsync(executor, notEmptySignal);
-            notEmptySignal = SettableFuture.create();
-        }
-        else if (elements.size() >= targetQueueSize) {
-            completeAsync(executor, notFullSignal);
-            notFullSignal = SettableFuture.create();
+        signalIfFinishing();
+    }
+
+    private synchronized void signalIfFinishing()
+    {
+        if (finishing && borrowerCount == 0) {
+            if (elements.size() == 0) {
+                completeAsync(executor, notEmptySignal);
+                notEmptySignal = SettableFuture.create();
+            }
+            else if (elements.size() >= targetQueueSize) {
+                completeAsync(executor, notFullSignal);
+                notFullSignal = SettableFuture.create();
+            }
         }
     }
 
@@ -83,7 +97,7 @@ public class AsyncQueue<T>
     {
         requireNonNull(element);
 
-        if (finishing) {
+        if (finishing && borrowerCount == 0) {
             return immediateFuture(null);
         }
         elements.add(element);
@@ -119,22 +133,104 @@ public class AsyncQueue<T>
 
     public synchronized ListenableFuture<List<T>> getBatchAsync(int maxSize)
     {
+        return borrowBatchAsync(maxSize, elements -> new BorrowResult<>(ImmutableList.of(), elements));
+    }
+
+    /**
+     * Invoke {@code function} with up to {@code maxSize} elements removed from the head of the queue,
+     * and insert elements in the return value to the tail of the queue.
+     * <p>
+     * If no element is currently available, invocation of {@code function} will be deferred until some
+     * element is available, or no more elements will be. Spurious invocation of {@code function} is
+     * possible.
+     * <p>
+     * Insertion through return value of {@code function} will be effective even if {@link #finish()} has been invoked.
+     * When borrow (of a non-empty list) is ongoing, {@link #isFinished()} will return false.
+     * If an empty list is supplied to {@code function}, it must not return a result indicating intention
+     * to insert elements into the queue.
+     */
+    public <O> ListenableFuture<O> borrowBatchAsync(int maxSize, Function<List<T>, BorrowResult<T, O>> function)
+    {
         checkArgument(maxSize >= 0, "maxSize must be at least 0");
 
-        List<T> list = getBatch(maxSize);
-        if (!list.isEmpty()) {
-            return immediateFuture(list);
+        ListenableFuture<List<T>> borrowedListFuture;
+        synchronized (this) {
+            List<T> list = getBatch(maxSize);
+            if (!list.isEmpty()) {
+                borrowedListFuture = immediateFuture(list);
+                borrowerCount++;
+            }
+            else if (finishing && borrowerCount == 0) {
+                borrowedListFuture = immediateFuture(ImmutableList.of());
+            }
+            else {
+                borrowedListFuture = Futures.transform(
+                        notEmptySignal,
+                        ignored -> {
+                            synchronized (this) {
+                                List<T> batch = getBatch(maxSize);
+                                if (!batch.isEmpty()) {
+                                    borrowerCount++;
+                                }
+                                return batch;
+                            }
+                        },
+                        executor);
+            }
         }
-        else if (finishing) {
-            return immediateFuture(ImmutableList.of());
-        }
-        else {
-            return Futures.transform(notEmptySignal, x -> getBatch(maxSize), executor);
-        }
+
+        return Futures.transform(
+                borrowedListFuture,
+                elements -> {
+                    // The borrowerCount field was only incremented for non-empty lists.
+                    // Decrements should only happen for non-empty lists.
+                    // When it should, it must always happen even if the caller-supplied function throws.
+                    try {
+                        BorrowResult<T, O> borrowResult = function.apply(elements);
+                        if (elements.isEmpty()) {
+                            checkArgument(borrowResult.getElementsToInsert().isEmpty(), "Function must not insert anything when no element is borrowed");
+                            return borrowResult.getResult();
+                        }
+                        for (T element : borrowResult.getElementsToInsert()) {
+                            offer(element);
+                        }
+                        return borrowResult.getResult();
+                    }
+                    finally {
+                        if (!elements.isEmpty()) {
+                            synchronized (this) {
+                                borrowerCount--;
+                                signalIfFinishing();
+                            }
+                        }
+                    }
+                });
     }
 
     private static void completeAsync(Executor executor, SettableFuture<?> future)
     {
         executor.execute(() -> future.set(null));
+    }
+
+    public static final class BorrowResult<T, R>
+    {
+        private final List<T> elementsToInsert;
+        private final R result;
+
+        public BorrowResult(List<T> elementsToInsert, R result)
+        {
+            this.elementsToInsert = ImmutableList.copyOf(elementsToInsert);
+            this.result = result;
+        }
+
+        public List<T> getElementsToInsert()
+        {
+            return elementsToInsert;
+        }
+
+        public R getResult()
+        {
+            return result;
+        }
     }
 }
