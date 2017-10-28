@@ -21,6 +21,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -39,6 +41,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.transformValues;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
+import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -120,7 +123,7 @@ class HiveSplitSource
                             databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getOutstandingSplitCount());
                 }
             }
-            return queue.offer(split);
+            return toCompletableFuture(queue.offer(split));
         }
         return completedFuture(null);
     }
@@ -153,31 +156,33 @@ class HiveSplitSource
     {
         checkState(!closed, "Provider is already closed");
 
-        CompletableFuture<List<ConnectorSplit>> future = queue.getBatchAsync(maxSize).thenApply(internalSplits -> {
-            ImmutableList.Builder<ConnectorSplit> result = ImmutableList.builder();
-            int totalEstimatedSizeInBytes = 0;
-            for (InternalHiveSplit internalSplit : internalSplits) {
-                totalEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
-                result.add(new HiveSplit(
-                        connectorId,
-                        databaseName,
-                        tableName,
-                        internalSplit.getPartitionName(),
-                        internalSplit.getPath(),
-                        internalSplit.getStart(),
-                        internalSplit.getLength(),
-                        internalSplit.getFileSize(),
-                        internalSplit.getSchema(),
-                        internalSplit.getPartitionKeys(),
-                        internalSplit.getAddresses(),
-                        internalSplit.getBucketNumber(),
-                        internalSplit.isForceLocalScheduling(),
-                        (TupleDomain<HiveColumnHandle>) compactEffectivePredicate,
-                        transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType)));
-            }
-            estimatedSplitSizeInBytes.addAndGet(-totalEstimatedSizeInBytes);
-            return result.build();
-        });
+        ListenableFuture<List<ConnectorSplit>> future = Futures.transform(
+                queue.getBatchAsync(maxSize),
+                internalSplits -> {
+                    ImmutableList.Builder<ConnectorSplit> result = ImmutableList.builder();
+                    int totalEstimatedSizeInBytes = 0;
+                    for (InternalHiveSplit internalSplit : internalSplits) {
+                        totalEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
+                        result.add(new HiveSplit(
+                                connectorId,
+                                databaseName,
+                                tableName,
+                                internalSplit.getPartitionName(),
+                                internalSplit.getPath(),
+                                internalSplit.getStart(),
+                                internalSplit.getLength(),
+                                internalSplit.getFileSize(),
+                                internalSplit.getSchema(),
+                                internalSplit.getPartitionKeys(),
+                                internalSplit.getAddresses(),
+                                internalSplit.getBucketNumber(),
+                                internalSplit.isForceLocalScheduling(),
+                                (TupleDomain<HiveColumnHandle>) compactEffectivePredicate,
+                                transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType)));
+                    }
+                    estimatedSplitSizeInBytes.addAndGet(-totalEstimatedSizeInBytes);
+                    return result.build();
+                });
 
         // Before returning, check if there is a registered failure.
         // If so, we want to throw the error, instead of returning because the scheduler can block
@@ -187,7 +192,7 @@ class HiveSplitSource
             return failedFuture(throwable.get());
         }
 
-        return future;
+        return toCompletableFuture(future);
     }
 
     @Override
