@@ -49,6 +49,7 @@ import java.util.concurrent.Executor;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
@@ -220,7 +221,6 @@ public class TestBackgroundSplitLoader
                 new TestingDirectoryLister(files),
                 EXECUTOR,
                 2,
-                0,
                 false);
     }
 
@@ -230,10 +230,11 @@ public class TestBackgroundSplitLoader
     {
         return new HiveSplitSource(
                 TEST_CONNECTOR_ID,
-                "query-id",
+                SESSION,
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),
                 compactEffectivePredicate,
+                1,
                 1,
                 new DataSize(32, MEGABYTE),
                 backgroundHiveSplitLoader,

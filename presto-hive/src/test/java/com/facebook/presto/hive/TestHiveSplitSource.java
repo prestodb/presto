@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -31,6 +32,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -47,10 +49,11 @@ public class TestHiveSplitSource
     {
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
                 "client-id",
-                "query-id",
+                SESSION,
                 "database",
                 "table",
                 TupleDomain.all(),
+                10,
                 10,
                 new DataSize(32, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -82,10 +85,11 @@ public class TestHiveSplitSource
     {
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
                 "client-id",
-                "query-id",
+                SESSION,
                 "database",
                 "table",
                 TupleDomain.all(),
+                10,
                 10,
                 new DataSize(32, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -140,10 +144,11 @@ public class TestHiveSplitSource
     {
         final HiveSplitSource hiveSplitSource = new HiveSplitSource(
                 "client-id",
-                "query-id",
+                SESSION,
                 "database",
                 "table",
                 TupleDomain.all(),
+                10,
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -200,10 +205,11 @@ public class TestHiveSplitSource
         DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
                 "client-id",
-                "query-id",
+                SESSION,
                 "database",
                 "table",
                 TupleDomain.all(),
+                10,
                 10000,
                 maxOutstandingSplitsSize,
                 new TestingHiveSplitLoader(),
@@ -217,8 +223,9 @@ public class TestHiveSplitSource
                 100,
                 new Properties(),
                 ImmutableList.of(new HivePartitionKey("pk_col", "pk_value")),
-                ImmutableList.of(HostAddress.fromString("localhost")),
+                ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of(HostAddress.fromString("localhost")))),
                 OptionalInt.empty(),
+                true,
                 false,
                 ImmutableMap.of());
         int testSplitSizeInBytes = testSplit.getEstimatedSizeInBytes();
@@ -271,8 +278,9 @@ public class TestHiveSplitSource
                     100,
                     properties("id", String.valueOf(id)),
                     ImmutableList.of(),
-                    ImmutableList.of(),
+                    ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of())),
                     OptionalInt.empty(),
+                    true,
                     false,
                     ImmutableMap.of());
         }
