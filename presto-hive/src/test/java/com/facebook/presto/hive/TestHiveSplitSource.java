@@ -60,20 +60,20 @@ public class TestHiveSplitSource
         // add 10 splits
         for (int i = 0; i < 10; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i));
-            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
 
         // remove 1 split
         assertEquals(getFutureValue(hiveSplitSource.getNextBatch(1)).size(), 1);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 9);
 
         // remove 4 splits
         assertEquals(getFutureValue(hiveSplitSource.getNextBatch(4)).size(), 4);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 5);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 5);
 
         // try to remove 20 splits, and verify we only got 5
         assertEquals(getFutureValue(hiveSplitSource.getNextBatch(20)).size(), 5);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 0);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
     }
 
     @Test
@@ -95,16 +95,16 @@ public class TestHiveSplitSource
         // add some splits
         for (int i = 0; i < 5; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i));
-            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
 
         // remove a split and verify
         assertEquals(getFutureValue(hiveSplitSource.getNextBatch(1)).size(), 1);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4);
 
         // fail source
         hiveSplitSource.fail(new RuntimeException("test"));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4);
 
         // try to remove a split and verify we got the expected exception
         try {
@@ -114,15 +114,15 @@ public class TestHiveSplitSource
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "test");
         }
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 3);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 3);
 
         // attempt to add another split and verify it does not work
         hiveSplitSource.addToQueue(new TestSplit(99));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 3);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 3);
 
         // fail source again
         hiveSplitSource.fail(new RuntimeException("another failure"));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 3);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 3);
 
         // try to remove a split and verify we got the first exception
         try {
@@ -226,14 +226,14 @@ public class TestHiveSplitSource
         int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
         for (int i = 0; i < maxSplitCount; i++) {
             hiveSplitSource.addToQueue(testSplit);
-            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
 
         assertEquals(getFutureValue(hiveSplitSource.getNextBatch(maxSplitCount)).size(), maxSplitCount);
 
         for (int i = 0; i < maxSplitCount; i++) {
             hiveSplitSource.addToQueue(testSplit);
-            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
         try {
             hiveSplitSource.addToQueue(testSplit);

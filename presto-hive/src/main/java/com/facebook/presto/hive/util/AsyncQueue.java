@@ -57,11 +57,6 @@ public class AsyncQueue<T>
         this.executor = requireNonNull(executor);
     }
 
-    public synchronized int size()
-    {
-        return elements.size();
-    }
-
     public synchronized boolean isFinished()
     {
         return finishing && elements.size() == 0;

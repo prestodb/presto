@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,6 +59,7 @@ class HiveSplitSource
     private final String tableName;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final AsyncQueue<InternalHiveSplit> queue;
+    private final AtomicInteger bufferedInternalSplitCount = new AtomicInteger();
     private final int maxOutstandingSplitsBytes;
 
     private final AtomicReference<Throwable> throwable = new AtomicReference<>();
@@ -93,9 +95,9 @@ class HiveSplitSource
     }
 
     @VisibleForTesting
-    int getOutstandingSplitCount()
+    int getBufferedInternalSplitCount()
     {
-        return queue.size();
+        return bufferedInternalSplitCount.get();
     }
 
     CompletableFuture<?> addToQueue(Iterator<? extends InternalHiveSplit> splits)
@@ -120,9 +122,10 @@ class HiveSplitSource
                 if (loggedHighMemoryWarning.compareAndSet(false, true)) {
                     highMemorySplitSourceCounter.update(1);
                     log.warn("Split buffering for %s.%s in query %s exceeded memory limit (%s). %s splits are buffered.",
-                            databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getOutstandingSplitCount());
+                            databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount());
                 }
             }
+            bufferedInternalSplitCount.incrementAndGet();
             return toCompletableFuture(queue.offer(split));
         }
         return completedFuture(null);
@@ -181,6 +184,7 @@ class HiveSplitSource
                                 transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType)));
                     }
                     estimatedSplitSizeInBytes.addAndGet(-totalEstimatedSizeInBytes);
+                    bufferedInternalSplitCount.addAndGet(-internalSplits.size());
                     return result.build();
                 });
 
