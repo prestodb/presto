@@ -21,9 +21,8 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
-import java.nio.ByteBuffer;
+import static io.airlift.slice.Slices.utf8Slice;
 
 @Description("textual representation of expression type")
 @ScalarFunction("typeof")
@@ -37,7 +36,7 @@ public final class TypeOfFunction
             @TypeParameter("T") Type type,
             @SqlNullable @SqlType("T") Object value)
     {
-        return Slices.wrappedBuffer(ByteBuffer.wrap(type.getDisplayName().getBytes()));
+        return utf8Slice(type.getDisplayName());
     }
 
     @TypeParameter("T")
