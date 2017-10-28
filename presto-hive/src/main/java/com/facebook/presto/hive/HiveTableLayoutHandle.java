@@ -30,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public final class HiveTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
-    private final String clientId;
     private final List<ColumnHandle> partitionColumns;
     private final List<HivePartition> partitions;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
@@ -39,13 +38,11 @@ public final class HiveTableLayoutHandle
 
     @JsonCreator
     public HiveTableLayoutHandle(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("partitionColumns") List<ColumnHandle> partitionColumns,
             @JsonProperty("compactEffectivePredicate") TupleDomain<ColumnHandle> compactEffectivePredicate,
             @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle)
     {
-        this.clientId = requireNonNull(clientId, "clientId is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.partitions = null;
@@ -54,25 +51,17 @@ public final class HiveTableLayoutHandle
     }
 
     public HiveTableLayoutHandle(
-            String clientId,
             List<ColumnHandle> partitionColumns,
             List<HivePartition> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             TupleDomain<ColumnHandle> promisedPredicate,
             Optional<HiveBucketHandle> bucketHandle)
     {
-        this.clientId = requireNonNull(clientId, "clientId is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
-    }
-
-    @JsonProperty
-    public String getClientId()
-    {
-        return clientId;
     }
 
     @JsonProperty
@@ -120,20 +109,13 @@ public final class HiveTableLayoutHandle
             return false;
         }
         HiveTableLayoutHandle that = (HiveTableLayoutHandle) o;
-        return Objects.equals(clientId, that.clientId) &&
-                Objects.equals(partitionColumns, that.partitionColumns) &&
+        return Objects.equals(partitionColumns, that.partitionColumns) &&
                 Objects.equals(partitions, that.partitions);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(clientId, partitionColumns, partitions);
-    }
-
-    @Override
-    public String toString()
-    {
-        return clientId.toString();
+        return Objects.hash(partitionColumns, partitions);
     }
 }

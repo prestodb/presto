@@ -58,7 +58,6 @@ class HiveSplitSource
 {
     private static final Logger log = Logger.get(HiveSplit.class);
 
-    private final String connectorId;
     private final String queryId;
     private final String databaseName;
     private final String tableName;
@@ -81,7 +80,6 @@ class HiveSplitSource
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
 
     HiveSplitSource(
-            String connectorId,
             ConnectorSession session,
             String databaseName,
             String tableName,
@@ -94,7 +92,6 @@ class HiveSplitSource
             CounterStat highMemorySplitSourceCounter)
     {
         requireNonNull(session, "session is null");
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.queryId = session.getQueryId();
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -200,7 +197,6 @@ class HiveSplitSource
                 }
 
                 resultBuilder.add(new HiveSplit(
-                        connectorId,
                         databaseName,
                         tableName,
                         internalSplit.getPartitionName(),

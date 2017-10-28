@@ -55,7 +55,6 @@ public class HiveColumnHandle
         HIDDEN
     }
 
-    private final String clientId;
     private final String name;
     private final HiveType hiveType;
     private final TypeSignature typeName;
@@ -65,7 +64,6 @@ public class HiveColumnHandle
 
     @JsonCreator
     public HiveColumnHandle(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("name") String name,
             @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("typeSignature") TypeSignature typeSignature,
@@ -73,7 +71,6 @@ public class HiveColumnHandle
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("comment") Optional<String> comment)
     {
-        this.clientId = requireNonNull(clientId, "clientId is null");
         this.name = requireNonNull(name, "name is null");
         checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == HIDDEN, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
@@ -81,12 +78,6 @@ public class HiveColumnHandle
         this.typeName = requireNonNull(typeSignature, "type is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.comment = requireNonNull(comment, "comment is null");
-    }
-
-    @JsonProperty
-    public String getClientId()
-    {
-        return clientId;
     }
 
     @JsonProperty
@@ -143,7 +134,7 @@ public class HiveColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(clientId, name, hiveColumnIndex, hiveType, columnType, comment);
+        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment);
     }
 
     @Override
@@ -156,8 +147,7 @@ public class HiveColumnHandle
             return false;
         }
         HiveColumnHandle other = (HiveColumnHandle) obj;
-        return Objects.equals(this.clientId, other.clientId) &&
-                Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.hiveColumnIndex, other.hiveColumnIndex) &&
                 Objects.equals(this.hiveType, other.hiveType) &&
                 Objects.equals(this.columnType, other.columnType) &&
@@ -168,7 +158,6 @@ public class HiveColumnHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("clientId", clientId)
                 .add("name", name)
                 .add("hiveType", hiveType)
                 .add("hiveColumnIndex", hiveColumnIndex)
@@ -178,7 +167,7 @@ public class HiveColumnHandle
                 .toString();
     }
 
-    public static HiveColumnHandle updateRowIdHandle(String connectorId)
+    public static HiveColumnHandle updateRowIdHandle()
     {
         // Hive connector only supports metadata delete. It does not support generic row-by-row deletion.
         // Metadata delete is implemented in Presto by generating a plan for row-by-row delete first,
@@ -186,17 +175,17 @@ public class HiveColumnHandle
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-        return new HiveColumnHandle(connectorId, UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, HIDDEN, Optional.empty());
     }
 
-    public static HiveColumnHandle pathColumnHandle(String connectorId)
+    public static HiveColumnHandle pathColumnHandle()
     {
-        return new HiveColumnHandle(connectorId, PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
-    public static HiveColumnHandle bucketColumnHandle(String connectorId)
+    public static HiveColumnHandle bucketColumnHandle()
     {
-        return new HiveColumnHandle(connectorId, BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)

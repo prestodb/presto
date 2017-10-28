@@ -48,7 +48,6 @@ public class TestHiveSplitSource
             throws Exception
     {
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
-                "client-id",
                 SESSION,
                 "database",
                 "table",
@@ -84,7 +83,6 @@ public class TestHiveSplitSource
             throws Exception
     {
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
-                "client-id",
                 SESSION,
                 "database",
                 "table",
@@ -143,7 +141,6 @@ public class TestHiveSplitSource
             throws Exception
     {
         final HiveSplitSource hiveSplitSource = new HiveSplitSource(
-                "client-id",
                 SESSION,
                 "database",
                 "table",
@@ -204,7 +201,6 @@ public class TestHiveSplitSource
     {
         DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
         HiveSplitSource hiveSplitSource = new HiveSplitSource(
-                "client-id",
                 SESSION,
                 "database",
                 "table",

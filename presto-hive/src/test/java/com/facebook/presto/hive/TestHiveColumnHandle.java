@@ -31,21 +31,21 @@ public class TestHiveColumnHandle
     @Test
     public void testHiddenColumn()
     {
-        HiveColumnHandle hiddenColumn = HiveColumnHandle.pathColumnHandle("client");
+        HiveColumnHandle hiddenColumn = HiveColumnHandle.pathColumnHandle();
         testRoundTrip(hiddenColumn);
     }
 
     @Test
     public void testRegularColumn()
     {
-        HiveColumnHandle expectedPartitionColumn = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, PARTITION_KEY, Optional.empty());
+        HiveColumnHandle expectedPartitionColumn = new HiveColumnHandle("name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, PARTITION_KEY, Optional.empty());
         testRoundTrip(expectedPartitionColumn);
     }
 
     @Test
     public void testPartitionKeyColumn()
     {
-        HiveColumnHandle expectedRegularColumn = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, REGULAR, Optional.empty());
+        HiveColumnHandle expectedRegularColumn = new HiveColumnHandle("name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, REGULAR, Optional.empty());
         testRoundTrip(expectedRegularColumn);
     }
 
@@ -54,7 +54,6 @@ public class TestHiveColumnHandle
         String json = codec.toJson(expected);
         HiveColumnHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getClientId(), expected.getClientId());
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getHiveType(), expected.getHiveType());
         assertEquals(actual.getHiveColumnIndex(), expected.getHiveColumnIndex());

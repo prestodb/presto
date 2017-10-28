@@ -77,7 +77,7 @@ public class TestBackgroundSplitLoader
 
     private static final TupleDomain<HiveColumnHandle> RETURNED_PATH_DOMAIN = withColumnDomains(
             ImmutableMap.of(
-                    pathColumnHandle(TEST_CONNECTOR_ID),
+                    pathColumnHandle(),
                     Domain.singleValue(VARCHAR, utf8Slice(RETURNED_PATH.toString()))));
 
     private static final List<LocatedFileStatus> TEST_FILES = ImmutableList.of(
@@ -153,7 +153,7 @@ public class TestBackgroundSplitLoader
                 PARTITIONED_TABLE,
                 Optional.of(
                         new HiveBucketHandle(
-                                getRegularColumnHandles(TEST_CONNECTOR_ID, PARTITIONED_TABLE),
+                                getRegularColumnHandles(PARTITIONED_TABLE),
                                 BUCKET_COUNT)));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
@@ -209,7 +209,6 @@ public class TestBackgroundSplitLoader
                 new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE))).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
-                TEST_CONNECTOR_ID,
                 table,
                 hivePartitionMetadatas,
                 compactEffectivePredicate,
@@ -229,7 +228,6 @@ public class TestBackgroundSplitLoader
             TupleDomain<HiveColumnHandle> compactEffectivePredicate)
     {
         return new HiveSplitSource(
-                TEST_CONNECTOR_ID,
                 SESSION,
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),

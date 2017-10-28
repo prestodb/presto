@@ -62,7 +62,6 @@ public class ParquetRecordCursorProvider
 
     @Override
     public Optional<RecordCursor> createRecordCursor(
-            String clientId,
             Configuration configuration,
             ConnectorSession session,
             Path path,

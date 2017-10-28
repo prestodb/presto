@@ -33,7 +33,6 @@ public class TestHiveMetadata
 {
     private static final HiveColumnHandle TEST_COLUMN_HANDLE = new HiveColumnHandle(
             "test",
-            "test",
             HiveType.HIVE_STRING,
             TypeSignature.parseTypeSignature("varchar"),
             0,

@@ -188,14 +188,14 @@ final class HiveBucketing
         return result;
     }
 
-    public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table)
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table)
     {
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getRegularColumnHandles(connectorId, table).stream()
+        Map<String, HiveColumnHandle> map = getRegularColumnHandles(table).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();
