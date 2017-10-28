@@ -52,6 +52,7 @@ public class HiveClientConfig
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
+    private int splitLoaderConcurrency = 4;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
     private boolean forceLocalScheduling;
@@ -144,6 +145,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
     {
         this.maxInitialSplitSize = maxInitialSplitSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getSplitLoaderConcurrency()
+    {
+        return splitLoaderConcurrency;
+    }
+
+    @Config("hive.split-loader-concurrency")
+    public HiveClientConfig setSplitLoaderConcurrency(int splitLoaderConcurrency)
+    {
+        this.splitLoaderConcurrency = splitLoaderConcurrency;
         return this;
     }
 

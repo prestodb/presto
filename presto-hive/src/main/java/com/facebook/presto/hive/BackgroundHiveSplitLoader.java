@@ -98,7 +98,7 @@ public class BackgroundHiveSplitLoader
     private final HdfsContext hdfsContext;
     private final NamenodeStats namenodeStats;
     private final DirectoryLister directoryLister;
-    private final int maxPartitionBatchSize;
+    private final int loaderConcurrency;
     private final boolean recursiveDirWalkerEnabled;
     private final Executor executor;
     private final ConnectorSession session;
@@ -133,7 +133,7 @@ public class BackgroundHiveSplitLoader
             NamenodeStats namenodeStats,
             DirectoryLister directoryLister,
             Executor executor,
-            int maxPartitionBatchSize,
+            int loaderConcurrency,
             boolean recursiveDirWalkerEnabled)
     {
         this.connectorId = connectorId;
@@ -141,7 +141,7 @@ public class BackgroundHiveSplitLoader
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.bucketHandle = bucketHandle;
         this.buckets = buckets;
-        this.maxPartitionBatchSize = maxPartitionBatchSize;
+        this.loaderConcurrency = loaderConcurrency;
         this.session = session;
         this.hdfsEnvironment = hdfsEnvironment;
         this.namenodeStats = namenodeStats;
@@ -156,7 +156,7 @@ public class BackgroundHiveSplitLoader
     public void start(HiveSplitSource splitSource)
     {
         this.hiveSplitSource = splitSource;
-        for (int i = 0; i < maxPartitionBatchSize; i++) {
+        for (int i = 0; i < loaderConcurrency; i++) {
             ResumableTasks.submit(executor, new HiveSplitLoaderTask());
         }
     }
