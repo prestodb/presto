@@ -182,15 +182,15 @@ public class HiveSplitManager
                 directoryLister,
                 executor,
                 maxPartitionBatchSize,
-                maxInitialSplits,
                 recursiveDfsWalkerEnabled);
 
         HiveSplitSource splitSource = new HiveSplitSource(
                 connectorId,
-                session.getQueryId(),
+                session,
                 table.get().getDatabaseName(),
                 table.get().getTableName(),
                 layout.getCompactEffectivePredicate(),
+                maxInitialSplits,
                 maxOutstandingSplits,
                 new DataSize(32, MEGABYTE),
                 hiveSplitLoader,
