@@ -84,6 +84,7 @@ public class HiveSplitManager
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
+    private final int splitLoaderConcurrency;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
 
@@ -110,6 +111,7 @@ public class HiveSplitManager
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
+                hiveClientConfig.getSplitLoaderConcurrency(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled());
     }
 
@@ -126,6 +128,7 @@ public class HiveSplitManager
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             int maxInitialSplits,
+            int splitLoaderConcurrency,
             boolean recursiveDfsWalkerEnabled)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
@@ -141,6 +144,7 @@ public class HiveSplitManager
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
+        this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
 
@@ -181,7 +185,7 @@ public class HiveSplitManager
                 namenodeStats,
                 directoryLister,
                 executor,
-                maxPartitionBatchSize,
+                splitLoaderConcurrency,
                 recursiveDfsWalkerEnabled);
 
         HiveSplitSource splitSource = new HiveSplitSource(
