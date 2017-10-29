@@ -53,6 +53,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
@@ -87,6 +89,8 @@ public class StatementClient
     private final boolean debug;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
+    private final AtomicReference<String> setCatalog = new AtomicReference<>();
+    private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
@@ -213,6 +217,16 @@ public class StatementClient
         return currentResults.get();
     }
 
+    public Optional<String> getSetCatalog()
+    {
+        return Optional.ofNullable(setCatalog.get());
+    }
+
+    public Optional<String> getSetSchema()
+    {
+        return Optional.ofNullable(setSchema.get());
+    }
+
     public Map<String, String> getSetSessionProperties()
     {
         return ImmutableMap.copyOf(setSessionProperties);
@@ -314,6 +328,9 @@ public class StatementClient
 
     private void processResponse(Headers headers, QueryResults results)
     {
+        setCatalog.set(headers.get(PRESTO_SET_CATALOG));
+        setSchema.set(headers.get(PRESTO_SET_SCHEMA));
+
         for (String setSession : headers.values(PRESTO_SET_SESSION)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {

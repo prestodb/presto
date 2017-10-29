@@ -104,6 +104,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -233,6 +235,10 @@ public class StatementResource
     {
         ResponseBuilder response = Response.ok(queryResults);
 
+        // add set catalog and schema
+        query.getSetCatalog().ifPresent(catalog -> response.header(PRESTO_SET_CATALOG, catalog));
+        query.getSetSchema().ifPresent(schema -> response.header(PRESTO_SET_SCHEMA, schema));
+
         // add set session properties
         query.getSetSessionProperties().entrySet()
                 .forEach(entry -> response.header(PRESTO_SET_SESSION, entry.getKey() + '=' + entry.getValue()));
@@ -318,6 +324,12 @@ public class StatementResource
 
         @GuardedBy("this")
         private List<Type> types;
+
+        @GuardedBy("this")
+        private Optional<String> setCatalog;
+
+        @GuardedBy("this")
+        private Optional<String> setSchema;
 
         @GuardedBy("this")
         private Map<String, String> setSessionProperties;
@@ -417,6 +429,16 @@ public class StatementResource
         public QueryId getQueryId()
         {
             return queryId;
+        }
+
+        public synchronized Optional<String> getSetCatalog()
+        {
+            return setCatalog;
+        }
+
+        public synchronized Optional<String> getSetSchema()
+        {
+            return setSchema;
         }
 
         public synchronized Map<String, String> getSetSessionProperties()
@@ -579,6 +601,10 @@ public class StatementResource
             if (!queryInfo.isFinalQueryInfo() || !exchangeClient.isClosed()) {
                 nextResultsUri = createNextResultsUri(uriInfo);
             }
+
+            // update catalog and schema
+            setCatalog = queryInfo.getSetCatalog();
+            setSchema = queryInfo.getSetSchema();
 
             // update setSessionProperties
             setSessionProperties = queryInfo.getSetSessionProperties();

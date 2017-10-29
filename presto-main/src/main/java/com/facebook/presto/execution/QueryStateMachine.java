@@ -113,6 +113,9 @@ public class QueryStateMachine
 
     private final StateMachine<QueryState> queryState;
 
+    private final AtomicReference<String> setCatalog = new AtomicReference<>();
+    private final AtomicReference<String> setSchema = new AtomicReference<>();
+
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
 
@@ -431,6 +434,8 @@ public class QueryStateMachine
                 outputFieldNames.get(),
                 query,
                 queryStats,
+                Optional.ofNullable(setCatalog.get()),
+                Optional.ofNullable(setSchema.get()),
                 setSessionProperties,
                 resetSessionProperties,
                 addedPreparedStatements,
@@ -484,6 +489,16 @@ public class QueryStateMachine
     public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
+    }
+
+    public void setSetCatalog(String catalog)
+    {
+        setCatalog.set(requireNonNull(catalog, "catalog is null"));
+    }
+
+    public void setSetSchema(String schema)
+    {
+        setSchema.set(requireNonNull(schema, "schema is null"));
     }
 
     public void addSetSessionProperties(String key, String value)
@@ -784,6 +799,8 @@ public class QueryStateMachine
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),
+                queryInfo.getSetCatalog(),
+                queryInfo.getSetSchema(),
                 queryInfo.getSetSessionProperties(),
                 queryInfo.getResetSessionProperties(),
                 queryInfo.getAddedPreparedStatements(),
