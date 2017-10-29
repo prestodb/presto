@@ -70,6 +70,31 @@ public class MapBlockBuilder
                 newNegativeOneFilledArray(expectedEntries * HASH_MULTIPLIER));
     }
 
+    // Caller of this constructor is responsible for making sure `keyBlockBuilder` and `valueBlockBuilder`
+    // is constructed with the same `blockBuilderStatus` as the one in the argument
+    public MapBlockBuilder(
+            Type keyType,
+            BlockBuilder keyBlockBuilder,
+            BlockBuilder valueBlockBuilder,
+            MethodHandle keyBlockNativeEquals,
+            MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockHashCode,
+            BlockBuilderStatus blockBuilderStatus,
+            int expectedEntries)
+    {
+        this(
+                keyType,
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockHashCode,
+                blockBuilderStatus,
+                keyBlockBuilder,
+                valueBlockBuilder,
+                new int[expectedEntries + 1],
+                new boolean[expectedEntries],
+                newNegativeOneFilledArray(expectedEntries * HASH_MULTIPLIER));
+    }
+
     private MapBlockBuilder(
             Type keyType,
             MethodHandle keyBlockNativeEquals,

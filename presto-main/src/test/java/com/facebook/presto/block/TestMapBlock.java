@@ -14,21 +14,34 @@
 
 package com.facebook.presto.block;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.block.SingleMapBlock;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
+import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -41,10 +54,67 @@ import static org.testng.Assert.assertTrue;
 public class TestMapBlock
         extends AbstractTestBlock
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
+    static {
+        // associate TYPE_MANAGER with a function registry
+        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
+
     @Test
     public void test()
     {
         testWith(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
+    }
+
+    public void testCompactBlock()
+    {
+        // Test Constructor
+        Block emptyBlock = new ByteArrayBlock(0, new boolean[0], new byte[0]);
+        Block keyBlock = new ByteArrayBlock(16, new boolean[16], createExpectedValue(16).getBytes());
+        Block valueBlock = new ByteArrayBlock(16, new boolean[16], createExpectedValue(16).getBytes());
+        Block largerKeyBlock = new ByteArrayBlock(20, new boolean[20], createExpectedValue(20).getBytes());
+        Block largerValueBlock = new ByteArrayBlock(20, new boolean[20], createExpectedValue(20).getBytes());
+        int[] offsets = {0, 1, 1, 2, 4, 8, 16};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        assertCompact(mapType(TINYINT, TINYINT).createBlockFromKeyValue(new boolean[0], new int[1], emptyBlock, emptyBlock));
+        assertCompact(mapType(TINYINT, TINYINT).createBlockFromKeyValue(valueIsNull, offsets, keyBlock, valueBlock));
+        assertNotCompact(mapType(TINYINT, TINYINT).createBlockFromKeyValue(valueIsNull, offsets, largerKeyBlock.getRegion(0, 16), largerValueBlock.getRegion(0, 16)));
+
+        // Test getRegion and copyRegion
+        Block block = mapType(TINYINT, TINYINT).createBlockFromKeyValue(valueIsNull, offsets, keyBlock, valueBlock);
+        assertGetRegionCompactness(block);
+        assertCopyRegionCompactness(block);
+        assertCopyRegionCompactness(mapType(TINYINT, TINYINT).createBlockFromKeyValue(valueIsNull, offsets, largerKeyBlock.getRegion(0, 16), largerValueBlock.getRegion(0, 16)));
+
+        // Test BlockBuilder
+        BlockBuilder emptyBlockBuilder = mapType(TINYINT, TINYINT).createBlockBuilder(new BlockBuilderStatus(), 0);
+        assertNotCompact(emptyBlockBuilder);
+        assertCompact(emptyBlockBuilder.build());
+
+        Map<Byte, Byte>[] maps = new Map[17];
+        for (int i = 0; i < 17; i++) {
+            maps[i] = new HashMap<>();
+            for (int j = 0; j < i; j++) {
+                maps[i].put((byte) j, (byte) j);
+            }
+        }
+
+        BlockBuilder nonFullBlockBuilder = createBlockBuilderWithValues(maps, false);
+        assertNotCompact(nonFullBlockBuilder);
+        assertNotCompact(nonFullBlockBuilder.build());
+        assertCopyRegionCompactness(nonFullBlockBuilder);
+
+        BlockBuilder fullBlockBuilder = createBlockBuilderWithValues(maps, true);
+        assertNotCompact(fullBlockBuilder);
+        assertCompact(fullBlockBuilder.build());
+        assertCopyRegionCompactness(fullBlockBuilder);
+
+        // NOTE: MapBlockBuilder will return itself if getRegion() is called to slice the whole block.
+        // assertCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount()));
+        assertNotCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount() - 1));
+        assertNotCompact(fullBlockBuilder.getRegion(1, fullBlockBuilder.getPositionCount() - 1));
     }
 
     private Map<String, Long>[] createTestMap(int... entryCounts)
@@ -146,6 +216,41 @@ public class TestMapBlock
             }
             mapBlockBuilder.closeEntry();
         }
+    }
+
+    private static BlockBuilder createBlockBuilderWithValues(Map<Byte, Byte>[] maps, boolean useAccurateCapacityEstimation)
+    {
+        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(TINYINT, TINYINT));
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(TINYINT));
+        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(TINYINT));
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(TINYINT));
+
+        int totalBytes = Arrays.stream(maps).mapToInt(Map::size).sum();
+        BlockBuilderStatus blockBuilderStatus = new BlockBuilderStatus();
+        BlockBuilder blockBuilder = new MapBlockBuilder(
+                TINYINT,
+                TINYINT.createBlockBuilder(blockBuilderStatus, useAccurateCapacityEstimation ? totalBytes : totalBytes * 2),
+                TINYINT.createBlockBuilder(blockBuilderStatus, useAccurateCapacityEstimation ? totalBytes : totalBytes * 2),
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockHashCode,
+                blockBuilderStatus,
+                useAccurateCapacityEstimation ? maps.length : maps.length * 2);
+
+        for (Map<Byte, Byte> map : maps) {
+            if (map == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                BlockBuilder elementBlockBuilder = blockBuilder.beginBlockEntry();
+                for (Map.Entry<Byte, Byte> entry : map.entrySet()) {
+                    TINYINT.writeLong(elementBlockBuilder, entry.getKey());
+                    TINYINT.writeLong(elementBlockBuilder, entry.getValue());
+                }
+                blockBuilder.closeEntry();
+            }
+        }
+        return blockBuilder;
     }
 
     @Override

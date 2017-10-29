@@ -43,6 +43,8 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -394,5 +396,38 @@ public abstract class AbstractTestBlock
             expectedValues[position] = Slices.copyOf(createExpectedValue(position));
         }
         return expectedValues;
+    }
+
+    protected static void assertGetRegionCompactness(Block compactBlock)
+    {
+        assertCompact(compactBlock);
+        assertTrue(compactBlock.getPositionCount() != 0);
+
+        assertCompact(compactBlock.getRegion(0, compactBlock.getPositionCount()));
+        Block subBlock1 = compactBlock.getRegion(0, compactBlock.getPositionCount() - 1);
+        Block subBlock2 = compactBlock.getRegion(1, compactBlock.getPositionCount() - 1);
+        assertNotCompact(subBlock1);
+        assertNotCompact(subBlock2);
+        assertCopyRegionCompactness(subBlock1);
+        assertCopyRegionCompactness(subBlock2);
+    }
+
+    protected static void assertCopyRegionCompactness(Block block)
+    {
+        assertTrue(block.getPositionCount() != 0);
+
+        assertCompact(block.copyRegion(0, block.getPositionCount()));
+        assertCompact(block.copyRegion(0, block.getPositionCount() - 1));
+        assertCompact(block.copyRegion(1, block.getPositionCount() - 1));
+    }
+
+    protected static void assertCompact(Block block)
+    {
+        assertSame(block.copyRegion(0, block.getPositionCount()), block);
+    }
+
+    protected static void assertNotCompact(Block block)
+    {
+        assertNotSame(block.copyRegion(0, block.getPositionCount()), block);
     }
 }

@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.FixedWidthBlock;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -68,6 +73,48 @@ public class TestFixedWidthBlock
         }
     }
 
+    @Test
+    public void testCompactBlock()
+    {
+        // Test Constructor
+        Slice slice = Slices.copyOf(createExpectedValue(24));
+        Slice largerSlice = Slices.copyOf(createExpectedValue(30));
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        assertCompact(new FixedWidthBlock(4, 0, EMPTY_SLICE, Slices.wrappedBooleanArray(new boolean[0])));
+        assertCompact(new FixedWidthBlock(4, valueIsNull.length, slice, Slices.wrappedBooleanArray(valueIsNull)));
+
+        assertNotCompact(new FixedWidthBlock(4, valueIsNull.length - 1, slice, Slices.wrappedBooleanArray(valueIsNull)));
+        assertNotCompact(new FixedWidthBlock(4, valueIsNull.length, largerSlice, Slices.wrappedBooleanArray(valueIsNull)));
+        assertNotCompact(new FixedWidthBlock(4, valueIsNull.length, largerSlice.slice(0, 24), Slices.wrappedBooleanArray(valueIsNull)));
+
+        // Test getRegion and copyRegion
+        Block block = new FixedWidthBlock(4, valueIsNull.length, slice, Slices.wrappedBooleanArray(valueIsNull));
+        assertGetRegionCompactness(block);
+        assertCopyRegionCompactness(block);
+        assertCopyRegionCompactness(new FixedWidthBlock(4, valueIsNull.length, largerSlice, Slices.wrappedBooleanArray(valueIsNull)));
+        assertCopyRegionCompactness(new FixedWidthBlock(4, valueIsNull.length, largerSlice.slice(0, 24), Slices.wrappedBooleanArray(valueIsNull)));
+
+        // Test BlockBuilder
+        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0, 0);
+        assertNotCompact(emptyBlockBuilder);
+        assertCompact(emptyBlockBuilder.build());
+
+        BlockBuilder nonFullBlockBuilder = createNonFullBlockBuilderWithValues(createExpectedValues(17, 4), 4);
+        assertNotCompact(nonFullBlockBuilder);
+        assertNotCompact(nonFullBlockBuilder.build());
+        assertCopyRegionCompactness(nonFullBlockBuilder);
+
+        BlockBuilder fullBlockBuilder = createBlockBuilderWithValues(createExpectedValues(17, 4), 4);
+        assertNotCompact(fullBlockBuilder);
+        assertCompact(fullBlockBuilder.build());
+        assertCopyRegionCompactness(fullBlockBuilder);
+
+        assertCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount()));
+        assertNotCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount() - 1));
+        assertNotCompact(fullBlockBuilder.getRegion(1, fullBlockBuilder.getPositionCount() - 1));
+    }
+
     private void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
@@ -78,6 +125,13 @@ public class TestFixedWidthBlock
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues, int fixedSize)
     {
         FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, expectedValues.length);
+        writeValues(expectedValues, blockBuilder);
+        return blockBuilder;
+    }
+
+    private static BlockBuilder createNonFullBlockBuilderWithValues(Slice[] expectedValues, int fixedSize)
+    {
+        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, expectedValues.length * 2);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

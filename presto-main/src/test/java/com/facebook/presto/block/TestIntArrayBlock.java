@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.block.IntArrayBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -63,6 +65,42 @@ public class TestIntArrayBlock
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
+    @Test
+    public void testCompactBlock()
+    {
+        // Test Constructor
+        int[] intArray = {0, 0, 1, 2, 3, 4};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        assertCompact(new IntArrayBlock(0, new boolean[0], new int[0]));
+        assertCompact(new IntArrayBlock(intArray.length, valueIsNull, intArray));
+        assertNotCompact(new IntArrayBlock(intArray.length - 1, valueIsNull, intArray));
+
+        // Test getRegion and copyRegion
+        Block block = new IntArrayBlock(intArray.length, valueIsNull, intArray);
+        assertGetRegionCompactness(block);
+        assertCopyRegionCompactness(block);
+
+        // Test BlockBuilder
+        BlockBuilder emptyBlockBuilder = new IntArrayBlockBuilder(new BlockBuilderStatus(), 0);
+        assertNotCompact(emptyBlockBuilder);
+        assertCompact(emptyBlockBuilder.build());
+
+        BlockBuilder nonFullBlockBuilder = createNonFullBlockBuilderWithValues(createTestValue(17));
+        assertNotCompact(nonFullBlockBuilder);
+        assertNotCompact(nonFullBlockBuilder.build());
+        assertCopyRegionCompactness(nonFullBlockBuilder);
+
+        BlockBuilder fullBlockBuilder = createBlockBuilderWithValues(createTestValue(17));
+        assertNotCompact(fullBlockBuilder);
+        assertCompact(fullBlockBuilder.build());
+        assertCopyRegionCompactness(fullBlockBuilder);
+
+        assertCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount()));
+        assertNotCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount() - 1));
+        assertNotCompact(fullBlockBuilder.getRegion(1, fullBlockBuilder.getPositionCount() - 1));
+    }
+
     private void assertFixedWithValues(Slice[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
@@ -73,6 +111,13 @@ public class TestIntArrayBlock
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
         IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
+        writeValues(expectedValues, blockBuilder);
+        return blockBuilder;
+    }
+
+    private static BlockBuilder createNonFullBlockBuilderWithValues(Slice[] expectedValues)
+    {
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length * 2);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

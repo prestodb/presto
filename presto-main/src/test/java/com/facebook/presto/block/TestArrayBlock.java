@@ -13,16 +13,21 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ByteArrayBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Random;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -128,6 +133,58 @@ public class TestArrayBlock
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
+    public void testCompactBlock()
+    {
+        // Test Constructor
+        Block emptyValueBlock = new ByteArrayBlock(0, new boolean[0], new byte[0]);
+        Block valueBlock = new ByteArrayBlock(16, new boolean[16], createExpectedValue(16).getBytes());
+        Block largerBlock = new ByteArrayBlock(20, new boolean[20], createExpectedValue(20).getBytes());
+        int[] offsets = {0, 1, 1, 2, 4, 8, 16};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        assertCompact(new ArrayBlock(0, new boolean[0], new int[1], emptyValueBlock));
+        assertCompact(new ArrayBlock(valueIsNull.length, valueIsNull, offsets, valueBlock));
+
+        assertNotCompact(new ArrayBlock(valueIsNull.length - 1, valueIsNull, offsets, valueBlock));
+        assertNotCompact(new ArrayBlock(valueIsNull.length, valueIsNull, offsets, largerBlock));
+        assertNotCompact(new ArrayBlock(valueIsNull.length, valueIsNull, offsets, largerBlock.getRegion(0, 16)));
+
+        // Test getRegion and copyRegion
+        Block block = new ArrayBlock(valueIsNull.length, valueIsNull, offsets, valueBlock);
+        assertGetRegionCompactness(block);
+        assertCopyRegionCompactness(block);
+        assertCopyRegionCompactness(new ArrayBlock(valueIsNull.length, valueIsNull, offsets, largerBlock));
+        assertCopyRegionCompactness(new ArrayBlock(valueIsNull.length, valueIsNull, offsets, largerBlock.getRegion(0, 16)));
+
+        // Test BlockBuilder
+        BlockBuilder emptyBlockBuilder = new ArrayBlockBuilder(TINYINT, new BlockBuilderStatus(), 0);
+        assertNotCompact(emptyBlockBuilder);
+        assertCompact(emptyBlockBuilder.build());
+
+        byte[][] arrays = new byte[17][];
+        for (int i = 0; i < 17; i++) {
+            arrays[i] = new byte[i];
+            for (int j = 0; j < i; j++) {
+                arrays[i][j] = (byte) j;
+            }
+        }
+
+        BlockBuilder nonFullBlockBuilder = createBlockBuilderWithValues(arrays, false);
+        assertNotCompact(nonFullBlockBuilder);
+        assertNotCompact(nonFullBlockBuilder.build());
+        assertCopyRegionCompactness(nonFullBlockBuilder);
+
+        BlockBuilder fullBlockBuilder = createBlockBuilderWithValues(arrays, true);
+        assertNotCompact(fullBlockBuilder);
+        assertCompact(fullBlockBuilder.build());
+        assertCopyRegionCompactness(fullBlockBuilder);
+
+        // NOTE: ArrayBlockBuilder will return itself if getRegion() is called to slice the whole block.
+        // assertCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount()));
+        assertNotCompact(fullBlockBuilder.getRegion(0, fullBlockBuilder.getPositionCount() - 1));
+        assertNotCompact(fullBlockBuilder.getRegion(1, fullBlockBuilder.getPositionCount() - 1));
+    }
+
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100), new BlockBuilderStatus(), 100);
@@ -189,6 +246,30 @@ public class TestArrayBlock
                 BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), expectedValue.length);
                 for (Slice v : expectedValue) {
                     VARCHAR.writeSlice(elementBlockBuilder, v);
+                }
+                blockBuilder.writeObject(elementBlockBuilder.build()).closeEntry();
+            }
+        }
+        return blockBuilder;
+    }
+
+    private static BlockBuilder createBlockBuilderWithValues(byte[][] arrays, boolean useAccurateCapacityEstimation)
+    {
+        int totalBytes = Arrays.stream(arrays).mapToInt(x -> x.length).sum();
+        BlockBuilderStatus blockBuilderStatus = new BlockBuilderStatus();
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(
+                TINYINT.createBlockBuilder(blockBuilderStatus, useAccurateCapacityEstimation ? totalBytes : totalBytes * 2),
+                blockBuilderStatus,
+                useAccurateCapacityEstimation ? arrays.length : arrays.length * 2);
+
+        for (byte[] array : arrays) {
+            if (array == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                BlockBuilder elementBlockBuilder = TINYINT.createBlockBuilder(new BlockBuilderStatus(), array.length);
+                for (byte v : array) {
+                    TINYINT.writeLong(elementBlockBuilder, v);
                 }
                 blockBuilder.writeObject(elementBlockBuilder.build()).closeEntry();
             }
