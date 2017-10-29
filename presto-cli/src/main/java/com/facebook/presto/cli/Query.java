@@ -37,6 +37,7 @@ import java.io.PrintStream;
 import java.io.Writer;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -60,6 +61,16 @@ public class Query
     public Query(StatementClient client)
     {
         this.client = requireNonNull(client, "client is null");
+    }
+
+    public Optional<String> getSetCatalog()
+    {
+        return client.getSetCatalog();
+    }
+
+    public Optional<String> getSetSchema()
+    {
+        return client.getSetSchema();
     }
 
     public Map<String, String> getSetSessionProperties()
