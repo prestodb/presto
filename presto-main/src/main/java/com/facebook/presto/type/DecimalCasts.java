@@ -563,28 +563,39 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long varcharToShortDecimal(Slice value, long precision, long scale, long tenToScale)
     {
+        BigDecimal result;
+        String stringValue = value.toString(UTF_8);
         try {
-            String stringValue = value.toString(UTF_8);
-            BigDecimal decimal = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
-            if (overflows(decimal, precision)) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s)", stringValue, precision, scale));
-            }
-            return decimal.unscaledValue().longValue();
+            result = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
         }
         catch (NumberFormatException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s)", value.toString(UTF_8), precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value is not a number.", stringValue, precision, scale));
         }
+
+        if (overflows(result, precision)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value too large.", stringValue, precision, scale));
+        }
+
+        return result.unscaledValue().longValue();
     }
 
     @UsedByGeneratedCode
     public static Slice varcharToLongDecimal(Slice value, long precision, long scale, BigInteger tenToScale)
     {
+        BigDecimal result;
         String stringValue = value.toString(UTF_8);
-        BigDecimal decimal = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
-        if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s)", stringValue, precision, scale));
+        try {
+            result = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
         }
-        return encodeUnscaledValue(decimal.unscaledValue());
+        catch (NumberFormatException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value is not a number.", stringValue, precision, scale));
+        }
+
+        if (overflows(result, precision)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value too large.", stringValue, precision, scale));
+        }
+
+        return encodeUnscaledValue(result.unscaledValue());
     }
 
     @UsedByGeneratedCode

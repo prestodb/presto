@@ -417,10 +417,12 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST('1234567890' AS DECIMAL(30,20))", decimal("1234567890.00000000000000000000"));
         assertDecimalFunction("CAST('-1234567890' AS DECIMAL(30,20))", decimal("-1234567890.00000000000000000000"));
 
-        assertInvalidCast("CAST('234.0' AS DECIMAL(2,0))", "Cannot cast VARCHAR '234.0' to DECIMAL(2, 0)");
-        assertInvalidCast("CAST('1000.01' AS DECIMAL(5,2))", "Cannot cast VARCHAR '1000.01' to DECIMAL(5, 2)");
-        assertInvalidCast("CAST('-234.0' AS DECIMAL(2,0))", "Cannot cast VARCHAR '-234.0' to DECIMAL(2, 0)");
-        assertInvalidCast("CAST('12345678901' AS DECIMAL(20, 10))", "Cannot cast VARCHAR '12345678901' to DECIMAL(20, 10)");
+        assertInvalidCast("CAST('234.0' AS DECIMAL(2,0))", "Cannot cast VARCHAR '234.0' to DECIMAL(2, 0). Value too large.");
+        assertInvalidCast("CAST('1000.01' AS DECIMAL(5,2))", "Cannot cast VARCHAR '1000.01' to DECIMAL(5, 2). Value too large.");
+        assertInvalidCast("CAST('-234.0' AS DECIMAL(2,0))", "Cannot cast VARCHAR '-234.0' to DECIMAL(2, 0). Value too large.");
+        assertInvalidCast("CAST('12345678901' AS DECIMAL(20, 10))", "Cannot cast VARCHAR '12345678901' to DECIMAL(20, 10). Value too large.");
+        assertInvalidCast("CAST('foo' AS DECIMAL(2, 0))", "Cannot cast VARCHAR 'foo' to DECIMAL(2, 0). Value is not a number.");
+        assertInvalidCast("CAST('bar' AS DECIMAL)", "Cannot cast VARCHAR 'bar' to DECIMAL(38, 0). Value is not a number.");
     }
 
     @Test
