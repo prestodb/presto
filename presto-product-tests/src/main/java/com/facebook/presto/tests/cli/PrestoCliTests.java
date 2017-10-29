@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 import static com.facebook.presto.tests.TestGroups.CLI;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -34,6 +35,7 @@ import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitio
 import static com.teradata.tempto.process.CliProcess.trimLines;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class PrestoCliTests
@@ -142,6 +144,31 @@ public class PrestoCliTests
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldHandleSession()
+            throws IOException, InterruptedException
+    {
+        launchPrestoCliWithServerArgument();
+        presto.waitForPrompt();
+
+        presto.getProcessInput().println("use hive.default;");
+        assertThat(presto.readLinesUntilPrompt()).contains("USE");
+
+        presto.getProcessInput().println("select * from nation;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
+
+        presto.getProcessInput().println("show session;");
+        assertThat(squeezeLines(presto.readLinesUntilPrompt()))
+                .contains("distributed_join|true|true|boolean|Use a distributed join instead of a broadcast join");
+
+        presto.getProcessInput().println("set session distributed_join = false;");
+        assertThat(presto.readLinesUntilPrompt()).contains("SET SESSION");
+
+        presto.getProcessInput().println("show session;");
+        assertThat(squeezeLines(presto.readLinesUntilPrompt()))
+                .contains("distributed_join|false|true|boolean|Use a distributed join instead of a broadcast join");
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldHandleTransaction()
             throws IOException, InterruptedException
     {
@@ -149,7 +176,7 @@ public class PrestoCliTests
         presto.waitForPrompt();
 
         presto.getProcessInput().println("use hive.default;");
-        presto.readLinesUntilPrompt();
+        assertThat(presto.readLinesUntilPrompt()).contains("USE");
 
         // start transaction and create table
         presto.getProcessInput().println("start transaction;");
@@ -237,5 +264,12 @@ public class PrestoCliTests
     {
         int i = line.indexOf(':');
         return (i >= 0) ? line.substring(i + 1).trim() : line;
+    }
+
+    public static List<String> squeezeLines(List<String> lines)
+    {
+        return lines.stream()
+                .map(line -> line.replaceAll(" +\\| +", "|").trim())
+                .collect(toList());
     }
 }
