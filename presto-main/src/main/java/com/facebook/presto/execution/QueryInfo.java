@@ -52,6 +52,8 @@ public class QueryInfo
     private final List<String> fieldNames;
     private final String query;
     private final QueryStats queryStats;
+    private final Optional<String> setCatalog;
+    private final Optional<String> setSchema;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Map<String, String> addedPreparedStatements;
@@ -80,6 +82,8 @@ public class QueryInfo
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
+            @JsonProperty("setCatalog") Optional<String> setCatalog,
+            @JsonProperty("setSchema") Optional<String> setSchema,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("addedPreparedStatements") Map<String, String> addedPreparedStatements,
@@ -102,6 +106,8 @@ public class QueryInfo
         requireNonNull(self, "self is null");
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(queryStats, "queryStats is null");
+        requireNonNull(setCatalog, "setCatalog is null");
+        requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
@@ -123,6 +129,8 @@ public class QueryInfo
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
         this.queryStats = queryStats;
+        this.setCatalog = setCatalog;
+        this.setSchema = setSchema;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.addedPreparedStatements = ImmutableMap.copyOf(addedPreparedStatements);
@@ -193,6 +201,18 @@ public class QueryInfo
     public QueryStats getQueryStats()
     {
         return queryStats;
+    }
+
+    @JsonProperty
+    public Optional<String> getSetCatalog()
+    {
+        return setCatalog;
+    }
+
+    @JsonProperty
+    public Optional<String> getSetSchema()
+    {
+        return setSchema;
     }
 
     @JsonProperty
