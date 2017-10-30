@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore;
+package com.facebook.presto.hive.metastore.thrift;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -44,13 +44,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MockHiveMetastoreClient
         implements HiveMetastoreClient
 {
-    static final String TEST_DATABASE = "testdb";
-    static final String BAD_DATABASE = "baddb";
-    static final String TEST_TABLE = "testtbl";
-    static final String TEST_PARTITION1 = "key=testpartition1";
-    static final String TEST_PARTITION2 = "key=testpartition2";
-    static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
-    static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
+    public static final String TEST_DATABASE = "testdb";
+    public static final String BAD_DATABASE = "baddb";
+    public static final String TEST_TABLE = "testtbl";
+    public static final String TEST_PARTITION1 = "key=testpartition1";
+    public static final String TEST_PARTITION2 = "key=testpartition2";
+    public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
+    public static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
 
     private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
             new StorageDescriptor(ImmutableList.of(), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());

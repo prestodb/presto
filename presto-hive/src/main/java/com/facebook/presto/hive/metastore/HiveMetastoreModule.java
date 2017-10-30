@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.metastore.file.FileMetastoreModule;
+import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;

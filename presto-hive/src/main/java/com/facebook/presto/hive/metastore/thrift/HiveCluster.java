@@ -11,9 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
-
-import com.facebook.presto.hive.metastore.HiveMetastoreClient;
+package com.facebook.presto.hive.metastore.thrift;
 
 /**
  * A Hive cluster is a single logical installation of Hive. It might
