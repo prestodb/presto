@@ -11,10 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.presto.hive.metastore.HiveMetastoreClient;
-import com.facebook.presto.hive.metastore.MockHiveMetastoreClient;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;

@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore;
+package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.ForCachingHiveMetastore;
-import com.facebook.presto.hive.HiveCluster;
-import com.facebook.presto.hive.HiveMetastoreClientFactory;
-import com.facebook.presto.hive.StaticHiveCluster;
-import com.facebook.presto.hive.StaticMetastoreConfig;
+import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
