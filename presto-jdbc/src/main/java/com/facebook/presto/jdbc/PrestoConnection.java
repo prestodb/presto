@@ -599,6 +599,7 @@ public class PrestoConnection
                 timeZoneId.get(),
                 locale.get(),
                 ImmutableMap.copyOf(allProperties),
+                ImmutableMap.of(),
                 transactionId.get(),
                 false,
                 new Duration(2, MINUTES));
