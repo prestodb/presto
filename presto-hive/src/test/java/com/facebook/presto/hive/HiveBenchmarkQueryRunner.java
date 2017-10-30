@@ -78,7 +78,6 @@ public final class HiveBenchmarkQueryRunner
                 metastore);
 
         Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()
-                .put("hive.metastore.uri", "thrift://none.invalid:0")
                 .put("hive.max-split-size", "10GB")
                 .build();
 

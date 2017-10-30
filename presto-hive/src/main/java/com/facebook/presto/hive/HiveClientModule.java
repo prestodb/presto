@@ -82,10 +82,6 @@ public class HiveClientModule
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class, connectorId));
 
-        binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
-        binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(StaticMetastoreConfig.class);
-
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(PageIndexerFactory.class).toInstance(pageIndexerFactory);

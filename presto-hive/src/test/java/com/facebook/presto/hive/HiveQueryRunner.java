@@ -98,7 +98,6 @@ public final class HiveQueryRunner
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
-                    .put("hive.metastore.uri", "thrift://localhost:8080")
                     .put("hive.time-zone", TIME_ZONE.getID())
                     .put("hive.security", security)
                     .put("hive.max-partitions-per-scan", "1000")
