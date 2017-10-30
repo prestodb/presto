@@ -23,7 +23,6 @@ import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.airlift.node.NodeModule;
 
 import java.util.Map;
 
@@ -52,7 +51,6 @@ public class H2ResourceGroupConfigurationManagerFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new H2ResourceGroupsModule(),
-                    new NodeModule(),
                     binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
             Injector injector = app

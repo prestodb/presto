@@ -39,8 +39,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 class H2TestUtil
 {
     private static final String CONFIGURATION_MANAGER_TYPE = "h2";
-    public static final String TEST_ENVIRONMENT = "test_environment";
-    public static final String TEST_ENVIRONMENT_2 = "test_environment_2";
 
     private H2TestUtil() {}
 
@@ -112,27 +110,20 @@ class H2TestUtil
     public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
             throws Exception
     {
-        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT);
-    }
-
-    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment)
-            throws Exception
-    {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(
                 testSessionBuilder().setCatalog("tpch").setSchema("tiny").build(),
                 2,
                 ImmutableMap.of("experimental.resource-groups-enabled", "true"),
                 ImmutableMap.of(),
-                new SqlParserOptions(),
-                environment);
+                new SqlParserOptions());
         try {
             Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
             queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
             queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl, "node.environment", environment));
+                    .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl));
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            setup(queryRunner, dao, environment);
+            setup(queryRunner, dao);
             return queryRunner;
         }
         catch (Exception e) {
@@ -149,28 +140,20 @@ class H2TestUtil
         return createQueryRunner(dbConfigUrl, dao);
     }
 
-    private static void setup(DistributedQueryRunner queryRunner, H2ResourceGroupsDao dao, String environment)
+    private static void setup(DistributedQueryRunner queryRunner, H2ResourceGroupsDao dao)
             throws InterruptedException
     {
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, 1000, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, 2, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(6, "no-queueing", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT_2);
+        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, 1000, null, null, null, null, null, null, null, null);
+        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, 2, null, null, null, null, null, null, null, 1L);
+        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, 1L);
+        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, 3L);
+        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, 3L);
         dao.insertSelector(2, "user.*", "test");
         dao.insertSelector(4, "user.*", "(?i).*adhoc.*");
         dao.insertSelector(5, "user.*", "(?i).*dashboard.*");
-        dao.insertSelector(6, ".*", ".*");
-
-        int expectedSelectors = 3;
-        if (environment.equals(TEST_ENVIRONMENT_2)) {
-            expectedSelectors = 1;
-        }
-
         // Selectors are loaded last
-        while (getSelectors(queryRunner).size() != expectedSelectors) {
+        while (getSelectors(queryRunner).size() != 3) {
             MILLISECONDS.sleep(500);
         }
     }

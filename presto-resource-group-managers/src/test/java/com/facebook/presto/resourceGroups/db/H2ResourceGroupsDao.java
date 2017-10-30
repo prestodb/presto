@@ -29,8 +29,8 @@ public interface H2ResourceGroupsDao
     void updateResourceGroupsGlobalProperties(@Bind("name") String name);
 
     @SqlUpdate("INSERT INTO resource_groups\n" +
-            "(resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, queued_time_limit, running_time_limit, parent, environment)\n" +
-            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :soft_concurrency_limit, :hard_concurrency_limit, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :queued_time_limit, :running_time_limit, :parent, :environment)")
+            "(resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, queued_time_limit, running_time_limit, parent)\n" +
+            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :soft_concurrency_limit, :hard_concurrency_limit, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :queued_time_limit, :running_time_limit, :parent)")
     void insertResourceGroup(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String name,
@@ -45,8 +45,7 @@ public interface H2ResourceGroupsDao
             @Bind("hard_cpu_limit") String hardCpuLimit,
             @Bind("queued_time_limit") String queuedTimeLimit,
             @Bind("running_time_limit") String runningTimeLimit,
-            @Bind("parent") Long parent,
-            @Bind("environment") String environment);
+            @Bind("parent") Long parent);
 
     @SqlUpdate("UPDATE resource_groups SET\n" +
             " resource_group_id = :resource_group_id\n" +
@@ -63,7 +62,6 @@ public interface H2ResourceGroupsDao
             ", queued_time_limit = :queued_time_limit\n" +
             ", running_time_limit = :running_time_limit\n" +
             ", parent = :parent\n" +
-            ", environment = :environment\n" +
             "WHERE resource_group_id = :resource_group_id")
     void updateResourceGroup(
             @Bind("resource_group_id") long resourceGroupId,
@@ -79,8 +77,7 @@ public interface H2ResourceGroupsDao
             @Bind("hard_cpu_limit") String hardCpuLimit,
             @Bind("queued_time_limit") String queuedTimeLimit,
             @Bind("running_time_limit") String runningTimeLimit,
-            @Bind("parent") Long parent,
-            @Bind("environment") String environment);
+            @Bind("parent") Long parent);
 
     @SqlUpdate("DELETE FROM resource_groups WHERE resource_group_id = :resource_group_id")
     void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);

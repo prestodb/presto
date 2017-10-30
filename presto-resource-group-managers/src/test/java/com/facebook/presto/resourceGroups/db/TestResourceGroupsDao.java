@@ -30,8 +30,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroupsDao
 {
-    private static final String ENVIRONMENT = "test";
-
     static H2ResourceGroupsDao setup(String prefix)
     {
         DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime());
@@ -51,9 +49,9 @@ public class TestResourceGroupsDao
 
     private static void testResourceGroupInsert(H2ResourceGroupsDao dao, Map<Long, ResourceGroupSpecBuilder> map)
     {
-        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, null, null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "bi", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
-        List<ResourceGroupSpecBuilder> records = dao.getResourceGroups(ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, null, null);
+        dao.insertResourceGroup(2, "bi", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L);
+        List<ResourceGroupSpecBuilder> records = dao.getResourceGroups();
         assertEquals(records.size(), 2);
         map.put(1L, new ResourceGroupSpecBuilder(1, new ResourceGroupNameTemplate("global"), "100%", 100, Optional.of(100), 100, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), null));
         map.put(2L, new ResourceGroupSpecBuilder(2, new ResourceGroupNameTemplate("bi"), "50%", 50, Optional.of(50), 50, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1L)));
@@ -62,17 +60,17 @@ public class TestResourceGroupsDao
 
     private static void testResourceGroupUpdate(H2ResourceGroupsDao dao, Map<Long, ResourceGroupSpecBuilder> map)
     {
-        dao.updateResourceGroup(2, "bi", "40%", 40, 30, 30, null, null, true, null, null, null, null, 1L, ENVIRONMENT);
+        dao.updateResourceGroup(2, "bi", "40%", 40, 30, 30, null, null, true, null, null, null, null, 1L);
         ResourceGroupSpecBuilder updated = new ResourceGroupSpecBuilder(2, new ResourceGroupNameTemplate("bi"), "40%", 40, Optional.of(30), 30, Optional.empty(), Optional.empty(), Optional.of(true), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1L));
         map.put(2L, updated);
-        compareResourceGroups(map, dao.getResourceGroups(ENVIRONMENT));
+        compareResourceGroups(map, dao.getResourceGroups());
     }
 
     private static void testResourceGroupDelete(H2ResourceGroupsDao dao, Map<Long, ResourceGroupSpecBuilder> map)
     {
         dao.deleteResourceGroup(2);
         map.remove(2L);
-        compareResourceGroups(map, dao.getResourceGroups(ENVIRONMENT));
+        compareResourceGroups(map, dao.getResourceGroups());
     }
 
     @Test
@@ -102,9 +100,9 @@ public class TestResourceGroupsDao
                         3L,
                         Optional.of(Pattern.compile("admin_user")),
                         Optional.of(Pattern.compile(".*"))));
-        dao.insertResourceGroup(1, "admin", "100%", 100, 100, 100, null, null, null, null, null, null, null, null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "ping_query", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
-        dao.insertResourceGroup(3, "config", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(1, "admin", "100%", 100, 100, 100, null, null, null, null, null, null, null, null);
+        dao.insertResourceGroup(2, "ping_query", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L);
+        dao.insertResourceGroup(3, "config", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L);
         dao.insertSelector(2, "ping_user", ".*");
         dao.insertSelector(3, "admin_user", ".*");
         List<SelectorRecord> records = dao.getSelectors();
