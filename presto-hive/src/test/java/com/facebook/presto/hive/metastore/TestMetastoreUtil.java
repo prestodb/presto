@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -114,17 +115,17 @@ public class TestMetastoreUtil
     public void testTableRoundTrip()
             throws Exception
     {
-        Table table = MetastoreUtil.fromMetastoreApiTable(TEST_TABLE);
+        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE);
         PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
-        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = MetastoreUtil.toMetastoreApiTable(table, privileges);
+        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, privileges);
         assertEquals(metastoreApiTable, TEST_TABLE);
     }
 
     @Test
     public void testPartitionRoundTrip()
     {
-        Partition partition = MetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION);
-        org.apache.hadoop.hive.metastore.api.Partition metastoreApiPartition = MetastoreUtil.toMetastoreApiPartition(partition);
+        Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION);
+        org.apache.hadoop.hive.metastore.api.Partition metastoreApiPartition = ThriftMetastoreUtil.toMetastoreApiPartition(partition);
         assertEquals(metastoreApiPartition, TEST_PARTITION);
     }
 
@@ -132,7 +133,7 @@ public class TestMetastoreUtil
     public void testHiveSchemaTable()
     {
         Properties expected = MetaStoreUtils.getTableMetadata(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        Properties actual = MetastoreUtil.getHiveSchema(MetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS));
+        Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS));
         assertEquals(actual, expected);
     }
 
@@ -140,7 +141,7 @@ public class TestMetastoreUtil
     public void testHiveSchemaPartition()
     {
         Properties expected = MetaStoreUtils.getPartitionMetadata(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS, TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        Properties actual = MetastoreUtil.getHiveSchema(MetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), MetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS));
+        Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS));
         assertEquals(actual, expected);
     }
 
@@ -148,14 +149,14 @@ public class TestMetastoreUtil
     public void testTableRoundTripUnsupported()
             throws Exception
     {
-        Table table = MetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
-        MetastoreUtil.toMetastoreApiTable(table, null);
+        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS);
+        ThriftMetastoreUtil.toMetastoreApiTable(table, null);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to sorted and/or skewed table/partition is not supported")
     public void testPartitionRoundTripUnsupported()
     {
-        Partition partition = MetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS);
-        MetastoreUtil.toMetastoreApiPartition(partition);
+        Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS);
+        ThriftMetastoreUtil.toMetastoreApiPartition(partition);
     }
 }
