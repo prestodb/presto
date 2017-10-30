@@ -65,7 +65,7 @@ import static com.facebook.presto.hive.metastore.HivePrincipal.toHivePrincipal;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.toGrants;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toGrants;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
