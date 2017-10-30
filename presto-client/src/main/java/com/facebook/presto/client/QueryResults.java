@@ -22,9 +22,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -120,14 +120,14 @@ public class QueryResults
         this.updateCount = updateCount;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public String getId()
     {
         return id;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public URI getInfoUri()
     {
@@ -162,7 +162,7 @@ public class QueryResults
         return data;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public StatementStats getStats()
     {

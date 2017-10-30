@@ -20,12 +20,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.validation</groupId>
-                    <artifactId>validation-api</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
