@@ -80,9 +80,8 @@ public class PrestoStatement
     public void close()
             throws SQLException
     {
-        if (connection.getAndSet(null) != null) {
-            // TODO
-        }
+        connection.set(null);
+        closeResultSet();
     }
 
     @Override
@@ -179,10 +178,7 @@ public class PrestoStatement
             client.close();
         }
 
-        ResultSet resultSet = currentResult.get();
-        if (resultSet != null) {
-            resultSet.close();
-        }
+        closeResultSet();
     }
 
     @Override
@@ -305,7 +301,7 @@ public class PrestoStatement
             throws SQLException
     {
         checkOpen();
-        currentResult.get().close();
+        closeResultSet();
         return false;
     }
 
@@ -401,7 +397,7 @@ public class PrestoStatement
         checkOpen();
 
         if (current == CLOSE_CURRENT_RESULT) {
-            currentResult.get().close();
+            closeResultSet();
             return false;
         }
 
@@ -580,6 +576,15 @@ public class PrestoStatement
             throw new SQLException("Connection is closed");
         }
         return connection;
+    }
+
+    private void closeResultSet()
+            throws SQLException
+    {
+        ResultSet resultSet = currentResult.getAndSet(null);
+        if (resultSet != null) {
+            resultSet.close();
+        }
     }
 
     private static boolean validFetchDirection(int direction)

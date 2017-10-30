@@ -22,7 +22,6 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -1412,9 +1411,7 @@ public class PrestoDatabaseMetaData
     private ResultSet select(String sql)
             throws SQLException
     {
-        try (Statement statement = getConnection().createStatement()) {
-            return statement.executeQuery(sql);
-        }
+        return getConnection().createStatement().executeQuery(sql);
     }
 
     private static void buildFilters(StringBuilder out, List<String> filters)
