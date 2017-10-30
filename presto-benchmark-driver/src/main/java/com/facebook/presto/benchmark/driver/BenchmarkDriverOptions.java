@@ -96,6 +96,7 @@ public class BenchmarkDriverOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(this.sessionProperties),
+                ImmutableMap.of(),
                 null,
                 debug,
                 clientRequestTimeout);
