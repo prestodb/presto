@@ -131,7 +131,6 @@ public final class SqlQueryExecution
     private final FailureDetector failureDetector;
 
     private final QueryExplainer queryExplainer;
-    private final PlanFlattener planFlattener;
     private final CostCalculator costCalculator;
     private final AtomicReference<SqlQueryScheduler> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
@@ -162,7 +161,6 @@ public final class SqlQueryExecution
             FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
             QueryExplainer queryExplainer,
-            PlanFlattener planFlattener,
             ExecutionPolicy executionPolicy,
             List<Expression> parameters,
             SplitSchedulerStats schedulerStats)
@@ -183,7 +181,6 @@ public final class SqlQueryExecution
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
-            this.planFlattener = requireNonNull(planFlattener, "planFlattener is null");
             this.parameters = requireNonNull(parameters);
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
@@ -375,14 +372,13 @@ public final class SqlQueryExecution
         stateMachine.setOutput(output);
 
         // fragment the plan
-        SubPlan fragmentedPlan = PlanFragmenter.createSubPlans(stateMachine.getSession(), metadata, plan);
-        stateMachine.setPlan(planFlattener.flatten(fragmentedPlan, stateMachine.getSession()));
+        SubPlan subplan = PlanFragmenter.createSubPlans(stateMachine.getSession(), metadata, plan);
 
         // record analysis time
         stateMachine.recordAnalysisTime(analysisStart);
 
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
+        return new PlanRoot(subplan, !explainAnalyze, extractConnectors(analysis));
     }
 
     private Set<ConnectorId> extractConnectors(Analysis analysis)
@@ -648,7 +644,6 @@ public final class SqlQueryExecution
         private final RemoteTaskFactory remoteTaskFactory;
         private final TransactionManager transactionManager;
         private final QueryExplainer queryExplainer;
-        private final PlanFlattener planFlattener;
         private final LocationFactory locationFactory;
         private final ExecutorService executor;
         private final FailureDetector failureDetector;
@@ -673,7 +668,6 @@ public final class SqlQueryExecution
                 FailureDetector failureDetector,
                 NodeTaskMap nodeTaskMap,
                 QueryExplainer queryExplainer,
-                PlanFlattener planFlattener,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats)
         {
@@ -695,7 +689,6 @@ public final class SqlQueryExecution
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
-            this.planFlattener = requireNonNull(planFlattener, "planFlattener is null");
 
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
             this.costCalculator = requireNonNull(costCalculator, "cost calculator is null");
@@ -731,7 +724,6 @@ public final class SqlQueryExecution
                     failureDetector,
                     nodeTaskMap,
                     queryExplainer,
-                    planFlattener,
                     executionPolicy,
                     parameters,
                     schedulerStats);
