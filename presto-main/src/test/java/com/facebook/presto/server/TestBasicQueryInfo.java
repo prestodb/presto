@@ -98,7 +98,6 @@ public class TestBasicQueryInfo
                         StandardErrorCode.ABANDONED_QUERY.toErrorCode(),
                         ImmutableSet.of(),
                         Optional.empty(),
-                        Optional.empty(),
                         false,
                         Optional.empty()));
 
