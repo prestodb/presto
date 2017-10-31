@@ -16,8 +16,6 @@ package com.facebook.presto.execution.resourceGroups.db;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeGroups;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -31,53 +29,37 @@ import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQ
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDao;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
 
+@Test(singleThreaded = true)
 public class TestEnvironments
 {
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
-    private DistributedQueryRunner runner;
 
-    @BeforeGroups(value = TEST_ENVIRONMENT)
-    public void setUpRunnerForEnvironment1()
-            throws Exception
-    {
-        String dbConfigUrl = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT);
-    }
-
-    @BeforeGroups(value = TEST_ENVIRONMENT_2)
-    public void setUpRunnerForEnvironment2()
-            throws Exception
-    {
-        String dbConfigUrl = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2);
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void shutdown()
-    {
-        runner.close();
-    }
-
-    @Test(timeOut = 60_000, groups = TEST_ENVIRONMENT)
+    @Test(timeOut = 240_000)
     public void testEnvironment1()
             throws Exception
     {
-        QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
-        waitForQueryState(runner, firstQuery, RUNNING);
-        QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
-        waitForQueryState(runner, secondQuery, RUNNING);
+        String dbConfigUrl = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
+        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT)) {
+            QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
+            waitForQueryState(runner, firstQuery, RUNNING);
+            QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
+            waitForQueryState(runner, secondQuery, RUNNING);
+        }
     }
 
-    @Test(timeOut = 60_000, groups = TEST_ENVIRONMENT_2)
+    @Test(timeOut = 240_000)
     public void testEnvironment2()
             throws Exception
     {
-        QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
-        waitForQueryState(runner, firstQuery, RUNNING);
-        QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
-        // there is no queueing in TEST_ENVIRONMENT_2, so the second query should fail right away
-        waitForQueryState(runner, secondQuery, FAILED);
+        String dbConfigUrl = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
+        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2)) {
+            QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
+            waitForQueryState(runner, firstQuery, RUNNING);
+            QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
+            // there is no queueing in TEST_ENVIRONMENT_2, so the second query should fail right away
+            waitForQueryState(runner, secondQuery, FAILED);
+        }
     }
 }
