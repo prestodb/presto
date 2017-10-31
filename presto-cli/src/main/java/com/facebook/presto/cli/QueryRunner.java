@@ -24,6 +24,7 @@ import java.io.File;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
 import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
@@ -94,12 +95,17 @@ public class QueryRunner
 
     public Query startQuery(String query)
     {
-        return new Query(startInternalQuery(query));
+        return new Query(startInternalQuery(session.get(), query));
     }
 
     public StatementClient startInternalQuery(String query)
     {
-        return new StatementClient(httpClient, session.get(), query);
+        return startInternalQuery(stripTransactionId(session.get()), query);
+    }
+
+    private StatementClient startInternalQuery(ClientSession session, String query)
+    {
+        return new StatementClient(httpClient, session, query);
     }
 
     @Override
