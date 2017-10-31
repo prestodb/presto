@@ -1506,7 +1506,7 @@ public class TestPrestoDriver
         }
     }
 
-    @Test(timeOut = 4000)
+    @Test(timeOut = 10000)
     public void testQueryTimeout()
             throws Exception
     {
