@@ -104,6 +104,9 @@ public class ClientOptions
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
+    @Option(name = "--exit-on-error", title = "exit-on-error", description = "exit when any query from --execute or --file failed and return -1")
+    public boolean exitOnErr = false;
+
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 

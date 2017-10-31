@@ -142,7 +142,7 @@ public class Console
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
                 clientOptions.authenticationEnabled)) {
             if (hasQuery) {
-                executeCommand(queryRunner, query, clientOptions.outputFormat);
+                executeCommand(queryRunner, query, clientOptions.outputFormat, clientOptions.exitOnErr);
             }
             else {
                 runConsole(queryRunner, session, exiting);
@@ -259,7 +259,7 @@ public class Console
                             outputFormat = OutputFormat.VERTICAL;
                         }
 
-                        process(queryRunner, split.statement(), outputFormat, true);
+                        process(queryRunner, split.statement(), outputFormat, true, false);
                     }
                     reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
@@ -303,12 +303,12 @@ public class Console
         return statement instanceof Use;
     }
 
-    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean exitOnErr)
     {
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                process(queryRunner, split.statement(), outputFormat, false);
+                process(queryRunner, split.statement(), outputFormat, false, exitOnErr);
             }
         }
         if (!isEmptyStatement(splitter.getPartialStatement())) {
@@ -316,7 +316,7 @@ public class Console
         }
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
+    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive, boolean exitOnErr)
     {
         String finalSql;
         try {
@@ -368,6 +368,9 @@ public class Console
             System.err.println("Error running command: " + e.getMessage());
             if (queryRunner.getSession().isDebug()) {
                 e.printStackTrace();
+            }
+            if (!interactive && exitOnErr) {
+                System.exit(-1);
             }
         }
     }
