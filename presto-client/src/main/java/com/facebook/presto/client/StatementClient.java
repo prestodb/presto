@@ -338,7 +338,7 @@ public class StatementClient
         if (startedTransactionId != null) {
             this.startedtransactionId.set(startedTransactionId);
         }
-        if (headers.values(PRESTO_CLEAR_TRANSACTION_ID) != null) {
+        if (headers.get(PRESTO_CLEAR_TRANSACTION_ID) != null) {
             clearTransactionId.set(true);
         }
 
