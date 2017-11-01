@@ -69,7 +69,6 @@ public class SpnegoFilter
     private static final Logger LOG = Logger.get(SpnegoFilter.class);
 
     private static final String NEGOTIATE_SCHEME = "Negotiate";
-    private static final String INCLUDE_REALM_HEADER = "X-Airlift-Realm-In-Challenge";
 
     private final GSSManager gssManager = GSSManager.getInstance();
     private final LoginContext loginContext;
@@ -147,7 +146,6 @@ public class SpnegoFilter
 
         String header = request.getHeader(AUTHORIZATION);
 
-        boolean includeRealm = "true".equalsIgnoreCase(request.getHeader(INCLUDE_REALM_HEADER));
         String requestSpnegoToken = null;
 
         if (header != null) {
@@ -158,7 +156,8 @@ public class SpnegoFilter
                     Optional<Result> authentication = authenticate(parts[1]);
                     if (authentication.isPresent()) {
                         authentication.get().getToken()
-                                .ifPresent(token -> response.setHeader(WWW_AUTHENTICATE, formatAuthenticationHeader(includeRealm, Optional.of(token))));
+                                .map(token -> NEGOTIATE_SCHEME + " " + Base64.getEncoder().encodeToString(token))
+                                .ifPresent(value -> response.setHeader(WWW_AUTHENTICATE, value));
 
                         nextFilter.doFilter(new HttpServletRequestWrapper(request)
                         {
@@ -177,7 +176,7 @@ public class SpnegoFilter
             }
         }
 
-        sendChallenge(request, response, includeRealm, requestSpnegoToken);
+        sendChallenge(request, response, requestSpnegoToken);
     }
 
     private Optional<Result> authenticate(String token)
@@ -214,7 +213,7 @@ public class SpnegoFilter
         return Optional.empty();
     }
 
-    private static void sendChallenge(HttpServletRequest request, HttpServletResponse response, boolean includeRealm, String invalidSpnegoToken)
+    private static void sendChallenge(HttpServletRequest request, HttpServletResponse response, String invalidSpnegoToken)
             throws IOException
     {
         // If we send the challenge without consuming the body of the request,
@@ -231,7 +230,7 @@ public class SpnegoFilter
         else {
             response.setStatus(SC_UNAUTHORIZED);
         }
-        response.setHeader(WWW_AUTHENTICATE, formatAuthenticationHeader(includeRealm, Optional.empty()));
+        response.setHeader(WWW_AUTHENTICATE, NEGOTIATE_SCHEME);
     }
 
     private static void skipRequestBody(HttpServletRequest request)
@@ -240,20 +239,6 @@ public class SpnegoFilter
         try (InputStream inputStream = request.getInputStream()) {
             copy(inputStream, nullOutputStream());
         }
-    }
-
-    private static String formatAuthenticationHeader(boolean includeRealm, Optional<byte[]> token)
-    {
-        StringBuilder header = new StringBuilder(NEGOTIATE_SCHEME);
-
-        if (includeRealm) {
-            header.append(" realm=\"presto\"");
-        }
-
-        token.ifPresent(bytes -> header.append(" ")
-                .append(Base64.getEncoder().encodeToString(bytes)));
-
-        return header.toString();
     }
 
     @Override
