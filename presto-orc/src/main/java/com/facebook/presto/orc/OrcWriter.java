@@ -28,6 +28,7 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.writer.ColumnWriter;
 import com.facebook.presto.orc.writer.ColumnWriters;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
@@ -46,10 +47,12 @@ import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -368,15 +371,23 @@ public class OrcWriter
                     .sum();
         }
 
+        // sort data streams
+        List<OutputDataStream> outputDataStreams = new ArrayList<>(columnWriters.size() * 2);
+        for (ColumnWriter columnWriter : columnWriters) {
+            outputDataStreams.addAll(columnWriter.getOutputDataStreams());
+        }
+        Collections.sort(outputDataStreams);
+
         // write data streams
         long dataLength = 0;
-        for (ColumnWriter columnWriter : columnWriters) {
-            List<Stream> dataStreams = columnWriter.writeDataStreams(output);
-            allStreams.addAll(dataStreams);
-            dataLength += dataStreams.stream()
-                    .mapToInt(Stream::getLength)
-                    .asLongStream()
-                    .sum();
+        for (OutputDataStream outputDataStream : outputDataStreams) {
+            Optional<Stream> stream = outputDataStream.writeData(output);
+            if (!stream.isPresent()) {
+                continue;
+            }
+            // The ordering is critical because the stream only contain a length with no offset.
+            allStreams.add(stream.get());
+            dataLength += stream.get().getLength();
         }
 
         Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();
