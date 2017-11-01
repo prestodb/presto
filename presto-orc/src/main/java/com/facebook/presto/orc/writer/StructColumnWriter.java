@@ -21,6 +21,7 @@ import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarRow;
@@ -201,6 +202,19 @@ public class StructColumnWriter
         ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
         presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         return positionList.build();
+    }
+
+    @Override
+    public List<OutputDataStream> getOutputDataStreams()
+    {
+        checkState(closed);
+
+        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
+        for (ColumnWriter structField : structFields) {
+            outputDataStreams.addAll(structField.getOutputDataStreams());
+        }
+        return outputDataStreams.build();
     }
 
     @Override

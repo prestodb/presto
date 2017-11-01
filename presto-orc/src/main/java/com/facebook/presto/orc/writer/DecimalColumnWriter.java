@@ -28,6 +28,7 @@ import com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder
 import com.facebook.presto.orc.stream.DecimalOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DecimalType;
@@ -213,6 +214,18 @@ public class DecimalColumnWriter
         positionList.addAll(dataCheckpoint.toPositionList(compressed));
         positionList.addAll(scaleCheckpoint.toPositionList(compressed));
         return positionList.build();
+    }
+
+    @Override
+    public List<OutputDataStream> getOutputDataStreams()
+    {
+        checkState(closed);
+
+        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> scaleStream.writeDataStreams(column, sliceOutput), scaleStream.getBufferedBytes()));
+        return outputDataStreams.build();
     }
 
     @Override
