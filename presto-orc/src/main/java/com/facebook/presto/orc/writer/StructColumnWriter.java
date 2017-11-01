@@ -218,20 +218,6 @@ public class StructColumnWriter
     }
 
     @Override
-    public List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException
-    {
-        checkState(closed);
-
-        ImmutableList.Builder<Stream> dataStreams = ImmutableList.builder();
-        presentStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        for (ColumnWriter structField : structFields) {
-            dataStreams.addAll(structField.writeDataStreams(outputStream));
-        }
-        return dataStreams.build();
-    }
-
-    @Override
     public long getBufferedBytes()
     {
         long bufferedBytes = presentStream.getBufferedBytes();
