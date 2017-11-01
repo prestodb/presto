@@ -26,6 +26,7 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.SliceColumnStatisticsBuilder;
 import com.facebook.presto.orc.stream.ByteArrayOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -185,6 +186,18 @@ public class SliceDirectColumnWriter
         positionList.addAll(dataCheckpoint.toPositionList(compressed));
         positionList.addAll(lengthCheckpoint.toPositionList(compressed));
         return positionList.build();
+    }
+
+    @Override
+    public List<OutputDataStream> getOutputDataStreams()
+    {
+        checkState(closed);
+
+        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> lengthStream.writeDataStreams(column, sliceOutput), lengthStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getBufferedBytes()));
+        return outputDataStreams.build();
     }
 
     @Override

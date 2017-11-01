@@ -29,6 +29,7 @@ import com.facebook.presto.orc.stream.ByteArrayOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
@@ -416,6 +417,24 @@ public class SliceDictionaryColumnWriter
         presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         positionList.addAll(dataCheckpoint.toPositionList(compressed));
         return positionList.build();
+    }
+
+    @Override
+    public List<OutputDataStream> getOutputDataStreams()
+    {
+        checkState(closed);
+
+        if (directEncoded) {
+            return directColumnWriter.getOutputDataStreams();
+        }
+
+        // actually write data
+        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> dictionaryLengthStream.writeDataStreams(column, sliceOutput), dictionaryLengthStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> dictionaryDataStream.writeDataStreams(column, sliceOutput), dictionaryDataStream.getBufferedBytes()));
+        return outputDataStreams.build();
     }
 
     @Override

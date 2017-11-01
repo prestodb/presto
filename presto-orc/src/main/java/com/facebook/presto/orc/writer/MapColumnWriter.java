@@ -23,6 +23,7 @@ import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.LongOutputStream;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarMap;
@@ -212,6 +213,19 @@ public class MapColumnWriter
         presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         positionList.addAll(lengthCheckpoint.toPositionList(compressed));
         return positionList.build();
+    }
+
+    @Override
+    public List<OutputDataStream> getOutputDataStreams()
+    {
+        checkState(closed);
+
+        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> lengthStream.writeDataStreams(column, sliceOutput), lengthStream.getBufferedBytes()));
+        outputDataStreams.addAll(keyWriter.getOutputDataStreams());
+        outputDataStreams.addAll(valueWriter.getOutputDataStreams());
+        return outputDataStreams.build();
     }
 
     @Override
