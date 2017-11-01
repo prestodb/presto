@@ -58,14 +58,6 @@ public interface ColumnWriter
      */
     List<OutputDataStream> getOutputDataStreams();
 
-    /**
-     * Write data streams to the output and return the streams in the
-     * order in which they were written.  The ordering is critical because
-     * the stream only contain a length with no offset.
-     */
-    List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException;
-
     long getBufferedBytes();
 
     long getRetainedBytes();

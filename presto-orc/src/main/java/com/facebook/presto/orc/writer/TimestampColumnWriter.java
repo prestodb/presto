@@ -218,19 +218,6 @@ public class TimestampColumnWriter
     }
 
     @Override
-    public List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException
-    {
-        checkState(closed);
-
-        ImmutableList.Builder<Stream> dataStreams = ImmutableList.builder();
-        presentStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        secondsStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        nanosStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        return dataStreams.build();
-    }
-
-    @Override
     public long getBufferedBytes()
     {
         return secondsStream.getBufferedBytes() + nanosStream.getBufferedBytes() + presentStream.getBufferedBytes();

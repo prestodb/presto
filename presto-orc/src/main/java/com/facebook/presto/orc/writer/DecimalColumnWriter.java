@@ -229,19 +229,6 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException
-    {
-        checkState(closed);
-
-        ImmutableList.Builder<Stream> dataStreams = ImmutableList.builder();
-        presentStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        dataStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        scaleStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        return dataStreams.build();
-    }
-
-    @Override
     public long getBufferedBytes()
     {
         return dataStream.getBufferedBytes() + scaleStream.getBufferedBytes() + presentStream.getBufferedBytes();

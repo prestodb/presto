@@ -438,26 +438,6 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException
-    {
-        checkState(closed);
-
-        if (directEncoded) {
-            return directColumnWriter.writeDataStreams(outputStream);
-        }
-
-        // actually write data
-        ImmutableList.Builder<Stream> dataStreams = ImmutableList.builder();
-
-        presentStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        dataStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        dictionaryLengthStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        dictionaryDataStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        return dataStreams.build();
-    }
-
-    @Override
     public long getBufferedBytes()
     {
         checkState(!closed);
