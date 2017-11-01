@@ -53,7 +53,7 @@ public final class ArraySliceFunction
 
         long toIndex = Math.min(fromIndex + length, size + 1);
 
-        if (fromIndex >= toIndex || fromIndex < 0 || toIndex < 0) {
+        if (fromIndex >= toIndex || fromIndex < 1) {
             return type.createBlockBuilder(new BlockBuilderStatus(), 0).build();
         }
 
