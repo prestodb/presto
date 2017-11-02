@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
@@ -71,15 +70,15 @@ public class DbResourceGroupConfigurationManager
     private final AtomicReference<Optional<Duration>> cpuQuotaPeriod = new AtomicReference<>(Optional.empty());
     private final ScheduledExecutorService configExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DbResourceGroupConfigurationManager"));
     private final AtomicBoolean started = new AtomicBoolean();
-    private final NodeInfo nodeInfo;
+    private final String environment;
 
     @Inject
-    public DbResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ResourceGroupsDao dao, NodeInfo nodeInfo)
+    public DbResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ResourceGroupsDao dao, @ForEnvironment String environment)
     {
         super(memoryPoolManager);
         requireNonNull(memoryPoolManager, "memoryPoolManager is null");
         requireNonNull(dao, "daoProvider is null");
-        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+        this.environment = requireNonNull(environment, "environment is null");
         this.dao = dao;
         this.dao.createResourceGroupsGlobalPropertiesTable();
         this.dao.createResourceGroupsTable();
@@ -174,7 +173,7 @@ public class DbResourceGroupConfigurationManager
             Map<Long, ResourceGroupIdTemplate> resourceGroupIdTemplateMap,
             Map<Long, Set<Long>> subGroupIdsToBuild)
     {
-        List<ResourceGroupSpecBuilder> records = dao.getResourceGroups(nodeInfo.getEnvironment());
+        List<ResourceGroupSpecBuilder> records = dao.getResourceGroups(environment);
         for (ResourceGroupSpecBuilder record : records) {
             recordMap.put(record.getId(), record);
             if (!record.getParentId().isPresent()) {

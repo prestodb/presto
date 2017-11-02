@@ -53,6 +53,7 @@ public class H2ResourceGroupConfigurationManagerFactory
                     new JsonModule(),
                     new H2ResourceGroupsModule(),
                     new NodeModule(),
+                    binder -> binder.bind(ResourceGroupConfigurationManagerContext.class).toInstance(context),
                     binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
             Injector injector = app
