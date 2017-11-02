@@ -191,8 +191,8 @@ public class BingTileFunctions
     private static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
     {
         int mapSize = mapSize(zoomLevel);
-        double x = (clip(tileX * TILE_PIXELS, 0, mapSize - 1) / mapSize) - 0.5;
-        double y = 0.5 - (clip(tileY * TILE_PIXELS, 0, mapSize - 1) / mapSize);
+        double x = (clip(tileX * TILE_PIXELS, 0, mapSize) / mapSize) - 0.5;
+        double y = 0.5 - (clip(tileY * TILE_PIXELS, 0, mapSize) / mapSize);
 
         double latitude = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
         double longitude = 360 * x;
@@ -206,8 +206,8 @@ public class BingTileFunctions
         double y = 0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
 
         int mapSize = mapSize(zoomLevel);
-        int tileX = (int) clip(x * mapSize + 0.5, 0, mapSize - 1);
-        int tileY = (int) clip(y * mapSize + 0.5, 0, mapSize - 1);
+        int tileX = (int) clip(x * mapSize, 0, mapSize - 1);
+        int tileY = (int) clip(y * mapSize, 0, mapSize - 1);
         return BingTile.fromCoordinates(tileX / TILE_PIXELS, tileY / TILE_PIXELS, zoomLevel);
     }
 

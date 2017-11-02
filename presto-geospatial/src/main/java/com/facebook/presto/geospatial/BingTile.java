@@ -15,7 +15,10 @@ package com.facebook.presto.geospatial;
 
 import com.facebook.presto.spi.PrestoException;
 
+import java.util.Objects;
+
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class BingTile
@@ -32,6 +35,39 @@ public final class BingTile
         this.x = x;
         this.y = y;
         this.zoomLevel = zoomLevel;
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        if (this == other) {
+            return true;
+        }
+
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+
+        BingTile otherTile = (BingTile) other;
+        return this.x == otherTile.x
+            && this.y == otherTile.y
+            && this.zoomLevel == otherTile.zoomLevel;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(x, y, zoomLevel);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+            .add("x", x)
+            .add("y", y)
+            .add("zoom_level", zoomLevel)
+            .toString();
     }
 
     public static BingTile fromCoordinates(int x, int y, int zoomLevel)
