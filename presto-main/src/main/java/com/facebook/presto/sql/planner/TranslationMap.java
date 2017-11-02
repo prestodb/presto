@@ -258,14 +258,12 @@ class TranslationMap
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (analysis.isColumnReference(node)) {
-                    Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
-                    if (resolvedField.isPresent()) {
-                        if (resolvedField.get().isLocal()) {
-                            return getSymbol(rewriteBase, node)
-                                    .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                                    .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
-                        }
+                Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
+                if (resolvedField.isPresent()) {
+                    if (resolvedField.get().isLocal()) {
+                        return getSymbol(rewriteBase, node)
+                                .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
+                                .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
                     }
                     // do not rewrite outer references, it will be handled in outer scope planner
                     return node;
@@ -302,13 +300,8 @@ class TranslationMap
         }, expression, null);
     }
 
-    private Optional<Symbol> getSymbol(RelationPlan plan, Expression expression)
+    Optional<Symbol> getSymbol(RelationPlan plan, Expression expression)
     {
-        if (!analysis.isColumnReference(expression)) {
-            // Expression can be a reference to lambda argument (or DereferenceExpression based on lambda argument reference).
-            // In such case, the expression might still be resolvable with plan.getScope() but we should not resolve it.
-            return Optional.empty();
-        }
         return plan.getScope()
                 .tryResolveField(expression)
                 .filter(ResolvedField::isLocal)

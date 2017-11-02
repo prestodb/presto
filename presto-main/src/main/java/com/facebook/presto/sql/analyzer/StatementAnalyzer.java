@@ -1673,7 +1673,7 @@ class StatementAnalyzer
                     .filter(expression -> hasReferencesToScope(expression, analysis, outputScope))
                     .collect(toImmutableList());
             List<Expression> orderByAggregationExpressions = orderByAggregationExpressionsBuilder.build().stream()
-                    .filter(expression -> !orderByExpressionsReferencingOutputScope.contains(expression) || analysis.isColumnReference(expression))
+                    .filter(expression -> !orderByExpressionsReferencingOutputScope.contains(expression) || analysis.getColumnReferences().contains(NodeRef.of(expression)))
                     .collect(toImmutableList());
 
             // generate placeholder fields
