@@ -27,6 +27,29 @@ public class TestJsonFunctions
         extends AbstractTestFunctions
 {
     @Test
+    public void testIsJsonScalar()
+    {
+        assertFunction("IS_JSON_SCALAR(null)", BOOLEAN, null);
+
+        assertFunction("IS_JSON_SCALAR(JSON 'null')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON 'true')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON '1')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR(JSON '\"str\"')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('null')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('true')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('1')", BOOLEAN, true);
+        assertFunction("IS_JSON_SCALAR('\"str\"')", BOOLEAN, true);
+
+        assertFunction("IS_JSON_SCALAR(JSON '[1, 2, 3]')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR(JSON '{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR('[1, 2, 3]')", BOOLEAN, false);
+        assertFunction("IS_JSON_SCALAR('{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
+
+        assertFunction("IS_JSON_SCALAR('')", BOOLEAN, null);
+        assertFunction("IS_JSON_SCALAR('[1')", BOOLEAN, null);
+    }
+
+    @Test
     public void testJsonArrayLength()
     {
         assertFunction("JSON_ARRAY_LENGTH('[]')", BIGINT, 0L);
