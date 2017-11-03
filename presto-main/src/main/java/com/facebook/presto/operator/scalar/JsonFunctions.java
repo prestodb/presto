@@ -88,6 +88,41 @@ public final class JsonFunctions
         return new JsonPath(padSpaces(pattern, charLength.intValue()).toStringUtf8());
     }
 
+    @SqlNullable
+    @ScalarFunction("is_json_scalar")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean varcharIsJsonScalar(@SqlType("varchar(x)") Slice json)
+    {
+        return isJsonScalar(json);
+    }
+
+    @SqlNullable
+    @ScalarFunction
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean isJsonScalar(@SqlType(StandardTypes.JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+            JsonToken nextToken = parser.nextToken();
+            if (nextToken == null) {
+                return null;
+            }
+
+            if (nextToken == START_ARRAY || nextToken == START_OBJECT) {
+                parser.skipChildren();
+                if (parser.nextToken() != null) {
+                    // Invalid JSON: trailing tokens
+                    return null;
+                }
+                return false;
+            }
+            return parser.nextToken() == null ? true : null;
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
     public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice)
