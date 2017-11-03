@@ -73,7 +73,7 @@ struct PrestoThriftDouble {
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
  * Each elements of {@code sizes} array contains the length in bytes for the corresponding element.
  * If row is null then the corresponding element in {@code sizes} is ignored.
- * {@code bytes} array contains uft8 encoded byte values.
+ * {@code bytes} array contains UTF-8 encoded byte values.
  * Values for all rows are written to {@code bytes} array one after another.
  * The total number of bytes must be equal to the sum of all sizes.
  */
@@ -122,7 +122,7 @@ struct PrestoThriftTimestamp {
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
  * Each elements of {@code sizes} array contains the length in bytes for the corresponding element.
  * If row is null then the corresponding element in {@code sizes} is ignored.
- * {@code bytes} array contains uft8 encoded byte values for string representation of json.
+ * {@code bytes} array contains UTF-8 encoded byte values for string representation of json.
  * Values for all rows are written to {@code bytes} array one after another.
  * The total number of bytes must be equal to the sum of all sizes.
  */
