@@ -30,8 +30,7 @@ public final class TurboniumConfigSpec
             @JsonProperty("maxDataPerNode") long maxDataPerNode,
             @JsonProperty("maxTableSizePerNode") long maxTableSizePerNode,
             @JsonProperty("splitsPerNode") long splitsPerNode,
-            @JsonProperty("disableEncoding") boolean disableEncoding
-    )
+            @JsonProperty("disableEncoding") boolean disableEncoding)
     {
         this.maxDataPerNode = maxDataPerNode;
         this.maxTableSizePerNode = maxTableSizePerNode;

@@ -38,7 +38,7 @@ public class ByteSegments
     private ByteSegments() {}
 
     public static class Rle
-        implements Segment
+            implements Segment
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(Rle.class).instanceSize();
         private final int size;
@@ -78,7 +78,7 @@ public class ByteSegments
     }
 
     public static class RleWithNulls
-        extends AbstractSegment
+            extends AbstractSegment
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(RleWithNulls.class).instanceSize();
         private final byte value;
@@ -111,7 +111,7 @@ public class ByteSegments
     }
 
     public static class Dictionary
-        extends AbstractSegment
+            extends AbstractSegment
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(Dictionary.class).instanceSize();
         private final byte[] dictionary;
@@ -155,7 +155,7 @@ public class ByteSegments
     }
 
     public static class SortedDictionary
-        extends AbstractSegment
+            extends AbstractSegment
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedDictionary.class).instanceSize();
         private final byte[] dictionary;
@@ -200,7 +200,7 @@ public class ByteSegments
     }
 
     public static class Delta
-        extends AbstractSegment
+            extends AbstractSegment
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(Delta.class).instanceSize();
         private final byte offset;

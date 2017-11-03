@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import java.util.BitSet;
 
 public class BooleanEncoder
-    extends AbstractEncoder<Boolean>
+        extends AbstractEncoder<Boolean>
 {
     private final boolean[] values;
     private final BitSet isNull;

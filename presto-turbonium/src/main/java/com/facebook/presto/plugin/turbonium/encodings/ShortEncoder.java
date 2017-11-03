@@ -29,7 +29,7 @@ import java.util.BitSet;
 import static com.facebook.presto.plugin.turbonium.encodings.DeltaValuesBuilder.buildShortValues;
 
 public class ShortEncoder
-    extends AbstractEncoder<Short>
+        extends AbstractEncoder<Short>
 {
     private final short[] values;
     private final BitSet isNull;

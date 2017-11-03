@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class StandardStats<T>
-    implements Stats<T>
+        implements Stats<T>
 {
     private final int size;
     private final int nullCount;

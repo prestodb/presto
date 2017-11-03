@@ -24,7 +24,7 @@ import static com.facebook.presto.plugin.turbonium.config.db.DatabaseUtil.onDema
 import static java.util.Objects.requireNonNull;
 
 public class MySqlDaoProvider
-    implements Provider<TurboniumConfigDao>
+        implements Provider<TurboniumConfigDao>
 {
     private final TurboniumConfigDao dao;
 

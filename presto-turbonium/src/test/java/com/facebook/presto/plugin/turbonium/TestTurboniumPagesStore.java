@@ -52,8 +52,7 @@ public class TestTurboniumPagesStore
             128L * 1024 * 1024,
             32 * 1024 * 1024,
             Runtime.getRuntime().availableProcessors(),
-            false
-    );
+            false);
 
     private TurboniumPagesStore pagesStore;
     private TurboniumPageSinkProvider pageSinkProvider;
@@ -90,8 +89,7 @@ public class TestTurboniumPagesStore
         TurboniumConfigManager turboniumConfigManager = new TurboniumConfigManager(
                 new H2DaoProvider(dbConfig).get(),
                 new TurboniumConfig().setMaxDataPerNode(new DataSize(1, DataSize.Unit.MEGABYTE)),
-                nodeManager
-                );
+                nodeManager);
         pagesStore = new TurboniumPagesStore(turboniumConfigManager);
         pageSinkProvider = new TurboniumPageSinkProvider(pagesStore, turboniumConfigManager);
     }

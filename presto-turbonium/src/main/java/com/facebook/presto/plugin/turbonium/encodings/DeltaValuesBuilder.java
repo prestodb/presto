@@ -25,7 +25,7 @@ public class DeltaValuesBuilder
     private static final int SHORT_WIDTH = 0xffff;
     private static final long INT_WIDTH = 0xffff_ffffL;
 
-    private  DeltaValuesBuilder() {}
+    private DeltaValuesBuilder() {}
 
     public static Optional<Values> buildLongValues(long min, long delta, long[] values, int size)
     {

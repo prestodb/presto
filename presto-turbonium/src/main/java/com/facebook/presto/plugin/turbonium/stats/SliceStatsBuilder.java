@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import java.util.Optional;
 
 public class SliceStatsBuilder
-    extends AbstractStatsBuilder<Slice>
+        extends AbstractStatsBuilder<Slice>
 {
     private Slice min;
     private Slice max;

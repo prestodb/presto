@@ -35,7 +35,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class TurboniumConfigSystemTable
-    implements SystemTable
+        implements SystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final String nodeId;
@@ -53,9 +53,7 @@ public class TurboniumConfigSystemTable
                         new ColumnMetadata("max_data_per_node", BIGINT),
                         new ColumnMetadata("max_table_size_per_node", BIGINT),
                         new ColumnMetadata("splits_per_node", BIGINT),
-                        new ColumnMetadata("disable_encoding", BOOLEAN)
-                )
-        );
+                        new ColumnMetadata("disable_encoding", BOOLEAN)));
     }
 
     @Override

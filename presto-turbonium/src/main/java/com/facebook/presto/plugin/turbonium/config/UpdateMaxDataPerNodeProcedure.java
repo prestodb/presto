@@ -42,7 +42,7 @@ public class UpdateMaxDataPerNodeProcedure
     public Procedure getProcedure()
     {
         try {
-        return new Procedure(
+            return new Procedure(
                 "system",
                 "set_max_data_per_node",
                 ImmutableList.of(new Procedure.Argument("max_data_per_node", "BIGINT")),

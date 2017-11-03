@@ -75,8 +75,7 @@ public class TestTurboniumMetadata
         TurboniumConfigManager turboniumConfigManager = new TurboniumConfigManager(
                 new H2DaoProvider(dbConfig).get(),
                 new TurboniumConfig().setMaxDataPerNode(new DataSize(1, DataSize.Unit.MEGABYTE)),
-                nodeManager
-        );
+                nodeManager);
         metadata = new TurboniumMetadata(new TestingNodeManager(), new TurboniumConnectorId("test"), turboniumConfigManager);
     }
 
@@ -105,7 +104,7 @@ public class TestTurboniumMetadata
         assertThatNoTableIsCreated();
 
         SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()));
+        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), true);
 
         TurboniumTableHandle firstTableHandle = (TurboniumTableHandle) metadata.getTableHandle(SESSION, firstTableName);
         Long firstTableId = firstTableHandle.getTableId();
@@ -113,7 +112,7 @@ public class TestTurboniumMetadata
         assertTrue(metadata.beginInsert(SESSION, firstTableHandle).getActiveTableIds().contains(firstTableId));
 
         SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()));
+        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), true);
 
         TurboniumTableHandle secondTableHandle = (TurboniumTableHandle) metadata.getTableHandle(SESSION, secondTableName);
         Long secondTableId = secondTableHandle.getTableId();

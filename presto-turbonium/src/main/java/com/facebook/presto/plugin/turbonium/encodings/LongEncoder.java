@@ -29,7 +29,7 @@ import java.util.BitSet;
 import static com.facebook.presto.plugin.turbonium.encodings.DeltaValuesBuilder.buildLongValues;
 
 public class LongEncoder
-    extends AbstractEncoder<Long>
+        extends AbstractEncoder<Long>
 {
     private final long[] values;
     private final BitSet isNull;

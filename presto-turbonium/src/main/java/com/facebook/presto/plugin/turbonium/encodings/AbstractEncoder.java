@@ -17,7 +17,7 @@ import com.facebook.presto.plugin.turbonium.stats.Stats;
 import com.facebook.presto.spi.type.Type;
 
 public abstract class AbstractEncoder<T>
-    implements SegmentEncoder
+        implements SegmentEncoder
 {
     protected final Type type;
     protected final Stats<T> stats;

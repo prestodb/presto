@@ -18,7 +18,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.type.Type;
 
 public class NullSegment
-    implements Segment
+        implements Segment
 {
     private final int size;
     private final Domain domain;

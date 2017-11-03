@@ -24,7 +24,7 @@ import java.sql.SQLException;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class TurboniumConfigMapper
-    implements ResultSetMapper<TurboniumConfig>
+        implements ResultSetMapper<TurboniumConfig>
 {
     @Override
     public TurboniumConfig map(int index, ResultSet resultSet, StatementContext context)

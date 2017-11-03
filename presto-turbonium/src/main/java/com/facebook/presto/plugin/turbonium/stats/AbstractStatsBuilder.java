@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public abstract class AbstractStatsBuilder<T>
-    implements StatsBuilder<T>
+        implements StatsBuilder<T>
 {
     protected static final int ADD_DISTINCT_LIMIT = 0x100;
 

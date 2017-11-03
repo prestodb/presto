@@ -21,7 +21,7 @@ import java.util.BitSet;
 import static com.facebook.presto.plugin.turbonium.storage.Util.sizeOfBitSet;
 
 public abstract class AbstractSegment
-    implements Segment
+        implements Segment
 {
     private final Type type;
     private final BitSet isNull;

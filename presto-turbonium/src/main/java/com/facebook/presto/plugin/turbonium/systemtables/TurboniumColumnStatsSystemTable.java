@@ -36,7 +36,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class TurboniumColumnStatsSystemTable
-    implements SystemTable
+        implements SystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final TurboniumPagesStore pagesStore;
@@ -83,8 +83,7 @@ public class TurboniumColumnStatsSystemTable
                         tableId,
                         columnId++,
                         columnSizeInfo.getSizeBytes(),
-                        columnSizeInfo.getSourceSize()
-                );
+                        columnSizeInfo.getSourceSize());
             }
         }
         return systemTable.build().cursor();

@@ -26,7 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import java.util.BitSet;
 
 public class DoubleEncoder
-    extends AbstractEncoder<Double>
+        extends AbstractEncoder<Double>
 {
     private final double[] values;
     private final BitSet isNull;

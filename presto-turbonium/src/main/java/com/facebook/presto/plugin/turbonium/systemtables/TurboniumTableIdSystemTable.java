@@ -34,7 +34,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TurboniumTableIdSystemTable
-    implements SystemTable
+        implements SystemTable
 {
     private final TurboniumMetadata metadata;
     private final ConnectorTableMetadata tableMetadata;
@@ -47,9 +47,7 @@ public class TurboniumTableIdSystemTable
                 new SchemaTableName("system", "table_ids"),
                 ImmutableList.of(
                         new ColumnMetadata("table_name", VARCHAR),
-                        new ColumnMetadata("table_id", BIGINT)
-                )
-        );
+                        new ColumnMetadata("table_id", BIGINT)));
     }
 
     @Override

@@ -159,7 +159,7 @@ public class SliceSegments
     }
 
     public static class AllValues
-        extends AbstractSegment
+            extends AbstractSegment
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(AllValues.class).instanceSize();
         private final Slice[] values;

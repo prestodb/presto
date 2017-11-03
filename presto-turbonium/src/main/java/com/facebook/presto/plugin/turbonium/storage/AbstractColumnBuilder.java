@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AbstractColumnBuilder
-    implements ColumnBuilder
+        implements ColumnBuilder
 {
     private final int channel;
     private final Type type;

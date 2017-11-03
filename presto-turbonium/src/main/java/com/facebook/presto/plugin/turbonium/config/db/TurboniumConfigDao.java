@@ -40,7 +40,7 @@ public interface TurboniumConfigDao
     List<TurboniumConfig> getMemoryConfig();
 
     @SqlUpdate("INSERT into turbonium_config (max_data_per_node, max_table_size_per_node, splits_per_node, disable_encoding)\n" +
-    "  VALUES(:max_data_per_node, :max_table_size_per_node, :splits_per_node, :disable_encoding)")
+            "  VALUES(:max_data_per_node, :max_table_size_per_node, :splits_per_node, :disable_encoding)")
     void insertMemoryConfig(
             @Bind("max_data_per_node") long maxDataPerNode,
             @Bind("max_table_size_per_node") long maxTableSizePerNode,

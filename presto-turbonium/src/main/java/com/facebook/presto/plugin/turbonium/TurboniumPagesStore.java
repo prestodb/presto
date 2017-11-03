@@ -244,7 +244,7 @@ public class TurboniumPagesStore
             // if activeTableIds is empty, we can not determine latestTableId...
             return;
         }
-        long latestTableId  = Collections.max(activeTableIds);
+        long latestTableId = Collections.max(activeTableIds);
 
         try {
             lock.writeLock().lock();

@@ -39,7 +39,7 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 
 public class TurboniumNodePartitioningProvider
-    implements ConnectorNodePartitioningProvider
+        implements ConnectorNodePartitioningProvider
 {
     private final NodeManager nodeManager;
 

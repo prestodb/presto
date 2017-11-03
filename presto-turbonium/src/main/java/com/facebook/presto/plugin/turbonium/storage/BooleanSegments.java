@@ -34,7 +34,7 @@ public class BooleanSegments
     private BooleanSegments() {}
 
     public static class Rle
-        implements Segment
+            implements Segment
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(Rle.class).instanceSize();
         private final int size;
@@ -74,7 +74,7 @@ public class BooleanSegments
     }
 
     public static class RleWithNulls
-        extends AbstractSegment
+            extends AbstractSegment
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(RleWithNulls.class).instanceSize();
         private final boolean value;

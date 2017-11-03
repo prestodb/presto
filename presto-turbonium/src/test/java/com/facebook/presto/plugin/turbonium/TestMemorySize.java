@@ -31,7 +31,7 @@ public class TestMemorySize
         //protected final int abat = 16;
     }
     public static class TestClass
-        extends AbstractTestClass
+            extends AbstractTestClass
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestClass.class).instanceSize();
         //private final int foo = 16;
