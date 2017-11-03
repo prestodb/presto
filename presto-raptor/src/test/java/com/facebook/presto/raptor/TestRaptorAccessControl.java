@@ -165,7 +165,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanDropTable()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanDropTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
@@ -180,7 +180,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanRenameTable()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanRenameTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1, TABLE_TEST2_TABLE2);
@@ -210,7 +210,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanAddColumn()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanAddColumn(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
@@ -225,7 +225,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanRenameColumn()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanRenameColumn(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
@@ -240,7 +240,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanSelectFromTable()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
@@ -258,7 +258,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanInsertIntoTable()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
@@ -276,7 +276,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanDeleteFromTable()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanDeleteFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
@@ -307,7 +307,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanGrantTablePrivilege()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
         accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, USER1, SELECT, TABLE_TEST1_TABLE1, USER2.getUser(), false);
 
         try {
@@ -332,7 +332,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanRevokeTablePrivilege()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
         accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, USER1, SELECT, TABLE_TEST1_TABLE1, USER2.getUser(), false);
 
         try {
@@ -356,7 +356,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanSelectFromTableByRole()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanSelectFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);
@@ -373,7 +373,7 @@ public class TestRaptorAccessControl
     @Test
     public void checkCanSelectAndDeleteFromTableByRole()
     {
-        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1));
+        metadata.createTable(SESSION_USER1, getTableMeta(TABLE_TEST1_TABLE1), true);
 
         try {
             accessControl.checkCanDeleteFromTable(TRANSACTION_HANDLE, USER2, TABLE_TEST1_TABLE1);

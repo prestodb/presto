@@ -808,7 +808,7 @@ public class TestRaptorMetadata
     @Test
     public void testCreateTableTablePrivileges()
     {
-        metadata.createTable(SESSION, getOrdersTable());
+        metadata.createTable(SESSION, getOrdersTable(), true);
 
         List<GrantInfo> grantInfos = metadata.listTablePrivileges(SESSION, new SchemaTablePrefix(DEFAULT_TEST_ORDERS.getSchemaName(), "non_exists"));
         assertTrue(grantInfos.isEmpty());
@@ -835,7 +835,7 @@ public class TestRaptorMetadata
     @Test
     public void testGrantTablePrivilege()
     {
-        metadata.createTable(SESSION, getOrdersTable());
+        metadata.createTable(SESSION, getOrdersTable(), true);
 
         List<GrantInfo> grantInfos = metadata.listTablePrivileges(SESSION_USER2,
                 new SchemaTablePrefix(DEFAULT_TEST_ORDERS.getSchemaName(), DEFAULT_TEST_ORDERS.getTableName()));
@@ -862,7 +862,7 @@ public class TestRaptorMetadata
     @Test
     public void testRevokeTablePrivilege()
     {
-        metadata.createTable(SESSION, getOrdersTable());
+        metadata.createTable(SESSION, getOrdersTable(), true);
 
         metadata.grantTablePrivileges(SESSION,
                 DEFAULT_TEST_ORDERS,
