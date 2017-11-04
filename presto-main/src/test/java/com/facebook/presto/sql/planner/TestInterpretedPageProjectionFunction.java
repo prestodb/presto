@@ -17,8 +17,8 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.InterpretedPageProjection;
-import com.facebook.presto.operator.project.PageProjectionOutput;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -33,7 +33,6 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -214,29 +213,29 @@ public class TestInterpretedPageProjectionFunction
 
         // project with yield
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        PageProjectionOutput output = projectionFunction.project(
+        Work<Block> work = projectionFunction.project(
                 TEST_SESSION.toConnectorSession(),
                 yieldSignal,
                 new Page(positions.length, blocks),
                 positionsList(positions, 0, positions.length));
 
-        Optional<Block> block;
+        Block block;
         // Get nothing for the first position.length compute due to yield
         // Currently we enforce a yield check for every position; free feel to adjust the number if the behavior changes
         for (int i = 0; i < positions.length; i++) {
             yieldSignal.setWithDelay(1, executor);
             yieldSignal.forceYieldForTesting();
-            assertFalse(output.compute().isPresent());
+            assertFalse(work.process());
             yieldSignal.reset();
         }
         // the next yield is not going to prevent a block to be produced
         yieldSignal.setWithDelay(1, executor);
         yieldSignal.forceYieldForTesting();
-        block = output.compute();
         yieldSignal.reset();
-        assertTrue(block.isPresent());
+        assertTrue(work.process());
+        block = work.getResult();
 
-        List<Object> actualValues = BlockAssertions.toValues(projectionFunction.getType(), block.get());
+        List<Object> actualValues = BlockAssertions.toValues(projectionFunction.getType(), block);
         assertEquals(actualValues.size(), positions.length);
         assertEquals(expectedValues.length, positions.length);
         for (int i = 0; i < positions.length; i++) {
@@ -244,15 +243,15 @@ public class TestInterpretedPageProjectionFunction
         }
 
         // project without yield
-        output = projectionFunction.project(
+        work = projectionFunction.project(
                 TEST_SESSION.toConnectorSession(),
                 new DriverYieldSignal(),
                 new Page(positions.length, blocks),
                 positionsList(positions, 0, positions.length));
-        block = output.compute();
-        assertTrue(block.isPresent());
+        assertTrue(work.process());
+        block = work.getResult();
 
-        actualValues = BlockAssertions.toValues(projectionFunction.getType(), block.get());
+        actualValues = BlockAssertions.toValues(projectionFunction.getType(), block);
         assertEquals(actualValues.size(), positions.length);
         assertEquals(expectedValues.length, positions.length);
         for (int i = 0; i < positions.length; i++) {

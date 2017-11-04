@@ -16,6 +16,7 @@ package com.facebook.presto.operator.project;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -33,10 +34,10 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -93,21 +94,22 @@ public class InterpretedPageProjection
     }
 
     @Override
-    public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        return new InterpretedPageProjectionOutput(yieldSignal, page, selectedPositions);
+        return new InterpretedPageProjectionWork(yieldSignal, page, selectedPositions);
     }
 
-    private class InterpretedPageProjectionOutput
-            implements PageProjectionOutput
+    private class InterpretedPageProjectionWork
+            implements Work<Block>
     {
         private final DriverYieldSignal yieldSignal;
         private final Block[] blocks;
         private final SelectedPositions selectedPositions;
 
         private int nextIndexOrPosition;
+        private Block result;
 
-        public InterpretedPageProjectionOutput(DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public InterpretedPageProjectionWork(DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
             this.blocks = requireNonNull(page, "page is null").getBlocks();
@@ -116,8 +118,9 @@ public class InterpretedPageProjection
         }
 
         @Override
-        public Optional<Block> compute()
+        public boolean process()
         {
+            checkState(result == null, "result has been generated");
             int length = selectedPositions.getOffset() + selectedPositions.size();
             if (selectedPositions.isList()) {
                 int[] positions = selectedPositions.getPositions();
@@ -125,7 +128,7 @@ public class InterpretedPageProjection
                     writeNativeValue(evaluator.getType(), blockBuilder, evaluator.evaluate(positions[nextIndexOrPosition], blocks));
                     nextIndexOrPosition++;
                     if (yieldSignal.isSet()) {
-                        return Optional.empty();
+                        return false;
                     }
                 }
             }
@@ -134,14 +137,21 @@ public class InterpretedPageProjection
                     writeNativeValue(evaluator.getType(), blockBuilder, evaluator.evaluate(nextIndexOrPosition, blocks));
                     nextIndexOrPosition++;
                     if (yieldSignal.isSet()) {
-                        return Optional.empty();
+                        return false;
                     }
                 }
             }
 
-            Block block = blockBuilder.build();
+            result = blockBuilder.build();
             blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
-            return Optional.of(block);
+            return true;
+        }
+
+        @Override
+        public Block getResult()
+        {
+            checkState(result != null, "result has not been generated");
+            return result;
         }
     }
 }
