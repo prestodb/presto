@@ -73,6 +73,7 @@ public class PagesIndex
 
     private final OrderingCompiler orderingCompiler;
     private final JoinCompiler joinCompiler;
+    private final PagesIndexStats stats;
 
     private final List<Type> types;
     private final LongArrayList valueAddresses;
@@ -87,12 +88,14 @@ public class PagesIndex
     private PagesIndex(
             OrderingCompiler orderingCompiler,
             JoinCompiler joinCompiler,
+            PagesIndexStats stats,
             List<Type> types,
             int expectedPositions,
             boolean eagerCompact)
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+        this.stats = requireNonNull(stats, "stats is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
         this.eagerCompact = eagerCompact;
@@ -116,6 +119,7 @@ public class PagesIndex
     {
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
         private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+        private static final PagesIndexStats STATS = new PagesIndexStats();
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
@@ -126,7 +130,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, STATS, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -135,20 +139,22 @@ public class PagesIndex
     {
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
+        private final PagesIndexStats stats;
         private final boolean eagerCompact;
 
         @Inject
-        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig)
+        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, PagesIndexStats stats, FeaturesConfig featuresConfig)
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.stats = requireNonNull(stats, "stats is null");
             this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, types, expectedPositions, eagerCompact);
+            return new PagesIndex(orderingCompiler, joinCompiler, stats, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -199,8 +205,11 @@ public class PagesIndex
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
+            stats.recordBlock(block);
             if (eagerCompact) {
-                block = block.copyRegion(0, block.getPositionCount());
+                Block compactedBlock = block.copyRegion(0, block.getPositionCount());
+                stats.recordBlockCompaction(block, compactedBlock);
+                block = compactedBlock;
             }
             channels[i].add(block);
             pagesMemorySize += block.getRetainedSizeInBytes();
@@ -230,6 +239,7 @@ public class PagesIndex
 
                 // Copy the block to compact its size
                 Block compactedBlock = block.copyRegion(0, block.getPositionCount());
+                stats.recordBlockCompaction(block, compactedBlock);
                 blocks.set(i, compactedBlock);
                 pagesMemorySize -= block.getRetainedSizeInBytes();
                 pagesMemorySize += compactedBlock.getRetainedSizeInBytes();
