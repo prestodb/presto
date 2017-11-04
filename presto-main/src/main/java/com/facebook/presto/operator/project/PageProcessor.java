@@ -15,6 +15,7 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -137,7 +138,7 @@ public class PageProcessor
         // remember if we need to re-use the same batch size if we yield last time
         private boolean lastComputeYielded;
         private int lastComputeBatchSize;
-        private Optional<PageProjectionOutput> pageProjectOutput = Optional.empty();
+        private Work<Block> pageProjectWork;
 
         public PositionsPageProcessorIterator(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
@@ -268,15 +269,14 @@ public class PageProcessor
                     blocks[i] = previouslyComputedResults[i].getRegion(0, batchSize);
                 }
                 else {
-                    if (!pageProjectOutput.isPresent()) {
-                        pageProjectOutput = Optional.of(projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch));
+                    if (pageProjectWork == null) {
+                        pageProjectWork = projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch);
                     }
-                    Optional<Block> block = pageProjectOutput.get().compute();
-                    if (!block.isPresent()) {
+                    if (!pageProjectWork.process()) {
                         return ProcessBatchResult.processBatchYield();
                     }
-                    pageProjectOutput = Optional.empty();
-                    previouslyComputedResults[i] = block.get();
+                    previouslyComputedResults[i] = pageProjectWork.getResult();
+                    pageProjectWork = null;
                     blocks[i] = previouslyComputedResults[i];
                 }
 

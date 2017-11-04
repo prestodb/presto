@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.operator.CompletedWork;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -28,6 +30,7 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -68,25 +71,26 @@ public class DictionaryAwarePageProjection
     }
 
     @Override
-    public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        return new DictionaryAwarePageProjectionOutput(session, yieldSignal, page, selectedPositions);
+        return new DictionaryAwarePageProjectionWork(session, yieldSignal, page, selectedPositions);
     }
 
-    private class DictionaryAwarePageProjectionOutput
-            implements PageProjectionOutput
+    private class DictionaryAwarePageProjectionWork
+            implements Work<Block>
     {
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
         private final Block block;
         private final SelectedPositions selectedPositions;
 
+        private Block result;
         // if the block is RLE or dictionary block, we may use dictionary processing
-        private Optional<PageProjectionOutput> dictionaryProcessingProjectionOutput;
+        private Work<Block> dictionaryProcessingProjectionWork;
         // always prepare to fall back to a general block in case the dictionary does not apply or fails
-        private Optional<PageProjectionOutput> fallbackProcessingProjectionOutput;
+        private Work<Block> fallbackProcessingProjectionWork;
 
-        public DictionaryAwarePageProjectionOutput(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             this.session = session;
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
@@ -107,25 +111,30 @@ public class DictionaryAwarePageProjection
             }
 
             // Try use dictionary processing first; if it fails, fall back to the generic case
-            dictionaryProcessingProjectionOutput = createDictionaryBlockProjection(dictionary);
-            fallbackProcessingProjectionOutput = Optional.empty();
+            dictionaryProcessingProjectionWork = createDictionaryBlockProjection(dictionary);
+            fallbackProcessingProjectionWork = null;
         }
 
         @Override
-        public Optional<Block> compute()
+        public boolean process()
         {
-            if (fallbackProcessingProjectionOutput.isPresent()) {
-                return fallbackProcessingProjectionOutput.get().compute();
+            checkState(result == null, "result has been generated");
+            if (fallbackProcessingProjectionWork != null) {
+                if (fallbackProcessingProjectionWork.process()) {
+                    result = fallbackProcessingProjectionWork.getResult();
+                    return true;
+                }
+                return false;
             }
 
             Optional<Block> dictionaryOutput = Optional.empty();
-            if (dictionaryProcessingProjectionOutput.isPresent()) {
+            if (dictionaryProcessingProjectionWork != null) {
                 try {
-                    dictionaryOutput = dictionaryProcessingProjectionOutput.get().compute();
-                    if (!dictionaryOutput.isPresent()) {
+                    if (!dictionaryProcessingProjectionWork.process()) {
                         // dictionary processing yielded.
-                        return Optional.empty();
+                        return false;
                     }
+                    dictionaryOutput = Optional.of(dictionaryProcessingProjectionWork.getResult());
                     lastOutputDictionary = dictionaryOutput;
                 }
                 catch (Exception ignored) {
@@ -134,7 +143,7 @@ public class DictionaryAwarePageProjection
                     // The second pass may not fail due to filtering.
                     // todo dictionary processing should be able to tolerate failures of unused elements
                     lastOutputDictionary = Optional.empty();
-                    dictionaryProcessingProjectionOutput = Optional.empty();
+                    dictionaryProcessingProjectionWork = null;
                 }
             }
 
@@ -148,39 +157,49 @@ public class DictionaryAwarePageProjection
                 if (block instanceof RunLengthEncodedBlock) {
                     // single value block is always considered effective, but the processing could have thrown
                     // in that case we fallback and process again so the correct error message sent
-                    return Optional.of(new RunLengthEncodedBlock(dictionaryOutput.get(), selectedPositions.size()));
+                    result = new RunLengthEncodedBlock(dictionaryOutput.get(), selectedPositions.size());
+                    return true;
                 }
 
                 if (block instanceof DictionaryBlock) {
                     DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    return Optional.of(new DictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, false, sourceIdFunction.apply(dictionaryBlock)));
+                    result = new DictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, false, sourceIdFunction.apply(dictionaryBlock));
+                    return true;
                 }
 
                 throw new UnsupportedOperationException("unexpected block type " + block.getClass());
             }
 
             // there is no dictionary handling or dictionary handling failed; fall back to general projection
-            verify(!dictionaryProcessingProjectionOutput.isPresent());
-            verify(!fallbackProcessingProjectionOutput.isPresent());
-            fallbackProcessingProjectionOutput = Optional.of(projection.project(session, yieldSignal, new Page(block), selectedPositions));
-            return fallbackProcessingProjectionOutput.get().compute();
+            verify(dictionaryProcessingProjectionWork == null);
+            verify(fallbackProcessingProjectionWork == null);
+            fallbackProcessingProjectionWork = projection.project(session, yieldSignal, new Page(block), selectedPositions);
+            if (fallbackProcessingProjectionWork.process()) {
+                result = fallbackProcessingProjectionWork.getResult();
+                return true;
+            }
+            return false;
         }
 
-        private Optional<PageProjectionOutput> createDictionaryBlockProjection(Optional<Block> dictionary)
+        @Override
+        public Block getResult()
+        {
+            checkState(result != null, "result has not been generated");
+            return result;
+        }
+
+        private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary)
         {
             if (!dictionary.isPresent()) {
                 lastOutputDictionary = Optional.empty();
-                return Optional.empty();
+                return null;
             }
 
             if (lastInputDictionary == dictionary.get()) {
-                if (!lastOutputDictionary.isPresent()) {
-                    // we must have fallen back last time
-                    return Optional.empty();
-                }
-                return Optional.of(() -> lastOutputDictionary);
+                // we must have fallen back last time if lastOutputDictionary is null
+                return lastOutputDictionary.map(CompletedWork::new).orElse(null);
             }
 
             // Process dictionary if:
@@ -195,9 +214,9 @@ public class DictionaryAwarePageProjection
             lastOutputDictionary = Optional.empty();
 
             if (shouldProcessDictionary) {
-                return Optional.of(projection.project(session, yieldSignal, new Page(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount())));
+                return projection.project(session, yieldSignal, new Page(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
             }
-            return Optional.empty();
+            return null;
         }
     }
 

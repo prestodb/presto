@@ -11,13 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.project;
+package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.Block;
+import static java.util.Objects.requireNonNull;
 
-import java.util.Optional;
-
-public interface PageProjectionOutput
+public final class CompletedWork<T>
+        implements Work<T>
 {
-    Optional<Block> compute();
+    private final T result;
+
+    public CompletedWork(T value)
+    {
+        this.result = requireNonNull(value);
+    }
+
+    @Override
+    public boolean process()
+    {
+        return true;
+    }
+
+    @Override
+    public T getResult()
+    {
+        return result;
+    }
 }

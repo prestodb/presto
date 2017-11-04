@@ -26,6 +26,7 @@ import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.ConstantPageProjection;
 import com.facebook.presto.operator.project.GeneratedPageProjection;
 import com.facebook.presto.operator.project.InputChannels;
@@ -33,7 +34,6 @@ import com.facebook.presto.operator.project.InputPageProjection;
 import com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProjection;
-import com.facebook.presto.operator.project.PageProjectionOutput;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -83,6 +83,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
@@ -195,12 +196,12 @@ public class PageFunctionCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        // generate PageProjectionOutput
-        ClassDefinition pageProjectionOutputDefinition = definePageProjectOutputClass(result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
+        // generate Work
+        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
 
-        Class<? extends PageProjectionOutput> pageProjectionOutputClass;
+        Class<? extends Work> pageProjectionWorkClass;
         try {
-            pageProjectionOutputClass = defineClass(pageProjectionOutputDefinition, PageProjectionOutput.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+            pageProjectionWorkClass = defineClass(pageProjectionWorkDefinition, Work.class, callSiteBinder.getBindings(), getClass().getClassLoader());
         }
         catch (Exception e) {
             throw new PrestoException(COMPILER_ERROR, e);
@@ -210,23 +211,23 @@ public class PageFunctionCompiler
                 result.getRewrittenExpression(),
                 determinismEvaluator.isDeterministic(result.getRewrittenExpression()),
                 result.getInputChannels(),
-                constructorMethodHandle(pageProjectionOutputClass, BlockBuilder.class, ConnectorSession.class, DriverYieldSignal.class, Page.class, SelectedPositions.class));
+                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, DriverYieldSignal.class, Page.class, SelectedPositions.class));
     }
 
-    private static ParameterizedType generateProjectionOutputClassName(Optional<String> classNameSuffix)
+    private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
     {
-        StringBuilder className = new StringBuilder(PageProjectionOutput.class.getSimpleName());
+        StringBuilder className = new StringBuilder("PageProjectionWork");
         classNameSuffix.ifPresent(suffix -> className.append("_").append(suffix.replace('.', '_')));
         return makeClassName(className.toString());
     }
 
-    private ClassDefinition definePageProjectOutputClass(RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                generateProjectionOutputClassName(classNameSuffix),
+                generateProjectionWorkClassName(classNameSuffix),
                 type(Object.class),
-                type(PageProjectionOutput.class));
+                type(Work.class));
 
         FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE), "blockBuilder", BlockBuilder.class);
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
@@ -234,11 +235,16 @@ public class PageFunctionCompiler
         FieldDefinition pageField = classDefinition.declareField(a(PRIVATE), "page", Page.class);
         FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE), "selectedPositions", SelectedPositions.class);
         FieldDefinition nextIndexOrPositionField = classDefinition.declareField(a(PRIVATE), "nextIndexOrPosition", int.class);
+        FieldDefinition resultField = classDefinition.declareField(a(PRIVATE), "result", Block.class);
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        // compute
-        generateComputeMethod(classDefinition, blockBuilderField, sessionField, yieldSignalField, pageField, selectedPositionsField, nextIndexOrPositionField);
+        // process
+        generateProcessMethod(classDefinition, blockBuilderField, sessionField, yieldSignalField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
+
+        // getResult
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
+        method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
         // evaluate
         PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, projection);
@@ -264,7 +270,8 @@ public class PageFunctionCompiler
                 .append(thisVariable.setField(yieldSignalField, yieldSignal))
                 .append(thisVariable.setField(pageField, page))
                 .append(thisVariable.setField(selectedPositionsField, selectedPositions))
-                .append(thisVariable.setField(nextIndexOrPositionField, selectedPositions.invoke("getOffset", int.class)));
+                .append(thisVariable.setField(nextIndexOrPositionField, selectedPositions.invoke("getOffset", int.class)))
+                .append(thisVariable.setField(resultField, constantNull(Block.class)));
 
         cachedInstanceBinder.generateInitializations(thisVariable, body);
         for (CompiledLambda compiledLambda : preGeneratedExpressions.getCompiledLambdaMap().values()) {
@@ -275,16 +282,17 @@ public class PageFunctionCompiler
         return classDefinition;
     }
 
-    private static MethodDefinition generateComputeMethod(
+    private static MethodDefinition generateProcessMethod(
             ClassDefinition classDefinition,
             FieldDefinition blockBuilder,
             FieldDefinition session,
             FieldDefinition yieldSignal,
             FieldDefinition page,
             FieldDefinition selectedPositions,
-            FieldDefinition nextIndexOrPosition)
+            FieldDefinition nextIndexOrPosition,
+            FieldDefinition result)
     {
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "compute", type(Optional.class), ImmutableList.of());
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(boolean.class), ImmutableList.of());
 
         Scope scope = method.getScope();
         Variable thisVariable = method.getThis();
@@ -317,12 +325,10 @@ public class PageFunctionCompiler
                         .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))
                         .append(generateCheckYieldBlock(thisVariable, index, yieldSignal, nextIndexOrPosition))));
 
-        body.comment("return Optional.of(this.blockBuilder.build());")
-                .append(invokeStatic(
-                        Optional.class,
-                        "of",
-                        Optional.class,
-                        thisVariable.getField(blockBuilder).invoke("build", Block.class).cast(Object.class)).ret());
+        body.comment("result = this.blockBuilder.build(); return true;")
+                .append(thisVariable.setField(result, thisVariable.getField(blockBuilder).invoke("build", Block.class)))
+                .push(true)
+                .retBoolean();
 
         return method;
     }
@@ -330,14 +336,15 @@ public class PageFunctionCompiler
     private static BytecodeBlock generateCheckYieldBlock(Variable thisVariable, Variable index, FieldDefinition yieldSignal, FieldDefinition nextIndexOrPosition)
     {
         return new BytecodeBlock()
-                .comment("if (yieldSignal.isSet()) return Optional.empty();")
+                .comment("if (yieldSignal.isSet())")
                 .append(new IfStatement()
                         .condition(thisVariable.getField(yieldSignal).invoke("isSet", boolean.class))
                         .ifTrue(new BytecodeBlock()
                                 .comment("nextIndexOrPosition = index + 1;")
                                 .append(thisVariable.setField(nextIndexOrPosition, add(index, constantInt(1))))
-                                .comment("return Optional.empty();")
-                                .append(invokeStatic(Optional.class, "empty", Optional.class).ret())));
+                                .comment("return false;")
+                                .push(false)
+                                .retBoolean()));
     }
 
     private MethodDefinition generateEvaluateMethod(

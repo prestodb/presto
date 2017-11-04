@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.operator.CompletedWork;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -394,7 +396,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             setInvocationCount(getInvocationCount() + 1);
             return delegate.project(session, yieldSignal, page, selectedPositions);
@@ -420,31 +422,36 @@ public class TestPageProcessor
         }
 
         @Override
-        public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
-            return new YieldPageProjectionOutput(session, yieldSignal, page, selectedPositions);
+            return new YieldPageProjectionWork(session, yieldSignal, page, selectedPositions);
         }
 
-        private class YieldPageProjectionOutput
-                implements PageProjectionOutput
+        private class YieldPageProjectionWork
+                implements Work<Block>
         {
             private final DriverYieldSignal yieldSignal;
-            private final PageProjectionOutput result;
+            private final Work<Block> work;
 
-            public YieldPageProjectionOutput(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+            public YieldPageProjectionWork(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
             {
                 this.yieldSignal = yieldSignal;
-                this.result = delegate.project(session, yieldSignal, page, selectedPositions);
+                this.work = delegate.project(session, yieldSignal, page, selectedPositions);
             }
 
             @Override
-            public Optional<Block> compute()
+            public boolean process()
             {
-                Optional<Block> block = result.compute();
-                assertNotNull(block.get());
+                assertTrue(work.process());
                 yieldSignal.setWithDelay(1, executor);
                 yieldSignal.forceYieldForTesting();
-                return block;
+                return true;
+            }
+
+            @Override
+            public Block getResult()
+            {
+                return work.getResult();
             }
         }
     }
@@ -471,11 +478,11 @@ public class TestPageProcessor
         }
 
         @Override
-        public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             Block block = page.getBlock(0);
             block.assureLoaded();
-            return () -> Optional.of(block);
+            return new CompletedWork<>(block);
         }
     }
 
