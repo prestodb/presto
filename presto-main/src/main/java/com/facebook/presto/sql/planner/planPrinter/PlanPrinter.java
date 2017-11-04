@@ -1351,9 +1351,8 @@ public class PlanPrinter
             return "NULL";
         }
 
-        Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
-
         try {
+            Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
             Slice coerced = (Slice) new FunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
             return coerced.toStringUtf8();
         }
