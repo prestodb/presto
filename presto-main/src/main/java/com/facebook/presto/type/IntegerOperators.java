@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.type.Varchars.truncateAsciiSliceToLength;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
@@ -229,10 +230,10 @@ public final class IntegerOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(StandardTypes.INTEGER) long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.INTEGER) long value)
     {
         // todo optimize me
-        return utf8Slice(String.valueOf(value));
+        return truncateAsciiSliceToLength(utf8Slice(String.valueOf(value)), (int) x);
     }
 
     @ScalarOperator(HASH_CODE)

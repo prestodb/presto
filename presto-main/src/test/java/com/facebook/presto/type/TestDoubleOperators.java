@@ -21,6 +21,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestDoubleOperators
         extends AbstractTestFunctions
@@ -186,6 +187,7 @@ public class TestDoubleOperators
     {
         assertFunction("cast(37.7 as varchar)", VARCHAR, "37.7");
         assertFunction("cast(17.1 as varchar)", VARCHAR, "17.1");
+        assertFunction("cast(17.1 as varchar(3))", createVarcharType(3), "17.");
     }
 
     @Test
