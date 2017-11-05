@@ -57,6 +57,14 @@ public final class Varchars
         return slice.slice(0, byteCount(slice, 0, slice.length(), maxLength));
     }
 
+    public static Slice truncateAsciiSliceToLength(Slice slice, int maxLength)
+    {
+        if (slice.length() > maxLength) {
+            return slice.slice(0, maxLength);
+        }
+        return slice;
+    }
+
     /**
      * Get the byte count of a given {@param slice} with in range {@param offset} to {@param offset} + {@param length}
      * for at most {@param codePointCount} many code points

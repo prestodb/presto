@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.RowType.RowField;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DoubleOperators;
@@ -626,7 +627,7 @@ public final class JsonUtil
                 return Slices.utf8Slice(parser.getText());
             case VALUE_NUMBER_FLOAT:
                 // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-                return DoubleOperators.castToVarchar(parser.getDoubleValue());
+                return DoubleOperators.castToVarchar(VarcharType.MAX_LENGTH, parser.getDoubleValue());
             case VALUE_NUMBER_INT:
                 // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
                 // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
