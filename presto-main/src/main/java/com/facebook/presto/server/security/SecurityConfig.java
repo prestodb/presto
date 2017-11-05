@@ -13,35 +13,56 @@
  */
 package com.facebook.presto.server.security;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
+
 @DefunctConfig("http.server.authentication.enabled")
 public class SecurityConfig
 {
-    private AuthenticationType authenticationType = AuthenticationType.NONE;
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private Set<AuthenticationType> authenticationTypes = ImmutableSet.of();
 
     public enum AuthenticationType
     {
-        NONE,
         KERBEROS,
         LDAP
     }
 
     @NotNull
-    public AuthenticationType getAuthenticationType()
+    public Set<AuthenticationType> getAuthenticationTypes()
     {
-        return authenticationType;
+        return authenticationTypes;
+    }
+
+    public SecurityConfig setAuthenticationTypes(Set<AuthenticationType> authenticationTypes)
+    {
+        this.authenticationTypes = ImmutableSet.copyOf(authenticationTypes);
+        return this;
     }
 
     @Config("http-server.authentication.type")
-    @ConfigDescription("Authentication type (supported types: NONE, KERBEROS, LDAP)")
-    public SecurityConfig setAuthenticationType(AuthenticationType authenticationType)
+    @ConfigDescription("Authentication types (supported types: KERBEROS, LDAP)")
+    public SecurityConfig setAuthenticationTypes(String types)
     {
-        this.authenticationType = authenticationType;
+        if (types == null) {
+            authenticationTypes = null;
+            return this;
+        }
+
+        authenticationTypes = stream(SPLITTER.split(types))
+                .map(AuthenticationType::valueOf)
+                .collect(toImmutableSet());
         return this;
     }
 }
