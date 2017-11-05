@@ -21,6 +21,7 @@ import io.airlift.slice.SliceOutput;
 import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 
+@Deprecated
 public class SliceArrayBlockEncoding
         implements BlockEncoding
 {
@@ -91,6 +92,7 @@ public class SliceArrayBlockEncoding
         return FACTORY;
     }
 
+    @Deprecated
     public static class SliceArrayBlockEncodingFactory
             implements BlockEncodingFactory<SliceArrayBlockEncoding>
     {

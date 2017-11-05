@@ -27,6 +27,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
+@Deprecated
 public class SliceArrayBlock
         extends AbstractVariableWidthBlock
 {
