@@ -228,13 +228,13 @@ public class SliceDictionaryStreamReader
                 }
                 lengthStream.nextIntVector(stripeDictionarySize, stripeDictionaryLength);
 
-                long length = 0;
+                long dataLength = 0;
                 for (int i = 0; i < stripeDictionarySize; i++) {
-                    length += stripeDictionaryLength[i];
+                    dataLength += stripeDictionaryLength[i];
                 }
 
                 // we must always create a new dictionary array because the previous dictionary may still be referenced
-                stripeDictionaryData = new byte[toIntExact(length)];
+                stripeDictionaryData = new byte[toIntExact(dataLength)];
                 // add one extra entry for null
                 stripeDictionaryOffsetVector = new int[stripeDictionarySize + 2];
 
@@ -261,14 +261,14 @@ public class SliceDictionaryStreamReader
 
             // read the lengths
             dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength);
-            long length = 0;
+            long dataLength = 0;
             for (int i = 0; i < rowGroupDictionarySize; i++) {
-                length += rowGroupDictionaryLength[i];
+                dataLength += rowGroupDictionaryLength[i];
             }
 
             // We must always create a new dictionary array because the previous dictionary may still be referenced
             // The first elements of the dictionary are from the stripe dictionary, then the row group dictionary elements, and then a null
-            byte[] rowGroupDictionaryData = Arrays.copyOf(stripeDictionaryData, stripeDictionaryOffsetVector[stripeDictionarySize] + toIntExact(length));
+            byte[] rowGroupDictionaryData = Arrays.copyOf(stripeDictionaryData, stripeDictionaryOffsetVector[stripeDictionarySize] + toIntExact(dataLength));
             int[] rowGroupDictionaryOffsetVector = Arrays.copyOf(stripeDictionaryOffsetVector, stripeDictionarySize + rowGroupDictionarySize + 2);
 
             // read dictionary values
@@ -288,6 +288,7 @@ public class SliceDictionaryStreamReader
         rowGroupOpen = true;
     }
 
+    // Reads dictionary into data and offsetVector
     private static void readDictionary(
             @Nullable ByteArrayInputStream dictionaryDataStream,
             int dictionarySize,
