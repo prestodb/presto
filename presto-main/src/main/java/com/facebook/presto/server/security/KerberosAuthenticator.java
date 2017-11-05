@@ -31,18 +31,8 @@ import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.Principal;
@@ -53,20 +43,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.io.ByteStreams.copy;
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
-import static java.lang.String.format;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;
 import static org.ietf.jgss.GSSCredential.INDEFINITE_LIFETIME;
 
-public class SpnegoFilter
-        implements Filter
+public class KerberosAuthenticator
+        implements Authenticator
 {
-    private static final Logger LOG = Logger.get(SpnegoFilter.class);
+    private static final Logger LOG = Logger.get(KerberosAuthenticator.class);
 
     private static final String NEGOTIATE_SCHEME = "Negotiate";
 
@@ -75,7 +60,7 @@ public class SpnegoFilter
     private final GSSCredential serverCredential;
 
     @Inject
-    public SpnegoFilter(KerberosConfig config)
+    public KerberosAuthenticator(KerberosConfig config)
     {
         System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
 
@@ -132,18 +117,9 @@ public class SpnegoFilter
     }
 
     @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain nextFilter)
-            throws IOException, ServletException
+    public Principal authenticate(HttpServletRequest request)
+            throws AuthenticationException
     {
-        // skip auth for http
-        if (!servletRequest.isSecure()) {
-            nextFilter.doFilter(servletRequest, servletResponse);
-            return;
-        }
-
-        HttpServletRequest request = (HttpServletRequest) servletRequest;
-        HttpServletResponse response = (HttpServletResponse) servletResponse;
-
         String header = request.getHeader(AUTHORIZATION);
 
         String requestSpnegoToken = null;
@@ -155,15 +131,7 @@ public class SpnegoFilter
                     requestSpnegoToken = parts[1];
                     Optional<Principal> principal = authenticate(parts[1]);
                     if (principal.isPresent()) {
-                        nextFilter.doFilter(new HttpServletRequestWrapper(request)
-                        {
-                            @Override
-                            public Principal getUserPrincipal()
-                            {
-                                return principal.get();
-                            }
-                        }, servletResponse);
-                        return;
+                        return principal.get();
                     }
                 }
                 catch (GSSException | RuntimeException e) {
@@ -172,7 +140,11 @@ public class SpnegoFilter
             }
         }
 
-        sendChallenge(request, response, requestSpnegoToken);
+        if (requestSpnegoToken != null) {
+            throw new AuthenticationException("Authentication failed for token: " + requestSpnegoToken, NEGOTIATE_SCHEME);
+        }
+
+        throw new AuthenticationException(null, NEGOTIATE_SCHEME);
     }
 
     private Optional<Principal> authenticate(String token)
@@ -205,45 +177,6 @@ public class SpnegoFilter
         }
 
         return Optional.empty();
-    }
-
-    private static void sendChallenge(HttpServletRequest request, HttpServletResponse response, String invalidSpnegoToken)
-            throws IOException
-    {
-        // If we send the challenge without consuming the body of the request,
-        // the Jetty server will close the connection after sending the response.
-        // The client interprets this as a failed request and does not resend
-        // the request with the authentication header.
-        // We can avoid this behavior in the Jetty client by reading and discarding
-        // the entire body of the unauthenticated request before sending the response.
-        skipRequestBody(request);
-
-        if (invalidSpnegoToken != null) {
-            response.sendError(SC_UNAUTHORIZED, format("Authentication failed for token %s", invalidSpnegoToken));
-        }
-        else {
-            response.setStatus(SC_UNAUTHORIZED);
-        }
-        response.setHeader(WWW_AUTHENTICATE, NEGOTIATE_SCHEME);
-    }
-
-    private static void skipRequestBody(HttpServletRequest request)
-            throws IOException
-    {
-        try (InputStream inputStream = request.getInputStream()) {
-            copy(inputStream, nullOutputStream());
-        }
-    }
-
-    @Override
-    public void init(FilterConfig filterConfig)
-            throws ServletException
-    {
-    }
-
-    @Override
-    public void destroy()
-    {
     }
 
     private interface GssSupplier<T>

@@ -19,8 +19,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HttpHeaders;
-import io.airlift.http.client.HttpStatus;
 import io.airlift.log.Logger;
 
 import javax.annotation.Nonnull;
@@ -31,18 +29,8 @@ import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.security.Principal;
 import java.util.Base64;
 import java.util.List;
@@ -52,16 +40,12 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.server.security.util.jndi.JndiUtils.getInitialDirContext;
-import static com.google.common.base.CharMatcher.JAVA_ISO_CONTROL;
+import static com.google.common.base.CharMatcher.javaIsoControl;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.io.ByteStreams.copy;
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static io.airlift.http.client.HttpStatus.BAD_REQUEST;
-import static io.airlift.http.client.HttpStatus.INTERNAL_SERVER_ERROR;
-import static io.airlift.http.client.HttpStatus.UNAUTHORIZED;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -72,10 +56,10 @@ import static javax.naming.Context.SECURITY_AUTHENTICATION;
 import static javax.naming.Context.SECURITY_CREDENTIALS;
 import static javax.naming.Context.SECURITY_PRINCIPAL;
 
-public class LdapFilter
-        implements Filter
+public class LdapAuthenticator
+        implements Authenticator
 {
-    private static final Logger log = Logger.get(LdapFilter.class);
+    private static final Logger log = Logger.get(LdapAuthenticator.class);
 
     private static final String BASIC_AUTHENTICATION_PREFIX = "Basic ";
     private static final String LDAP_CONTEXT_FACTORY = "com.sun.jndi.ldap.LdapCtxFactory";
@@ -88,7 +72,7 @@ public class LdapFilter
     private final LoadingCache<Credentials, Principal> authenticationCache;
 
     @Inject
-    public LdapFilter(LdapConfig serverConfig)
+    public LdapAuthenticator(LdapConfig serverConfig)
     {
         this.ldapUrl = requireNonNull(serverConfig.getLdapUrl(), "ldapUrl is null");
         this.userBindSearchPattern = requireNonNull(serverConfig.getUserBindSearchPattern(), "userBindSearchPattern is null");
@@ -145,37 +129,17 @@ public class LdapFilter
     }
 
     @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain nextFilter)
-            throws IOException, ServletException
+    public Principal authenticate(HttpServletRequest request)
+            throws AuthenticationException
     {
-        // skip auth for http
-        if (!servletRequest.isSecure()) {
-            nextFilter.doFilter(servletRequest, servletResponse);
-            return;
+        String header = request.getHeader(AUTHORIZATION);
+
+        if (nullToEmpty(header).startsWith(BASIC_AUTHENTICATION_PREFIX)) {
+            String value = header.substring(BASIC_AUTHENTICATION_PREFIX.length()).trim();
+            return getPrincipal(getCredentials(value));
         }
 
-        HttpServletRequest request = (HttpServletRequest) servletRequest;
-        HttpServletResponse response = (HttpServletResponse) servletResponse;
-
-        try {
-            String header = request.getHeader(AUTHORIZATION);
-            Credentials credentials = getCredentials(header);
-            Principal principal = getPrincipal(credentials);
-
-            // ldap authentication ok, continue
-            nextFilter.doFilter(new HttpServletRequestWrapper(request)
-            {
-                @Override
-                public Principal getUserPrincipal()
-                {
-                    return principal;
-                }
-            }, servletResponse);
-        }
-        catch (AuthenticationException e) {
-            log.debug(e, "LDAP authentication failed");
-            processAuthenticationException(e, request, response);
-        }
+        throw needAuthentication(null);
     }
 
     private Principal getPrincipal(Credentials credentials)
@@ -189,48 +153,23 @@ public class LdapFilter
             if (cause != null) {
                 throwIfInstanceOf(cause, AuthenticationException.class);
             }
-            throw Throwables.propagate(cause);
+            throw new RuntimeException(cause);
         }
     }
 
-    private static void processAuthenticationException(AuthenticationException e, HttpServletRequest request, HttpServletResponse response)
-            throws IOException
-    {
-        if (e.getStatus() == UNAUTHORIZED) {
-            // If we send the challenge without consuming the body of the request,
-            // the Jetty server will close the connection after sending the response.
-            // The client interprets this as a failed request and does not resend
-            // the request with the authentication header.
-            // We can avoid this behavior in the Jetty client by reading and discarding
-            // the entire body of the unauthenticated request before sending the response.
-            skipRequestBody(request);
-            response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Basic realm=\"presto\"");
-        }
-        response.sendError(e.getStatus().code(), e.getMessage());
-    }
-
-    private static void skipRequestBody(HttpServletRequest request)
-            throws IOException
-    {
-        try (InputStream inputStream = request.getInputStream()) {
-            copy(inputStream, nullOutputStream());
-        }
-    }
-
-    private static Credentials getCredentials(String header)
+    private static AuthenticationException needAuthentication(String message)
             throws AuthenticationException
     {
-        if (header == null) {
-            throw new AuthenticationException(UNAUTHORIZED, "Unauthorized");
-        }
-        if (!header.startsWith(BASIC_AUTHENTICATION_PREFIX)) {
-            throw new AuthenticationException(BAD_REQUEST, "Basic authentication is expected");
-        }
-        String base64EncodedCredentials = header.substring(BASIC_AUTHENTICATION_PREFIX.length());
+        return new AuthenticationException(message, "Basic realm=\"presto\"");
+    }
+
+    private static Credentials getCredentials(String base64EncodedCredentials)
+            throws AuthenticationException
+    {
         String credentials = decodeCredentials(base64EncodedCredentials);
         List<String> parts = Splitter.on(':').limit(2).splitToList(credentials);
         if (parts.size() != 2 || parts.stream().anyMatch(String::isEmpty)) {
-            throw new AuthenticationException(BAD_REQUEST, "Malformed decoded credentials");
+            throw new AuthenticationException("Malformed decoded credentials");
         }
         return new Credentials(parts.get(0), parts.get(1));
     }
@@ -243,7 +182,7 @@ public class LdapFilter
             bytes = Base64.getDecoder().decode(base64EncodedCredentials);
         }
         catch (IllegalArgumentException e) {
-            throw new AuthenticationException(BAD_REQUEST, "Invalid base64 encoded credentials");
+            throw new AuthenticationException("Invalid base64 encoded credentials");
         }
         return new String(bytes, UTF_8);
     }
@@ -257,17 +196,16 @@ public class LdapFilter
             context = createDirContext(environment);
             checkForGroupMembership(user, context);
 
-            log.debug("Authentication successful for user %s", user);
+            log.debug("Authentication successful for user [%s]", user);
             return new LdapPrincipal(user);
         }
         catch (javax.naming.AuthenticationException e) {
-            String formattedAsciiMessage = format("Invalid credentials: %s", JAVA_ISO_CONTROL.removeFrom(e.getMessage()));
-            log.debug("Authentication failed for user [%s]. %s", user, e.getMessage());
-            throw new AuthenticationException(UNAUTHORIZED, formattedAsciiMessage, e);
+            log.debug("Authentication failed for user [%s]: %s", user, e.getMessage());
+            throw needAuthentication("Invalid credentials: " + javaIsoControl().removeFrom(e.getMessage()));
         }
         catch (NamingException e) {
-            log.debug("Authentication failed", e.getMessage());
-            throw new AuthenticationException(INTERNAL_SERVER_ERROR, "Authentication failed", e);
+            log.debug("Authentication failed for user [%s]: %s", user, e.getMessage());
+            throw new AuthenticationException("Authentication failed");
         }
         finally {
             closeContext(context);
@@ -312,8 +250,8 @@ public class LdapFilter
             authorized = search.hasMoreElements();
         }
         catch (NamingException e) {
-            log.debug("Authentication failed", e.getMessage());
-            throw new AuthenticationException(INTERNAL_SERVER_ERROR, "Authentication failed", e);
+            log.debug("Authentication failed for user [%s]: %s", user, e.getMessage());
+            throw new AuthenticationException("Authentication failed");
         }
         finally {
             if (search != null) {
@@ -326,18 +264,11 @@ public class LdapFilter
         }
 
         if (!authorized) {
-            String message = format("Unauthorized user: User %s not a member of the authorized group", user);
-            log.debug("Authorization failed for user. " + message);
-            throw new AuthenticationException(UNAUTHORIZED, message);
+            String message = format("User [%s] not a member of the authorized group", user);
+            log.debug("Group check failed. %s", message);
+            throw needAuthentication(message);
         }
-        log.debug("Authorization succeeded for user %s", user);
     }
-
-    @Override
-    public void init(FilterConfig filterConfig) {}
-
-    @Override
-    public void destroy() {}
 
     private static final class LdapPrincipal
             implements Principal
@@ -431,29 +362,6 @@ public class LdapFilter
                     .add("user", user)
                     .add("password", password)
                     .toString();
-        }
-    }
-
-    private static class AuthenticationException
-            extends Exception
-    {
-        private final HttpStatus status;
-
-        private AuthenticationException(HttpStatus status, String message)
-        {
-            this(status, message, null);
-        }
-
-        private AuthenticationException(HttpStatus status, String message, Throwable cause)
-        {
-            super(message, cause);
-            requireNonNull(message, "message is null");
-            this.status = requireNonNull(status, "status is null");
-        }
-
-        public HttpStatus getStatus()
-        {
-            return status;
         }
     }
 }

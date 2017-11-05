@@ -14,13 +14,14 @@
 package com.facebook.presto.server.security;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.NONE;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.LDAP;
 
 public class TestSecurityConfig
 {
@@ -28,18 +29,18 @@ public class TestSecurityConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
-                .setAuthenticationType(NONE));
+                .setAuthenticationTypes(""));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("http-server.authentication.type", "KERBEROS")
+                .put("http-server.authentication.type", "KERBEROS,LDAP")
                 .build();
 
         SecurityConfig expected = new SecurityConfig()
-                .setAuthenticationType(KERBEROS);
+                .setAuthenticationTypes(ImmutableSet.of(KERBEROS, LDAP));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
