@@ -24,9 +24,7 @@ import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -41,12 +39,9 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.Chars.byteCountWithoutTrailingSpace;
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Varchars.byteCount;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -187,19 +182,8 @@ public class SliceDirectStreamReader
             // read data without truncation
             dataStream.next(data, offset, offset + length);
 
-            // calculate truncated length
-            int truncatedLength = length;
-            if (isVarcharType(type)) {
-                VarcharType varcharType = (VarcharType) type;
-                int codePointCount = varcharType.isUnbounded() ? length : varcharType.getLengthSafe();
-                truncatedLength = byteCount(slice, offset, length, codePointCount);
-            }
-            else if (isCharType(type)) {
-                // truncate the characters and then remove the trailing white spaces
-                truncatedLength = byteCountWithoutTrailingSpace(slice, offset, length, ((CharType) type).getLength());
-            }
-
             // adjust offsets with truncated length
+            int truncatedLength = computeTruncatedLength(slice, offset, length, type);
             verify(truncatedLength >= 0);
             offsetVector[i + 1] = offsetVector[i] + truncatedLength;
         }
