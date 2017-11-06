@@ -52,7 +52,7 @@ public class JmxSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns)
     {
         JmxTableLayoutHandle jmxLayout = (JmxTableLayoutHandle) layout;
         JmxTableHandle tableHandle = jmxLayout.getTable();

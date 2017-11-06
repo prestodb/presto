@@ -17,12 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -53,14 +55,15 @@ public class SplitManager
         splitManagers.remove(connectorId);
     }
 
-    public SplitSource getSplits(Session session, TableLayoutHandle layout)
+    public SplitSource getSplits(Session session, TableLayoutHandle layout, List<ColumnHandle> columns)
     {
+        requireNonNull(columns, "columns is null");
         ConnectorId connectorId = layout.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
 
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        ConnectorSplitSource source = splitManager.getSplits(layout.getTransactionHandle(), connectorSession, layout.getConnectorHandle());
+        ConnectorSplitSource source = splitManager.getSplits(layout.getTransactionHandle(), connectorSession, layout.getConnectorHandle(), columns);
 
         SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
         if (minScheduleSplitBatchSize > 1) {
