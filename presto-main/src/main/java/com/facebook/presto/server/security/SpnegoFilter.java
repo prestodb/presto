@@ -153,18 +153,14 @@ public class SpnegoFilter
             if (parts.length == 2 && parts[0].equals(NEGOTIATE_SCHEME)) {
                 try {
                     requestSpnegoToken = parts[1];
-                    Optional<Result> authentication = authenticate(parts[1]);
-                    if (authentication.isPresent()) {
-                        authentication.get().getToken()
-                                .map(token -> NEGOTIATE_SCHEME + " " + Base64.getEncoder().encodeToString(token))
-                                .ifPresent(value -> response.setHeader(WWW_AUTHENTICATE, value));
-
+                    Optional<Principal> principal = authenticate(parts[1]);
+                    if (principal.isPresent()) {
                         nextFilter.doFilter(new HttpServletRequestWrapper(request)
                         {
                             @Override
                             public Principal getUserPrincipal()
                             {
-                                return authentication.get().getPrincipal();
+                                return principal.get();
                             }
                         }, servletResponse);
                         return;
@@ -179,21 +175,19 @@ public class SpnegoFilter
         sendChallenge(request, response, requestSpnegoToken);
     }
 
-    private Optional<Result> authenticate(String token)
+    private Optional<Principal> authenticate(String token)
             throws GSSException
     {
         GSSContext context = doAs(loginContext.getSubject(), () -> gssManager.createContext(serverCredential));
 
         try {
             byte[] inputToken = Base64.getDecoder().decode(token);
-            byte[] outputToken = context.acceptSecContext(inputToken, 0, inputToken.length);
+            context.acceptSecContext(inputToken, 0, inputToken.length);
 
             // We can't hold on to the GSS context because HTTP is stateless, so fail
             // if it can't be set up in a single challenge-response cycle
             if (context.isEstablished()) {
-                return Optional.of(new Result(
-                        Optional.ofNullable(outputToken),
-                        new KerberosPrincipal(context.getSrcName().toString())));
+                return Optional.of(new KerberosPrincipal(context.getSrcName().toString()));
             }
             LOG.debug("Failed to establish GSS context for token %s", token);
         }
@@ -268,27 +262,5 @@ public class SpnegoFilter
                 throw Throwables.propagate(e);
             }
         });
-    }
-
-    private static class Result
-    {
-        private final Optional<byte[]> token;
-        private final KerberosPrincipal principal;
-
-        public Result(Optional<byte[]> token, KerberosPrincipal principal)
-        {
-            this.token = token;
-            this.principal = principal;
-        }
-
-        public Optional<byte[]> getToken()
-        {
-            return token;
-        }
-
-        public KerberosPrincipal getPrincipal()
-        {
-            return principal;
-        }
     }
 }
