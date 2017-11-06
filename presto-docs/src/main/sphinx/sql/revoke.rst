@@ -26,6 +26,10 @@ The optional ``GRANT OPTION FOR`` clause also revokes the privileges to grant th
 
 For ``REVOKE`` statement to succeed, the user executing it should possess the specified privileges as well as the ``GRANT OPTION`` for those privileges.
 
+.. note::
+
+    Ensure that authentication has been enabled before running any of the authorization commands.
+
 Examples
 --------
 
