@@ -35,6 +35,7 @@ public class SecurityConfig
 
     public enum AuthenticationType
     {
+        CERTIFICATE,
         KERBEROS,
         LDAP
     }
@@ -52,7 +53,7 @@ public class SecurityConfig
     }
 
     @Config("http-server.authentication.type")
-    @ConfigDescription("Authentication types (supported types: KERBEROS, LDAP)")
+    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, LDAP)")
     public SecurityConfig setAuthenticationTypes(String types)
     {
         if (types == null) {
