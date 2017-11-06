@@ -24,6 +24,7 @@ import javax.servlet.Filter;
 
 import java.util.Set;
 
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.LDAP;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -40,6 +41,10 @@ public class ServerSecurityModule
 
         Set<AuthenticationType> authTypes = buildConfigObject(SecurityConfig.class).getAuthenticationTypes();
         Multibinder<Authenticator> authBinder = newSetBinder(binder, Authenticator.class);
+
+        if (authTypes.contains(CERTIFICATE)) {
+            authBinder.addBinding().to(CertificateAuthenticator.class).in(Scopes.SINGLETON);
+        }
 
         if (authTypes.contains(KERBEROS)) {
             configBinder(binder).bindConfig(KerberosConfig.class);
