@@ -27,10 +27,13 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.function.Function;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
+import static java.lang.String.format;
 
 @Test
 public class TestPostgresSqlTypeMapping
@@ -126,6 +129,56 @@ public class TestPostgresSqlTypeMapping
                 .addRoundTrip(dataTypeFactory.apply(32), sampleUnicodeText)
                 .addRoundTrip(dataTypeFactory.apply(20000), sampleUnicodeText)
                 .addRoundTrip(dataTypeFactory.apply(1), sampleFourByteUnicodeCharacter);
+    }
+
+    @Test
+    public void testPostgresSqlCreatedDecimal()
+    {
+        decimalTests()
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_decimal"));
+    }
+
+    @Test
+    public void testPrestoCreatedDecimal()
+    {
+        decimalTests()
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
+    }
+
+    private DataTypeTest decimalTests()
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("193"))
+                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("19"))
+                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("-193"))
+                .addRoundTrip(DataType.decimalType(3, 1), new BigDecimal("10.1"))
+                .addRoundTrip(DataType.decimalType(3, 1), new BigDecimal("-10.1"))
+                .addRoundTrip(DataType.decimalType(30, 5), new BigDecimal("3141592653589793238462643.38327"))
+                .addRoundTrip(DataType.decimalType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
+                .addRoundTrip(DataType.decimalType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
+                .addRoundTrip(DataType.decimalType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
+    }
+
+    @Test
+    public void testDecimalExceedingPrecisionMax()
+            throws SQLException
+    {
+        testUnsupportedDataType("decimal(50,0)");
+    }
+
+    private void testUnsupportedDataType(String databaseDataType)
+            throws SQLException
+    {
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(key varchar(5), unsupported_column %s)", databaseDataType));
+        try {
+            assertQuery(
+                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
+                    "VALUES 'key'"); // no 'unsupported_column'
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
+        }
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
