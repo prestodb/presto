@@ -58,8 +58,8 @@ public final class Varchars
     }
 
     /**
-     *  Get the byte count of a given {@param slice} with in range {@param offset} to {@param offset} + {@param length}
-     *  for at most {@param codePointCount} many code points
+     * Get the byte count of a given {@param slice} with in range {@param offset} to {@param offset} + {@param length}
+     * for at most {@param codePointCount} many code points
      */
     public static int byteCount(Slice slice, int offset, int length, int codePointCount)
     {
