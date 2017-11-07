@@ -18,6 +18,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.SmallintType;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -152,6 +154,10 @@ public class JdbcRecordCursor
             if (type.equals(BigintType.BIGINT)) {
                 return resultSet.getLong(field + 1);
             }
+            if (type instanceof DecimalType) {
+                // short decimal type
+                return resultSet.getBigDecimal(field + 1).unscaledValue().longValueExact();
+            }
             if (type.equals(DateType.DATE)) {
                 // JDBC returns a date using a timestamp at midnight in the JVM timezone
                 long localMillis = resultSet.getDate(field + 1).getTime();
@@ -201,6 +207,10 @@ public class JdbcRecordCursor
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
                 return wrappedBuffer(resultSet.getBytes(field + 1));
+            }
+            if (type instanceof DecimalType) {
+                // long decimal type
+                return encodeScaledValue(resultSet.getBigDecimal(field + 1));
             }
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for slice: " + type.getTypeSignature());
         }

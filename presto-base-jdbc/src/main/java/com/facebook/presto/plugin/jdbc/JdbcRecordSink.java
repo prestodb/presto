@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -144,6 +145,17 @@ public class JdbcRecordSink
     {
         try {
             statement.setDouble(next(), value);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void appendBigDecimal(BigDecimal value)
+    {
+        try {
+            statement.setBigDecimal(next(), value);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);

@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 
@@ -32,6 +33,8 @@ public interface RecordSink
     void appendLong(long value);
 
     void appendDouble(double value);
+
+    void appendBigDecimal(BigDecimal value);
 
     void appendString(byte[] value);
 

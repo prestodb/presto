@@ -18,6 +18,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
 import com.facebook.presto.tests.datatype.DataSetup;
+import com.facebook.presto.tests.datatype.DataType;
 import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
@@ -26,6 +27,9 @@ import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+import java.sql.SQLException;
+
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -33,6 +37,7 @@ import static com.facebook.presto.tests.datatype.DataType.charDataType;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static com.google.common.base.Strings.repeat;
+import static java.lang.String.format;
 
 @Test
 public class TestMySqlTypeMapping
@@ -139,6 +144,56 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "\u653b\u6bbb")
                 .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "\u653b\u6bbb\u6a5f\u52d5\u968a")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
+    }
+
+    @Test
+    public void testMysqlCreatedDecimal()
+    {
+        decimalTests()
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_decimal"));
+    }
+
+    @Test
+    public void testPrestoCreatedDecimal()
+    {
+        decimalTests()
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
+    }
+
+    private DataTypeTest decimalTests()
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("193"))
+                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("19"))
+                .addRoundTrip(DataType.decimalType(3, 0), new BigDecimal("-193"))
+                .addRoundTrip(DataType.decimalType(3, 1), new BigDecimal("10.1"))
+                .addRoundTrip(DataType.decimalType(3, 1), new BigDecimal("-10.1"))
+                .addRoundTrip(DataType.decimalType(30, 5), new BigDecimal("3141592653589793238462643.38327"))
+                .addRoundTrip(DataType.decimalType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
+                .addRoundTrip(DataType.decimalType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
+                .addRoundTrip(DataType.decimalType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
+    }
+
+    @Test
+    public void testDecimalExceedingPrecisionMax()
+            throws SQLException
+    {
+        testUnsupportedDataType("decimal(50,0)");
+    }
+
+    private void testUnsupportedDataType(String databaseDataType)
+            throws SQLException
+    {
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
+        jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
+        try {
+            assertQuery(
+                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
+                    "VALUES 'supported_column'"); // no 'unsupported_column'
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
+        }
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)

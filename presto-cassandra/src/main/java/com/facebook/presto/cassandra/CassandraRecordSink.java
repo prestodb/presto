@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -148,6 +149,12 @@ public class CassandraRecordSink
     public void appendDouble(double value)
     {
         append(value);
+    }
+
+    @Override
+    public void appendBigDecimal(BigDecimal value)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
