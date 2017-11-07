@@ -14,9 +14,12 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -68,7 +71,10 @@ public class RecordPageSink
             recordSink.appendNull();
             return;
         }
-        if (type.getJavaType() == boolean.class) {
+        if (type instanceof DecimalType) {
+            recordSink.appendBigDecimal(decodeDecimalValue(position, block, (DecimalType) type));
+        }
+        else if (type.getJavaType() == boolean.class) {
             recordSink.appendBoolean(type.getBoolean(block, position));
         }
         else if (type.getJavaType() == long.class) {
@@ -83,5 +89,23 @@ public class RecordPageSink
         else {
             recordSink.appendObject(type.getObject(block, position));
         }
+    }
+
+    private static BigDecimal decodeDecimalValue(int position, Block block, DecimalType type)
+    {
+        if (type.isShort()) {
+            return decodeDecimalValue(type, type.getLong(block, position));
+        }
+        return decodeDecimalValue(type, type.getSlice(block, position));
+    }
+
+    private static BigDecimal decodeDecimalValue(DecimalType shortDecimalType, long value)
+    {
+        return new BigDecimal(Decimals.toString(value, shortDecimalType.getScale()));
+    }
+
+    private static BigDecimal decodeDecimalValue(DecimalType longDecimalType, Slice value)
+    {
+        return new BigDecimal(Decimals.toString(value, longDecimalType.getScale()));
     }
 }

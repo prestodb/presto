@@ -21,6 +21,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
@@ -53,6 +55,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -69,6 +72,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -206,7 +210,10 @@ public class BaseJdbcClient
                 boolean found = false;
                 while (resultSet.next()) {
                     found = true;
-                    Type columnType = toPrestoType(resultSet.getInt("DATA_TYPE"), resultSet.getInt("COLUMN_SIZE"));
+                    Type columnType = toPrestoType(
+                            resultSet.getInt("DATA_TYPE"),
+                            resultSet.getInt("COLUMN_SIZE"),
+                            resultSet.getInt("DECIMAL_DIGITS"));
                     // skip unsupported column types
                     if (columnType != null) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -463,7 +470,7 @@ public class BaseJdbcClient
         }
     }
 
-    protected Type toPrestoType(int jdbcType, int columnSize)
+    protected Type toPrestoType(int jdbcType, int columnSize, int decimalDigits)
     {
         switch (jdbcType) {
             case Types.BIT:
@@ -481,9 +488,14 @@ public class BaseJdbcClient
                 return REAL;
             case Types.FLOAT:
             case Types.DOUBLE:
+                return DOUBLE;
             case Types.NUMERIC:
             case Types.DECIMAL:
-                return DOUBLE;
+                int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (precision > Decimals.MAX_PRECISION) {
+                    return null;
+                }
+                return createDecimalType(precision, max(decimalDigits, 0));
             case Types.CHAR:
             case Types.NCHAR:
                 return createCharType(min(columnSize, CharType.MAX_LENGTH));
@@ -522,6 +534,9 @@ public class BaseJdbcClient
                 return "char";
             }
             return "char(" + ((CharType) type).getLength() + ")";
+        }
+        if (type instanceof DecimalType) {
+            return format("decimal(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
         }
 
         String sqlType = SQL_TYPES.get(type);
