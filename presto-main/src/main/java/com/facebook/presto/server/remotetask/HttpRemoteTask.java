@@ -622,7 +622,7 @@ public final class HttpRemoteTask
                     updateTaskInfo(result.getValue());
                 }
                 finally {
-                    if (!getTaskInfo().getTaskStatus().getState().isDone()) {
+                    if (!getTaskStatus().getState().isDone()) {
                         cleanUpLocally();
                     }
                 }
