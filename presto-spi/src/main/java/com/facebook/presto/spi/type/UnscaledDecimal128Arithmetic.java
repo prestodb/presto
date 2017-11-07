@@ -345,7 +345,7 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void subtract(Slice left, Slice right, Slice result)
     {
-        if (isNegative(left) ^ isNegative(right)) {
+        if (isNegative(left) != isNegative(right)) {
             // only one is negative
             if (addUnsignedReturnOverflow(left, right, result, isNegative(left)) != 0) {
                 throwOverflowException();
@@ -528,7 +528,7 @@ public final class UnscaledDecimal128Arithmetic
             }
         }
 
-        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, isNegative(left) ^ isNegative(right));
+        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, isNegative(left) != isNegative(right));
     }
 
     public static void multiply256(Slice left, Slice right, Slice result)
@@ -658,7 +658,7 @@ public final class UnscaledDecimal128Arithmetic
             throwOverflowException();
         }
 
-        boolean negative = isNegative(decimal) ^ (multiplier < 0);
+        boolean negative = (isNegative(decimal) != (multiplier < 0));
         pack(decimal, z0, z1, z2, z3, negative);
     }
 
@@ -1225,7 +1225,7 @@ public final class UnscaledDecimal128Arithmetic
 
         boolean dividendIsNegative = isNegative(dividendLow, dividendHigh);
         boolean divisorIsNegative = isNegative(divisorLow, divisorHigh);
-        boolean quotientIsNegative = dividendIsNegative ^ divisorIsNegative;
+        boolean quotientIsNegative = (dividendIsNegative != divisorIsNegative);
 
         // to fit 128b * 128b * 32b unsigned multiplication
         int[] dividend = new int[NUMBER_OF_INTS * 2 + 1];
