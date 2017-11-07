@@ -33,7 +33,6 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -71,6 +70,7 @@ import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.facebook.presto.util.JsonUtil.currentTokenAsLongDecimal;
 import static com.facebook.presto.util.JsonUtil.currentTokenAsShortDecimal;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -551,13 +551,13 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice shortDecimalToVarchar(long decimal, long precision, long scale, long tenToScale)
     {
-        return Slices.copiedBuffer(Decimals.toString(decimal, intScale(scale)), UTF_8);
+        return utf8Slice(Decimals.toString(decimal, intScale(scale)));
     }
 
     @UsedByGeneratedCode
     public static Slice longDecimalToVarchar(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
-        return Slices.copiedBuffer(Decimals.toString(decimal, intScale(scale)), UTF_8);
+        return utf8Slice(Decimals.toString(decimal, intScale(scale)));
     }
 
     @UsedByGeneratedCode
