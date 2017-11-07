@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.DummyMetadata;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -28,13 +27,14 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.metadata.AbstractMockMetadata.dummyMetadata;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 
 public class TestRuleIndex
 {
-    private final PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), new DummyMetadata());
+    private final PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
 
     @Test
     public void testWithPlanNodeHierarchy()

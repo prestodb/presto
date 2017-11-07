@@ -44,6 +44,11 @@ import java.util.Set;
 public abstract class AbstractMockMetadata
         implements Metadata
 {
+    public static Metadata dummyMetadata()
+    {
+        return new AbstractMockMetadata() {};
+    }
+
     @Override
     public void verifyComparableOrderableContract()
     {
