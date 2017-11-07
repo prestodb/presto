@@ -16,6 +16,7 @@ package com.facebook.presto.geospatial;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -27,6 +28,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static org.testng.Assert.assertEquals;
 
 public class TestBingTileFunctions
         extends AbstractTestFunctions
@@ -40,6 +42,17 @@ public class TestBingTileFunctions
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
         functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+    }
+
+    @Test
+    public void testSerialization()
+            throws Exception
+    {
+        ObjectMapper objectMapper = new ObjectMapper();
+        BingTile tile = BingTile.fromCoordinates(1, 2, 3);
+        String json = objectMapper.writeValueAsString(tile);
+        assertEquals("{\"x\":1,\"y\":2,\"zoom\":3}", json);
+        assertEquals(tile, objectMapper.readerFor(BingTile.class).readValue(json));
     }
 
     @Test
