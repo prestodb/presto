@@ -14,6 +14,8 @@
 package com.facebook.presto.geospatial;
 
 import com.facebook.presto.spi.PrestoException;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
@@ -70,7 +72,11 @@ public final class BingTile
             .toString();
     }
 
-    public static BingTile fromCoordinates(int x, int y, int zoomLevel)
+    @JsonCreator
+    public static BingTile fromCoordinates(
+            @JsonProperty("x") int x,
+            @JsonProperty("y") int y,
+            @JsonProperty("zoom") int zoomLevel)
     {
         return new BingTile(x, y, zoomLevel);
     }
@@ -104,16 +110,19 @@ public final class BingTile
         return new BingTile(tileX, tileY, zoomLevel);
     }
 
+    @JsonProperty
     public int getX()
     {
         return x;
     }
 
+    @JsonProperty
     public int getY()
     {
         return y;
     }
 
+    @JsonProperty("zoom")
     public int getZoomLevel()
     {
         return zoomLevel;
