@@ -173,7 +173,8 @@ public class HiveColumnHandle
                 .add("hiveType", hiveType)
                 .add("hiveColumnIndex", hiveColumnIndex)
                 .add("columnType", columnType)
-                .add("comment", comment)
+                .add("comment", comment.orElse(null))
+                .omitNullValues()
                 .toString();
     }
 
