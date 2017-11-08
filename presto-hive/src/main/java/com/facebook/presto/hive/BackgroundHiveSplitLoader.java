@@ -503,6 +503,15 @@ public class BackgroundHiveSplitLoader
 
         boolean forceLocalScheduling = HiveSessionProperties.isForceLocalScheduling(session);
 
+        // For empty files, some filesystem (e.g. LocalFileSystem) produce one empty block
+        // while others (e.g. hdfs.DistributedFileSystem) produces no block.
+        // Synthesize an empty block if one does not already exist.
+        if (fileSize == 0 && blockLocations.length == 0) {
+            blockLocations = new BlockLocation[] {new BlockLocation()};
+            // Turn off force local scheduling because hosts list doesn't exist.
+            forceLocalScheduling = false;
+        }
+
         ImmutableList.Builder<InternalHiveBlock> blockBuilder = ImmutableList.builder();
         for (BlockLocation blockLocation : blockLocations) {
             // clamp the block range
@@ -543,9 +552,13 @@ public class BackgroundHiveSplitLoader
 
     private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)
     {
+        checkArgument(length >= 0);
         checkArgument(!blocks.isEmpty());
         checkArgument(start == blocks.get(0).getStart());
         checkArgument(start + length == blocks.get(blocks.size() - 1).getEnd());
+        for (int i = 1; i < blocks.size(); i++) {
+            checkArgument(blocks.get(i - 1).getEnd() == blocks.get(i).getStart());
+        }
     }
 
     private static boolean allBlocksHaveRealAddress(List<InternalHiveBlock> blocks)
