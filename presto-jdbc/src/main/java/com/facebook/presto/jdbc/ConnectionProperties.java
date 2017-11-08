@@ -36,6 +36,8 @@ final class ConnectionProperties
     public static final ConnectionProperty<HostAndPort> SOCKS_PROXY = new SocksProxy();
     public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
+    public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
+    public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
     public static final ConnectionProperty<String> KERBEROS_REMOTE_SERICE_NAME = new KerberosRemoteServiceName();
@@ -51,6 +53,8 @@ final class ConnectionProperties
             .add(SOCKS_PROXY)
             .add(HTTP_PROXY)
             .add(SSL)
+            .add(SSL_KEY_STORE_PATH)
+            .add(SSL_KEY_STORE_PASSWORD)
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_PASSWORD)
             .add(KERBEROS_REMOTE_SERICE_NAME)
@@ -139,6 +143,30 @@ final class ConnectionProperties
         public Ssl()
         {
             super("SSL", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class SslKeyStorePath
+            extends AbstractConnectionProperty<String>
+    {
+        private static final Predicate<Properties> IF_SSL_ENABLED =
+                checkedPredicate(properties -> SSL.getValue(properties).orElse(false));
+
+        public SslKeyStorePath()
+        {
+            super("SSLKeyStorePath", NOT_REQUIRED, IF_SSL_ENABLED, STRING_CONVERTER);
+        }
+    }
+
+    private static class SslKeyStorePassword
+            extends AbstractConnectionProperty<String>
+    {
+        private static final Predicate<Properties> IF_KEY_STORE =
+                checkedPredicate(properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent());
+
+        public SslKeyStorePassword()
+        {
+            super("SSLKeyStorePassword", NOT_REQUIRED, IF_KEY_STORE, STRING_CONVERTER);
         }
     }
 
