@@ -46,6 +46,8 @@ import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_USE_CANONIC
 import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
@@ -141,9 +143,12 @@ final class PrestoDriverUri
             }
 
             if (useSecureConnection) {
-                Optional<String> trustStorePath = SSL_TRUST_STORE_PATH.getValue(properties);
-                Optional<String> trustStorePassword = SSL_TRUST_STORE_PASSWORD.getValue(properties);
-                setupSsl(builder, Optional.empty(), Optional.empty(), trustStorePath, trustStorePassword);
+                setupSsl(
+                        builder,
+                        SSL_KEY_STORE_PATH.getValue(properties),
+                        SSL_KEY_STORE_PASSWORD.getValue(properties),
+                        SSL_TRUST_STORE_PATH.getValue(properties),
+                        SSL_TRUST_STORE_PASSWORD.getValue(properties));
             }
 
             if (KERBEROS_REMOTE_SERICE_NAME.getValue(properties).isPresent()) {
