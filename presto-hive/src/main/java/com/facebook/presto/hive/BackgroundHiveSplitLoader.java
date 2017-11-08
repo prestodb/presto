@@ -506,6 +506,10 @@ public class BackgroundHiveSplitLoader
             return Optional.empty();
         }
 
+        if (blockLocations.length == 0) {
+            return Optional.empty();
+        }
+
         boolean forceLocalScheduling = HiveSessionProperties.isForceLocalScheduling(session);
 
         ImmutableList.Builder<InternalHiveBlock> blockBuilder = ImmutableList.builder();
