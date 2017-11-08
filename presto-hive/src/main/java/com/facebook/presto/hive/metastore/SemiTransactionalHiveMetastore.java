@@ -2074,8 +2074,9 @@ public class SemiTransactionalHiveMetastore
                     Optional<Table> existingTable = metastore.getTable(newTable.getDatabaseName(), newTable.getTableName());
                     if (existingTable.isPresent()) {
                         Table table = existingTable.get();
-                        if (getPrestoQueryId(table).equals(queryId)) {
-                            // ignore table if it was already created by us due to retry
+                        Optional<String> existingTableQueryId = getPrestoQueryId(table);
+                        if (existingTableQueryId.isPresent() && existingTableQueryId.get().equals(queryId)) {
+                            // ignore table if it was already created by the same query during retries
                             done = true;
                         }
                         else {
