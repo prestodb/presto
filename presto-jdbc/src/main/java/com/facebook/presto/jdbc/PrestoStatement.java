@@ -48,6 +48,7 @@ public class PrestoStatement
     private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
     private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
+    private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
     private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
 
@@ -255,6 +256,7 @@ public class PrestoStatement
 
             Long updateCount = client.finalStatusInfo().getUpdateCount();
             currentUpdateCount.set((updateCount != null) ? updateCount : 0);
+            currentUpdateType.set(client.finalStatusInfo().getUpdateType());
 
             return false;
         }
@@ -281,6 +283,7 @@ public class PrestoStatement
     {
         currentResult.set(null);
         currentUpdateCount.set(-1);
+        currentUpdateType.set(null);
     }
 
     @Override
@@ -567,6 +570,13 @@ public class PrestoStatement
             throws SQLException
     {
         return iface.isInstance(this);
+    }
+
+    public String getUpdateType()
+            throws SQLException
+    {
+        checkOpen();
+        return currentUpdateType.get();
     }
 
     private void checkOpen()
