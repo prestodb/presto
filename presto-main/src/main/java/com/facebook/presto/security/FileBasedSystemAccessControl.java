@@ -22,7 +22,6 @@ import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.apache.hadoop.security.authentication.util.KerberosName;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -84,7 +83,6 @@ public class FileBasedSystemAccessControl
                     path = path.toAbsolutePath();
                 }
                 path.toFile().canRead();
-                KerberosName.setRules("DEFAULT");
                 FileBasedSystemAccessControlRules rules = jsonCodec(FileBasedSystemAccessControlRules.class)
                         .fromJson(Files.readAllBytes(path));
                 ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
@@ -155,20 +153,15 @@ public class FileBasedSystemAccessControl
 
     private boolean canImpersonate(Principal principal, String user)
     {
-        try {
-            String shortName = new KerberosName(principal.getName()).getShortName();
-            if (shortName.equals(user)) {
-                return true;
-            }
-            for (ImpersonateAccessControlRule rule : impersonateRules) {
-                Optional<Boolean> allowed = rule.match(shortName, user);
-                if (allowed.isPresent()) {
-                    return allowed.get();
-                }
-            }
+        String shortName = principal.getName();
+        if (shortName.equals(user)) {
+            return true;
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
+        for (ImpersonateAccessControlRule rule : impersonateRules) {
+            Optional<Boolean> allowed = rule.match(shortName, user);
+            if (allowed.isPresent()) {
+                return allowed.get();
+            }
         }
         return false;
     }
