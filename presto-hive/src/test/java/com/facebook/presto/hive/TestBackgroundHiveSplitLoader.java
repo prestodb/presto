@@ -62,7 +62,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
-public class TestBackgroundSplitLoader
+public class TestBackgroundHiveSplitLoader
 {
     private static final int BUCKET_COUNT = 2;
 
