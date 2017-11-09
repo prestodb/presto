@@ -62,7 +62,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
-public class TestBackgroundSplitLoader
+public class TestBackgroundHiveSplitLoader
 {
     private static final int BUCKET_COUNT = 2;
 
@@ -161,6 +161,20 @@ public class TestBackgroundSplitLoader
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
         assertEquals(paths.get(0), RETURNED_PATH.toString());
+    }
+
+    @Test
+    public void testEmptySplit()
+            throws Exception
+    {
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                ImmutableList.of(emptySplit(RETURNED_PATH)),
+                TupleDomain.none());
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        assertEquals(drain(hiveSplitSource).size(), 0);
     }
 
     private List<String> drain(HiveSplitSource source)
@@ -282,6 +296,23 @@ public class TestBackgroundSplitLoader
                 null,
                 path,
                 new BlockLocation[] {new BlockLocation()});
+    }
+
+    private static LocatedFileStatus emptySplit(Path path)
+    {
+        return new LocatedFileStatus(
+                0L,
+                false,
+                0,
+                0L,
+                0L,
+                0L,
+                null,
+                null,
+                null,
+                null,
+                path,
+                new BlockLocation[] {});
     }
 
     private static class TestingDirectoryLister

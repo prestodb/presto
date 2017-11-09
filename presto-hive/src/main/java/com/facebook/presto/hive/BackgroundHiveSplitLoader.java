@@ -501,6 +501,11 @@ public class BackgroundHiveSplitLoader
             return Optional.empty();
         }
 
+        if (blockLocations.length == 0) {
+            // TODO empty file should produce empty split rather than no split. Empty file is ignorable only in certain file formats.
+            return Optional.empty();
+        }
+
         boolean forceLocalScheduling = HiveSessionProperties.isForceLocalScheduling(session);
 
         // For empty files, some filesystem (e.g. LocalFileSystem) produce one empty block
