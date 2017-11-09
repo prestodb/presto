@@ -15,9 +15,6 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.sql.parser.IdentifierSymbol;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
@@ -38,7 +35,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -71,9 +67,6 @@ public class Console
 {
     private static final String PROMPT_NAME = "presto";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
-
-    // create a parser with all identifier options enabled, since this is only used for USE statements
-    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class)));
 
     private static final Pattern HISTORY_INDEX_PATTERN = Pattern.compile("!\\d+");
 
