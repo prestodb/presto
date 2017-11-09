@@ -89,6 +89,9 @@ public class ClientOptions
     @Option(name = "--source", title = "source", description = "Name of source making query")
     public String source = "presto-cli";
 
+    @Option(name = "--client-info", title = "client-info", description = "Extra information about client making query")
+    public String clientInfo;
+
     @Option(name = "--client-tags", title = "client tags", description = "Client tags")
     public String clientTags = "";
 
@@ -146,7 +149,7 @@ public class ClientOptions
                 user,
                 source,
                 parseClientTags(clientTags),
-                null, // client-supplied payload field not yet supported in CLI
+                clientInfo,
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),
