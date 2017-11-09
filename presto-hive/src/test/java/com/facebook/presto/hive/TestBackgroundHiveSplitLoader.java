@@ -163,6 +163,23 @@ public class TestBackgroundHiveSplitLoader
         assertEquals(paths.get(0), RETURNED_PATH.toString());
     }
 
+    @Test
+    public void testEmptyFileWithNoBlocks()
+            throws Exception
+    {
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                ImmutableList.of(locatedFileStatusWithNoBlocks(RETURNED_PATH)),
+                TupleDomain.none());
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        List<HiveSplit> splits = drainSplits(hiveSplitSource);
+        assertEquals(splits.size(), 1);
+        assertEquals(splits.get(0).getPath(), RETURNED_PATH.toString());
+        assertEquals(splits.get(0).getLength(), 0);
+    }
+
     private List<String> drain(HiveSplitSource source)
             throws Exception
     {
@@ -286,6 +303,23 @@ public class TestBackgroundHiveSplitLoader
                 null,
                 path,
                 new BlockLocation[] {new BlockLocation()});
+    }
+
+    private static LocatedFileStatus locatedFileStatusWithNoBlocks(Path path)
+    {
+        return new LocatedFileStatus(
+                0L,
+                false,
+                0,
+                0L,
+                0L,
+                0L,
+                null,
+                null,
+                null,
+                null,
+                path,
+                new BlockLocation[] {});
     }
 
     private static class TestingDirectoryLister
