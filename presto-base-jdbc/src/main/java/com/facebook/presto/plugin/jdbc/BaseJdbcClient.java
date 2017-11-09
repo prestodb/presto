@@ -65,6 +65,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -91,9 +92,9 @@ public class BaseJdbcClient
             .put(VARBINARY, "varbinary")
             .put(DATE, "date")
             .put(TIME, "time")
-            .put(TIME_WITH_TIME_ZONE, "time with timezone")
+            .put(TIME_WITH_TIME_ZONE, "time with time zone")
             .put(TIMESTAMP, "timestamp")
-            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
+            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with time zone")
             .build();
 
     protected final String connectorId;
@@ -511,11 +512,12 @@ public class BaseJdbcClient
 
     protected String toSqlType(Type type)
     {
-        if (type instanceof VarcharType) {
-            if (((VarcharType) type).isUnbounded()) {
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded()) {
                 return "varchar";
             }
-            return "varchar(" + ((VarcharType) type).getLength() + ")";
+            return "varchar(" + varcharType.getLengthSafe() + ")";
         }
         if (type instanceof CharType) {
             if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
