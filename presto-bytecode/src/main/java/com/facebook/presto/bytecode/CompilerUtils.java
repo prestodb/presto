@@ -32,11 +32,16 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static java.time.ZoneOffset.UTC;
 
 public final class CompilerUtils
 {
@@ -48,16 +53,24 @@ public final class CompilerUtils
     private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
     private static final AtomicReference<String> DUMP_CLASS_FILES_TO = new AtomicReference<>();
     private static final AtomicLong CLASS_ID = new AtomicLong();
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss");
 
     private CompilerUtils()
     {
     }
 
-    public static ParameterizedType makeClassName(String baseName)
+    public static ParameterizedType makeClassName(String baseName, Optional<String> suffix)
     {
-        String className = baseName + "_" + CLASS_ID.incrementAndGet();
+        String className = baseName
+                + "_" + suffix.orElseGet(() -> Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT))
+                + "_" + CLASS_ID.incrementAndGet();
         String javaClassName = toJavaIdentifierString(className);
         return ParameterizedType.typeFromJavaClassName("com.facebook.presto.$gen." + javaClassName);
+    }
+
+    public static ParameterizedType makeClassName(String baseName)
+    {
+        return makeClassName(baseName, Optional.empty());
     }
 
     public static String toJavaIdentifierString(String className)
