@@ -41,7 +41,9 @@ import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEU
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -368,14 +370,7 @@ public class TestResourceGroups
                     iterator.remove();
                 }
             }
-            for (Iterator<MockQueryExecution> iterator = group2Queries.iterator(); iterator.hasNext(); ) {
-                MockQueryExecution query = iterator.next();
-                if (query.getState() == RUNNING) {
-                    query.complete();
-                    iterator.remove();
-                    group2Ran++;
-                }
-            }
+            group2Ran += completeGroupQueries(group2Queries);
             root.processQueuedQueries();
             group1Queries = fillGroupTo(group1, group1Queries, 2);
             group2Queries = fillGroupTo(group2, group2Queries, 2);
@@ -388,6 +383,153 @@ public class TestResourceGroups
         int upperBound = binomial.inverseCumulativeProbability(0.999999);
         assertLessThan(group2Ran, upperBound);
         assertGreaterThan(group2Ran, lowerBound);
+    }
+
+    @Test(timeOut = 10_000)
+    public void testWeightedSharesScheduling()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(50);
+        // Start with zero capacity, so that nothing starts running until we've added all the queries
+        root.setHardConcurrencyLimit(0);
+        root.setSchedulingPolicy(WEIGHTED_FAIR);
+
+        InternalResourceGroup group1 = root.getOrCreateSubGroup("1");
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(50);
+        group1.setHardConcurrencyLimit(2);
+        group1.setSoftConcurrencyLimit(2);
+        group1.setSchedulingWeight(1);
+
+        InternalResourceGroup group2 = root.getOrCreateSubGroup("2");
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(50);
+        group2.setHardConcurrencyLimit(2);
+        group2.setSoftConcurrencyLimit(2);
+        group2.setSchedulingWeight(2);
+
+        Set<MockQueryExecution> group1Queries = fillGroupTo(group1, ImmutableSet.of(), 4);
+        Set<MockQueryExecution> group2Queries = fillGroupTo(group2, ImmutableSet.of(), 4);
+        root.setHardConcurrencyLimit(3);
+
+        int group1Ran = 0;
+        int group2Ran = 0;
+        for (int i = 0; i < 1000; i++) {
+            group1Ran += completeGroupQueries(group1Queries);
+            group2Ran += completeGroupQueries(group2Queries);
+            root.processQueuedQueries();
+            group1Queries = fillGroupTo(group1, group1Queries, 4);
+            group2Queries = fillGroupTo(group2, group2Queries, 4);
+        }
+
+        // group1 has a weight of 1 and group2 has a weight of 2, so group2 should account for (2 / (1 + 2)) * 3000 queries.
+        assertBetweenInclusive(group1Ran, 995, 1000);
+        assertBetweenInclusive(group2Ran, 1995, 2000);
+    }
+
+    @Test(timeOut = 10_000)
+    public void testWeightedSharesSchedulingEqualWeights()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(50);
+        // Start with zero capacity, so that nothing starts running until we've added all the queries
+        root.setHardConcurrencyLimit(0);
+        root.setSchedulingPolicy(WEIGHTED_FAIR);
+
+        InternalResourceGroup group1 = root.getOrCreateSubGroup("1");
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(50);
+        group1.setHardConcurrencyLimit(2);
+        group1.setSoftConcurrencyLimit(2);
+        group1.setSchedulingWeight(1);
+
+        InternalResourceGroup group2 = root.getOrCreateSubGroup("2");
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(50);
+        group2.setHardConcurrencyLimit(2);
+        group2.setSoftConcurrencyLimit(2);
+        group2.setSchedulingWeight(1);
+
+        InternalResourceGroup group3 = root.getOrCreateSubGroup("3");
+        group3.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group3.setMaxQueuedQueries(50);
+        group3.setHardConcurrencyLimit(2);
+        group3.setSoftConcurrencyLimit(2);
+        group3.setSchedulingWeight(2);
+
+        Set<MockQueryExecution> group1Queries = fillGroupTo(group1, ImmutableSet.of(), 4);
+        Set<MockQueryExecution> group2Queries = fillGroupTo(group2, ImmutableSet.of(), 4);
+        Set<MockQueryExecution> group3Queries = fillGroupTo(group3, ImmutableSet.of(), 4);
+        root.setHardConcurrencyLimit(4);
+
+        int group1Ran = 0;
+        int group2Ran = 0;
+        int group3Ran = 0;
+        for (int i = 0; i < 1000; i++) {
+            group1Ran += completeGroupQueries(group1Queries);
+            group2Ran += completeGroupQueries(group2Queries);
+            group3Ran += completeGroupQueries(group3Queries);
+            root.processQueuedQueries();
+            group1Queries = fillGroupTo(group1, group1Queries, 4);
+            group2Queries = fillGroupTo(group2, group2Queries, 4);
+            group3Queries = fillGroupTo(group3, group3Queries, 4);
+        }
+
+        // group 3 should run approximately 2x the number of queries of 1 and 2
+        BinomialDistribution binomial = new BinomialDistribution(4000, 1.0 / 4.0);
+        int lowerBound = binomial.inverseCumulativeProbability(0.000001);
+        int upperBound = binomial.inverseCumulativeProbability(0.999999);
+
+        assertBetweenInclusive(group1Ran, lowerBound, upperBound);
+        assertBetweenInclusive(group2Ran, lowerBound, upperBound);
+        assertBetweenInclusive(group3Ran, 2 * lowerBound, 2 * upperBound);
+    }
+
+    @Test(timeOut = 10_000)
+    public void testWeightedSharesNoStarvation()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(50);
+        // Start with zero capacity, so that nothing starts running until we've added all the queries
+        root.setHardConcurrencyLimit(0);
+        root.setSchedulingPolicy(WEIGHTED_FAIR);
+
+        InternalResourceGroup group1 = root.getOrCreateSubGroup("1");
+        group1.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group1.setMaxQueuedQueries(50);
+        group1.setHardConcurrencyLimit(2);
+        group1.setSoftConcurrencyLimit(2);
+        group1.setSchedulingWeight(1);
+
+        InternalResourceGroup group2 = root.getOrCreateSubGroup("2");
+        group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group2.setMaxQueuedQueries(50);
+        group2.setHardConcurrencyLimit(2);
+        group2.setSoftConcurrencyLimit(2);
+        group2.setSchedulingWeight(2);
+
+        Set<MockQueryExecution> group1Queries = fillGroupTo(group1, ImmutableSet.of(), 4);
+        Set<MockQueryExecution> group2Queries = fillGroupTo(group2, ImmutableSet.of(), 4);
+        root.setHardConcurrencyLimit(1);
+
+        int group1Ran = 0;
+        for (int i = 0; i < 2000; i++) {
+            group1Ran += completeGroupQueries(group1Queries);
+            completeGroupQueries(group2Queries);
+            root.processQueuedQueries();
+            group1Queries = fillGroupTo(group1, group1Queries, 4);
+            group2Queries = fillGroupTo(group2, group2Queries, 4);
+        }
+
+        // group 1 should run approximately 1/2 the number of queries of group 2
+        BinomialDistribution binomial = new BinomialDistribution(2000, 1.0 / 3.0);
+        int lowerBound = binomial.inverseCumulativeProbability(0.000001);
+        int upperBound = binomial.inverseCumulativeProbability(0.999999);
+
+        assertBetweenInclusive(group1Ran, lowerBound, upperBound);
     }
 
     @Test
@@ -614,6 +756,20 @@ public class TestResourceGroups
         assertEquals(rootB.getWaitingQueuedQueries(), 5);
         assertEquals(rootBX.getWaitingQueuedQueries(), 6);
         assertEquals(rootBY.getWaitingQueuedQueries(), 6);
+    }
+
+    private static int completeGroupQueries(Set<MockQueryExecution> groupQueries)
+    {
+        int groupRan = 0;
+        for (Iterator<MockQueryExecution> iterator = groupQueries.iterator(); iterator.hasNext(); ) {
+            MockQueryExecution query = iterator.next();
+            if (query.getState() == RUNNING) {
+                query.complete();
+                iterator.remove();
+                groupRan++;
+            }
+        }
+        return groupRan;
     }
 
     private static Set<MockQueryExecution> fillGroupTo(InternalResourceGroup group, Set<MockQueryExecution> existingQueries, int count)
