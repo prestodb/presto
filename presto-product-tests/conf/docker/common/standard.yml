@@ -6,6 +6,8 @@ services:
     volumes:
       - ../..:/docker/volumes/conf
       - ../../target:/docker/volumes/logs
+    environment:
+      - MALLOC_ARENA_MAX=1
 
   hadoop-master:
     extends:
