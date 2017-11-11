@@ -10,6 +10,10 @@
           <option name="url" value="http://gaosongdi@git.onemt.com.cn/recommend/recommend-evaluation.git" />
           <option name="userName" value="" />
         </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="https://github.com/tiny-gao/airpal.git" />
+          <option name="userName" value="" />
+        </UrlAndUserName>
       </list>
     </option>
     <option name="cloneParentDir" value="D:\workspace\" />
