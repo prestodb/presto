@@ -162,7 +162,7 @@ public class TestRowOperators
                 new RowType(ImmutableList.of(VARCHAR, BIGINT), Optional.of(ImmutableList.of("k1", "k2"))),
                 Lists.newArrayList(null, null));
 
-        // allow json object contains non-exist field name
+        // allow json object contains non-exist field names
         assertFunction(
                 "CAST(JSON '{\"k1\": [1, 2], \"used\": 3, \"k2\": [4, 5]}' AS ROW(used BIGINT))",
                 new RowType(ImmutableList.of(BIGINT), Optional.of(ImmutableList.of("used"))),
@@ -171,6 +171,16 @@ public class TestRowOperators
                 "CAST(JSON '[{\"k1\": [1, 2], \"used\": 3, \"k2\": [4, 5]}]' AS ARRAY<ROW(used BIGINT)>)",
                 new ArrayType(new RowType(ImmutableList.of(BIGINT), Optional.of(ImmutableList.of("used")))),
                 ImmutableList.of(ImmutableList.of(3L)));
+
+        // allow non-exist fields in json object
+        assertFunction(
+                "CAST(JSON '{\"a\":1,\"c\":3}' AS ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT))",
+                new RowType(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT), Optional.of(ImmutableList.of("a", "b", "c", "d"))),
+                asList(1L, null, 3L, null));
+        assertFunction(
+                "CAST(JSON '[{\"a\":1,\"c\":3}]' AS ARRAY<ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT)>)",
+                new ArrayType(new RowType(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT), Optional.of(ImmutableList.of("a", "b", "c", "d")))),
+                ImmutableList.of(asList(1L, null, 3L, null)));
 
         // fields out of order
         assertFunction(
@@ -304,8 +314,6 @@ public class TestRowOperators
         // invalid cast
         assertInvalidCast("CAST(unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}') AS ROW(a BIGINT, b BIGINT))", "Cannot cast to row(a bigint,b bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}");
         assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY<ROW(a BIGINT, b BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
-        assertInvalidCast("CAST(JSON '{\"a\":1,\"c\":3}' AS ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT))", "Cannot cast to row(a bigint,b bigint,c bigint,d bigint). Missing fields: b, d\n{\"a\":1,\"c\":3}");
-        assertInvalidCast("CAST(JSON '[{\"a\":1,\"c\":3}]' AS ARRAY<ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint,c bigint,d bigint)). Missing fields: b, d\n[{\"a\":1,\"c\":3}]");
     }
 
     @Test
