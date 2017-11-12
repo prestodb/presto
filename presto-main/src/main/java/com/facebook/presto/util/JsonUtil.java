@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -1273,11 +1272,11 @@ public final class JsonUtil
             }
 
             if (numFieldsWritten != fieldAppenders.length) {
-                String missingFieldNames = fieldNameToIndex.get().entrySet().stream()
-                        .filter(entry -> !fieldWritten[entry.getValue()])
-                        .map(Map.Entry::getKey)
-                        .collect(Collectors.joining(", "));
-                throw new JsonCastException("Missing fields: " + missingFieldNames);
+                for (int i = 0; i < fieldWritten.length; i++) {
+                    if (!fieldWritten[i]) {
+                        singleRowBlockWriter.getFieldBlockBuilder(i).appendNull();
+                    }
+                }
             }
         }
     }
