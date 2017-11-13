@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.clientproviders;
 
+import com.facebook.presto.connector.thrift.ThriftConnectorConfig;
 import com.facebook.presto.connector.thrift.annotations.ForRetryDriver;
 import com.facebook.presto.connector.thrift.annotations.NonRetrying;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
@@ -31,13 +32,11 @@ import com.facebook.presto.spi.HostAddress;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -50,19 +49,20 @@ public class RetryingPrestoThriftServiceProvider
     private final RetryDriver retry;
 
     @Inject
-    public RetryingPrestoThriftServiceProvider(@NonRetrying PrestoThriftServiceProvider original, @ForRetryDriver ListeningScheduledExecutorService retryExecutor)
+    public RetryingPrestoThriftServiceProvider(@NonRetrying PrestoThriftServiceProvider original, @ForRetryDriver ListeningScheduledExecutorService retryExecutor, ThriftConnectorConfig config)
     {
         this.original = requireNonNull(original, "original is null");
         requireNonNull(retryExecutor, "retryExecutor is null");
+        requireNonNull(config, "config is null");
 
         retry = RetryDriver.retry(retryExecutor)
-                .maxAttempts(5)
+                .maxAttempts(config.getMaxRetryAttempts())
                 .stopRetryingWhen(e -> e instanceof PrestoThriftServiceException && !((PrestoThriftServiceException) e).isRetryable())
                 .exponentialBackoff(
-                        new Duration(10, TimeUnit.MILLISECONDS),
-                        new Duration(20, TimeUnit.MILLISECONDS),
-                        new Duration(30, TimeUnit.SECONDS),
-                        1.5);
+                        config.getMinRetrySleepTime(),
+                        config.getMaxRetrySleepTime(),
+                        config.getMaxRetryDuration(),
+                        config.getRetryScaleFactor());
     }
 
     @Override
