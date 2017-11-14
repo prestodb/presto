@@ -204,7 +204,8 @@ public class SliceDictionaryStreamReader
         // the engine currently uses identity equality to test if dictionaries are the same
         if (currentDictionaryData != dictionaryData) {
             boolean[] isNullVector = new boolean[positionCount];
-            isNullVector[isNullVector.length - 1] = true;
+            isNullVector[positionCount - 1] = true;
+            dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
             dictionaryBlock = new VariableWidthBlock(positionCount, Slices.wrappedBuffer(dictionaryData), dictionaryOffsets, isNullVector);
             currentDictionaryData = dictionaryData;
         }
