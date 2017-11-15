@@ -14,6 +14,9 @@
 package com.facebook.presto.geospatial;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -25,6 +28,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static org.testng.Assert.assertEquals;
 
 public class TestGeoQueries
         extends AbstractTestFunctions
@@ -37,6 +41,17 @@ public class TestGeoQueries
             functionAssertions.getTypeRegistry().addType(type);
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+    }
+
+    @Test
+    public void testGeometryGetObjectValue()
+            throws Exception
+    {
+        BlockBuilder builder = GEOMETRY.createBlockBuilder(new BlockBuilderStatus(), 1);
+        GEOMETRY.writeSlice(builder, GeoFunctions.stPoint(1.2, 3.4));
+        Block block = builder.build();
+
+        assertEquals("POINT (1.2 3.4)", GEOMETRY.getObjectValue(null, block, 0));
     }
 
     @Test

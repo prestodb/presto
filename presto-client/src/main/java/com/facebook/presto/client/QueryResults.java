@@ -42,6 +42,7 @@ import static com.facebook.presto.spi.type.StandardTypes.CHAR;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.GEOMETRY;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
@@ -329,6 +330,7 @@ public class QueryResults
             case IPADDRESS:
             case DECIMAL:
             case CHAR:
+            case GEOMETRY:
                 return String.class.cast(value);
             default:
                 // for now we assume that only the explicit types above are passed
