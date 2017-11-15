@@ -391,6 +391,14 @@ class QueryPlanner
         projections.putAll(coerce(uncoerced, subPlan, translations));
 
         for (Expression expression : alreadyCoerced) {
+            if (expression instanceof SymbolReference) {
+                // If this is an identity projection, no need to rewrite it
+                // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
+                // don't have a corresponding analysis, so the code below doesn't work for them
+                projections.put(Symbol.from(expression), expression);
+                continue;
+            }
+
             Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
             translations.addIntermediateMapping(expression, parametersReplaced);
@@ -625,7 +633,11 @@ class QueryPlanner
         // Add back the implicit casts that we removed in 2.a
         // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
         if (needPostProjectionCoercion) {
-            subPlan = explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
+            ImmutableList.Builder<Expression> alreadyCoerced = ImmutableList.builder();
+            alreadyCoerced.addAll(distinctGroupingColumns);
+            groupIdSymbol.map(Symbol::toSymbolReference).ifPresent(alreadyCoerced::add);
+
+            subPlan = explicitCoercionFields(subPlan, alreadyCoerced.build(), analysis.getAggregates(node));
         }
 
         // 4. Project and re-write all grouping functions
