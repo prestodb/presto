@@ -48,8 +48,6 @@ JDBC Driver Changes
   running arbitrary SQL on behalf of users. For programmatic use, continuing
   to use ``setCatalog()`` and ``setSchema()`` on ``Connection`` is recommended.
 * Allow executing ``SET SESSION`` and ``RESET SESSION``.
-* Change mapping for columns with ``DECIMAL(p,s)`` data type from Presto ``DOUBLE``
-  type to the corresponding Presto ``DECIMAL`` type.
 
 Resource Group Changes
 ----------------------
@@ -61,6 +59,13 @@ Hive Changes
 
 * Do not require setting ``hive.metastore.uri`` when using the file metastore.
 * Reduce memory usage when reading string columns from ORC or DWRF files.
+
+
+MySQL, PostgreSQL, Redshift, and SQL Server Changes
+---------------------------------------------------
+
+* Change mapping for columns with ``DECIMAL(p,s)`` data type from Presto ``DOUBLE``
+  type to the corresponding Presto ``DECIMAL`` type.
 
 Kafka Changes
 -------------
