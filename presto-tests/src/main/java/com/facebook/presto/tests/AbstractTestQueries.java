@@ -9144,6 +9144,9 @@ public abstract class AbstractTestQueries
     public void testAggregationWithOrderBy()
     {
         assertQuery(
+                "SELECT sum(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES (8)");
+        assertQuery(
                 "SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
                 "VALUES ((4, 1, 3))");
 
