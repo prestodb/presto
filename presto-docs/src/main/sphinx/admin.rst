@@ -11,3 +11,4 @@ Administration
     admin/spill
     admin/queue
     admin/resource-groups
+    admin/session-properties-manager
