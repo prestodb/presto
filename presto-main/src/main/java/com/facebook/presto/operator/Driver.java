@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -41,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -51,7 +49,7 @@ import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
@@ -80,6 +78,8 @@ public class Driver
 
     @GuardedBy("exclusiveLock")
     private TaskSource currentTaskSource;
+
+    private AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
 
     private enum State
     {
@@ -117,6 +117,10 @@ public class Driver
         this.deleteOperator = deleteOperator;
 
         currentTaskSource = sourceOperator.map(operator -> new TaskSource(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
+        // initially the driverBlockedFuture is not blocked (it is completed)
+        SettableFuture<?> future = SettableFuture.create();
+        future.set(null);
+        driverBlockedFuture.set(future);
     }
 
     public DriverContext getDriverContext()
@@ -230,6 +234,12 @@ public class Driver
 
         requireNonNull(duration, "duration is null");
 
+        // if the driver is blocked we don't need to continue
+        SettableFuture<?> blockedFuture = driverBlockedFuture.get();
+        if (!blockedFuture.isDone()) {
+            return blockedFuture;
+        }
+
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
@@ -240,7 +250,7 @@ public class Driver
                 do {
                     ListenableFuture<?> future = processInternal();
                     if (!future.isDone()) {
-                        return wakeUpOnRevokeRequest(future);
+                        return updateDriverBlockedFuture(future);
                     }
                 }
                 while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
@@ -258,35 +268,27 @@ public class Driver
     {
         checkLockNotHeld("Can not process while holding the driver lock");
 
+        // if the driver is blocked we don't need to continue
+        SettableFuture<?> blockedFuture = driverBlockedFuture.get();
+        if (!blockedFuture.isDone()) {
+            return blockedFuture;
+        }
+
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
-            ListenableFuture<?> driverBlockedFuture = processInternal();
-            return wakeUpOnRevokeRequest(driverBlockedFuture);
+            ListenableFuture<?> future = processInternal();
+            return updateDriverBlockedFuture(future);
         });
         return result.orElse(NOT_BLOCKED);
     }
 
-    private ListenableFuture<?> wakeUpOnRevokeRequest(ListenableFuture<?> driverBlockedFuture)
+    private ListenableFuture<?> updateDriverBlockedFuture(ListenableFuture<?> sourceBlockedFuture)
     {
-        if (driverBlockedFuture.isDone()) {
-            // driver is not blocked; just return completed future
-            return driverBlockedFuture;
-        }
-
-        ImmutableList<SettableFuture<?>> revokingRequestedFutures = operators.stream()
-                .map(Operator::getOperatorContext)
-                .map(OperatorContext::getMemoryRevokingRequestedFuture)
-                .collect(toImmutableList());
-        Optional<SettableFuture<?>> doneRevokingRequestedFuture = revokingRequestedFutures.stream().filter(Future::isDone).findAny();
-        if (doneRevokingRequestedFuture.isPresent()) {
-            // revoking already requested for one of operators; return completed future
-            return doneRevokingRequestedFuture.get();
-        }
-
-        // unblock as soon as driver is unblocked or we get revoking request for any of operators
-        ImmutableList.Builder<ListenableFuture<?>> futures = ImmutableList.builder();
-        futures.add(driverBlockedFuture);
-        futures.addAll(revokingRequestedFutures);
-        return firstFinishedFuture(futures.build());
+        // driverBlockedFuture will be completed as soon as the sourceBlockedFuture is completed
+        // or any of the operators gets a memory revocation request
+        SettableFuture<?> newDriverBlockedFuture = SettableFuture.create();
+        driverBlockedFuture.set(newDriverBlockedFuture);
+        sourceBlockedFuture.addListener(() -> newDriverBlockedFuture.set(null), newDirectExecutorService());
+        return newDriverBlockedFuture;
     }
 
     @GuardedBy("exclusiveLock")
@@ -577,7 +579,7 @@ public class Driver
     private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
     {
         SettableFuture<?> result = SettableFuture.create();
-        ExecutorService executor = MoreExecutors.newDirectExecutorService();
+        ExecutorService executor = newDirectExecutorService();
 
         for (ListenableFuture<?> future : futures) {
             future.addListener(() -> result.set(null), executor);
