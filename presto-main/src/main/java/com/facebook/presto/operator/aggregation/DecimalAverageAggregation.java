@@ -127,7 +127,7 @@ public class DecimalAverageAggregation
 
         Type intermediateType = stateSerializer.getSerializedType();
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, type, true, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, type, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

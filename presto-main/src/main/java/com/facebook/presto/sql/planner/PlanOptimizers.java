@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneIndexSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneJoinChildrenColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneMarkDistinctColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneOrderByInAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.PruneOutputColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneProjectColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinColumns;
@@ -215,7 +216,8 @@ public class PlanOptimizers
                                         new ImplementFilteredAggregations(),
                                         new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct(),
-                                        new PruneCountAggregationOverScalar()))
+                                        new PruneCountAggregationOverScalar(),
+                                        new PruneOrderByInAggregation(metadata.getFunctionRegistry())))
                                 .build()),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(),
