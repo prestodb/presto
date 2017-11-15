@@ -95,6 +95,9 @@ public final class ArrayMinMaxUtils
                     containNull = true;
                 }
                 double value = elementType.getDouble(block, i);
+                if (Double.isNaN(value)) {
+                    return Double.NaN;
+                }
                 if ((boolean) compareMethodHandle.invokeExact(value, selectedValue)) {
                     selectedValue = value;
                 }
