@@ -2020,6 +2020,11 @@ class AstBuilder
             return "ROW" + builder.toString();
         }
 
+        if (type.intervalType() != null) {
+            return "INTERVAL " + getIntervalFieldType((Token) type.intervalType().from.getChild(0).getPayload()) +
+                    " TO " + getIntervalFieldType((Token) type.intervalType().to.getChild(0).getPayload());
+        }
+
         throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
     }
 

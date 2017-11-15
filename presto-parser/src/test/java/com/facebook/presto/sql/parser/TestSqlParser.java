@@ -368,6 +368,8 @@ public class TestSqlParser
         assertCast("ROW(x BIGINT, y DOUBLE)", "ROW(x bigint,y double)");
         assertCast("ROW(x BIGINT, y DOUBLE, z ROW(m array<bigint>,n map<double,timestamp>))", "ROW(x BIGINT,y DOUBLE,z ROW(m array(bigint),n map(double,timestamp)))");
         assertCast("array<ROW(x BIGINT, y TIMESTAMP)>", "ARRAY(ROW(x BIGINT,y TIMESTAMP))");
+
+        assertCast("interval year to month", "INTERVAL YEAR TO MONTH");
     }
 
     @Test
