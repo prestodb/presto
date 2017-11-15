@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -26,6 +27,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -38,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -106,9 +109,12 @@ public class OperatorContext
     private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
-    // memoryRevokingRequestedFuture is done iff memory revoking was requested for operator
     @GuardedBy("this")
-    private SettableFuture<?> memoryRevokingRequestedFuture = SettableFuture.create();
+    private boolean memoryRevokingRequested;
+
+    @Nullable
+    @GuardedBy("this")
+    private Runnable memoryRevocationRequestListener;
 
     public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor)
     {
@@ -399,34 +405,59 @@ public class OperatorContext
 
     public synchronized boolean isMemoryRevokingRequested()
     {
-        return memoryRevokingRequestedFuture.isDone();
+        return memoryRevokingRequested;
     }
 
     /**
      * Returns how much revocable memory will be revoked by the operator
      */
-    public synchronized long requestMemoryRevoking()
+    public long requestMemoryRevoking()
     {
-        boolean alreadyRequested = isMemoryRevokingRequested();
-        if (!alreadyRequested && revocableMemoryReservation > 0) {
-            memoryRevokingRequestedFuture.set(null);
-            return revocableMemoryReservation;
+        long revokedMemory = 0L;
+        Runnable listener = null;
+        synchronized (this) {
+            if (!isMemoryRevokingRequested() && revocableMemoryReservation > 0) {
+                memoryRevokingRequested = true;
+                revokedMemory = revocableMemoryReservation;
+                listener = memoryRevocationRequestListener;
+            }
         }
-        return 0;
+        if (listener != null) {
+            runListener(listener);
+        }
+        return revokedMemory;
     }
 
     public synchronized void resetMemoryRevokingRequested()
     {
-        SettableFuture<?> currentFuture = memoryRevokingRequestedFuture;
-        if (!currentFuture.isDone()) {
-            return;
-        }
-        memoryRevokingRequestedFuture = SettableFuture.create();
+        memoryRevokingRequested = false;
     }
 
-    public synchronized SettableFuture<?> getMemoryRevokingRequestedFuture()
+    public void setMemoryRevocationRequestListener(Runnable listener)
     {
-        return memoryRevokingRequestedFuture;
+        requireNonNull(listener, "listener is null");
+
+        boolean shouldNotify;
+        synchronized (this) {
+            checkState(memoryRevocationRequestListener == null, "listener already set");
+            memoryRevocationRequestListener = listener;
+            shouldNotify = memoryRevokingRequested;
+        }
+        // if memory revoking is requested immediately run the listener
+        if (shouldNotify) {
+            runListener(listener);
+        }
+    }
+
+    private static void runListener(Runnable listener)
+    {
+        requireNonNull(listener, "listener is null");
+        try {
+            listener.run();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Exception while running the listener", e);
+        }
     }
 
     public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
