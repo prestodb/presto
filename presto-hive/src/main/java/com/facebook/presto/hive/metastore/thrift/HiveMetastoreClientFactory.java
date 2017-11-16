@@ -19,21 +19,22 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
+
+import java.util.Optional;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetastoreClientFactory
 {
-    private final HostAndPort socksProxy;
+    private final Optional<HostAndPort> socksProxy;
     private final int timeoutMillis;
     private final HiveMetastoreAuthentication metastoreAuthentication;
 
-    public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout, HiveMetastoreAuthentication metastoreAuthentication)
+    public HiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, HiveMetastoreAuthentication metastoreAuthentication)
     {
-        this.socksProxy = socksProxy;
+        this.socksProxy = requireNonNull(socksProxy, "socksProxy is null");
         this.timeoutMillis = toIntExact(timeout.toMillis());
         this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
     }
@@ -41,7 +42,7 @@ public class HiveMetastoreClientFactory
     @Inject
     public HiveMetastoreClientFactory(HiveClientConfig config, HiveMetastoreAuthentication metastoreAuthentication)
     {
-        this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout(), metastoreAuthentication);
+        this(Optional.ofNullable(config.getMetastoreSocksProxy()), config.getMetastoreTimeout(), metastoreAuthentication);
     }
 
     public HiveMetastoreClient create(String host, int port)

@@ -25,10 +25,11 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.Optional;
 
 public final class Transport
 {
-    public static TTransport create(String host, int port, HostAndPort socksProxy, int timeoutMillis, HiveMetastoreAuthentication authentication)
+    public static TTransport create(String host, int port, Optional<HostAndPort> socksProxy, int timeoutMillis, HiveMetastoreAuthentication authentication)
             throws TTransportException
     {
         try {
@@ -46,14 +47,14 @@ public final class Transport
 
     private Transport() {}
 
-    private static TTransport createRaw(String host, int port, HostAndPort socksProxy, int timeoutMillis)
+    private static TTransport createRaw(String host, int port, Optional<HostAndPort> socksProxy, int timeoutMillis)
             throws TTransportException
     {
-        if (socksProxy == null) {
+        if (!socksProxy.isPresent()) {
             return new TSocket(host, port, timeoutMillis);
         }
 
-        Socket socks = createSocksSocket(socksProxy);
+        Socket socks = createSocksSocket(socksProxy.get());
         try {
             try {
                 socks.connect(InetSocketAddress.createUnresolved(host, port), timeoutMillis);
