@@ -14,6 +14,7 @@
 package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.presto.resourceGroups.ResourceGroupNameTemplate;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
@@ -29,6 +30,7 @@ import java.util.regex.Pattern;
 
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroupsDao
@@ -204,6 +206,21 @@ public class TestResourceGroupsDao
             assertTrue(ex.getCause() instanceof JdbcSQLException);
             assertTrue(ex.getCause().getMessage().startsWith("Check constraint violation:"));
         }
+    }
+
+    @Test
+    public void testExactMatchSelector()
+    {
+        H2ResourceGroupsDao dao = setup("exact_match_selector");
+        dao.createExactMatchSelectorsTable();
+
+        ResourceGroupId resourceGroupId = new ResourceGroupId(ImmutableList.of("global", "test", "user"));
+        JsonCodec<ResourceGroupId> codec = JsonCodec.jsonCodec(ResourceGroupId.class);
+        dao.insertExactMatchSelector("test", "@test@test_pipeline", codec.toJson(resourceGroupId));
+
+        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline"), codec.toJson(resourceGroupId));
+        assertNull(dao.getExactMatchResourceGroup("test", "abc"));
+        assertNull(dao.getExactMatchResourceGroup("prod", "@test@test_pipeline"));
     }
 
     private static void compareResourceGroups(Map<Long, ResourceGroupSpecBuilder> map, List<ResourceGroupSpecBuilder> records)
