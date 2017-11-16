@@ -18,6 +18,7 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.testing.Assertions.assertContains;
 import static java.util.Arrays.asList;
@@ -78,7 +79,7 @@ public class TestStaticHiveCluster
 
     private static HiveCluster createHiveCluster(StaticMetastoreConfig config, List<HiveMetastoreClient> clients)
     {
-        return new StaticHiveCluster(config, new MockHiveMetastoreClientFactory(null, new Duration(1, SECONDS), clients));
+        return new StaticHiveCluster(config, new MockHiveMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
     }
 
     private static HiveMetastoreClient createFakeMetastoreClient()
