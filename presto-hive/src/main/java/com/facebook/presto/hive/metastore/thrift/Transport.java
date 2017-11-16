@@ -19,21 +19,28 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
-import java.io.Closeable;
+import javax.net.ssl.SSLContext;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.Optional;
+
+import static java.net.Proxy.Type.SOCKS;
 
 public final class Transport
 {
-    public static TTransport create(HostAndPort address, Optional<HostAndPort> socksProxy, int timeoutMillis, HiveMetastoreAuthentication authentication)
+    public static TTransport create(
+            HostAndPort address,
+            Optional<SSLContext> sslContext,
+            Optional<HostAndPort> socksProxy,
+            int timeoutMillis,
+            HiveMetastoreAuthentication authentication)
             throws TTransportException
     {
         try {
-            TTransport rawTransport = createRaw(address, socksProxy, timeoutMillis);
+            TTransport rawTransport = createRaw(address, sslContext, socksProxy, timeoutMillis);
             TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost());
             if (!authenticatedTransport.isOpen()) {
                 authenticatedTransport.open();
@@ -47,44 +54,35 @@ public final class Transport
 
     private Transport() {}
 
-    private static TTransport createRaw(HostAndPort address, Optional<HostAndPort> socksProxy, int timeoutMillis)
+    private static TTransport createRaw(HostAndPort address, Optional<SSLContext> sslContext, Optional<HostAndPort> socksProxy, int timeoutMillis)
             throws TTransportException
     {
-        if (!socksProxy.isPresent()) {
-            return new TSocket(address.getHost(), address.getPort(), timeoutMillis);
-        }
+        Proxy proxy = socksProxy
+                .map(socksAddress -> new Proxy(SOCKS, InetSocketAddress.createUnresolved(socksAddress.getHost(), socksAddress.getPort())))
+                .orElse(Proxy.NO_PROXY);
 
-        Socket socks = createSocksSocket(socksProxy.get());
+        Socket socket = new Socket(proxy);
         try {
+            socket.connect(new InetSocketAddress(address.getHost(), address.getPort()), timeoutMillis);
+
+            if (sslContext.isPresent()) {
+                // SSL will connect to the SOCKS address when present
+                HostAndPort sslConnectAddress = socksProxy.orElse(address);
+
+                socket = sslContext.get().getSocketFactory().createSocket(socket, sslConnectAddress.getHost(), sslConnectAddress.getPort(), true);
+            }
+            return new TSocket(socket);
+        }
+        catch (Throwable t) {
+            // something went wrong, close the socket and rethrow
             try {
-                socks.connect(InetSocketAddress.createUnresolved(address.getHost(), address.getPort()), timeoutMillis);
-                socks.setSoTimeout(timeoutMillis);
-                return new TSocket(socks);
+                socket.close();
             }
-            catch (Throwable t) {
-                closeQuietly(socks);
-                throw t;
+            catch (IOException e) {
+                t.addSuppressed(e);
             }
+            throw new TTransportException(t);
         }
-        catch (IOException e) {
-            throw new TTransportException(e);
-        }
-    }
-
-    private static void closeQuietly(Closeable closeable)
-    {
-        try {
-            closeable.close();
-        }
-        catch (IOException e) {
-            // ignored
-        }
-    }
-
-    private static Socket createSocksSocket(HostAndPort proxy)
-    {
-        SocketAddress address = InetSocketAddress.createUnresolved(proxy.getHost(), proxy.getPort());
-        return new Socket(new Proxy(Proxy.Type.SOCKS, address));
     }
 
     private static TTransportException rewriteException(TTransportException e, HostAndPort address)
