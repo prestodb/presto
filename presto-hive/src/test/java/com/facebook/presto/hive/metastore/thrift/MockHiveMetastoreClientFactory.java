@@ -32,7 +32,7 @@ public class MockHiveMetastoreClientFactory
 
     public MockHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<HiveMetastoreClient> clients)
     {
-        super(socksProxy, timeout, new NoHiveMetastoreAuthentication());
+        super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication());
         this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
     }
 
