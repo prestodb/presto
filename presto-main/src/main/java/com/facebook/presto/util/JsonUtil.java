@@ -43,7 +43,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -104,10 +104,13 @@ public final class JsonUtil
 
     private JsonUtil() {}
 
+    // Using InputStreamReader instead of InputStream
+    // This is because InputStream automatically detects the encoding, which is not expected
+    // Its test case is in @com.facebook.presto.operator.scalar.TestJsonExtract#testNoAutomaticEncodingDetection
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
             throws IOException
     {
-        return factory.createParser((InputStream) json.getInput());
+        return factory.createParser(new InputStreamReader(json.getInput()));
     }
 
     public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
