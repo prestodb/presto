@@ -124,4 +124,8 @@ public interface H2ResourceGroupsDao
 
     @SqlUpdate("DELETE FROM selectors WHERE resource_group_id = :resource_group_id")
     void deleteSelectors(@Bind("resource_group_id") long resourceGroup);
+
+    @SqlUpdate("INSERT INTO exact_match_selectors (environment, query_identifier, update_time, resource_group_id)\n" +
+            "VALUES (:environment, :queryIdentifier, now(), :resourceGroupId)\n")
+    void insertExactMatchSelector(@Bind("environment") String environment, @Bind("queryIdentifier") String queryIdentifier, @Bind("resourceGroupId") String resourceGroupId);
 }

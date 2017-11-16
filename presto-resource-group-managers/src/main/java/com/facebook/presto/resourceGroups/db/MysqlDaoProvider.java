@@ -33,7 +33,7 @@ public class MysqlDaoProvider
     {
         requireNonNull(config, "DbResourceGroupConfig is null");
         MysqlDataSource dataSource = new MysqlDataSource();
-        dataSource.setURL(config.getConfigDbUrl());
+        dataSource.setURL(requireNonNull(config.getConfigDbUrl(), "resource-groups.config-db-url is null"));
         IDBI dbi = new DBI(dataSource);
         this.dao = dbi.onDemand(ResourceGroupsDao.class);
     }
