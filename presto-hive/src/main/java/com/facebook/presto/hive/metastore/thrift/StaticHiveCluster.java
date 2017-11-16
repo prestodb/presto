@@ -70,7 +70,7 @@ public class StaticHiveCluster
         TTransportException lastException = null;
         for (HostAndPort metastore : metastores) {
             try {
-                return clientFactory.create(metastore.getHost(), metastore.getPort());
+                return clientFactory.create(metastore);
             }
             catch (TTransportException e) {
                 lastException = e;
