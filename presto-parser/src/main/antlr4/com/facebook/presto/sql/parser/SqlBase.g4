@@ -357,7 +357,7 @@ type
     | MAP '<' type ',' type '>'
     | ROW '(' identifier type (',' identifier type)* ')'
     | baseType ('(' typeParameter (',' typeParameter)* ')')?
-    | intervalType
+    | INTERVAL from=intervalField TO to=intervalField
     ;
 
 typeParameter
@@ -369,10 +369,6 @@ baseType
     | TIMESTAMP_WITH_TIME_ZONE
     | DOUBLE_PRECISION
     | identifier
-    ;
-
-intervalType
-    : INTERVAL from=intervalField TO to=intervalField
     ;
 
 whenClause
