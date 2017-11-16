@@ -46,6 +46,7 @@ function check_presto() {
   run_in_application_runner_container \
     java -jar "/docker/volumes/presto-cli/presto-cli-executable.jar" \
     ${CLI_ARGUMENTS} \
+    --quiet \
     --execute "SHOW CATALOGS" | grep -i hive
 }
 
