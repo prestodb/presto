@@ -62,7 +62,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -80,6 +79,7 @@ public class HiveSplitManager
     private final Executor executor;
     private final CoercionPolicy coercionPolicy;
     private final int maxOutstandingSplits;
+    private final DataSize maxOutstandingSplitsSize;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
@@ -106,6 +106,7 @@ public class HiveSplitManager
                 coercionPolicy,
                 new CounterStat(),
                 hiveClientConfig.getMaxOutstandingSplits(),
+                hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
@@ -122,6 +123,7 @@ public class HiveSplitManager
             CoercionPolicy coercionPolicy,
             CounterStat highMemorySplitSourceCounter,
             int maxOutstandingSplits,
+            DataSize maxOutstandingSplitsSize,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             int maxInitialSplits,
@@ -137,6 +139,7 @@ public class HiveSplitManager
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
+        this.maxOutstandingSplitsSize = maxOutstandingSplitsSize;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
@@ -190,7 +193,7 @@ public class HiveSplitManager
                 layout.getCompactEffectivePredicate(),
                 maxInitialSplits,
                 maxOutstandingSplits,
-                new DataSize(32, MEGABYTE),
+                maxOutstandingSplitsSize,
                 hiveSplitLoader,
                 executor,
                 highMemorySplitSourceCounter);
