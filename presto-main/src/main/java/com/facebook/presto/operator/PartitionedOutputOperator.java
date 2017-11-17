@@ -17,6 +17,7 @@ import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -196,6 +197,7 @@ public class PartitionedOutputOperator
     }
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext memoryContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner partitionFunction;
     private ListenableFuture<?> blocked = NOT_BLOCKED;
@@ -228,10 +230,8 @@ public class PartitionedOutputOperator
                 maxMemory);
 
         operatorContext.setInfoSupplier(this::getInfo);
-        // TODO: We should try to make this more accurate
-        // Recalculating the retained size of all the PageBuilders is somewhat expensive,
-        // so we only do it once here rather than in addInput(), and assume that the size will be constant.
-        operatorContext.getSystemMemoryContext().newLocalMemoryContext().setBytes(this.partitionFunction.getRetainedSizeInBytes());
+        this.memoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.memoryContext.setBytes(this.partitionFunction.getRetainedSizeInBytes());
     }
 
     @Override
@@ -293,6 +293,9 @@ public class PartitionedOutputOperator
         blocked = partitionFunction.partitionPage(page);
 
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+
+        // TODO: Recalculating the retained size of all the PageBuilders is somewhat expensive
+        memoryContext.setBytes(partitionFunction.getRetainedSizeInBytes());
     }
 
     @Override
