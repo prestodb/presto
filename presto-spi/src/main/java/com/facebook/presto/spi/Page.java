@@ -266,8 +266,8 @@ public class Page
     {
         requireNonNull(retainedPositions, "retainedPositions is null");
 
-        Block[] blocks = Arrays.stream(this.getBlocks())
-                .map(block -> new DictionaryBlock(block, retainedPositions))
+        Block[] blocks = Arrays.stream(getBlocks())
+                .map(block -> block.mask(retainedPositions))
                 .toArray(Block[]::new);
         return new Page(retainedPositions.length, blocks);
     }

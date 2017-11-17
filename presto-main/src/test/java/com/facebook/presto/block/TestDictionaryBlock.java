@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -23,8 +26,10 @@ import java.util.List;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestDictionaryBlock
         extends AbstractTestBlock
@@ -151,6 +156,87 @@ public class TestDictionaryBlock
         assertEquals(compactBlock.isCompact(), true);
     }
 
+    @Test
+    public void testBasicMask()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block dictionaryBlock = new DictionaryBlock(makeSliceArrayBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
+        assertBlock(dictionaryBlock, new Slice[] {expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5]});
+        DictionaryId dictionaryId = ((DictionaryBlock) dictionaryBlock).getDictionarySourceId();
+
+        // first mask
+        dictionaryBlock = dictionaryBlock.mask(new int[] {1, 2, 4, 5});
+        assertBlock(dictionaryBlock, new Slice[] {expectedValues[1], expectedValues[2], expectedValues[4], expectedValues[5]});
+        assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
+
+        // second mask
+        dictionaryBlock = dictionaryBlock.mask(new int[] {0, 1, 3});
+        assertBlock(dictionaryBlock, new Slice[] {expectedValues[1], expectedValues[2], expectedValues[5]});
+        assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
+
+        // mixed mask
+        dictionaryBlock = dictionaryBlock.mask(new int[] {0, 2, 2});
+        assertBlock(dictionaryBlock, new Slice[] {expectedValues[1], expectedValues[5], expectedValues[5]});
+        assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
+
+        // duplicated mask
+        dictionaryBlock = dictionaryBlock.mask(new int[] {1, 1, 1, 1, 1});
+        assertBlock(dictionaryBlock, new Slice[] {expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5]});
+        assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
+
+        // out of range
+        for (int position : ImmutableList.of(-1, 6)) {
+            try {
+                dictionaryBlock.mask(new int[] {position});
+                fail("Expected to fail");
+            }
+            catch (IllegalArgumentException e) {
+                assertTrue(e.getMessage().startsWith("Invalid position"));
+            }
+        }
+    }
+
+    @Test
+    public void testCompactMask()
+    {
+        DictionaryBlock block = new DictionaryBlock(makeSliceArrayBlock(createExpectedValues(10)), new int[] {0, 1, 2, 3, 4, 5}).compact();
+
+        // 3, 3, 4, 5, 2, 0, 1, 1
+        block = (DictionaryBlock) block.mask(new int[] {3, 3, 4, 5, 2, 0, 1, 1});
+        assertTrue(block.isCompact());
+
+        // 3, 3, 4, 5, 2, 0, 1, 1, 0, 2, 5, 4, 3
+        block = (DictionaryBlock) block.mask(new int[] {0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1});
+        assertTrue(block.isCompact());
+
+        // 3, 4, 3, 4, 3
+        block = (DictionaryBlock) block.mask(new int[] {0, 2, 0, 2, 0});
+        assertFalse(block.isCompact());
+
+        block = block.compact();
+        // 3, 4, 4, 4
+        block = (DictionaryBlock) block.mask(new int[] {0, 1, 1, 1});
+        assertTrue(block.isCompact());
+
+        // 4, 4, 4, 4
+        block = (DictionaryBlock) block.mask(new int[] {1, 1, 1, 1});
+        assertFalse(block.isCompact());
+
+        block = block.compact();
+        // 4
+        block = (DictionaryBlock) block.mask(new int[] {0});
+        assertTrue(block.isCompact());
+
+        // empty
+        block = (DictionaryBlock) block.mask(new int[] {});
+        assertFalse(block.isCompact());
+
+        block = block.compact();
+        // empty
+        block = (DictionaryBlock) block.mask(new int[] {});
+        assertTrue(block.isCompact());
+    }
+
     private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount)
     {
         // adds references to 0 and all odd indexes
@@ -175,7 +261,12 @@ public class TestDictionaryBlock
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(makeSliceArrayBlock(expectedValues), ids);
+    }
+
+    private static Block makeSliceArrayBlock(Slice[] values)
+    {
+        return new SliceArrayBlock(values.length, values);
     }
 
     private static void assertDictionaryIds(DictionaryBlock dictionaryBlock, int... expected)
