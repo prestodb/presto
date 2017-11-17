@@ -230,6 +230,15 @@ public interface Block
     boolean isNull(int position);
 
     /**
+     * Create a new block from the current block by keeping the same elements
+     * only with respect to {@code visiblePositions}.
+     */
+    default Block mask(int[] visiblePositions)
+    {
+        return new DictionaryBlock(this, visiblePositions);
+    }
+
+    /**
      * Assures that all data for the block is in memory.
      * <p>
      * This allows streaming data sources to skip sections that are not
