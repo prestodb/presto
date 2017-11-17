@@ -27,7 +27,8 @@ NODE_PROPERTIES=/etc/presto/node.properties
 DATA_DIR=$(grep -Po "(?<=^node.data-dir=).*" $NODE_PROPERTIES)
 SERVER_LOG_FILE=$(grep -Po "(?<=^node.server-log-file=).*" $NODE_PROPERTIES)
 LAUNCHER_LOG_FILE=$(grep -Po "(?<=^node.launcher-log-file=).*" $NODE_PROPERTIES)
-CONFIGURATION=(--launcher-config /usr/lib/presto/bin/launcher.properties --data-dir "$DATA_DIR" --node-config "$NODE_PROPERTIES" --jvm-config /etc/presto/jvm.config --config /etc/presto/config.properties --launcher-log-file "${LAUNCHER_LOG_FILE:-/var/log/presto/launcher.log}" --server-log-file "${SERVER_LOG_FILE:-/var/log/presto/server.log}")
+LAUNCHER_PID_FILE=$(grep -Po "(?<=^node.pid-file=).*" $NODE_PROPERTIES)
+CONFIGURATION=(--launcher-config /usr/lib/presto/bin/launcher.properties --data-dir "$DATA_DIR" --node-config "$NODE_PROPERTIES" --jvm-config /etc/presto/jvm.config --config /etc/presto/config.properties --launcher-log-file "${LAUNCHER_LOG_FILE:-/var/log/presto/launcher.log}" --server-log-file "${SERVER_LOG_FILE:-/var/log/presto/server.log}" --pid-file "${LAUNCHER_PID_FILE:-/var/run/presto/launcher.pid}")
 
 source /etc/presto/env.sh
 

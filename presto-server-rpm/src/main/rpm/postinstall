@@ -6,6 +6,7 @@
 # supported.
 install --directory --mode=755 /var/lib/presto
 install --directory --mode=755 /var/log/presto
+install --directory --mode=755 /var/run/presto
 
 # Populate node.id from uuidgen by replacing template with the node uuid
 sed -i "s/\$(uuid-generated-nodeid)/$(uuidgen)/g" /etc/presto/node.properties
@@ -18,4 +19,5 @@ fi
 
 chown -R presto:presto /var/lib/presto
 chown -R presto:presto /var/log/presto
+chown -R presto:presto /var/run/presto
 chown -R presto:presto /etc/presto
