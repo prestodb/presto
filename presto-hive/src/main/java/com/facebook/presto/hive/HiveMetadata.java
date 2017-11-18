@@ -1126,7 +1126,16 @@ public class HiveMetadata
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
-            for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
+            List<HivePartition> hivePartitions = getOrComputePartitions(layoutHandle, session, tableHandle);
+
+            // verify all partitions to be dropped are online
+            for (HivePartition hivePartition : hivePartitions) {
+                Optional<Partition> partition = metastore.getPartition(handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()));
+                verify(partition.isPresent());
+                verifyOnline(handle.getSchemaTableName(), Optional.of(hivePartition.getPartitionId()), getProtectMode(partition.get()), partition.get().getParameters());
+            }
+
+            for (HivePartition hivePartition : hivePartitions) {
                 metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()));
             }
         }
