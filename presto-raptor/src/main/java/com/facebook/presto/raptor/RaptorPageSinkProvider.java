@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import io.airlift.units.DataSize;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -37,6 +38,7 @@ public class RaptorPageSinkProvider
     private final StorageManager storageManager;
     private final PageSorter pageSorter;
     private final DataSize maxBufferSize;
+    private final DateTimeZone shardSplitTimezone;
 
     @Inject
     public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, StorageManagerConfig config)
@@ -44,6 +46,7 @@ public class RaptorPageSinkProvider
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.maxBufferSize = config.getMaxBufferSize();
+        this.shardSplitTimezone = config.getShardSplitTimezone();
     }
 
     @Override
@@ -61,7 +64,8 @@ public class RaptorPageSinkProvider
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
-                maxBufferSize);
+                maxBufferSize,
+                shardSplitTimezone);
     }
 
     @Override
@@ -79,7 +83,8 @@ public class RaptorPageSinkProvider
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
-                maxBufferSize);
+                maxBufferSize,
+                shardSplitTimezone);
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)

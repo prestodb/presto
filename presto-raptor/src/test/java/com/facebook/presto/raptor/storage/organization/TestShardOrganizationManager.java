@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -136,7 +137,7 @@ public class TestShardOrganizationManager
                 shardWithSortRange(1, ShardRange.of(new Tuple(types, 6L, "hello", day, timestamp), new Tuple(types, 9L, "hello", day, timestamp))),
                 shardWithSortRange(1, ShardRange.of(new Tuple(types, 1L, "hello", day, timestamp), new Tuple(types, 5L, "hello", day, timestamp))));
 
-        Set<OrganizationSet> actual = createOrganizationSets(tableInfo, shards);
+        Set<OrganizationSet> actual = createOrganizationSets(tableInfo, shards, DateTimeZone.UTC);
 
         assertEquals(actual.size(), 1);
         // Shards 0, 1 and 2 are overlapping, so we should get an organization set with these shards
@@ -161,7 +162,7 @@ public class TestShardOrganizationManager
                 shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 6L), new Tuple(types, 9L)), ShardRange.of(new Tuple(temporalType, day1), new Tuple(temporalType, day2))),
                 shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 4L), new Tuple(types, 8L)), ShardRange.of(new Tuple(temporalType, day4), new Tuple(temporalType, day5))));
 
-        Set<OrganizationSet> organizationSets = createOrganizationSets(temporalTableInfo, shards);
+        Set<OrganizationSet> organizationSets = createOrganizationSets(temporalTableInfo, shards, DateTimeZone.UTC);
         Set<Set<UUID>> actual = organizationSets.stream()
                 .map(OrganizationSet::getShards)
                 .collect(toSet());
@@ -197,6 +198,6 @@ public class TestShardOrganizationManager
 
     private ShardOrganizationManager createShardOrganizationManager(long intervalMillis)
     {
-        return new ShardOrganizationManager(dbi, "node1", createShardManager(dbi), createShardOrganizer(), true, new Duration(intervalMillis, MILLISECONDS));
+        return new ShardOrganizationManager(dbi, "node1", createShardManager(dbi), createShardOrganizer(), true, new Duration(intervalMillis, MILLISECONDS), DateTimeZone.UTC);
     }
 }

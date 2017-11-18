@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage.organization;
 import com.facebook.presto.raptor.metadata.Table;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import org.joda.time.DateTimeZone;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,20 +35,22 @@ public class CompactionSetCreator
 {
     private final DataSize maxShardSize;
     private final long maxShardRows;
+    private final DateTimeZone shardSplitTimeZone;
 
-    public CompactionSetCreator(DataSize maxShardSize, long maxShardRows)
+    public CompactionSetCreator(DataSize maxShardSize, long maxShardRows, DateTimeZone shardSplitTimeZone)
     {
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
 
         this.maxShardSize = requireNonNull(maxShardSize, "maxShardSize is null");
         this.maxShardRows = maxShardRows;
+        this.shardSplitTimeZone = requireNonNull(shardSplitTimeZone, "shardSplitTimeZone is null");
     }
 
     // Expects a pre-filtered collection of shards.
     // All shards provided to this method will be considered for creating a compaction set.
     public Set<OrganizationSet> createCompactionSets(Table tableInfo, Collection<ShardIndexInfo> shards)
     {
-        Collection<Collection<ShardIndexInfo>> shardsByDaysBuckets = getShardsByDaysBuckets(tableInfo, shards);
+        Collection<Collection<ShardIndexInfo>> shardsByDaysBuckets = getShardsByDaysBuckets(tableInfo, shards, shardSplitTimeZone);
 
         ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         for (Collection<ShardIndexInfo> shardInfos : shardsByDaysBuckets) {

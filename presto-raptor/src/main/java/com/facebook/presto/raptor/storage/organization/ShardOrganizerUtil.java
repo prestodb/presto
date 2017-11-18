@@ -24,6 +24,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimaps;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.IDBI;
 
 import java.sql.Connection;
@@ -148,7 +149,7 @@ public class ShardOrganizerUtil
                 temporalRange);
     }
 
-    public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards)
+    public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards, DateTimeZone timeZone)
     {
         // Neither bucketed nor temporal, no partitioning required
         if (!tableInfo.getBucketCount().isPresent() && !tableInfo.getTemporalColumnId().isPresent()) {
@@ -165,7 +166,7 @@ public class ShardOrganizerUtil
         shards.stream()
                 .filter(shard -> shard.getTemporalRange().isPresent())
                 .forEach(shard -> {
-                    long day = determineDay(shard.getTemporalRange().get());
+                    long day = determineDay(timeZone, shard.getTemporalRange().get());
                     shardsByDaysBuilder.put(day, shard);
                 });
 
@@ -183,7 +184,7 @@ public class ShardOrganizerUtil
         return sets.build();
     }
 
-    private static long determineDay(ShardRange temporalRange)
+    private static long determineDay(DateTimeZone timeZone, ShardRange temporalRange)
     {
         Tuple min = temporalRange.getMinTuple();
         Tuple max = temporalRange.getMaxTuple();
@@ -198,13 +199,13 @@ public class ShardOrganizerUtil
 
         Long minValue = (Long) getOnlyElement(min.getValues());
         Long maxValue = (Long) getOnlyElement(max.getValues());
-        return determineDay(minValue, maxValue);
+        return determineDay(timeZone, minValue, maxValue);
     }
 
-    private static long determineDay(long rangeStart, long rangeEnd)
+    private static long determineDay(DateTimeZone timeZone, long rangeStart, long rangeEnd)
     {
-        long startDay = Duration.ofMillis(rangeStart).toDays();
-        long endDay = Duration.ofMillis(rangeEnd).toDays();
+        long startDay = Duration.ofMillis(timeZone.convertUTCToLocal(rangeStart)).toDays();
+        long endDay = Duration.ofMillis(timeZone.convertUTCToLocal(rangeEnd)).toDays();
         if (startDay == endDay) {
             return startDay;
         }

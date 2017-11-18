@@ -28,6 +28,7 @@ import com.google.common.collect.Multimaps;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
@@ -88,7 +89,8 @@ public class ShardCompactionManager
                 config.getCompactionInterval(),
                 config.getMaxShardSize(),
                 config.getMaxShardRows(),
-                config.isCompactionEnabled());
+                config.isCompactionEnabled(),
+                config.getShardSplitTimezone());
     }
 
     public ShardCompactionManager(
@@ -99,7 +101,8 @@ public class ShardCompactionManager
             Duration compactionDiscoveryInterval,
             DataSize maxShardSize,
             long maxShardRows,
-            boolean compactionEnabled)
+            boolean compactionEnabled,
+            DateTimeZone shardSplitTimezone)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
@@ -116,7 +119,7 @@ public class ShardCompactionManager
         this.maxShardRows = maxShardRows;
 
         this.compactionEnabled = compactionEnabled;
-        this.compactionSetCreator = new CompactionSetCreator(maxShardSize, maxShardRows);
+        this.compactionSetCreator = new CompactionSetCreator(maxShardSize, maxShardRows, shardSplitTimezone);
     }
 
     @PostConstruct
