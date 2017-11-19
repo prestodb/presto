@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.plugin.blackhole.BlackHoleConnectorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -34,6 +35,8 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 public class TestLocalQueries
         extends AbstractTestQueries
 {
+    private static final String BLACKHOLE_CATALOG = "blackhole";
+
     public TestLocalQueries()
     {
         super(TestLocalQueries::createLocalQueryRunner);
@@ -54,6 +57,12 @@ public class TestLocalQueries
         localQueryRunner.createCatalog(
                 defaultSession.getCatalog().get(),
                 new TpchConnectorFactory(1),
+                ImmutableMap.of());
+
+        // add blackhole catalog
+        localQueryRunner.createCatalog(
+                BLACKHOLE_CATALOG,
+                new BlackHoleConnectorFactory(),
                 ImmutableMap.of());
 
         localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
