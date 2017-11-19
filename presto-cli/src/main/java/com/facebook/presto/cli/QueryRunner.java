@@ -32,6 +32,7 @@ import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.setupTimeouts;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -112,7 +113,7 @@ public class QueryRunner
         sslSetup.accept(builder);
         OkHttpClient client = builder.build();
 
-        return new StatementClient(client, session, query);
+        return newStatementClient(client, session, query);
     }
 
     @Override
