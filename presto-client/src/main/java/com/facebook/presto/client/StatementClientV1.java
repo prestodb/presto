@@ -79,7 +79,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 class StatementClientV1
         implements StatementClient
 {
-    private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
+    private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final Splitter SESSION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
@@ -138,7 +138,7 @@ class StatementClientV1
         url = url.newBuilder().encodedPath("/v1/statement").build();
 
         Request.Builder builder = prepareRequest(url)
-                .post(RequestBody.create(MEDIA_TYPE_JSON, query));
+                .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
 
         if (session.getSource() != null) {
             builder.addHeader(PRESTO_SOURCE, session.getSource());
