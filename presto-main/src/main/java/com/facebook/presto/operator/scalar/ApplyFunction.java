@@ -59,7 +59,7 @@ public final class ApplyFunction
     @Override
     public boolean isHidden()
     {
-        return true;
+        return false;
     }
 
     @Override

@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -41,7 +40,6 @@ public class TestBingTileFunctions
             functionAssertions.getTypeRegistry().addType(type);
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
     }
 
     @Test

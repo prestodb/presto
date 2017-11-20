@@ -24,6 +24,13 @@ Most SQL expressions can be used in a lambda body, with a few exceptions:
 Lambda Functions
 ----------------
 
+.. function:: apply(T, function<T,U>) -> U
+
+    Apply the lambda function on the given variable::
+
+        SELECT apply(5, x -> x + 1); -- 6
+        SELECT apply(1, x -> apply(x + 7, y -> y * 5) + 1); -- 41
+
 .. function:: filter(array<T>, function<T,boolean>) -> ARRAY<T>
 
     Constructs an array from those elements of ``array`` for which ``function`` returns true::
