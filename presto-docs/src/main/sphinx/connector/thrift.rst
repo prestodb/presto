@@ -80,7 +80,7 @@ The following properties allow configuring the Thrift client used by the connect
 Property Name                                           Description           Default Value
 =====================================================   ===================   =============
 ``PrestoThriftService.thrift.client.connect-timeout``   Connect timeout       ``500ms``
-``PrestoThriftService.thrift.client.max-frame-size``    Max frame size        ``16777216``
+``PrestoThriftService.thrift.client.max-frame-size``    Max frame size        ``16MB``
 ``PrestoThriftService.thrift.client.read-timeout``      Read timeout          ``10s``
 ``PrestoThriftService.thrift.client.receive-timeout``   Receive timeout       ``1m``
 ``PrestoThriftService.thrift.client.socks-proxy``       Socks proxy address   ``null``
