@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
@@ -281,10 +282,10 @@ public class MongoMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (prefix.getSchemaName() == null) {
-            return listTables(session, prefix.getSchemaName());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        return listTables(session, prefix.getSchemaName())
+                .stream()
+                .filter(schematablename -> prefix.matches(schematablename))
+                .collect(Collectors.toList());
     }
 
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)

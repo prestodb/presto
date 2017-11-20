@@ -215,15 +215,7 @@ public class RedisMetadata
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
 
-        List<SchemaTableName> tableNames;
-        if (prefix.getSchemaName() == null) {
-            tableNames = listTables(session, null);
-        }
-        else {
-            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
-        }
-
-        for (SchemaTableName tableName : tableNames) {
+        for (SchemaTableName tableName : listTables(session, prefix)) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
@@ -231,6 +223,14 @@ public class RedisMetadata
             }
         }
         return columns.build();
+    }
+
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return listTables(session, prefix.getSchemaName())
+                .stream()
+                .filter(schematablename -> prefix.matches(schematablename))
+                .collect(Collectors.toList());
     }
 
     @Override

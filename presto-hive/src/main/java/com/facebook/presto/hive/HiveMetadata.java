@@ -402,10 +402,10 @@ public class HiveMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
-            return listTables(session, prefix.getSchemaName());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        return listTables(session, prefix.getSchemaName())
+                .stream()
+                .filter(schematablename -> prefix.matches(schematablename))
+                .collect(Collectors.toList());
     }
 
     /**

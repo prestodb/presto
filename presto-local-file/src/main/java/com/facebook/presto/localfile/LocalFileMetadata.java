@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
@@ -81,7 +82,12 @@ public class LocalFileMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        return localFileTables.getTables();
+        if (schemaNameOrNull == null || schemaNameOrNull.equals(PRESTO_LOGS_SCHEMA)) {
+            return localFileTables.getTables();
+        }
+        else {
+            return ImmutableList.of();
+        }
     }
 
     @Override
@@ -158,9 +164,9 @@ public class LocalFileMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (prefix.getSchemaName() == null) {
-            return listTables(session, prefix.getSchemaName());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        return listTables(session, prefix.getSchemaName())
+                .stream()
+                .filter(schematablename -> prefix.matches(schematablename))
+                .collect(Collectors.toList());
     }
 }
