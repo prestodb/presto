@@ -41,6 +41,7 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.io.Closeable;
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -294,12 +295,15 @@ public class H2QueryRunner
                         row.add(null);
                     }
                     else if (type instanceof DecimalType) {
+                        DecimalType decimalType = (DecimalType) type;
                         BigDecimal decimalValue = resultSet.getBigDecimal(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(decimalValue);
+                            row.add(decimalValue
+                                    .setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
+                                    .round(new MathContext(decimalType.getPrecision())));
                         }
                     }
                     else if (type instanceof ArrayType) {
