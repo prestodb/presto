@@ -152,7 +152,7 @@ public abstract class AbstractRowBlock
         }
         checkReadablePosition(position);
 
-        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position) * numFields, getFieldBlocks()));
+        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position), getFieldBlocks()));
     }
 
     @Override
