@@ -19,6 +19,7 @@ public final class Presto
 {
     private Presto() {}
 
+    //注解
     public static void main(String[] args)
             throws Exception
     {
