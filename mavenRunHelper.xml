@@ -1,0 +1,66 @@
+<application>
+  <component name="MavenRunHelper">
+    <option name="goals">
+      <Goals>
+        <option name="goals">
+          <list>
+            <Goal>
+              <option name="commandLine" value="clean" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="validate" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="compile" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="test" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="package" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="verify" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="install" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="deploy" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="site" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="clean install" />
+            </Goal>
+          </list>
+        </option>
+      </Goals>
+    </option>
+    <option name="pluginAwareGoals">
+      <Goals>
+        <option name="goals">
+          <list>
+            <Goal>
+              <option name="commandLine" value="jetty:run" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="tomcat:run" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="tomcat5:run" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="tomcat6:run" />
+            </Goal>
+            <Goal>
+              <option name="commandLine" value="tomcat7:run" />
+            </Goal>
+          </list>
+        </option>
+      </Goals>
+    </option>
+    <option name="version" value="1" />
+  </component>
+</application>

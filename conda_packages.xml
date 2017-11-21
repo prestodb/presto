@@ -1,0 +1,7 @@
+<application>
+  <component name="PyCondaPackageService">
+    <option name="CONDA_CHANNELS">
+      <set />
+    </option>
+  </component>
+</application>

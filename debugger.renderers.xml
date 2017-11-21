@@ -1,0 +1,34 @@
+<application>
+  <component name="NodeRendererSettings">
+    <option name="HEX_VIEW_ENABLED" value="false" />
+    <option name="ALTERNATIVE_COLLECTION_VIEW_ENABLED" value="true" />
+    <Renderer ID="ArrayRenderer">
+      <option name="NAME" value="unnamed" />
+      <option name="ENABLED" value="true" />
+      <option name="START_INDEX" value="0" />
+      <option name="END_INDEX" value="99" />
+      <option name="ENTRIES_LIMIT" value="99" />
+    </Renderer>
+    <Renderer ID="ToStringRenderer">
+      <option name="NAME" value="unnamed" />
+      <option name="ENABLED" value="true" />
+      <option name="USE_CLASS_FILTERS" value="false" />
+    </Renderer>
+    <Renderer ID="ClassRenderer">
+      <option name="NAME" value="unnamed" />
+      <option name="ENABLED" value="true" />
+      <option name="SHOW_SYNTHETICS" value="true" />
+      <option name="SHOW_VAL_FIELDS_AS_LOCAL_VARIABLES" value="true" />
+      <option name="SHOW_STATIC" value="false" />
+      <option name="SHOW_STATIC_FINAL" value="false" />
+      <option name="SHOW_FQ_TYPE_NAMES" value="false" />
+      <option name="SHOW_DECLARED_TYPE" value="false" />
+      <option name="SHOW_OBJECT_ID" value="true" />
+      <option name="SHOW_STRINGS_TYPE" value="false" />
+    </Renderer>
+    <Renderer ID="PrimitiveRenderer">
+      <option name="NAME" value="Primitive" />
+      <option name="SHOW_HEX_VALUE" value="false" />
+    </Renderer>
+  </component>
+</application>
