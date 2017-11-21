@@ -155,6 +155,7 @@ public class TestRowBlock
                     }
                 }
             }
+            testRows[i] = testRow;
         }
         return testRows;
     }
