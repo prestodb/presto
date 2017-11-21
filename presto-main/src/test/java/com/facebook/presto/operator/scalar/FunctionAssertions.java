@@ -112,6 +112,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
@@ -303,7 +304,7 @@ public final class FunctionAssertions
     {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
+        Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
         RowExpression projectionRowExpression = toRowExpression(projectionExpression);
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
 
@@ -414,7 +415,7 @@ public final class FunctionAssertions
     {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
+        Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
         RowExpression projectionRowExpression = toRowExpression(projectionExpression);
 
         List<Object> results = new ArrayList<>();
@@ -528,7 +529,7 @@ public final class FunctionAssertions
     {
         requireNonNull(filter, "filter is null");
 
-        Expression filterExpression = createExpression(filter, metadata, SYMBOL_TYPES);
+        Expression filterExpression = createExpression(session, filter, metadata, SYMBOL_TYPES);
         RowExpression filterRowExpression = toRowExpression(filterExpression);
 
         List<Boolean> results = new ArrayList<>();
@@ -578,12 +579,17 @@ public final class FunctionAssertions
 
     public static Expression createExpression(String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
     {
-        Expression parsedExpression = SQL_PARSER.createExpression(expression);
+        return createExpression(TEST_SESSION, expression, metadata, symbolTypes);
+    }
+
+    public static Expression createExpression(Session session, String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
+    {
+        Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
 
         parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
 
         final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(
-                TEST_SESSION,
+                session,
                 metadata,
                 SQL_PARSER,
                 symbolTypes,

@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 
 public class TestDecimalOperators
         extends AbstractTestFunctions
@@ -777,5 +778,74 @@ public class TestDecimalOperators
         assertFunction("37 IS DISTINCT FROM 38", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 37", BOOLEAN, true);
         assertFunction("37 IS DISTINCT FROM NULL", BOOLEAN, true);
+
+        // short short
+        assertFunction("DECIMAL '-2' IS DISTINCT FROM DECIMAL '-3'", BOOLEAN, true);
+        assertFunction("DECIMAL '-2' IS DISTINCT FROM CAST(NULL AS DECIMAL(1,0))", BOOLEAN, true);
+        assertFunction("CAST(NULL AS DECIMAL(2,0)) IS DISTINCT FROM CAST(NULL AS DECIMAL(1,0))", BOOLEAN, false);
+        assertFunction("DECIMAL '-2' IS DISTINCT FROM DECIMAL '-2'", BOOLEAN, false);
+        assertFunction("CAST(NULL AS DECIMAL(1,0)) IS DISTINCT FROM DECIMAL '-2'", BOOLEAN, true);
+
+        // long long
+        assertFunction("DECIMAL '12345678901234567.89012345678901234567' IS DISTINCT FROM DECIMAL '12345678901234567.8902345678901234567'", BOOLEAN, true);
+        assertFunction("DECIMAL '12345678901234567.89012345678901234567' IS DISTINCT FROM CAST(NULL AS DECIMAL(36,1))", BOOLEAN, true);
+        assertFunction("CAST(NULL AS DECIMAL(36,1)) IS DISTINCT FROM CAST(NULL AS DECIMAL(27,3))", BOOLEAN, false);
+        assertFunction("DECIMAL '-12345678901234567.89012345678901234567' IS DISTINCT FROM DECIMAL '-12345678901234567.89012345678901234567'", BOOLEAN, false);
+        assertFunction("CAST(NULL AS DECIMAL(36,1)) IS DISTINCT FROM DECIMAL '12345678901234567.89012345678901234567'", BOOLEAN, true);
+
+        // short long
+        assertFunction("DECIMAL '12345678901234567.89012345678901234567' IS DISTINCT FROM DECIMAL '-3'", BOOLEAN, true);
+        assertFunction("DECIMAL '12345678901234567.89012345678901234567' IS DISTINCT FROM CAST(NULL AS DECIMAL(1,0))", BOOLEAN, true);
+        assertFunction("CAST(NULL AS DECIMAL(36,1)) IS DISTINCT FROM CAST(NULL AS DECIMAL(1,0))", BOOLEAN, false);
+        assertFunction("DECIMAL '00000000000000007.80000000000000000000' IS DISTINCT FROM DECIMAL '7.8'", BOOLEAN, false);
+        assertFunction("CAST(NULL AS DECIMAL(36,1)) IS DISTINCT FROM DECIMAL '7.8'", BOOLEAN, true);
+
+        // with unknown
+        assertFunction("NULL IS DISTINCT FROM DECIMAL '-2'", BOOLEAN, true);
+        assertFunction("DECIMAL '-2' IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM DECIMAL '12345678901234567.89012345678901234567'", BOOLEAN, true);
+        assertFunction("DECIMAL '12345678901234567.89012345678901234567' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testNullIf()
+            throws Exception
+    {
+        // short short
+        assertDecimalFunction("nullif(DECIMAL '-2', DECIMAL '-3')", decimal("-2"));
+        assertDecimalFunction("nullif(DECIMAL '-2', CAST(NULL AS DECIMAL(1,0)))", decimal("-2"));
+        assertFunction("nullif(DECIMAL '-2', DECIMAL '-2')", createDecimalType(1, 0), null);
+        assertFunction("nullif(CAST(NULL AS DECIMAL(1,0)), DECIMAL '-2')", createDecimalType(1, 0), null);
+        assertFunction("nullif(CAST(NULL AS DECIMAL(1,0)), CAST(NULL AS DECIMAL(1,0)))", createDecimalType(1, 0), null);
+
+        // long long
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '12345678901234567.8902345678901234567')", decimal("12345678901234567.89012345678901234567"));
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', CAST(NULL AS DECIMAL(36,1)))", decimal("12345678901234567.89012345678901234567"));
+        assertFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '12345678901234567.89012345678901234567')", createDecimalType(37, 20), null);
+        assertFunction("nullif(CAST(NULL AS DECIMAL(38,0)), DECIMAL '12345678901234567.89012345678901234567')", createDecimalType(38, 0), null);
+        assertFunction("nullif(CAST(NULL AS DECIMAL(38,0)), CAST(NULL AS DECIMAL(38,0)))", createDecimalType(38, 0), null);
+
+        // short long
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '-3')", decimal("12345678901234567.89012345678901234567"));
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', CAST(NULL AS DECIMAL(1,0)))", decimal("12345678901234567.89012345678901234567"));
+        assertFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '12345678901234567.89012345678901234567')", createDecimalType(37, 20), null);
+        assertFunction("nullif(CAST(NULL AS DECIMAL(1,0)), DECIMAL '12345678901234567.89012345678901234567')", createDecimalType(1, 0), null);
+
+        // with unknown
+        assertFunction("nullif(NULL, NULL)", UnknownType.UNKNOWN, null);
+        assertFunction("nullif(NULL, DECIMAL '-2')", UnknownType.UNKNOWN, null);
+        assertDecimalFunction("nullif(DECIMAL '-2', NULL)", decimal("-2"));
+        assertFunction("nullif(NULL, DECIMAL '12345678901234567.89012345678901234567')", UnknownType.UNKNOWN, null);
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', NULL)", decimal("12345678901234567.89012345678901234567"));
+    }
+
+    @Test
+    public void testCoalesce()
+            throws Exception
+    {
+        assertDecimalFunction("coalesce(2.1, null, cast(null as decimal(5,3)))", decimal("02.100"));
+        assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);
+        assertDecimalFunction("coalesce(3, 2.1, null, cast(null as decimal(6,3)))", decimal("0000000003.000"));
+        assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);
     }
 }
