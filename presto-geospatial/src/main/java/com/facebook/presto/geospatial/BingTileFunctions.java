@@ -14,6 +14,7 @@
 package com.facebook.presto.geospatial;
 
 import com.esri.core.geometry.Envelope;
+import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.MultiVertexGeometry;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
@@ -177,6 +178,8 @@ public class BingTileFunctions
         // XY coordinates start at (0,0) in the left upper corner and increase left to right and top to bottom
         int tileCount = toIntExact((rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1));
 
+        checkGeometryToBingTilesLimits(geometry, pointOrRectangle, tileCount);
+
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, tileCount);
         if (pointOrRectangle || zoomLevel <= OPTIMIZED_TILING_MIN_ZOOM_LEVEL) {
             // Collect tiles covering the bounding box and check each tile for intersection with the geometry.
@@ -206,6 +209,18 @@ public class BingTileFunctions
         }
 
         return blockBuilder.build();
+    }
+
+    private static void checkGeometryToBingTilesLimits(OGCGeometry geometry, boolean pointOrRectangle, int tileCount)
+    {
+        if (pointOrRectangle) {
+            checkCondition(tileCount <= 1_000_000, "The number of input tiles is too large (more than 1M) to compute a set of covering bing tiles.");
+        }
+        else {
+            long complexity = tileCount * getPointCount(geometry.getEsriGeometry());
+            checkCondition(complexity <= 25_000_000, "The zoom level is too high or the geometry is too complex to compute a set of covering bing tiles. " +
+                    "Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
+        }
     }
 
     private static BingTile[] getTilesInBetween(BingTile leftUpperTile, BingTile rightLowerTile, int zoomLevel)
@@ -282,6 +297,15 @@ public class BingTileFunctions
                         blockBuilder);
             }
         }
+    }
+
+    private static int getPointCount(Geometry geometry)
+    {
+        if (geometry instanceof Point) {
+            return 1;
+        }
+
+        return ((MultiVertexGeometry) geometry).getPointCount();
     }
 
     private static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
