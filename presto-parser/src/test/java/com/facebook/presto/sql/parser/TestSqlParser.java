@@ -294,11 +294,6 @@ public class TestSqlParser
     public void testDouble()
             throws Exception
     {
-        assertExpression("123.", new DoubleLiteral("123"));
-        assertExpression("123.0", new DoubleLiteral("123"));
-        assertExpression(".5", new DoubleLiteral(".5"));
-        assertExpression("123.5", new DoubleLiteral("123.5"));
-
         assertExpression("123E7", new DoubleLiteral("123E7"));
         assertExpression("123.E7", new DoubleLiteral("123E7"));
         assertExpression("123.0E7", new DoubleLiteral("123E7"));
@@ -752,6 +747,12 @@ public class TestSqlParser
         assertExpression("DECIMAL '-12'", new DecimalLiteral("-12"));
         assertExpression("DECIMAL '+.34'", new DecimalLiteral("+.34"));
         assertExpression("DECIMAL '-.34'", new DecimalLiteral("-.34"));
+
+        String unexpectedLiteral = "Unexpected decimal literal in context unaware of parsing configuration";
+        assertInvalidExpression("123.", unexpectedLiteral);
+        assertInvalidExpression("123.0", unexpectedLiteral);
+        assertInvalidExpression(".5", unexpectedLiteral);
+        assertInvalidExpression("123.5", unexpectedLiteral);
     }
 
     @Test

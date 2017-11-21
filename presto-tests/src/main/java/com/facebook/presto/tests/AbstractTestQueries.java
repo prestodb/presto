@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -44,6 +45,7 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -61,6 +63,7 @@ import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -2577,8 +2580,47 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinOnDecimalColumn()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1.0, 3.0)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1.0, 3.0)");
+
+        assertQuery(
+                "SELECT * FROM (VALUES (123456789123456789.123456, 2.0)) x (a, b) JOIN (VALUES (123456789123456789.123456, 3.0)) y (a, b) USING(a)",
+                "VALUES (123456789123456789.123456, 2.0, 123456789123456789.123456, 3.0)");
+    }
+
+    @Test
     public void testJoinCriteriaCoercion()
     {
+        // long, double
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DOUBLE '1.0', 3)) y (a, b) USING(a)",
+                "VALUES (1, 2.0, 1.0, 3)");
+
+        // double, long
+        assertQuery(
+                "SELECT * FROM (VALUES (1.0E0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // long decimal, bigint
+        assertQuery(
+                "SELECT * FROM (VALUES (DECIMAL '0000000000000000001', 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // bigint, long decimal
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DECIMAL '0000000000000000001', 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // bigint, short decimal
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (1.0, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // short decimal, bigint
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
                 "VALUES (1.0, 2.0, 1, 3)");
@@ -9187,5 +9229,28 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT x, array_agg(distinct y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
                 ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+    }
+
+    @Test
+    public void testDefaultDecimalLiteralSwitch()
+            throws Exception
+    {
+        Session decimalLiteral = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false")
+                .build();
+        MaterializedResult decimalColumnResult = computeActual(decimalLiteral, "SELECT 1.0");
+
+        assertEquals(decimalColumnResult.getRowCount(), 1);
+        assertEquals(decimalColumnResult.getTypes().get(0), createDecimalType(2, 1));
+        assertEquals(decimalColumnResult.getMaterializedRows().get(0).getField(0), new BigDecimal("1.0"));
+
+        Session doubleLiteral = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "true")
+                .build();
+        MaterializedResult doubleColumnResult = computeActual(doubleLiteral, "SELECT 1.0");
+
+        assertEquals(doubleColumnResult.getRowCount(), 1);
+        assertEquals(doubleColumnResult.getTypes().get(0), DOUBLE);
+        assertEquals(doubleColumnResult.getMaterializedRows().get(0).getField(0), 1.0);
     }
 }

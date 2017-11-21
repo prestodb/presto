@@ -309,7 +309,8 @@ public class TestStatementBuilder
         println(sql.trim());
         println("");
 
-        Statement statement = SQL_PARSER.createStatement(sql);
+        ParsingOptions parsingOptions = new ParsingOptions(true /* anything */);
+        Statement statement = SQL_PARSER.createStatement(sql, parsingOptions);
         println(statement.toString());
         println("");
 

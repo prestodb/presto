@@ -187,6 +187,7 @@ import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMin
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -718,9 +719,9 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
     {
-        Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql), sqlParser, session);
+        Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql, createParsingOptions(session)), sqlParser, session);
 
-        assertFormattedSql(sqlParser, statement);
+        assertFormattedSql(sqlParser, createParsingOptions(session), statement);
 
         return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage);
     }
@@ -740,7 +741,7 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
     {
-        Statement wrapped = sqlParser.createStatement(sql);
+        Statement wrapped = sqlParser.createStatement(sql, createParsingOptions(session));
         Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);
 
         List<Expression> parameters = emptyList();
@@ -749,7 +750,7 @@ public class LocalQueryRunner
         }
         validateParameters(statement, parameters);
 
-        assertFormattedSql(sqlParser, statement);
+        assertFormattedSql(sqlParser, createParsingOptions(session), statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 

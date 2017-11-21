@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
@@ -285,7 +286,7 @@ public final class HttpRequestSessionContext
             // Validate statement
             SqlParser sqlParser = new SqlParser();
             try {
-                sqlParser.createStatement(sqlString);
+                sqlParser.createStatement(sqlString, new ParsingOptions(true /* anything */));
             }
             catch (ParsingException e) {
                 throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));

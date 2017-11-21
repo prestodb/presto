@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
@@ -96,8 +97,9 @@ public class TestExpressionEquivalence
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left));
-        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right));
+        ParsingOptions parsingOptions = new ParsingOptions(true /* anything */);
+        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left, parsingOptions));
+        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         Map<Symbol, Type> types = symbols.stream()
@@ -142,8 +144,9 @@ public class TestExpressionEquivalence
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left));
-        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right));
+        ParsingOptions parsingOptions = new ParsingOptions(true /* anything */);
+        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left, parsingOptions));
+        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         Map<Symbol, Type> types = symbols.stream()

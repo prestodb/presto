@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.row;
@@ -92,7 +93,7 @@ final class DescribeOutputRewrite
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
             String sqlString = session.getPreparedStatement(node.getName().getValue());
-            Statement statement = parser.createStatement(sqlString);
+            Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);
             Analysis analysis = analyzer.analyze(statement, true);

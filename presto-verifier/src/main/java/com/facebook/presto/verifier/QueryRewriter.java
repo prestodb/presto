@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -98,7 +99,7 @@ public class QueryRewriter
             throw new QueryRewriteException("Cannot rewrite queries that use post-queries");
         }
 
-        Statement statement = parser.createStatement(query.getQuery());
+        Statement statement = parser.createStatement(query.getQuery(), new ParsingOptions(true /* anything */));
         try (Connection connection = DriverManager.getConnection(gatewayUrl, usernameOverride.orElse(query.getUsername()), passwordOverride.orElse(query.getPassword()))) {
             trySetConnectionProperties(query, connection);
             if (statement instanceof CreateTableAsSelect) {

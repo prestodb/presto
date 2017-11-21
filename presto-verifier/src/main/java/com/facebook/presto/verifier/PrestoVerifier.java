@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.AddColumn;
@@ -283,7 +284,7 @@ public class PrestoVerifier
     static QueryType statementToQueryType(SqlParser parser, String sql)
     {
         try {
-            return statementToQueryType(parser.createStatement(sql));
+            return statementToQueryType(parser.createStatement(sql, new ParsingOptions(true /* anything */)));
         }
         catch (RuntimeException e) {
             throw new UnsupportedOperationException();

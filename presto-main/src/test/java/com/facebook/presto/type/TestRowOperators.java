@@ -147,6 +147,7 @@ public class TestRowOperators
         assertFunction("CAST(ROW(1.0E0, 'kittens') AS JSON)", JSON, "[1.0,\"kittens\"]");
         assertFunction("CAST(ROW(TRUE, FALSE) AS JSON)", JSON, "[true,false]");
         assertFunction("CAST(ROW(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) AS JSON)", JSON, "[false,[1,2],{\"1\":2.0,\"3\":4.0}]");
+        decimalLiteralAsDecimal.assertFunction("CAST(row(1.0, 123123123456.6549876543) AS JSON)", JSON, "[1.0,123123123456.6549876543]");
     }
 
     @Test
@@ -341,6 +342,9 @@ public class TestRowOperators
 
         // Row type is not case sensitive
         assertFunction("CAST(ROW(1) AS ROW(A BIGINT)).A", BIGINT, 1L);
+
+        assertDecimalFunction("CAST(row(1.0, 123123123456.6549876543) AS ROW(col0 decimal(2,1), col1 decimal(22,10))).col0", decimal("1.0"));
+        assertDecimalFunction("CAST(row(1.0, 123123123456.6549876543) AS ROW(col0 decimal(2,1), col1 decimal(22,10))).col1", decimal("123123123456.6549876543"));
     }
 
     @Test
@@ -424,6 +428,13 @@ public class TestRowOperators
         assertComparisonCombination("row(1.0E0, ARRAY [1,2,3], row(2, 2.0E0))", "row(1.0E0, ARRAY [1,3,3], row(2, 2.0E0))");
         assertComparisonCombination("row(TRUE, ARRAY [1])", "row(TRUE, ARRAY [1, 2])");
         assertComparisonCombination("ROW(1, 2)", "ROW(2, 1)");
+
+        assertFunction("ROW(1, 2) = ROW(1, 2)", BOOLEAN, true);
+        assertFunction("ROW(2, 1) != ROW(1, 2)", BOOLEAN, true);
+        decimalLiteralAsDecimal.assertFunction("ROW(1.0, 123123123456.6549876543) = ROW(1.0, 123123123456.6549876543)", BOOLEAN, true);
+        decimalLiteralAsDecimal.assertFunction("ROW(1.0, 123123123456.6549876543) = ROW(1.0, 123123123456.6549876542)", BOOLEAN, false);
+        decimalLiteralAsDecimal.assertFunction("ROW(1.0, 123123123456.6549876543) != ROW(1.0, 123123123456.6549876543)", BOOLEAN, false);
+        decimalLiteralAsDecimal.assertFunction("ROW(1.0, 123123123456.6549876543) != ROW(1.0, 123123123456.6549876542)", BOOLEAN, true);
     }
 
     @Test
