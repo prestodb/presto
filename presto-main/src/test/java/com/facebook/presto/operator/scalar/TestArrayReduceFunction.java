@@ -45,7 +45,7 @@ public class TestArrayReduceFunction
     {
         assertFunction("reduce(ARRAY [5, 20, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 75L);
         assertFunction("reduce(ARRAY [5 + RANDOM(1), 20, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 75L);
-        assertFunction("reduce(ARRAY [5, 6, 10, 20], 0.0, (s, x) -> s + x, s -> s)", DOUBLE, 41.0);
+        assertFunction("reduce(ARRAY [5, 6, 10, 20], 0.0E0, (s, x) -> s + x, s -> s)", DOUBLE, 41.0);
     }
 
     @Test
@@ -80,7 +80,7 @@ public class TestArrayReduceFunction
         assertFunction(
                 "reduce(" +
                         "ARRAY [5, 6, 10, 20], " +
-                        "CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)), " +
+                        "CAST(ROW(0.0E0, 0) AS ROW(sum DOUBLE, count INTEGER)), " +
                         "(s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)), " +
                         "s -> s.sum / s.count)",
                 DOUBLE,

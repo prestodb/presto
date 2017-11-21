@@ -67,7 +67,7 @@ public class TestMongoIntegrationSmokeTest
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
                 ", cast(1 as bigint) _bigint" +
-                ", 3.14 _double" +
+                ", 3.14E0 _double" +
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
@@ -98,7 +98,7 @@ public class TestMongoIntegrationSmokeTest
         assertQuery("SELECT col[2] FROM tmp_array1", "SELECT 2");
         assertQuery("SELECT col[3] FROM tmp_array1", "SELECT NULL");
 
-        assertUpdate("CREATE TABLE tmp_array2 AS SELECT ARRAY[1.0, 2.5, 3.5] AS col", 1);
+        assertUpdate("CREATE TABLE tmp_array2 AS SELECT ARRAY[1.0E0, 2.5E0, 3.5E0] AS col", 1);
         assertQuery("SELECT col[2] FROM tmp_array2", "SELECT 2.5");
 
         assertUpdate("CREATE TABLE tmp_array3 AS SELECT ARRAY['puppies', 'kittens', NULL] AS col", 1);
@@ -135,7 +135,7 @@ public class TestMongoIntegrationSmokeTest
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
         assertQuery("SELECT col[1] FROM tmp_map1", "SELECT NULL");
 
-        assertUpdate("CREATE TABLE tmp_map2 AS SELECT MAP(ARRAY[1.0], ARRAY[2.5]) AS col", 1);
+        assertUpdate("CREATE TABLE tmp_map2 AS SELECT MAP(ARRAY[1.0E0], ARRAY[2.5E0]) AS col", 1);
         assertQuery("SELECT col[1.0] FROM tmp_map2", "SELECT 2.5");
 
         assertUpdate("CREATE TABLE tmp_map3 AS SELECT MAP(ARRAY['puppies'], ARRAY['kittens']) AS col", 1);
@@ -144,7 +144,7 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("CREATE TABLE tmp_map4 AS SELECT MAP(ARRAY[TRUE], ARRAY[FALSE]) AS col", "SELECT 1");
         assertQuery("SELECT col[TRUE] FROM tmp_map4", "SELECT FALSE");
 
-        assertUpdate("CREATE TABLE tmp_map5 AS SELECT MAP(ARRAY[1.0], ARRAY[ARRAY[1, 2]]) AS col", 1);
+        assertUpdate("CREATE TABLE tmp_map5 AS SELECT MAP(ARRAY[1.0E0], ARRAY[ARRAY[1, 2]]) AS col", 1);
         assertQuery("SELECT col[1.0][2] FROM tmp_map5", "SELECT 2");
 
         assertUpdate("CREATE TABLE tmp_map6 AS SELECT MAP(ARRAY[DATE '2014-09-30'], ARRAY[DATE '2014-09-29']) AS col", 1);

@@ -63,7 +63,7 @@ public class TestMapTransformKeyFunction
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3], ARRAY [1, 2, NULL]), (k, v) -> k + v)", "map key cannot be null");
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3], ARRAY ['1', '2', 'Invalid']), (k, v) -> TRY_CAST(v as BIGINT))", "map key cannot be null");
         assertInvalidFunction(
-                "transform_keys(map(ARRAY[1, 2, 3], ARRAY [1.0, 1.4, 1.7]), (k, v) -> element_at(map(ARRAY[1, 2], ARRAY['one', 'two']), k))",
+                "transform_keys(map(ARRAY[1, 2, 3], ARRAY [1.0E0, 1.4E0, 1.7E0]), (k, v) -> element_at(map(ARRAY[1, 2], ARRAY['one', 'two']), k))",
                 "map key cannot be null");
     }
 
@@ -73,7 +73,7 @@ public class TestMapTransformKeyFunction
     {
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3, 4], ARRAY ['a', 'b', 'c', 'd']), (k, v) -> k % 3)", "Duplicate keys (1) are not allowed");
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3], ARRAY ['a', 'b', 'c']), (k, v) -> k % 2 = 0)", "Duplicate keys (false) are not allowed");
-        assertInvalidFunction("transform_keys(map(ARRAY[1.5, 2.5, 3.5], ARRAY ['a', 'b', 'c']), (k, v) -> k - floor(k))", "Duplicate keys (0.5) are not allowed");
+        assertInvalidFunction("transform_keys(map(ARRAY[1.5E0, 2.5E0, 3.5E0], ARRAY ['a', 'b', 'c']), (k, v) -> k - floor(k))", "Duplicate keys (0.5) are not allowed");
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2, 3, 4], ARRAY ['a', 'b', 'c', 'b']), (k, v) -> v)", "Duplicate keys (b) are not allowed");
         assertInvalidFunction("transform_keys(map(ARRAY['abc1', 'cba2', 'abc3'], ARRAY [1, 2, 3]), (k, v) -> substr(k, 1, 3))", "Duplicate keys (abc) are not allowed");
 
@@ -102,7 +102,7 @@ public class TestMapTransformKeyFunction
                 ImmutableMap.of("a1", 1, "b2", 2, "c3", 3, "d4", 4));
 
         assertFunction(
-                "transform_keys(map(ARRAY[1, 2, 3], ARRAY [1.0, 1.4, 1.7]), (k, v) -> map(ARRAY[1, 2, 3], ARRAY['one', 'two', 'three'])[k])",
+                "transform_keys(map(ARRAY[1, 2, 3], ARRAY [1.0E0, 1.4E0, 1.7E0]), (k, v) -> map(ARRAY[1, 2, 3], ARRAY['one', 'two', 'three'])[k])",
                 mapType(createVarcharType(5), DOUBLE),
                 ImmutableMap.of("one", 1.0, "two", 1.4, "three", 1.7));
 
@@ -126,7 +126,7 @@ public class TestMapTransformKeyFunction
                 mapType(INTEGER, INTEGER),
                 ImmutableMap.of(50, 25, 52, 26, 54, 27));
         assertFunction(
-                "transform_keys(map(ARRAY [25, 26, 27], ARRAY [25.5, 26.5, 27.5]), (k, v) -> k + v)",
+                "transform_keys(map(ARRAY [25, 26, 27], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k + v)",
                 mapType(DOUBLE, DOUBLE),
                 ImmutableMap.of(50.5, 25.5, 52.5, 26.5, 54.5, 27.5));
         assertFunction(
@@ -143,23 +143,23 @@ public class TestMapTransformKeyFunction
                 ImmutableMap.of(ImmutableList.of("25", "a"), ImmutableList.of("a"), ImmutableList.of("26", "b"), ImmutableList.of("b")));
 
         assertFunction(
-                "transform_keys(map(ARRAY [25.5, 26.5, 27.5], ARRAY [25, 26, 27]), (k, v) -> CAST(k * 2 AS BIGINT) + v)",
+                "transform_keys(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY [25, 26, 27]), (k, v) -> CAST(k * 2 AS BIGINT) + v)",
                 mapType(BIGINT, INTEGER),
                 ImmutableMap.of(76L, 25, 79L, 26, 82L, 27));
         assertFunction(
-                "transform_keys(map(ARRAY [25.5, 26.5, 27.5], ARRAY [25.5, 26.5, 27.5]), (k, v) -> k + v)",
+                "transform_keys(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k + v)",
                 mapType(DOUBLE, DOUBLE),
                 ImmutableMap.of(51.0, 25.5, 53.0, 26.5, 55.0, 27.5));
         assertFunction(
-                "transform_keys(map(ARRAY [25.2, 26.2], ARRAY [false, true]), (k, v) -> CAST(k AS BIGINT) % 2 = 0 OR v)",
+                "transform_keys(map(ARRAY [25.2E0, 26.2E0], ARRAY [false, true]), (k, v) -> CAST(k AS BIGINT) % 2 = 0 OR v)",
                 mapType(BOOLEAN, BOOLEAN),
                 ImmutableMap.of(false, false, true, true));
         assertFunction(
-                "transform_keys(map(ARRAY [25.5, 26.5, 27.5], ARRAY ['abc', 'def', 'xyz']), (k, v) -> CAST(k AS VARCHAR) || substr(v, 1, 1))",
+                "transform_keys(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY ['abc', 'def', 'xyz']), (k, v) -> CAST(k AS VARCHAR) || substr(v, 1, 1))",
                 mapType(VARCHAR, createVarcharType(3)),
                 ImmutableMap.of("25.5a", "abc", "26.5d", "def", "27.5x", "xyz"));
         assertFunction(
-                "transform_keys(map(ARRAY [25.5, 26.5], ARRAY [ARRAY ['a'], ARRAY ['b']]), (k, v) -> ARRAY [CAST(k AS VARCHAR)] || v)",
+                "transform_keys(map(ARRAY [25.5E0, 26.5E0], ARRAY [ARRAY ['a'], ARRAY ['b']]), (k, v) -> ARRAY [CAST(k AS VARCHAR)] || v)",
                 mapType(new ArrayType(VARCHAR), new ArrayType(createVarcharType(1))),
                 ImmutableMap.of(ImmutableList.of("25.5", "a"), ImmutableList.of("a"), ImmutableList.of("26.5", "b"), ImmutableList.of("b")));
 
@@ -168,7 +168,7 @@ public class TestMapTransformKeyFunction
                 mapType(INTEGER, INTEGER),
                 ImmutableMap.of(50, 25, 78, 26));
         assertFunction(
-                "transform_keys(map(ARRAY [false, true], ARRAY [25.5, 26.5]), (k, v) -> if(k, 2 * v, 3 * v))",
+                "transform_keys(map(ARRAY [false, true], ARRAY [25.5E0, 26.5E0]), (k, v) -> if(k, 2 * v, 3 * v))",
                 mapType(DOUBLE, DOUBLE),
                 ImmutableMap.of(76.5, 25.5, 53.0, 26.5));
         Map<Boolean, Boolean> expectedBoolBoolMap = new HashMap<>();
@@ -192,7 +192,7 @@ public class TestMapTransformKeyFunction
                 mapType(BIGINT, INTEGER),
                 ImmutableMap.of(26L, 25, 28L, 26, 30L, 27));
         assertFunction(
-                "transform_keys(map(ARRAY ['a', 'ab', 'abc'], ARRAY [25.5, 26.5, 27.5]), (k, v) -> length(k) + v)",
+                "transform_keys(map(ARRAY ['a', 'ab', 'abc'], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> length(k) + v)",
                 mapType(DOUBLE, DOUBLE),
                 ImmutableMap.of(26.5, 25.5, 28.5, 26.5, 30.5, 27.5));
         assertFunction(
@@ -213,7 +213,7 @@ public class TestMapTransformKeyFunction
                 mapType(INTEGER, INTEGER),
                 ImmutableMap.of(28, 25, 33, 26));
         assertFunction(
-                "transform_keys(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4]], ARRAY [25.5, 26.5]), (k, v) -> reduce(k, 0, (s, x) -> s + x, s -> s) + v)",
+                "transform_keys(map(ARRAY [ARRAY [1, 2], ARRAY [3, 4]], ARRAY [25.5E0, 26.5E0]), (k, v) -> reduce(k, 0, (s, x) -> s + x, s -> s) + v)",
                 mapType(DOUBLE, DOUBLE),
                 ImmutableMap.of(28.5, 25.5, 33.5, 26.5));
         assertFunction(

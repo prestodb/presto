@@ -269,7 +269,7 @@ public class TestSqlParser
     {
         assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.of()));
         assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
-        assertExpression("ARRAY [1.0, 2.5]", new ArrayConstructor(ImmutableList.of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
+        assertExpression("ARRAY [1e0, 2.5e0]", new ArrayConstructor(ImmutableList.of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
         assertExpression("ARRAY ['hi']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"))));
         assertExpression("ARRAY ['hi', 'hello']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"), new StringLiteral("hello"))));
     }
@@ -506,9 +506,9 @@ public class TestSqlParser
                 row(new StringLiteral("a"), new LongLiteral("1"), new DoubleLiteral("2.2")),
                 row(new StringLiteral("b"), new LongLiteral("2"), new DoubleLiteral("3.3"))));
 
-        assertStatement("VALUES ('a', 1, 2.2), ('b', 2, 3.3)", valuesQuery);
+        assertStatement("VALUES ('a', 1, 2.2e0), ('b', 2, 3.3e0)", valuesQuery);
 
-        assertStatement("SELECT * FROM (VALUES ('a', 1, 2.2), ('b', 2, 3.3))",
+        assertStatement("SELECT * FROM (VALUES ('a', 1, 2.2e0), ('b', 2, 3.3e0))",
                 simpleQuery(
                         selectList(new AllColumns()),
                         subquery(valuesQuery)));

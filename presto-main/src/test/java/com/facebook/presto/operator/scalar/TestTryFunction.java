@@ -17,12 +17,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.SqlDecimal;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -50,7 +52,8 @@ public class TestTryFunction
     public void testBasic()
     {
         assertFunction("\"$internal$try\"(() -> 42)", INTEGER, 42);
-        assertFunction("\"$internal$try\"(() -> 4.5)", DOUBLE, 4.5);
+        assertFunction("\"$internal$try\"(() -> DOUBLE '4.5')", DOUBLE, 4.5);
+        assertFunction("\"$internal$try\"(() -> DECIMAL '4.5')", createDecimalType(2, 1), SqlDecimal.of("4.5"));
         assertFunction("\"$internal$try\"(() -> TRUE)", BOOLEAN, true);
         assertFunction("\"$internal$try\"(() -> 'hello')", createVarcharType(5), "hello");
         assertFunction("\"$internal$try\"(() -> JSON '[true, false, 12, 12.7, \"12\", null]')", JSON, "[true,false,12,12.7,\"12\",null]");

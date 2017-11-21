@@ -75,6 +75,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestExpressionInterpreter
 {
+    // todo add decimal cases
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_integer"), INTEGER)
@@ -242,10 +243,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("nullif(1, 2)", "1");
         assertOptimizedEquals("nullif(1, BIGINT '2')", "1");
         assertOptimizedEquals("nullif(1, 20000000000)", "1");
-        assertOptimizedEquals("nullif(1.0, 1)", "null");
-        assertOptimizedEquals("nullif(10000000000.0, 10000000000)", "null");
-        assertOptimizedEquals("nullif(1.1, 1)", "1.1");
-        assertOptimizedEquals("nullif(1.1, 1.1)", "null");
+        assertOptimizedEquals("nullif(1.0E0, 1)", "null");
+        assertOptimizedEquals("nullif(10000000000.0E0, 10000000000)", "null");
+        assertOptimizedEquals("nullif(1.1E0, 1)", "1.1E0");
+        assertOptimizedEquals("nullif(1.1E0, 1.1E0)", "null");
         assertOptimizedEquals("nullif(1, 2-1)", "null");
         assertOptimizedEquals("nullif(null, null)", "null");
         assertOptimizedEquals("nullif(1, null)", "1");
@@ -440,10 +441,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(-12300000000 as VARCHAR)", "'-12300000000'");
 
         // double
-        assertOptimizedEquals("cast(123.0 as VARCHAR)", "'123.0'");
-        assertOptimizedEquals("cast(-123.0 as VARCHAR)", "'-123.0'");
-        assertOptimizedEquals("cast(123.456 as VARCHAR)", "'123.456'");
-        assertOptimizedEquals("cast(-123.456 as VARCHAR)", "'-123.456'");
+        assertOptimizedEquals("cast(123.0E0 as VARCHAR)", "'123.0'");
+        assertOptimizedEquals("cast(-123.0E0 as VARCHAR)", "'-123.0'");
+        assertOptimizedEquals("cast(123.456E0 as VARCHAR)", "'123.456'");
+        assertOptimizedEquals("cast(-123.456E0 as VARCHAR)", "'-123.456'");
 
         // boolean
         assertOptimizedEquals("cast(true as VARCHAR)", "'true'");
@@ -486,9 +487,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(null as BOOLEAN)", "null");
 
         // double
-        assertOptimizedEquals("cast(123.45 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(-123.45 as BOOLEAN)", "true");
-        assertOptimizedEquals("cast(0.0 as BOOLEAN)", "false");
+        assertOptimizedEquals("cast(123.45E0 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(-123.45E0 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(0.0E0 as BOOLEAN)", "false");
     }
 
     @Test
@@ -506,10 +507,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(BIGINT '-123' as BIGINT)", "-123");
 
         // double
-        assertOptimizedEquals("cast(123.0 as BIGINT)", "123");
-        assertOptimizedEquals("cast(-123.0 as BIGINT)", "-123");
-        assertOptimizedEquals("cast(123.456 as BIGINT)", "123");
-        assertOptimizedEquals("cast(-123.456 as BIGINT)", "-123");
+        assertOptimizedEquals("cast(123.0E0 as BIGINT)", "123");
+        assertOptimizedEquals("cast(-123.0E0 as BIGINT)", "-123");
+        assertOptimizedEquals("cast(123.456E0 as BIGINT)", "123");
+        assertOptimizedEquals("cast(-123.456E0 as BIGINT)", "-123");
 
         // boolean
         assertOptimizedEquals("cast(true as BIGINT)", "1");
@@ -538,10 +539,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(BIGINT '-123' as INTEGER)", "-123");
 
         // double
-        assertOptimizedEquals("cast(123.0 as INTEGER)", "123");
-        assertOptimizedEquals("cast(-123.0 as INTEGER)", "-123");
-        assertOptimizedEquals("cast(123.456 as INTEGER)", "123");
-        assertOptimizedEquals("cast(-123.456 as INTEGER)", "-123");
+        assertOptimizedEquals("cast(123.0E0 as INTEGER)", "123");
+        assertOptimizedEquals("cast(-123.0E0 as INTEGER)", "-123");
+        assertOptimizedEquals("cast(123.456E0 as INTEGER)", "123");
+        assertOptimizedEquals("cast(-123.456E0 as INTEGER)", "-123");
 
         // boolean
         assertOptimizedEquals("cast(true as INTEGER)", "1");
@@ -560,36 +561,36 @@ public class TestExpressionInterpreter
             throws Exception
     {
         // integer
-        assertOptimizedEquals("cast(0 as DOUBLE)", "0.0");
-        assertOptimizedEquals("cast(123 as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast(-123 as DOUBLE)", "-123.0");
+        assertOptimizedEquals("cast(0 as DOUBLE)", "0.0E0");
+        assertOptimizedEquals("cast(123 as DOUBLE)", "123.0E0");
+        assertOptimizedEquals("cast(-123 as DOUBLE)", "-123.0E0");
 
         // bigint
-        assertOptimizedEquals("cast(BIGINT '0' as DOUBLE)", "0.0");
-        assertOptimizedEquals("cast(12300000000 as DOUBLE)", "12300000000.0");
-        assertOptimizedEquals("cast(-12300000000 as DOUBLE)", "-12300000000.0");
+        assertOptimizedEquals("cast(BIGINT '0' as DOUBLE)", "0.0E0");
+        assertOptimizedEquals("cast(12300000000 as DOUBLE)", "12300000000.0E0");
+        assertOptimizedEquals("cast(-12300000000 as DOUBLE)", "-12300000000.0E0");
 
         // double
-        assertOptimizedEquals("cast(123.0 as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast(-123.0 as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast(123.456 as DOUBLE)", "123.456");
-        assertOptimizedEquals("cast(-123.456 as DOUBLE)", "-123.456");
+        assertOptimizedEquals("cast(123.0E0 as DOUBLE)", "123.0E0");
+        assertOptimizedEquals("cast(-123.0E0 as DOUBLE)", "-123.0E0");
+        assertOptimizedEquals("cast(123.456E0 as DOUBLE)", "123.456E0");
+        assertOptimizedEquals("cast(-123.456E0 as DOUBLE)", "-123.456E0");
 
         // string
-        assertOptimizedEquals("cast('0' as DOUBLE)", "0.0");
-        assertOptimizedEquals("cast('123' as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast('-123' as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast('123.0' as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast('-123.0' as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast('123.456' as DOUBLE)", "123.456");
-        assertOptimizedEquals("cast('-123.456' as DOUBLE)", "-123.456");
+        assertOptimizedEquals("cast('0' as DOUBLE)", "0.0E0");
+        assertOptimizedEquals("cast('123' as DOUBLE)", "123.0E0");
+        assertOptimizedEquals("cast('-123' as DOUBLE)", "-123.0E0");
+        assertOptimizedEquals("cast('123.0E0' as DOUBLE)", "123.0E0");
+        assertOptimizedEquals("cast('-123.0E0' as DOUBLE)", "-123.0E0");
+        assertOptimizedEquals("cast('123.456E0' as DOUBLE)", "123.456E0");
+        assertOptimizedEquals("cast('-123.456E0' as DOUBLE)", "-123.456E0");
 
         // null
         assertOptimizedEquals("cast(null as DOUBLE)", "null");
 
         // boolean
-        assertOptimizedEquals("cast(true as DOUBLE)", "1.0");
-        assertOptimizedEquals("cast(false as DOUBLE)", "0.0");
+        assertOptimizedEquals("cast(true as DOUBLE)", "1.0E0");
+        assertOptimizedEquals("cast(false as DOUBLE)", "0.0E0");
     }
 
     @Test
@@ -937,11 +938,11 @@ public class TestExpressionInterpreter
             throws Exception
     {
         assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1 - 1, null)", "coalesce(6 * unbound_long, 0)");
-        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1.0/2.0, null)", "coalesce(6 * unbound_long, 0.5)");
-        assertOptimizedEquals("coalesce(unbound_long, 2, 1.0/2.0, 12.34, null)", "coalesce(unbound_long, 2.0, 0.5, 12.34)");
+        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1.0E0/2.0E0, null)", "coalesce(6 * unbound_long, 0.5E0)");
+        assertOptimizedEquals("coalesce(unbound_long, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_long, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedEquals("coalesce(2 * 3 * unbound_integer, 1 - 1, null)", "coalesce(6 * unbound_integer, 0)");
-        assertOptimizedEquals("coalesce(2 * 3 * unbound_integer, 1.0/2.0, null)", "coalesce(6 * unbound_integer, 0.5)");
-        assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0/2.0, 12.34, null)", "coalesce(unbound_integer, 2.0, 0.5, 12.34)");
+        assertOptimizedEquals("coalesce(2 * 3 * unbound_integer, 1.0E0/2.0E0, null)", "coalesce(6 * unbound_integer, 0.5E0)");
+        assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_integer, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedMatches("coalesce(0 / 0 > 1, unbound_boolean, 0 / 0 = 0)",
                 "coalesce(cast(fail() as boolean), unbound_boolean, cast(fail() as boolean))");
     }
@@ -966,8 +967,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("IF(true, null, null)", "null");
         assertOptimizedEquals("IF(false, null, null)", "null");
 
-        assertOptimizedEquals("IF(true, 3.5, 4.2)", "3.5");
-        assertOptimizedEquals("IF(false, 3.5, 4.2)", "4.2");
+        assertOptimizedEquals("IF(true, 3.5E0, 4.2E0)", "3.5E0");
+        assertOptimizedEquals("IF(false, 3.5E0, 4.2E0)", "4.2E0");
 
         assertOptimizedEquals("IF(true, 'foo', 'bar')", "'foo'");
         assertOptimizedEquals("IF(false, 'foo', 'bar')", "'bar'");
@@ -1143,13 +1144,13 @@ public class TestExpressionInterpreter
         optimize("ROW(unbound_long + 0)");
         optimize("ROW(unbound_long + unbound_long2, unbound_string, unbound_double)");
         optimize("ROW(unbound_boolean, FALSE, ARRAY[unbound_long, unbound_long2], unbound_null_string, unbound_interval)");
-        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(unbound_string, 0.0)]");
+        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(unbound_string, 0.0E0)]");
         optimize("ARRAY [ROW('string', unbound_double), ROW('string', bound_double)]");
         optimize("ROW(ROW(NULL), ROW(ROW(ROW(ROW('rowception')))))");
         optimize("ROW(unbound_string, bound_string)");
 
-        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(CAST(bound_string AS VARCHAR), 0.0)]");
-        optimize("ARRAY [ROW(CAST(bound_string AS VARCHAR), 0.0), ROW(unbound_string, unbound_double)]");
+        optimize("ARRAY [ROW(unbound_string, unbound_double), ROW(CAST(bound_string AS VARCHAR), 0.0E0)]");
+        optimize("ARRAY [ROW(CAST(bound_string AS VARCHAR), 0.0E0), ROW(unbound_string, unbound_double)]");
 
         optimize("ARRAY [ROW(unbound_string, unbound_double), CAST(NULL AS ROW(VARCHAR, DOUBLE))]");
         optimize("ARRAY [CAST(NULL AS ROW(VARCHAR, DOUBLE)), ROW(unbound_string, unbound_double)]");
