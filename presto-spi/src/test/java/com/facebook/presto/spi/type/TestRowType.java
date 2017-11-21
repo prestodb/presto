@@ -37,9 +37,9 @@ public class TestRowType
                 new MapType(
                         BOOLEAN,
                         DOUBLE,
-                        methodHandle(TestMapType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestMapType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestMapType.class, "throwUnsupportedOperation")));
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation")));
         Optional<List<String>> names = Optional.of(asList("bool_col", "double_col", "array_col", "map_col"));
         RowType row = new RowType(types, names);
         assertEquals(
@@ -57,9 +57,9 @@ public class TestRowType
                 new MapType(
                         BOOLEAN,
                         DOUBLE,
-                        methodHandle(TestMapType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestMapType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestMapType.class, "throwUnsupportedOperation")));
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation")));
         RowType row = new RowType(types, Optional.empty());
         assertEquals(
                 row.getDisplayName(),
