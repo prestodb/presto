@@ -274,11 +274,11 @@ public class TopNRowNumberOperator
             }
             PartitionBuilder partitionBuilder = partitionRows.get(partitionId);
             if (partitionBuilder.getRowCount() < maxRowCountPerPartition) {
-                Block[] row = getSingleValueBlocks(page, position);
+                Block[] row = page.getSingleValuePage(position).getBlocks();
                 sizeDelta += partitionBuilder.addRow(row);
             }
             else if (compare(position, blocks, partitionBuilder.peekLastRow()) < 0) {
-                Block[] row = getSingleValueBlocks(page, position);
+                Block[] row = page.getSingleValuePage(position).getBlocks();
                 sizeDelta += partitionBuilder.replaceRow(row);
             }
         }
@@ -377,16 +377,6 @@ public class TopNRowNumberOperator
     public boolean isEmpty()
     {
         return partitionRows.isEmpty();
-    }
-
-    private static Block[] getSingleValueBlocks(Page page, int position)
-    {
-        Block[] blocks = page.getBlocks();
-        Block[] row = new Block[blocks.length];
-        for (int i = 0; i < blocks.length; i++) {
-            row[i] = blocks[i].getSingleValueBlock(position);
-        }
-        return row;
     }
 
     private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels, boolean generateRowNumber)

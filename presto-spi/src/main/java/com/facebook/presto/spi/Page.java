@@ -93,6 +93,19 @@ public class Page
         return blocks[channel];
     }
 
+    /**
+     * Gets the values at the specified position as a single element page.  The method creates independent
+     * copy of the data.
+     */
+    public Page getSingleValuePage(int position)
+    {
+        Block[] singleValueBlocks = new Block[this.blocks.length];
+        for (int i = 0; i < this.blocks.length; i++) {
+            singleValueBlocks[i] = this.blocks[i].getSingleValueBlock(position);
+        }
+        return new Page(1, singleValueBlocks);
+    }
+
     public Page getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
