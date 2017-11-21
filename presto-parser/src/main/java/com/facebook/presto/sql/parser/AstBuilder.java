@@ -175,6 +175,12 @@ class AstBuilder
         extends SqlBaseBaseVisitor<Node>
 {
     private int parameterPosition = 0;
+    private final ParsingOptions parsingOptions;
+
+    AstBuilder(ParsingOptions parsingOptions)
+    {
+        this.parsingOptions = requireNonNull(parsingOptions, "parsingOptions is null");
+    }
 
     @Override
     public Node visitSingleStatement(SqlBaseParser.SingleStatementContext context)
@@ -1572,6 +1578,20 @@ class AstBuilder
 
     @Override
     public Node visitDecimalLiteral(SqlBaseParser.DecimalLiteralContext context)
+    {
+        switch (parsingOptions.getDecimalLiteralTreatment()) {
+            case AS_DOUBLE:
+                return new DoubleLiteral(getLocation(context), context.getText());
+            case AS_DECIMAL:
+                return new DecimalLiteral(getLocation(context), context.getText());
+            case REJECT:
+                throw new ParsingException("Unexpected decimal literal: " + context.getText());
+        }
+        throw new AssertionError("Unreachable");
+    }
+
+    @Override
+    public Node visitDoubleLiteral(SqlBaseParser.DoubleLiteralContext context)
     {
         return new DoubleLiteral(getLocation(context), context.getText());
     }
