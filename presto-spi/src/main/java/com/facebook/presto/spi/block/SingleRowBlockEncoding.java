@@ -43,9 +43,9 @@ public class SingleRowBlockEncoding
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         SingleRowBlock singleRowBlock = (SingleRowBlock) block;
-        int fieldOffset = singleRowBlock.getOffset() / fieldBlockEncodings.length;
+        int rowIndex = singleRowBlock.getRowIndex();
         for (int i = 0; i < fieldBlockEncodings.length; i++) {
-            fieldBlockEncodings[i].writeBlock(sliceOutput, singleRowBlock.getFieldBlock(i).getRegion(fieldOffset, 1));
+            fieldBlockEncodings[i].writeBlock(sliceOutput, singleRowBlock.getFieldBlock(i).getRegion(rowIndex, 1));
         }
     }
 

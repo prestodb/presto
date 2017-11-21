@@ -137,7 +137,7 @@ public class RowBlockBuilder
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
-        return new SingleRowBlockWriter(fieldBlockBuilders[0].getPositionCount() * numFields, fieldBlockBuilders);
+        return new SingleRowBlockWriter(fieldBlockBuilders[0].getPositionCount(), fieldBlockBuilders);
     }
 
     @Override

@@ -33,9 +33,9 @@ public class SingleRowBlockWriter
     private int currentFieldIndexToWrite;
     private boolean fieldBlockBuilderReturned;
 
-    SingleRowBlockWriter(int startOffset, BlockBuilder[] fieldBlockBuilders)
+    SingleRowBlockWriter(int rowIndex, BlockBuilder[] fieldBlockBuilders)
     {
-        super(startOffset, fieldBlockBuilders.length);
+        super(rowIndex);
         this.fieldBlockBuilders = fieldBlockBuilders;
         long initialBlockBuilderSize = 0;
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
@@ -72,7 +72,7 @@ public class SingleRowBlockWriter
     public long getSizeInBytes()
     {
         long currentBlockBuilderSize = 0;
-        for (int i = 0; i < numFields; i++) {
+        for (int i = 0; i < fieldBlockBuilders.length; i++) {
             currentBlockBuilderSize += fieldBlockBuilders[i].getSizeInBytes();
         }
         return currentBlockBuilderSize - initialBlockBuilderSize;
@@ -82,7 +82,7 @@ public class SingleRowBlockWriter
     public long getRetainedSizeInBytes()
     {
         long size = INSTANCE_SIZE;
-        for (int i = 0; i < numFields; i++) {
+        for (int i = 0; i < fieldBlockBuilders.length; i++) {
             size += fieldBlockBuilders[i].getRetainedSizeInBytes();
         }
         return size;
@@ -91,7 +91,7 @@ public class SingleRowBlockWriter
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        for (int i = 0; i < numFields; i++) {
+        for (int i = 0; i < fieldBlockBuilders.length; i++) {
             consumer.accept(fieldBlockBuilders[i], fieldBlockBuilders[i].getRetainedSizeInBytes());
         }
         consumer.accept(this, (long) INSTANCE_SIZE);
@@ -207,10 +207,10 @@ public class SingleRowBlockWriter
     public String toString()
     {
         if (!fieldBlockBuilderReturned) {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=false, positionCount=%d}", numFields, getPositionCount());
+            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
         }
         else {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=true}", numFields);
+            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
         }
     }
 
@@ -219,7 +219,7 @@ public class SingleRowBlockWriter
         if (fieldBlockBuilderReturned) {
             throw new IllegalStateException("cannot do sequential write after getFieldBlockBuilder is called");
         }
-        if (currentFieldIndexToWrite >= numFields) {
+        if (currentFieldIndexToWrite >= fieldBlockBuilders.length) {
             throw new IllegalStateException("currentFieldIndexToWrite is not valid");
         }
     }
