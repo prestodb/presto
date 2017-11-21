@@ -29,6 +29,7 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.base.Verify;
 import io.airlift.slice.Slice;
 
 import java.util.HashSet;
@@ -41,6 +42,7 @@ import static com.facebook.presto.geospatial.GeometryUtils.serialize;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -58,6 +60,7 @@ public class BingTileFunctions
     private static final double MIN_LATITUDE = -85.05112878;
     private static final double MIN_LONGITUDE = -180;
     private static final double MAX_LONGITUDE = 180;
+    private static final int OPTIMIZED_TILING_MIN_ZOOM_LEVEL = 10;
 
     private static final String LATITUDE_OUT_OF_RANGE = "Latitude must be between " + MIN_LATITUDE + " and " + MAX_LATITUDE;
     private static final String LATITUDE_SPAN_OUT_OF_RANGE = String.format("Latitude span for the geometry must be in [%.2f, %.2f] range", MIN_LATITUDE, MAX_LATITUDE);
@@ -174,18 +177,111 @@ public class BingTileFunctions
         // XY coordinates start at (0,0) in the left upper corner and increase left to right and top to bottom
         int tileCount = toIntExact((rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1));
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), tileCount);
-        for (int x = leftUpperTile.getX(); x <= rightLowerTile.getX(); x++) {
-            for (int y = leftUpperTile.getY(); y <= rightLowerTile.getY(); y++) {
-                BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
-
-                if (pointOrRectangle || !tileToPolygon(tile).disjoint(geometry)) {
-                    BIGINT.writeLong(blockBuilder, tile.encode());
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, tileCount);
+        if (pointOrRectangle || zoomLevel <= OPTIMIZED_TILING_MIN_ZOOM_LEVEL) {
+            // Collect tiles covering the bounding box and check each tile for intersection with the geometry.
+            // Skip intersection check if geometry is a point or rectangle. In these cases, by definition,
+            // all tiles covering the bounding box intersect the geometry.
+            for (int x = leftUpperTile.getX(); x <= rightLowerTile.getX(); x++) {
+                for (int y = leftUpperTile.getY(); y <= rightLowerTile.getY(); y++) {
+                    BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
+                    if (pointOrRectangle || !tileToPolygon(tile).disjoint(geometry)) {
+                        BIGINT.writeLong(blockBuilder, tile.encode());
+                    }
                 }
+            }
+        }
+        else {
+            // Intersection checks above are expensive. The logic below attempts to reduce the number
+            // of these checks. The idea is to identify large tiles which are fully covered by the
+            // geometry. For each such tile, we can cheaply compute all the containing tiles at
+            // the right zoom level and append them to results in bulk. This way we perform a single
+            // containment check instead of 2 to the power of level delta intersection checks, where
+            // level delta is the difference between the desired zoom level and level of the large
+            // tile covered by the geometry.
+            BingTile[] tiles = getTilesInBetween(leftUpperTile, rightLowerTile, OPTIMIZED_TILING_MIN_ZOOM_LEVEL);
+            for (BingTile tile : tiles) {
+                writeTilesToBlockBuilder(geometry, zoomLevel, tile, blockBuilder);
             }
         }
 
         return blockBuilder.build();
+    }
+
+    private static BingTile[] getTilesInBetween(BingTile leftUpperTile, BingTile rightLowerTile, int zoomLevel)
+    {
+        checkArgument(leftUpperTile.getZoomLevel() == rightLowerTile.getZoomLevel());
+        checkArgument(leftUpperTile.getZoomLevel() > zoomLevel);
+
+        int divisor = 1 << (leftUpperTile.getZoomLevel() - zoomLevel);
+        int minX = (int) Math.floor(leftUpperTile.getX() / divisor);
+        int maxX = (int) Math.floor(rightLowerTile.getX() / divisor);
+        int minY = (int) Math.floor(leftUpperTile.getY() / divisor);
+        int maxY = (int) Math.floor(rightLowerTile.getY() / divisor);
+
+        BingTile[] tiles = new BingTile[(maxX - minX + 1) * (maxY - minY + 1)];
+        int index = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                tiles[index] = BingTile.fromCoordinates(x, y, OPTIMIZED_TILING_MIN_ZOOM_LEVEL);
+                index++;
+            }
+        }
+
+        return tiles;
+    }
+
+    /**
+     * Identifies a minimum set of tiles at specified zoom level that cover intersection of the
+     * specified geometry and a specified tile of the same or lower level. Adds tiles to provided
+     * BlockBuilder.
+     */
+    private static void writeTilesToBlockBuilder(
+            OGCGeometry geometry,
+            int zoomLevel,
+            BingTile tile,
+            BlockBuilder blockBuilder)
+    {
+        int tileZoomLevel = tile.getZoomLevel();
+        checkArgument(tile.getZoomLevel() <= zoomLevel);
+
+        OGCGeometry polygon = tileToPolygon(tile);
+        if (tileZoomLevel == zoomLevel) {
+            if (!geometry.disjoint(polygon)) {
+                BIGINT.writeLong(blockBuilder, tile.encode());
+            }
+            return;
+        }
+
+        if (geometry.contains(polygon)) {
+            int subTileCount = 1 << (zoomLevel - tileZoomLevel);
+            int minX = subTileCount * tile.getX();
+            int minY = subTileCount * tile.getY();
+            for (int x = minX; x < minX + subTileCount; x++) {
+                for (int y = minY; y < minY + subTileCount; y++) {
+                    BIGINT.writeLong(blockBuilder, BingTile.fromCoordinates(x, y, zoomLevel).encode());
+                }
+            }
+            return;
+        }
+
+        if (geometry.disjoint(polygon)) {
+            return;
+        }
+
+        int minX = 2 * tile.getX();
+        int minY = 2 * tile.getY();
+        int nextZoomLevel = tileZoomLevel + 1;
+        Verify.verify(nextZoomLevel <= MAX_ZOOM_LEVEL);
+        for (int x = minX; x < minX + 2; x++) {
+            for (int y = minY; y < minY + 2; y++) {
+                writeTilesToBlockBuilder(
+                        geometry,
+                        zoomLevel,
+                        BingTile.fromCoordinates(x, y, nextZoomLevel),
+                        blockBuilder);
+            }
+        }
     }
 
     private static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
