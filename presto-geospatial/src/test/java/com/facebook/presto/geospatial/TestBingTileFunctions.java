@@ -91,8 +91,8 @@ public class TestBingTileFunctions
     {
         assertFunction("bing_tile_at(30.12, 60, 15)", BING_TILE, BingTile.fromCoordinates(21845, 13506, 15));
         assertFunction("bing_tile_at(0, -0.002, 1)", BING_TILE, BingTile.fromCoordinates(0, 1, 1));
-        assertFunction("bing_tile_at(1./512, 0, 1)", BING_TILE, BingTile.fromCoordinates(1, 0, 1));
-        assertFunction("bing_tile_at(1./512, 0, 9)", BING_TILE, BingTile.fromCoordinates(256, 255, 9));
+        assertFunction("bing_tile_at(1e0/512, 0, 1)", BING_TILE, BingTile.fromCoordinates(1, 0, 1));
+        assertFunction("bing_tile_at(1e0/512, 0, 9)", BING_TILE, BingTile.fromCoordinates(256, 255, 9));
 
         // Invalid calls
         // Longitude out of range

@@ -131,10 +131,10 @@ public class TestLambdaExpression
     public void testCoercion()
             throws Exception
     {
-        assertFunction("apply(90, x -> x + 9.0)", DOUBLE, 99.0);
+        assertFunction("apply(90, x -> x + 9.0E0)", DOUBLE, 99.0);
 
-        assertFunction("apply(90, \"$internal$bind\"(9.0, (x, y) -> x + y))", DOUBLE, 99.0);
-        assertFunction("invoke(\"$internal$bind\"(8, x -> x + 1.0))", DOUBLE, 9.0);
+        assertFunction("apply(90, \"$internal$bind\"(9.0E0, (x, y) -> x + y))", DOUBLE, 99.0);
+        assertFunction("invoke(\"$internal$bind\"(8, x -> x + 1.0E0))", DOUBLE, 9.0);
     }
 
     @Test
@@ -142,25 +142,25 @@ public class TestLambdaExpression
             throws Exception
     {
         assertFunction("apply(25, x -> x + 1)", INTEGER, 26);
-        assertFunction("apply(25, x -> x + 1.0)", DOUBLE, 26.0);
+        assertFunction("apply(25, x -> x + 1.0E0)", DOUBLE, 26.0);
         assertFunction("apply(25, x -> x = 25)", BOOLEAN, true);
         assertFunction("apply(25, x -> to_base(x, 16))", createVarcharType(64), "19");
         assertFunction("apply(25, x -> ARRAY[x + 1])", new ArrayType(INTEGER), ImmutableList.of(26));
 
-        assertFunction("apply(25.6, x -> CAST(x AS BIGINT))", BIGINT, 26L);
-        assertFunction("apply(25.6, x -> x + 1.0)", DOUBLE, 26.6);
-        assertFunction("apply(25.6, x -> x = 25.6)", BOOLEAN, true);
-        assertFunction("apply(25.6, x -> CAST(x AS VARCHAR))", createUnboundedVarcharType(), "25.6");
-        assertFunction("apply(25.6, x -> MAP(ARRAY[x + 1], ARRAY[true]))", mapType(DOUBLE, BOOLEAN), ImmutableMap.of(26.6, true));
+        assertFunction("apply(25.6E0, x -> CAST(x AS BIGINT))", BIGINT, 26L);
+        assertFunction("apply(25.6E0, x -> x + 1.0E0)", DOUBLE, 26.6);
+        assertFunction("apply(25.6E0, x -> x = 25.6E0)", BOOLEAN, true);
+        assertFunction("apply(25.6E0, x -> CAST(x AS VARCHAR))", createUnboundedVarcharType(), "25.6");
+        assertFunction("apply(25.6E0, x -> MAP(ARRAY[x + 1], ARRAY[true]))", mapType(DOUBLE, BOOLEAN), ImmutableMap.of(26.6, true));
 
         assertFunction("apply(true, x -> if(x, 25, 26))", INTEGER, 25);
-        assertFunction("apply(false, x -> if(x, 25.6, 28.9))", DOUBLE, 28.9);
+        assertFunction("apply(false, x -> if(x, 25.6E0, 28.9E0))", DOUBLE, 28.9);
         assertFunction("apply(true, x -> not x)", BOOLEAN, false);
         assertFunction("apply(false, x -> CAST(x AS VARCHAR))", createUnboundedVarcharType(), "false");
         assertFunction("apply(true, x -> ARRAY[x])", new ArrayType(BOOLEAN), ImmutableList.of(true));
 
         assertFunction("apply('41', x -> from_base(x, 16))", BIGINT, 65L);
-        assertFunction("apply('25.6', x -> CAST(x AS DOUBLE))", DOUBLE, 25.6);
+        assertFunction("apply('25.6E0', x -> CAST(x AS DOUBLE))", DOUBLE, 25.6);
         assertFunction("apply('abc', x -> 'abc' = x)", BOOLEAN, true);
         assertFunction("apply('abc', x -> x || x)", createUnboundedVarcharType(), "abcabc");
         assertFunction(
