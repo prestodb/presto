@@ -1633,8 +1633,6 @@ public class TestAnalyzer
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
-
-        this.metadata = metadata;
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
