@@ -83,4 +83,15 @@ public class TestLocalQueries
 
         assertEquals(result, expectedStatistics);
     }
+
+    @Test
+    public void testDecimal()
+    {
+        assertQuery("SELECT DECIMAL '1.0'", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT DECIMAL '1.'", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT DECIMAL '0.1'", "SELECT CAST('0.1' AS DECIMAL)");
+        assertQuery("SELECT 1.0", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT 1.", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT 0.1", "SELECT CAST('0.1' AS DECIMAL)");
+    }
 }
