@@ -21,9 +21,15 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+
 import static com.facebook.presto.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -148,6 +154,21 @@ public class TestBingTileFunctions
         assertFunction("ST_AsText(apply(bing_tile_polygon(bing_tile(0, 0, 3)), g -> ST_Point(ST_XMin(g), ST_YMax(g))))", VARCHAR, "POINT (-180 85.05112877980659)");
         assertFunction("ST_AsText(apply(bing_tile_polygon(bing_tile(0, 0, 4)), g -> ST_Point(ST_XMin(g), ST_YMax(g))))", VARCHAR, "POINT (-180 85.05112877980659)");
         assertFunction("ST_AsText(apply(bing_tile_polygon(bing_tile(0, 0, 5)), g -> ST_Point(ST_XMin(g), ST_YMax(g))))", VARCHAR, "POINT (-180 85.05112877980659)");
+    }
+
+    @Test
+    public void testLargeGeometryToBingTiles()
+            throws Exception
+    {
+        Path filePath = Paths.get(this.getClass().getClassLoader().getResource("large_polygon.txt").getPath());
+        List<String> lines = Files.readAllLines(filePath);
+        for (String line : lines) {
+            String[] parts = line.split("\\|");
+            String wkt = parts[0];
+            int zoomLevel = Integer.parseInt(parts[1]);
+            long tileCount = Long.parseLong(parts[2]);
+            assertFunction("cardinality(geometry_to_bing_tiles(ST_GeometryFromText('" + wkt + "'), " + zoomLevel + "))", BIGINT, tileCount);
+        }
     }
 
     @Test
