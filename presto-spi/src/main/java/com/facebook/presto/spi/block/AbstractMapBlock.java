@@ -17,9 +17,7 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
@@ -85,7 +83,7 @@ public abstract class AbstractMapBlock
         int[] newOffsets = new int[length + 1];
         boolean[] newMapIsNull = new boolean[length];
 
-        List<Integer> entriesPositions = new ArrayList<>();
+        IntArrayList entriesPositions = new IntArrayList();
         int newPosition = 0;
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
@@ -120,8 +118,8 @@ public abstract class AbstractMapBlock
             }
         }
 
-        Block newKeys = getKeys().copyPositions(entriesPositions);
-        Block newValues = getValues().copyPositions(entriesPositions);
+        Block newKeys = getKeys().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
+        Block newValues = getValues().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
         return new MapBlock(0, length, newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
     }
 

@@ -175,22 +175,22 @@ public class Page
         int dictionarySize = dictionary.getPositionCount();
 
         // determine which dictionary entries are referenced and build a reindex for them
-        List<Integer> dictionaryPositionsToCopy = new ArrayList<>(min(dictionarySize, positionCount));
+        int[] dictionaryPositionsToCopy = new int[min(dictionarySize, positionCount)];
         int[] remapIndex = new int[dictionarySize];
         Arrays.fill(remapIndex, -1);
 
-        int newIndex = 0;
+        int numberOfIndexes = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = firstDictionaryBlock.getId(i);
             if (remapIndex[position] == -1) {
-                dictionaryPositionsToCopy.add(position);
-                remapIndex[position] = newIndex;
-                newIndex++;
+                dictionaryPositionsToCopy[numberOfIndexes] = position;
+                remapIndex[position] = numberOfIndexes;
+                numberOfIndexes++;
             }
         }
 
         // entire dictionary is referenced
-        if (dictionaryPositionsToCopy.size() == dictionarySize) {
+        if (numberOfIndexes == dictionarySize) {
             return blocks;
         }
 
@@ -204,7 +204,7 @@ public class Page
             }
 
             try {
-                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy);
+                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
                 outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, true, newDictionaryId));
             }
             catch (UnsupportedOperationException e) {
