@@ -54,7 +54,7 @@ public class PrestoIntervalDayTime
             return false;
         }
         PrestoIntervalDayTime other = (PrestoIntervalDayTime) obj;
-        return Objects.equals(this.milliSeconds, other.milliSeconds);
+        return this.milliSeconds == other.milliSeconds;
     }
 
     @Override

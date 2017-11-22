@@ -54,7 +54,7 @@ public class PrestoIntervalYearMonth
             return false;
         }
         PrestoIntervalYearMonth other = (PrestoIntervalYearMonth) obj;
-        return Objects.equals(this.months, other.months);
+        return this.months == other.months;
     }
 
     @Override
