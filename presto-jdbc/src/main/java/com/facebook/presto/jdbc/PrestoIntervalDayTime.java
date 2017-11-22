@@ -19,6 +19,7 @@ import static com.facebook.presto.client.IntervalDayTime.formatMillis;
 import static com.facebook.presto.client.IntervalDayTime.toMillis;
 
 public class PrestoIntervalDayTime
+        implements Comparable<PrestoIntervalDayTime>
 {
     private final long milliSeconds;
 
@@ -54,6 +55,12 @@ public class PrestoIntervalDayTime
         }
         PrestoIntervalDayTime other = (PrestoIntervalDayTime) obj;
         return Objects.equals(this.milliSeconds, other.milliSeconds);
+    }
+
+    @Override
+    public int compareTo(PrestoIntervalDayTime o)
+    {
+        return Long.compare(milliSeconds, o.milliSeconds);
     }
 
     @Override
