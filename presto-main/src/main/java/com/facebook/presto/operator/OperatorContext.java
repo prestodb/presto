@@ -426,6 +426,12 @@ public class OperatorContext
 
     public synchronized SettableFuture<?> getMemoryRevokingRequestedFuture()
     {
+        boolean alreadyRequested = isMemoryRevokingRequested();
+        if (!alreadyRequested && revocableMemoryReservation == 0) {
+            // use fresh Future to remove unwanted listener
+            memoryRevokingRequestedFuture = SettableFuture.create();
+        }
+
         return memoryRevokingRequestedFuture;
     }
 
