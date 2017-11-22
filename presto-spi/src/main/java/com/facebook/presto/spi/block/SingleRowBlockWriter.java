@@ -210,7 +210,7 @@ public class SingleRowBlockWriter
             return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=false, positionCount=%d}", numFields, getPositionCount());
         }
         else {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=true}");
+            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=true}", numFields);
         }
     }
 
