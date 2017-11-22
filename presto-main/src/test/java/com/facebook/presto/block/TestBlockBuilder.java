@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -92,7 +91,7 @@ public class TestBlockBuilder
 
         // test mask for block builder
         Block expected = BIGINT.createFixedSizeBlockBuilder(5).appendNull().writeLong(42).writeLong(42).writeLong(42).appendNull().build();
-        assertBlockEquals(BIGINT, blockBuilder.mask(positions), expected);
+        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions), expected);
 
         // out of range
         assertInvalidMask(blockBuilder, new int[] {-1});
@@ -100,7 +99,7 @@ public class TestBlockBuilder
 
         // test mask for block
         Block block = blockBuilder.build();
-        assertBlockEquals(BIGINT, block.mask(positions), expected);
+        assertBlockEquals(BIGINT, block.getPositions(positions), expected);
 
         // out of range
         assertInvalidMask(block, new int[] {-1});
@@ -110,7 +109,7 @@ public class TestBlockBuilder
     private static void assertInvalidMask(Block block, int[] positions)
     {
         try {
-            block.mask(positions).getLong(0, 0);
+            block.getPositions(positions).getLong(0, 0);
             fail("Expected to fail");
         }
         catch (IllegalArgumentException e) {

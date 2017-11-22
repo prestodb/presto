@@ -262,12 +262,12 @@ public class Page
         return blocks[0].getPositionCount();
     }
 
-    public Page mask(int[] retainedPositions)
+    public Page getPositions(int[] retainedPositions)
     {
         requireNonNull(retainedPositions, "retainedPositions is null");
 
         Block[] blocks = Arrays.stream(getBlocks())
-                .map(block -> block.mask(retainedPositions))
+                .map(block -> block.getPositions(retainedPositions))
                 .toArray(Block[]::new);
         return new Page(retainedPositions.length, blocks);
     }
