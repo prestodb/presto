@@ -17,12 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 
 public class ParsingUtil
 {
     public static ParsingOptions createParsingOptions(Session session)
     {
-        return new ParsingOptions(isParseDecimalLiteralsAsDouble(session));
+        return new ParsingOptions(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL);
     }
 
     private ParsingUtil() {}

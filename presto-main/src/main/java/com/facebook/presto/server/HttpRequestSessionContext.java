@@ -51,6 +51,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -286,7 +287,7 @@ public final class HttpRequestSessionContext
             // Validate statement
             SqlParser sqlParser = new SqlParser();
             try {
-                sqlParser.createStatement(sqlString, new ParsingOptions(true /* anything */));
+                sqlParser.createStatement(sqlString, new ParsingOptions(AS_DOUBLE /* anything */));
             }
             catch (ParsingException e) {
                 throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 
 public final class TreeAssertions
@@ -36,7 +37,7 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(SqlParser sqlParser, Node expected)
     {
-        ParsingOptions parsingOptions = new ParsingOptions(true /* anything */);
+        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
         assertFormattedSql(sqlParser, parsingOptions, expected);
     }
 

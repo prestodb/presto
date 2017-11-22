@@ -31,11 +31,6 @@ public class ParsingOptions
         this(DecimalLiteralTreatment.REJECT);
     }
 
-    public ParsingOptions(boolean parseDecimalLiteralsAsDouble)
-    {
-        this(parseDecimalLiteralsAsDouble ? DecimalLiteralTreatment.AS_DOUBLE : DecimalLiteralTreatment.AS_DECIMAL);
-    }
-
     public ParsingOptions(DecimalLiteralTreatment decimalLiteralTreatment)
     {
         this.decimalLiteralTreatment = requireNonNull(decimalLiteralTreatment, "decimalLiteralTreatment is null");

@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.QueryType.CREATE;
 import static com.facebook.presto.verifier.QueryType.MODIFY;
 import static com.facebook.presto.verifier.QueryType.READ;
@@ -284,7 +285,7 @@ public class PrestoVerifier
     static QueryType statementToQueryType(SqlParser parser, String sql)
     {
         try {
-            return statementToQueryType(parser.createStatement(sql, new ParsingOptions(true /* anything */)));
+            return statementToQueryType(parser.createStatement(sql, new ParsingOptions(AS_DOUBLE /* anything */)));
         }
         catch (RuntimeException e) {
             throw new UnsupportedOperationException();
