@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
@@ -67,7 +64,7 @@ public abstract class AbstractRowBlock
         int[] newOffsets = new int[length + 1];
         boolean[] newRowIsNull = new boolean[length];
 
-        List<Integer> fieldBlockPositions = new ArrayList<>(length);
+        IntArrayList fieldBlockPositions = new IntArrayList(length);
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             if (isNull(position)) {
@@ -82,7 +79,7 @@ public abstract class AbstractRowBlock
 
         Block[] newBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
-            newBlocks[i] = getFieldBlocks()[i].copyPositions(fieldBlockPositions);
+            newBlocks[i] = getFieldBlocks()[i].copyPositions(fieldBlockPositions.elements(), 0, fieldBlockPositions.size());
         }
         return new RowBlock(0, length, newRowIsNull, newOffsets, newBlocks);
     }
