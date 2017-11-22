@@ -38,6 +38,7 @@ import java.util.OptionalInt;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryProcessingJoinEnabled;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
@@ -128,8 +129,7 @@ public class LookupJoinOperator
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         operatorContext.setInfoSupplier(this.statisticsCounter);
 
-        // TODO: wire in session property
-        this.useDictionaryProcessing = true;
+        this.useDictionaryProcessing = isDictionaryProcessingJoinEnabled(operatorContext.getSession());
         if (useDictionaryProcessing) {
             this.pageBuilder = new DictionaryLookupJoinPageBuilder(buildOutputTypes);
         }

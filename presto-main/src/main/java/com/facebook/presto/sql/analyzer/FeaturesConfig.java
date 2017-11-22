@@ -44,6 +44,7 @@ public class FeaturesConfig
 {
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
+    private boolean dictionaryProcessingJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
     private boolean fastInequalityJoins = true;
     private boolean reorderJoins = true;
@@ -110,6 +111,18 @@ public class FeaturesConfig
     public boolean isDistributedJoinsEnabled()
     {
         return distributedJoinsEnabled;
+    }
+
+    @Config("dictionary-processing-joins-enabled")
+    public FeaturesConfig setDictionaryProcessingJoinsEnabled(boolean dictionaryProcessingJoinsEnabled)
+    {
+        this.dictionaryProcessingJoinsEnabled = dictionaryProcessingJoinsEnabled;
+        return this;
+    }
+
+    public boolean isDictionaryProcessingJoinsEnabled()
+    {
+        return dictionaryProcessingJoinsEnabled;
     }
 
     @Config("deprecated.legacy-array-agg")
