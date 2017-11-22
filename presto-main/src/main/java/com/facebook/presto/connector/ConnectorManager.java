@@ -35,14 +35,12 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
-import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -365,17 +363,6 @@ public class ConnectorManager
                 requireNonNull(connectorPageSinkProvider, format("Connector %s returned a null page sink provider", connectorId));
             }
             catch (UnsupportedOperationException ignored) {
-            }
-
-            if (connectorPageSinkProvider == null) {
-                ConnectorRecordSinkProvider connectorRecordSinkProvider;
-                try {
-                    connectorRecordSinkProvider = connector.getRecordSinkProvider();
-                    requireNonNull(connectorRecordSinkProvider, format("Connector %s returned a null record sink provider", connectorId));
-                    connectorPageSinkProvider = new RecordPageSinkProvider(connectorRecordSinkProvider);
-                }
-                catch (UnsupportedOperationException ignored) {
-                }
             }
             this.pageSinkProvider = Optional.ofNullable(connectorPageSinkProvider);
 
