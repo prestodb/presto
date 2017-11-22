@@ -32,7 +32,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -45,12 +44,12 @@ import org.joda.time.DateTimeZone;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
@@ -170,7 +169,7 @@ public class OrcRecordReader
             }
             stripeInfos.add(new StripeInfo(fileStripes.get(i), stats));
         }
-        Collections.sort(stripeInfos, comparingLong(info -> info.getStripe().getOffset()));
+        stripeInfos.sort(comparingLong(info -> info.getStripe().getOffset()));
 
         long totalRowCount = 0;
         long fileRowCount = 0;
@@ -379,12 +378,6 @@ public class OrcRecordReader
         return block;
     }
 
-    public StreamReader getStreamReader(int index)
-    {
-        checkArgument(index < streamReaders.length, "index does not exist");
-        return streamReaders[index];
-    }
-
     public Map<String, Slice> getUserMetadata()
     {
         return ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
@@ -461,17 +454,14 @@ public class OrcRecordReader
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
             throws OrcCorruptionException
     {
-        if (writeValidation.isPresent() && !test.apply(writeValidation.get())) {
+        if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
             throw new OrcCorruptionException(orcDataSource.getId(), "Write validation failed: " + messageFormat, args);
         }
     }
 
     private void validateWriteStripe(int rowCount)
-            throws IOException
     {
-        if (writeChecksumBuilder.isPresent()) {
-            writeChecksumBuilder.get().addStripe(rowCount);
-        }
+        writeChecksumBuilder.ifPresent(writeChecksumBuilder -> writeChecksumBuilder.addStripe(rowCount));
     }
 
     private void validateWritePageChecksum()
@@ -598,7 +588,7 @@ public class OrcRecordReader
 
         public static LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
         {
-            if (stripes.size() == 0) {
+            if (stripes.isEmpty()) {
                 return new LinearProbeRangeFinder(ImmutableList.of());
             }
 
