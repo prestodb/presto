@@ -175,6 +175,7 @@ public class ExpressionAnalyzer
     private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons = new LinkedHashSet<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
+    private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
 
     private final Session session;
     private final List<Expression> parameters;
@@ -276,6 +277,11 @@ public class ExpressionAnalyzer
     public Set<NodeRef<QuantifiedComparisonExpression>> getQuantifiedComparisons()
     {
         return unmodifiableSet(quantifiedComparisons);
+    }
+
+    public Set<NodeRef<FunctionCall>> getWindowFunctions()
+    {
+        return unmodifiableSet(windowFunctions);
     }
 
     private class Visitor
@@ -772,6 +778,8 @@ public class ExpressionAnalyzer
                         }
                     }
                 }
+
+                windowFunctions.add(NodeRef.of(node));
             }
 
             if (node.getFilter().isPresent()) {
@@ -1485,7 +1493,8 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
-                analyzer.getLambdaArgumentReferences());
+                analyzer.getLambdaArgumentReferences(),
+                analyzer.getWindowFunctions());
     }
 
     public static ExpressionAnalysis analyzeExpression(
@@ -1520,7 +1529,8 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
-                analyzer.getLambdaArgumentReferences());
+                analyzer.getLambdaArgumentReferences(),
+                analyzer.getWindowFunctions());
     }
 
     public static ExpressionAnalyzer create(
