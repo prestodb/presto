@@ -748,11 +748,10 @@ public class TestSqlParser
         assertExpression("DECIMAL '+.34'", new DecimalLiteral("+.34"));
         assertExpression("DECIMAL '-.34'", new DecimalLiteral("-.34"));
 
-        String unexpectedLiteral = "Unexpected decimal literal in context unaware of parsing configuration";
-        assertInvalidExpression("123.", unexpectedLiteral);
-        assertInvalidExpression("123.0", unexpectedLiteral);
-        assertInvalidExpression(".5", unexpectedLiteral);
-        assertInvalidExpression("123.5", unexpectedLiteral);
+        assertInvalidExpression("123.", "Unexpected decimal literal: 123.");
+        assertInvalidExpression("123.0", "Unexpected decimal literal: 123.0");
+        assertInvalidExpression(".5", "Unexpected decimal literal: .5");
+        assertInvalidExpression("123.5", "Unexpected decimal literal: 123.5");
     }
 
     @Test
