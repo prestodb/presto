@@ -163,6 +163,7 @@ public class MongoPageSink
         }
         if (type instanceof DecimalType) {
             // TODO: decimal type might not support yet
+            // TODO: this code is likely wrong and should switch to Decimals.readBigDecimal()
             DecimalType decimalType = (DecimalType) type;
             BigInteger unscaledValue;
             if (decimalType.isShort()) {

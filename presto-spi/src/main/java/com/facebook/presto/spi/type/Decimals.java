@@ -14,11 +14,13 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -230,6 +232,14 @@ public final class Decimals
         if (overflows(value)) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value is out of range: %s", value.toString()));
         }
+    }
+
+    public static BigDecimal readBigDecimal(DecimalType type, Block block, int position)
+    {
+        BigInteger unscaledValue = type.isShort()
+                ? BigInteger.valueOf(type.getLong(block, position))
+                : decodeUnscaledValue(type.getSlice(block, position));
+        return new BigDecimal(unscaledValue, type.getScale(), new MathContext(type.getPrecision()));
     }
 
     public static void writeBigDecimal(DecimalType decimalType, BlockBuilder blockBuilder, BigDecimal value)
