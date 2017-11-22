@@ -31,11 +31,11 @@ public class SimpleJoinProbe
             implements JoinProbeFactory
     {
         private List<Type> types;
-        private List<Integer> probeOutputChannels;
+        private int[] probeOutputChannels;
         private List<Integer> probeJoinChannels;
         private final OptionalInt probeHashChannel;
 
-        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+        public SimpleJoinProbeFactory(List<Type> types, int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
         {
             this.types = types;
             this.probeOutputChannels = probeOutputChannels;
@@ -51,7 +51,7 @@ public class SimpleJoinProbe
     }
 
     private final List<Type> types;
-    private final List<Integer> probeOutputChannels;
+    private final int[] probeOutputChannels;
     private final int positionCount;
     private final Block[] blocks;
     private final Block[] probeBlocks;
@@ -61,7 +61,7 @@ public class SimpleJoinProbe
 
     private int position = -1;
 
-    private SimpleJoinProbe(List<Type> types, List<Integer> probeOutputChannels, Page page, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+    private SimpleJoinProbe(List<Type> types, int[] probeOutputChannels, Page page, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
     {
         this.types = types;
         this.probeOutputChannels = probeOutputChannels;
@@ -84,7 +84,13 @@ public class SimpleJoinProbe
     @Override
     public int getOutputChannelCount()
     {
-        return probeOutputChannels.size();
+        return probeOutputChannels.length;
+    }
+
+    @Override
+    public int[] getOutputChannels()
+    {
+        return probeOutputChannels;
     }
 
     @Override

@@ -921,6 +921,18 @@ public class BytecodeBlock
         return this;
     }
 
+    public BytecodeBlock getIntArrayElement()
+    {
+        nodes.add(OpCode.IALOAD);
+        return this;
+    }
+
+    public BytecodeBlock putIntArrayElement()
+    {
+        nodes.add(OpCode.IASTORE);
+        return this;
+    }
+
     public BytecodeBlock visitLineNumber(int currentLineNumber)
     {
         checkArgument(currentLineNumber >= 0, "currentLineNumber must be positive");
