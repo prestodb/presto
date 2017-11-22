@@ -72,6 +72,7 @@ public class LookupJoinOperator
     private JoinProbe probe;
 
     private Page outputPage;
+    private boolean useDictionaryProcessing;
 
     private Optional<PartitioningSpiller> spiller = Optional.empty();
     private Optional<LocalPartitionGenerator> partitionGenerator = Optional.empty();
@@ -127,7 +128,14 @@ public class LookupJoinOperator
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         operatorContext.setInfoSupplier(this.statisticsCounter);
 
-        this.pageBuilder = new CopyPositionLookupJoinPageBuilder(allTypes, buildOutputTypes.size());
+        // TODO: wire in session property
+        this.useDictionaryProcessing = true;
+        if (useDictionaryProcessing) {
+            this.pageBuilder = new DictionaryLookupJoinPageBuilder(buildOutputTypes);
+        }
+        else {
+            this.pageBuilder = new CopyPositionLookupJoinPageBuilder(allTypes, buildOutputTypes.size());
+        }
     }
 
     @Override
@@ -314,7 +322,9 @@ public class LookupJoinOperator
             return output;
         }
 
-        if (!pageBuilder.isEmpty() && probe == null && finished) {
+        // If useDictionaryProcessing is turned on, it is impossible to have probe == null && !pageBuilder.isEmpty(),
+        // because we will flush a page whenever we reach the probe end
+        if (!pageBuilder.isEmpty() && probe == null && finished && !useDictionaryProcessing) {
             Page page = pageBuilder.build(null);
             pageBuilder.reset();
             return page;
@@ -678,6 +688,10 @@ public class LookupJoinOperator
 
     private void clearProbe()
     {
+        if (useDictionaryProcessing) {
+            // Before updating the probe flush the current page
+            buildPage();
+        }
         probe = null;
     }
 }

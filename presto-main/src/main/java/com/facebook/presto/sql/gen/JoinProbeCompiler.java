@@ -70,6 +70,7 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.bytecode.instruction.TypeInstruction.newPrimitiveArray;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -155,7 +156,7 @@ public class JoinProbeCompiler
         JoinProbeFactory joinProbeFactory;
         if (probeJoinChannel.isEmpty()) {
             // see comment in PagesIndex#createLookupSource
-            joinProbeFactory = new SimpleJoinProbe.SimpleJoinProbeFactory(types, probeOutputChannels, probeJoinChannel, probeHashChannel);
+            joinProbeFactory = new SimpleJoinProbe.SimpleJoinProbeFactory(types, probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel);
         }
         else {
             Class<? extends JoinProbeFactory> joinProbeFactoryClass = defineClass(classDefinition, JoinProbeFactory.class, classLoader);
@@ -206,12 +207,14 @@ public class JoinProbeCompiler
         }
         FieldDefinition probeBlocksArrayField = classDefinition.declareField(a(PRIVATE, FINAL), "probeBlocks", Block[].class);
         FieldDefinition probePageField = classDefinition.declareField(a(PRIVATE, FINAL), "probePage", Page.class);
+        FieldDefinition probeOutputChannelsField = classDefinition.declareField(a(PRIVATE, FINAL), "probeOutputChannels", int[].class);
         FieldDefinition pageField = classDefinition.declareField(a(PRIVATE, FINAL), "page", Page.class);
         FieldDefinition positionField = classDefinition.declareField(a(PRIVATE), "position", int.class);
         FieldDefinition probeHashBlockField = classDefinition.declareField(a(PRIVATE, FINAL), "probeHashBlock", Block.class);
 
-        generateConstructor(classDefinition, probeChannels, probeHashChannel, blockFields, probeBlockFields, probeBlocksArrayField, probePageField, pageField, probeHashBlockField, positionField, positionCountField);
+        generateConstructor(classDefinition, probeChannels, probeOutputChannels, probeHashChannel, blockFields, probeBlockFields, probeOutputChannelsField, probeBlocksArrayField, probePageField, pageField, probeHashBlockField, positionField, positionCountField);
         generateGetChannelCountMethod(classDefinition, probeOutputChannels.size());
+        generateGetOutputChannelsMethod(classDefinition, probeOutputChannelsField);
         generateAppendToMethod(classDefinition, callSiteBinder, types, probeOutputChannels, blockFields, positionField);
         generateAdvanceNextPosition(classDefinition, positionField, positionCountField);
         generateGetCurrentJoinPosition(classDefinition, callSiteBinder, probePageField, pageField, probeHashChannel, probeHashBlockField, positionField);
@@ -224,9 +227,11 @@ public class JoinProbeCompiler
 
     private static void generateConstructor(ClassDefinition classDefinition,
             List<Integer> probeChannels,
+            List<Integer> probeOutputChannels,
             OptionalInt probeHashChannel,
             List<FieldDefinition> blockFields,
             List<FieldDefinition> probeChannelFields,
+            FieldDefinition probeOutputChannelsField,
             FieldDefinition probeBlocksArrayField,
             FieldDefinition probePageField,
             FieldDefinition pageField,
@@ -247,6 +252,23 @@ public class JoinProbeCompiler
 
         constructor.comment("this.positionCount = page.getPositionCount();")
                 .append(thisVariable.setField(positionCountField, page.invoke("getPositionCount", int.class)));
+
+        constructor.comment("this.probeOutputChannels = new int[<probeOutputChannelCount>];")
+                .append(thisVariable)
+                .push(probeOutputChannels.size())
+                .append(newPrimitiveArray(type(int.class)))
+                .putField(probeOutputChannelsField)
+                .comment("this.probeOutputChannels = probeOutputChannels;")
+                .append(thisVariable)
+                .getField(probeOutputChannelsField);
+        for (int index = 0; index < probeOutputChannels.size(); index++) {
+            constructor
+                    .dup()
+                    .push(index)
+                    .push(probeOutputChannels.get(index))
+                    .putIntArrayElement();
+        }
+        constructor.pop();
 
         constructor.comment("Set block fields");
         for (int index = 0; index < blockFields.size(); index++) {
@@ -307,6 +329,18 @@ public class JoinProbeCompiler
                 .getBody()
                 .push(channelCount)
                 .retInt();
+    }
+
+    private static void generateGetOutputChannelsMethod(ClassDefinition classDefinition, FieldDefinition probeOutputChannelsField)
+    {
+        MethodDefinition method = classDefinition.declareMethod(
+                a(PUBLIC),
+                "getOutputChannels",
+                type(int[].class));
+
+        method.getBody()
+                .append(method.getThis().getField(probeOutputChannelsField))
+                .ret(int[].class);
     }
 
     private static void generateAppendToMethod(

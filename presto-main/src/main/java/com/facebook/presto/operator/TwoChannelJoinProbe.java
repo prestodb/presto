@@ -61,6 +61,7 @@ public class TwoChannelJoinProbe
     private final Block blockB;
     private final Block probeBlockA;
     private final Block probeBlockB;
+    private final int[] probeOutputChannels;
     private final Block[] probeBlocks;
     private final Page page;
     private final Page probePage;
@@ -78,6 +79,7 @@ public class TwoChannelJoinProbe
         this.probeBlocks = new Block[2];
         probeBlocks[0] = probeBlockA;
         probeBlocks[1] = probeBlockB;
+        this.probeOutputChannels = new int[]{0, 1};
         this.page = page;
         this.probePage = new Page(probeBlocks);
     }
@@ -86,6 +88,12 @@ public class TwoChannelJoinProbe
     public int getOutputChannelCount()
     {
         return 2;
+    }
+
+    @Override
+    public int[] getOutputChannels()
+    {
+        return probeOutputChannels;
     }
 
     @Override
