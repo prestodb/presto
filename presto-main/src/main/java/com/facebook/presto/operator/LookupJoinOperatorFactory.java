@@ -170,6 +170,7 @@ public class LookupJoinOperatorFactory
                 operatorContext,
                 getTypes(),
                 probeTypes,
+                buildOutputTypes,
                 joinType,
                 lookupSourceFactory,
                 joinProbeFactory,
