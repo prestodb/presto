@@ -15,8 +15,8 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -42,7 +42,7 @@ public class JdbcConnector
     private final JdbcMetadataFactory jdbcMetadataFactory;
     private final JdbcSplitManager jdbcSplitManager;
     private final JdbcRecordSetProvider jdbcRecordSetProvider;
-    private final JdbcRecordSinkProvider jdbcRecordSinkProvider;
+    private final JdbcPageSinkProvider jdbcPageSinkProvider;
 
     private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
 
@@ -52,13 +52,13 @@ public class JdbcConnector
             JdbcMetadataFactory jdbcMetadataFactory,
             JdbcSplitManager jdbcSplitManager,
             JdbcRecordSetProvider jdbcRecordSetProvider,
-            JdbcRecordSinkProvider jdbcRecordSinkProvider)
+            JdbcPageSinkProvider jdbcPageSinkProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.jdbcMetadataFactory = requireNonNull(jdbcMetadataFactory, "jdbcMetadataFactory is null");
         this.jdbcSplitManager = requireNonNull(jdbcSplitManager, "jdbcSplitManager is null");
         this.jdbcRecordSetProvider = requireNonNull(jdbcRecordSetProvider, "jdbcRecordSetProvider is null");
-        this.jdbcRecordSinkProvider = requireNonNull(jdbcRecordSinkProvider, "jdbcRecordSinkProvider is null");
+        this.jdbcPageSinkProvider = requireNonNull(jdbcPageSinkProvider, "jdbcPageSinkProvider is null");
     }
 
     @Override
@@ -111,9 +111,9 @@ public class JdbcConnector
     }
 
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    public ConnectorPageSinkProvider getPageSinkProvider()
     {
-        return jdbcRecordSinkProvider;
+        return jdbcPageSinkProvider;
     }
 
     @Override

@@ -15,35 +15,35 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 
-public class JdbcRecordSinkProvider
-        implements ConnectorRecordSinkProvider
+public class JdbcPageSinkProvider
+        implements ConnectorPageSinkProvider
 {
     private final JdbcClient jdbcClient;
 
     @Inject
-    public JdbcRecordSinkProvider(JdbcClient jdbcClient)
+    public JdbcPageSinkProvider(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        return new JdbcRecordSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return new JdbcPageSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        return new JdbcRecordSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return new JdbcPageSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
     }
 }
