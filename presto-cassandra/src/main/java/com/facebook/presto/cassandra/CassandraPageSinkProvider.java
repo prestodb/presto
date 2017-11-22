@@ -15,9 +15,9 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
@@ -25,25 +25,25 @@ import javax.inject.Inject;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class CassandraConnectorRecordSinkProvider
-        implements ConnectorRecordSinkProvider
+public class CassandraPageSinkProvider
+        implements ConnectorPageSinkProvider
 {
     private final CassandraSession cassandraSession;
 
     @Inject
-    public CassandraConnectorRecordSinkProvider(CassandraSession cassandraSession)
+    public CassandraPageSinkProvider(CassandraSession cassandraSession)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraOutputTableHandle, "tableHandle is not an instance of CassandraOutputTableHandle");
         CassandraOutputTableHandle handle = (CassandraOutputTableHandle) tableHandle;
 
-        return new CassandraRecordSink(
+        return new CassandraPageSink(
                 cassandraSession,
                 handle.getSchemaName(),
                 handle.getTableName(),
@@ -53,13 +53,13 @@ public class CassandraConnectorRecordSinkProvider
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraInsertTableHandle, "tableHandle is not an instance of ConnectorInsertTableHandle");
         CassandraInsertTableHandle handle = (CassandraInsertTableHandle) tableHandle;
 
-        return new CassandraRecordSink(
+        return new CassandraPageSink(
                 cassandraSession,
                 handle.getSchemaName(),
                 handle.getTableName(),
