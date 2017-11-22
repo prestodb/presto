@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -66,6 +65,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
@@ -1443,7 +1443,7 @@ public class TestExpressionInterpreter
 
     private static void assertRoundTrip(String expression)
     {
-        ParsingOptions parsingOptions = new ParsingOptions(new FeaturesConfig().isParseDecimalLiteralsAsDouble());
+        ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
         assertEquals(SQL_PARSER.createExpression(expression, parsingOptions),
                 SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression, parsingOptions), Optional.empty()), parsingOptions));
     }
