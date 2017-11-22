@@ -19,6 +19,7 @@ import java.util.List;
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static java.lang.String.format;
 
 public abstract class AbstractRowBlock
         implements Block
@@ -89,7 +90,7 @@ public abstract class AbstractRowBlock
     {
         int positionCount = getPositionCount();
         if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
         }
 
         if (position == 0 && length == positionCount) {
@@ -104,7 +105,7 @@ public abstract class AbstractRowBlock
     {
         int positionCount = getPositionCount();
         if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
         }
 
         int startFieldBlockOffset = getFieldBlockOffset(position);
@@ -123,7 +124,7 @@ public abstract class AbstractRowBlock
     {
         int positionCount = getPositionCount();
         if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
         }
 
         int startFieldBlockOffset = getFieldBlockOffset(position);
