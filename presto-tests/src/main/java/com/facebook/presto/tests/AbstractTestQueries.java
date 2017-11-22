@@ -5435,7 +5435,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)");
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1.5, 2.3)", "SELECT orderkey FROM orders LIMIT 0"); // H2 incorrectly matches rows
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, CAST(2.0 AS DOUBLE), 3)");
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2E0, 3)");
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
         assertQuery("SELECT x FROM (values 3, 100) t(x) WHERE x IN (2147483649)", "SELECT * WHERE false");
         assertQuery("SELECT x FROM (values 3, 100, 2147483648, 2147483649, 2147483650) t(x) WHERE x IN (2147483648, 2147483650)", "values 2147483648, 2147483650");
@@ -8456,7 +8456,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testValuesWithNonTrivialType()
     {
-        MaterializedResult actual = computeActual("VALUES (0.0/CAST(0.0 AS DOUBLE), 1.0/CAST(0.0 AS DOUBLE), -1.0/CAST(0.0 AS DOUBLE))");
+        MaterializedResult actual = computeActual("VALUES (0E0/0E0, 1E0/0E0, -1E0/0E0)");
 
         List<MaterializedRow> rows = actual.getMaterializedRows();
         assertEquals(rows.size(), 1);
