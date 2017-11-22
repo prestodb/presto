@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.sql.parser.ParsingOptions.FixedPointLiteralType.UNDEFINED;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
 
 public final class SqlFormatterUtil
 {
@@ -37,7 +37,7 @@ public final class SqlFormatterUtil
         // verify round-trip
         Statement parsed;
         try {
-            ParsingOptions parsingOptions = new ParsingOptions(UNDEFINED /* formatted SQL should be unambiguous */);
+            ParsingOptions parsingOptions = new ParsingOptions(REJECT /* formatted SQL should be unambiguous */);
             parsed = sqlParser.createStatement(sql, parsingOptions);
         }
         catch (ParsingException e) {

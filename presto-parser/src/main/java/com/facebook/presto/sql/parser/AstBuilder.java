@@ -1579,13 +1579,13 @@ class AstBuilder
     @Override
     public Node visitDecimalLiteral(SqlBaseParser.DecimalLiteralContext context)
     {
-        switch (parsingOptions.getFixedPointLiteralType()) {
-            case DOUBLE:
+        switch (parsingOptions.getDecimalLiteralTreatment()) {
+            case AS_DOUBLE:
                 return new DoubleLiteral(getLocation(context), context.getText());
-            case DECIMAL:
+            case AS_DECIMAL:
                 return new DecimalLiteral(getLocation(context), context.getText());
-            case UNDEFINED:
-                throw new ParsingException("Unexpected decimal literal in context unaware of parsing configuration");
+            case REJECT:
+                throw new ParsingException("Unexpected decimal literal: " + context.getText());
         }
         throw new AssertionError("Unreachable");
     }

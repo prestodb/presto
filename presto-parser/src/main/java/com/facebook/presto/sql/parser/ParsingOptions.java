@@ -17,32 +17,32 @@ import static java.util.Objects.requireNonNull;
 
 public class ParsingOptions
 {
-    public enum FixedPointLiteralType
+    public enum DecimalLiteralTreatment
     {
-        DOUBLE,
-        DECIMAL,
-        UNDEFINED
+        AS_DOUBLE,
+        AS_DECIMAL,
+        REJECT
     }
 
-    private final FixedPointLiteralType fixedPointLiteralType;
+    private final DecimalLiteralTreatment decimalLiteralTreatment;
 
     public ParsingOptions()
     {
-        this(FixedPointLiteralType.UNDEFINED);
+        this(DecimalLiteralTreatment.REJECT);
     }
 
     public ParsingOptions(boolean parseDecimalLiteralsAsDouble)
     {
-        this(parseDecimalLiteralsAsDouble ? FixedPointLiteralType.DOUBLE : FixedPointLiteralType.DECIMAL);
+        this(parseDecimalLiteralsAsDouble ? DecimalLiteralTreatment.AS_DOUBLE : DecimalLiteralTreatment.AS_DECIMAL);
     }
 
-    public ParsingOptions(FixedPointLiteralType fixedPointLiteralType)
+    public ParsingOptions(DecimalLiteralTreatment decimalLiteralTreatment)
     {
-        this.fixedPointLiteralType = requireNonNull(fixedPointLiteralType, "fixedPointLiteralType is null");
+        this.decimalLiteralTreatment = requireNonNull(decimalLiteralTreatment, "decimalLiteralTreatment is null");
     }
 
-    public FixedPointLiteralType getFixedPointLiteralType()
+    public DecimalLiteralTreatment getDecimalLiteralTreatment()
     {
-        return fixedPointLiteralType;
+        return decimalLiteralTreatment;
     }
 }
