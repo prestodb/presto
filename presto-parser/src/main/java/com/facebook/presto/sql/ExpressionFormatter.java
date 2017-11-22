@@ -236,6 +236,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitDecimalLiteral(DecimalLiteral node, Void context)
         {
+            // TODO return node value without "DECIMAL '..'" when FeaturesConfig#parseDecimalLiteralsAsDouble switch is removed
             return "DECIMAL '" + node.getValue() + "'";
         }
 
