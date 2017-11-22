@@ -157,37 +157,37 @@ public class TestDictionaryBlock
     }
 
     @Test
-    public void testBasicMask()
+    public void testBasicGetPositions()
     {
         Slice[] expectedValues = createExpectedValues(10);
         Block dictionaryBlock = new DictionaryBlock(makeSliceArrayBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
         assertBlock(dictionaryBlock, new Slice[] {expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5]});
         DictionaryId dictionaryId = ((DictionaryBlock) dictionaryBlock).getDictionarySourceId();
 
-        // first mask
-        dictionaryBlock = dictionaryBlock.mask(new int[] {1, 2, 4, 5});
+        // first getPositions
+        dictionaryBlock = dictionaryBlock.getPositions(new int[] {1, 2, 4, 5});
         assertBlock(dictionaryBlock, new Slice[] {expectedValues[1], expectedValues[2], expectedValues[4], expectedValues[5]});
         assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
 
-        // second mask
-        dictionaryBlock = dictionaryBlock.mask(new int[] {0, 1, 3});
+        // second getPositions
+        dictionaryBlock = dictionaryBlock.getPositions(new int[] {0, 1, 3});
         assertBlock(dictionaryBlock, new Slice[] {expectedValues[1], expectedValues[2], expectedValues[5]});
         assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
 
-        // mixed mask
-        dictionaryBlock = dictionaryBlock.mask(new int[] {0, 2, 2});
+        // mixed getPositions
+        dictionaryBlock = dictionaryBlock.getPositions(new int[] {0, 2, 2});
         assertBlock(dictionaryBlock, new Slice[] {expectedValues[1], expectedValues[5], expectedValues[5]});
         assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
 
-        // duplicated mask
-        dictionaryBlock = dictionaryBlock.mask(new int[] {1, 1, 1, 1, 1});
+        // duplicated getPositions
+        dictionaryBlock = dictionaryBlock.getPositions(new int[] {1, 1, 1, 1, 1});
         assertBlock(dictionaryBlock, new Slice[] {expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5]});
         assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
 
         // out of range
         for (int position : ImmutableList.of(-1, 6)) {
             try {
-                dictionaryBlock.mask(new int[] {position});
+                dictionaryBlock.getPositions(new int[] {position});
                 fail("Expected to fail");
             }
             catch (IllegalArgumentException e) {
@@ -197,43 +197,43 @@ public class TestDictionaryBlock
     }
 
     @Test
-    public void testCompactMask()
+    public void testCompactGetPositions()
     {
         DictionaryBlock block = new DictionaryBlock(makeSliceArrayBlock(createExpectedValues(10)), new int[] {0, 1, 2, 3, 4, 5}).compact();
 
         // 3, 3, 4, 5, 2, 0, 1, 1
-        block = (DictionaryBlock) block.mask(new int[] {3, 3, 4, 5, 2, 0, 1, 1});
+        block = (DictionaryBlock) block.getPositions(new int[] {3, 3, 4, 5, 2, 0, 1, 1});
         assertTrue(block.isCompact());
 
         // 3, 3, 4, 5, 2, 0, 1, 1, 0, 2, 5, 4, 3
-        block = (DictionaryBlock) block.mask(new int[] {0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1});
+        block = (DictionaryBlock) block.getPositions(new int[] {0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1});
         assertTrue(block.isCompact());
 
         // 3, 4, 3, 4, 3
-        block = (DictionaryBlock) block.mask(new int[] {0, 2, 0, 2, 0});
+        block = (DictionaryBlock) block.getPositions(new int[] {0, 2, 0, 2, 0});
         assertFalse(block.isCompact());
 
         block = block.compact();
         // 3, 4, 4, 4
-        block = (DictionaryBlock) block.mask(new int[] {0, 1, 1, 1});
+        block = (DictionaryBlock) block.getPositions(new int[] {0, 1, 1, 1});
         assertTrue(block.isCompact());
 
         // 4, 4, 4, 4
-        block = (DictionaryBlock) block.mask(new int[] {1, 1, 1, 1});
+        block = (DictionaryBlock) block.getPositions(new int[] {1, 1, 1, 1});
         assertFalse(block.isCompact());
 
         block = block.compact();
         // 4
-        block = (DictionaryBlock) block.mask(new int[] {0});
+        block = (DictionaryBlock) block.getPositions(new int[] {0});
         assertTrue(block.isCompact());
 
         // empty
-        block = (DictionaryBlock) block.mask(new int[] {});
+        block = (DictionaryBlock) block.getPositions(new int[] {});
         assertFalse(block.isCompact());
 
         block = block.compact();
         // empty
-        block = (DictionaryBlock) block.mask(new int[] {});
+        block = (DictionaryBlock) block.getPositions(new int[] {});
         assertTrue(block.isCompact());
     }
 

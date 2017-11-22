@@ -311,9 +311,9 @@ public class DictionaryBlock
     }
 
     @Override
-    public Block mask(int[] visiblePositions)
+    public Block getPositions(int[] positions)
     {
-        int length = visiblePositions.length;
+        int length = positions.length;
         int[] newIds = new int[length];
         boolean isCompact = isCompact() && length >= dictionary.getPositionCount();
         boolean[] seen = null;
@@ -321,7 +321,7 @@ public class DictionaryBlock
             seen = new boolean[dictionary.getPositionCount()];
         }
         for (int i = 0; i < length; i++) {
-            newIds[i] = getId(visiblePositions[i]);
+            newIds[i] = getId(positions[i]);
             if (isCompact) {
                 seen[newIds[i]] = true;
             }
