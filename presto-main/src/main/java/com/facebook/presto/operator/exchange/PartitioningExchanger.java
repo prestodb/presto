@@ -38,7 +38,7 @@ class PartitioningExchanger
     private final List<Consumer<PageReference>> buffers;
     private final LongConsumer memoryTracker;
     private final LocalPartitionGenerator partitionGenerator;
-    private final IntList[] partitionAssignments;
+    private final IntArrayList[] partitionAssignments;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
@@ -62,7 +62,7 @@ class PartitioningExchanger
         }
         partitionGenerator = new LocalPartitionGenerator(hashGenerator, buffers.size());
 
-        partitionAssignments = new IntList[partitions.size()];
+        partitionAssignments = new IntArrayList[partitions.size()];
         for (int i = 0; i < partitionAssignments.length; i++) {
             partitionAssignments[i] = new IntArrayList();
         }
@@ -86,10 +86,10 @@ class PartitioningExchanger
         Block[] sourceBlocks = page.getBlocks();
         Block[] outputBlocks = new Block[sourceBlocks.length];
         for (int partition = 0; partition < buffers.size(); partition++) {
-            List<Integer> positions = partitionAssignments[partition];
+            IntArrayList positions = partitionAssignments[partition];
             if (!positions.isEmpty()) {
                 for (int i = 0; i < sourceBlocks.length; i++) {
-                    outputBlocks[i] = sourceBlocks[i].copyPositions(positions);
+                    outputBlocks[i] = sourceBlocks[i].copyPositions(positions.elements(), 0, positions.size());
                 }
 
                 Page pageSplit = new Page(positions.size(), outputBlocks);
