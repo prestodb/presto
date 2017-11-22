@@ -1360,6 +1360,13 @@ class StatementAnalyzer
                 Expression predicate = node.getHaving().get();
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
+
+                expressionAnalysis.getWindowFunctions().stream()
+                        .findFirst()
+                        .ifPresent(function -> {
+                            throw new SemanticException(NESTED_WINDOW, function.getNode(), "HAVING clause cannot contain window functions");
+                        });
+
                 analysis.recordSubqueries(node, expressionAnalysis);
 
                 Type predicateType = expressionAnalysis.getType(predicate);

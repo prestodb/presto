@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
@@ -42,6 +43,7 @@ public class ExpressionAnalysis
     private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons;
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences;
+    private final Set<NodeRef<FunctionCall>> windowFunctions;
 
     public ExpressionAnalysis(
             Map<NodeRef<Expression>, Type> expressionTypes,
@@ -52,7 +54,8 @@ public class ExpressionAnalysis
             Map<NodeRef<Expression>, FieldId> columnReferences,
             Set<NodeRef<Expression>> typeOnlyCoercions,
             Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons,
-            Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences)
+            Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences,
+            Set<NodeRef<FunctionCall>> windowFunctions)
     {
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         this.expressionCoercions = ImmutableMap.copyOf(requireNonNull(expressionCoercions, "expressionCoercions is null"));
@@ -63,6 +66,7 @@ public class ExpressionAnalysis
         this.existsSubqueries = ImmutableSet.copyOf(requireNonNull(existsSubqueries, "existsSubqueries is null"));
         this.quantifiedComparisons = ImmutableSet.copyOf(requireNonNull(quantifiedComparisons, "quantifiedComparisons is null"));
         this.lambdaArgumentReferences = ImmutableMap.copyOf(requireNonNull(lambdaArgumentReferences, "lambdaArgumentReferences is null"));
+        this.windowFunctions = ImmutableSet.copyOf(requireNonNull(windowFunctions, "windowFunctions is null"));
     }
 
     public Type getType(Expression expression)
@@ -108,5 +112,10 @@ public class ExpressionAnalysis
     public Set<NodeRef<QuantifiedComparisonExpression>> getQuantifiedComparisons()
     {
         return quantifiedComparisons;
+    }
+
+    public Set<NodeRef<FunctionCall>> getWindowFunctions()
+    {
+        return windowFunctions;
     }
 }
