@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
@@ -35,13 +36,15 @@ final class PrestoSystemRequirements
 {
     private static final int MIN_FILE_DESCRIPTORS = 4096;
     private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
+    private static final List<String> JVM_VENDORS = ImmutableList.of(
+            "Azul Systems, Inc.", "Oracle Corporation");
 
     private PrestoSystemRequirements() {}
 
     public static void verifyJvmRequirements()
     {
         String vendor = StandardSystemProperty.JAVA_VENDOR.value();
-        if (!"Oracle Corporation".equals(vendor)) {
+        if (!JVM_VENDORS.contains(vendor)) {
             failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
         }
 
