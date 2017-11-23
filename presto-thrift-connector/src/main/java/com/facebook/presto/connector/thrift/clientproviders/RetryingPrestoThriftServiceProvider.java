@@ -29,9 +29,11 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.util.RetryDriver;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.log.Logger;
+import org.apache.thrift.TApplicationException;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
@@ -39,6 +41,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class RetryingPrestoThriftServiceProvider
@@ -58,11 +61,20 @@ public class RetryingPrestoThriftServiceProvider
         retry = RetryDriver.retry(retryExecutor)
                 .maxAttempts(config.getMaxRetryAttempts())
                 .stopRetryingWhen(e -> e instanceof PrestoThriftServiceException && !((PrestoThriftServiceException) e).isRetryable())
+                .withClassifier(RetryingPrestoThriftServiceProvider::classifyException)
                 .exponentialBackoff(
                         config.getMinRetrySleepTime(),
                         config.getMaxRetrySleepTime(),
                         config.getMaxRetryDuration(),
                         config.getRetryScaleFactor());
+    }
+
+    private static Exception classifyException(Exception e)
+    {
+        if (e instanceof TApplicationException) {
+            return new PrestoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by a remote thrift server", e);
+        }
+        return e;
     }
 
     @Override
