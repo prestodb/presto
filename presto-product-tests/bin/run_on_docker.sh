@@ -25,7 +25,9 @@ function hadoop_master_container(){
 }
 
 function check_hadoop() {
-  docker exec $(hadoop_master_container) supervisorctl status hive-server2 | grep -i running
+  HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
+  docker exec ${HADOOP_MASTER_CONTAINER} su hive -c 'hive -e "CREATE TABLE IF NOT EXISTS check_hadoop (a INT);"'
+  docker exec ${HADOOP_MASTER_CONTAINER} su hive -c 'hive -e "INSERT INTO check_hadoop VALUES (1);"' 
 }
 
 function stop_unnecessary_hadoop_services() {
