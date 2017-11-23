@@ -15,7 +15,6 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
-import java.util.List;
 import java.util.function.BiConsumer;
 
 public interface Block
@@ -210,20 +209,6 @@ public interface Block
      * The returned block must be a compact representation of the original block.
      */
     Block copyPositions(int[] positions, int offset, int length);
-
-    /**
-     * Returns a block containing the specified positions.
-     * All specified positions must be valid for this block.
-     * Use {@link Block#copyPositions(int[], int, int)} version of this method if possible
-     * since it allows to avoid integer boxing.
-     * <p>
-     * The returned block must be a compact representation of the original block.
-     */
-    @Deprecated
-    default Block copyPositions(List<Integer> positions)
-    {
-        return copyPositions(positions.stream().mapToInt(i -> i).toArray(), 0, positions.size());
-    }
 
     /**
      * Returns a block starting at the specified position and extends for the
