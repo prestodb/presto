@@ -17,6 +17,9 @@ import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
@@ -31,7 +34,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.Text;
@@ -96,13 +98,13 @@ public class ParquetTester
         return parquetTester;
     }
 
-    public void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
+    public void testRoundTrip(ObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
             throws Exception
     {
         testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterType);
     }
 
-    public <W, R> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType)
+    public <W, R> void testRoundTrip(ObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType)
             throws Exception
     {
         testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType);
@@ -199,8 +201,21 @@ public class ParquetTester
         int rowsProcessed = 0;
         Iterator<?> iterator = expectedValues.iterator();
         for (int batchSize = parquetReader.nextBatch(); batchSize >= 0; batchSize = parquetReader.nextBatch()) {
-            ColumnDescriptor columnDescriptor = fileSchema.getColumns().get(0);
-            Block block = parquetReader.readPrimitive(columnDescriptor, type);
+            Block block;
+            if (type instanceof MapType) {
+                block = parquetReader.readMap(type, Lists.newArrayList("test"));
+            }
+            else if (type instanceof ArrayType) {
+                block = parquetReader.readArray(type, Lists.newArrayList("test"));
+            }
+            else if (type instanceof RowType) {
+                block = parquetReader.readStruct(type, Lists.newArrayList("test"));
+            }
+            else {
+                ColumnDescriptor columnDescriptor = fileSchema.getColumns().get(0);
+                block = parquetReader.readPrimitive(columnDescriptor, type);
+            }
+
             for (int i = 0; i < batchSize; i++) {
                 assertTrue(iterator.hasNext());
                 Object expected = iterator.next();

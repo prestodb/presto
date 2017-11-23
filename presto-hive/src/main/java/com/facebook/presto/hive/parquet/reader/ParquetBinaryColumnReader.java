@@ -19,6 +19,8 @@ import io.airlift.slice.Slice;
 import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
@@ -35,7 +37,7 @@ public class ParquetBinaryColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
@@ -55,7 +57,7 @@ public class ParquetBinaryColumnReader
             type.writeSlice(blockBuilder, value);
         }
         else {
-            blockBuilder.appendNull();
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, isMapVal, mapRowNum);
         }
     }
 

@@ -66,7 +66,7 @@ public abstract class ParquetColumnReader
     private int remainingValueCountInPage;
     private int readOffset;
 
-    protected abstract void readValue(BlockBuilder blockBuilder, Type type);
+    protected abstract void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum);
 
     protected abstract void skipValue();
 
@@ -147,7 +147,7 @@ public abstract class ParquetColumnReader
         return columnDescriptor;
     }
 
-    public Block readPrimitive(Type type, IntList positions)
+    public Block readPrimitive(Type type, IntList positions, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal)
             throws IOException
     {
         seek();
@@ -158,9 +158,9 @@ public abstract class ParquetColumnReader
                 readNextPage();
             }
             int numValues = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
-            readValues(blockBuilder, numValues, type, positions);
+            int valuesRead = readValues(blockBuilder, numValues, type, positions, isNullAtRowNum, isMapKey, isMapVal);
             valueCount += numValues;
-            updatePosition(numValues);
+            updatePosition(valuesRead);
         }
         checkArgument(valueCount == nextBatchSize, "valueCount %s not equals to batchSize %s", valueCount, nextBatchSize);
 
@@ -169,49 +169,63 @@ public abstract class ParquetColumnReader
         return blockBuilder.build();
     }
 
-    private void readValues(BlockBuilder blockBuilder, int numValues, Type type, IntList positions)
+    private int readValues(BlockBuilder blockBuilder, int numValues, Type type, IntList positions, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal)
     {
-        definitionLevel = definitionReader.readLevel();
-        repetitionLevel = repetitionReader.readLevel();
-        int valueCount = 0;
+        int totalValsReadFromPage = 0;
         for (int i = 0; i < numValues; i++) {
+            int positionCount = blockBuilder.getPositionCount();
             do {
-                readValue(blockBuilder, type);
+                definitionLevel = definitionReader.readLevel();
+                repetitionLevel = repetitionReader.readLevel();
+                readValue(blockBuilder, type, isNullAtRowNum, isMapKey, isMapVal, positions.size());
+                int pCount = blockBuilder.getPositionCount();
                 try {
-                    valueCount++;
-                    repetitionLevel = repetitionReader.readLevel();
-                    if (repetitionLevel == 0) {
-                        positions.add(valueCount);
-                        valueCount = 0;
-                        if (i == numValues - 1) {
-                            return;
-                        }
+                    totalValsReadFromPage++;
+                    // If we have reached the end of the page then we should not peek the repetitionLevel but load the next page.
+                    // This is done to handle the case where the a repetitive structure with multiple columns(like map or row type)
+                    // has repetition that spans across page boundaries i.e. a map with n key-vals pairs where the data for
+                    // key-val 1 to m is on first page and m+1 to n is on second page.
+                    if (remainingValueCountInPage - totalValsReadFromPage == 0 && pageReader.hasMorePages()) {
+                        readNextPage();
+                        currentValueCount += totalValsReadFromPage;
+                        totalValsReadFromPage = 0;
                     }
-                    definitionLevel = definitionReader.readLevel();
+                    if (remainingValueCountInPage - totalValsReadFromPage == 0) {
+                        positions.add(pCount - positionCount);
+                        return totalValsReadFromPage;
+                    }
+                    repetitionLevel = repetitionReader.peekLevel();
+                    if (repetitionLevel == 0) {
+                        positions.add(pCount - positionCount);
+                    }
                 }
                 catch (IllegalArgumentException expected) {
                     // Reading past repetition stream, RunLengthBitPackingHybridDecoder throws IllegalArgumentException
-                    positions.add(valueCount);
-                    return;
+                    positions.add(pCount - positionCount);
+                    // It's unclear why would we ever read past the stream ideally we should not have to handle the exception.
+                    return totalValsReadFromPage;
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
             }
             while (repetitionLevel != 0);
         }
+        return totalValsReadFromPage;
     }
 
     private void skipValues(int offset)
     {
-        definitionLevel = definitionReader.readLevel();
-        repetitionLevel = repetitionReader.readLevel();
         for (int i = 0; i < offset; i++) {
             do {
+                definitionLevel = definitionReader.readLevel();
+                repetitionLevel = repetitionReader.readLevel();
                 skipValue();
                 try {
-                    repetitionLevel = repetitionReader.readLevel();
+                    repetitionLevel = repetitionReader.peekLevel();
                     if (i == offset - 1 && repetitionLevel == 0) {
                         return;
                     }
-                    definitionLevel = definitionReader.readLevel();
                 }
                 catch (IllegalArgumentException expected) {
                     // Reading past repetition stream, RunLengthBitPackingHybridDecoder throws IllegalArgumentException
@@ -248,7 +262,6 @@ public abstract class ParquetColumnReader
         page = pageReader.readPage();
         validateParquet(page != null, "Not enough values to read in column chunk");
         remainingValueCountInPage = page.getValueCount();
-
         if (page instanceof ParquetDataPageV1) {
             valuesReader = readPageV1((ParquetDataPageV1) page);
         }
@@ -320,6 +333,31 @@ public abstract class ParquetColumnReader
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Error reading parquet page in column " + columnDescriptor, e);
+        }
+    }
+
+    protected void handleNull(BlockBuilder blockBuilder, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int position)
+    {
+        // if isNullAtRowNum is already set to true for a position that indicates we are in call tree of a map'/s
+        // processing and the key is null. to keep the key and val length equal we make sure we do not append null
+        // for both the key and value. we only want to set the is NullAtRowNum to true if the key is null as null
+        // values for maps are not allowed.
+        if (isMapKey) {
+            isNullAtRowNum.map((arr) -> arr[position] = true);
+        }
+        // if this not a map processing and definitionLeve is 0, it inidicates a complex structure(list or row)
+        // is it self null.
+        else if (!isMapKey && !isMapVal && definitionLevel == 0 && isNullAtRowNum.isPresent()) {
+            isNullAtRowNum.map((arr) -> arr[position] = true);
+            blockBuilder.appendNull();
+        }
+        // if isNullAtRowNum is not present, that means this is not call tree of a map's value processing
+        // if it is present , then this is call tree of map's value and in that case we only append null
+        // if the key was not null.
+        else if (!isNullAtRowNum.isPresent() || !isNullAtRowNum.get()[position]) {
+            // we only append null if either this is not a map value processing call tree
+            // or if in case this is a map value call tree, the key at this position is not set to null.
+            blockBuilder.appendNull();
         }
     }
 }

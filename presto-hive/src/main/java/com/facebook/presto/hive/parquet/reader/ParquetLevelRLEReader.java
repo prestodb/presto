@@ -23,6 +23,8 @@ public class ParquetLevelRLEReader
 {
     private final RunLengthBitPackingHybridDecoder delegate;
 
+    private Integer nextLevel;
+
     public ParquetLevelRLEReader(RunLengthBitPackingHybridDecoder delegate)
     {
         this.delegate = delegate;
@@ -31,11 +33,32 @@ public class ParquetLevelRLEReader
     @Override
     public int readLevel()
     {
+        if (nextLevel != null) {
+            int temp = nextLevel;
+            nextLevel = null;
+            return temp;
+        }
+
         try {
             return delegate.readInt();
         }
         catch (IOException e) {
             throw new ParquetDecodingException(e);
         }
+    }
+
+    @Override
+    public int peekLevel()
+    {
+        if (nextLevel == null) {
+            try {
+                nextLevel = delegate.readInt();
+            }
+            catch (IOException e) {
+                throw new ParquetDecodingException(e);
+            }
+        }
+
+        return nextLevel;
     }
 }

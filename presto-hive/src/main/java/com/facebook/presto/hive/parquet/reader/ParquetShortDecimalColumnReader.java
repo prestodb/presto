@@ -17,6 +17,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 
+import java.util.Optional;
+
 import static com.facebook.presto.hive.util.DecimalUtils.getShortDecimalValue;
 import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
@@ -30,7 +32,7 @@ public class ParquetShortDecimalColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             long decimalValue;
@@ -47,7 +49,7 @@ public class ParquetShortDecimalColumnReader
             type.writeLong(blockBuilder, decimalValue);
         }
         else {
-            blockBuilder.appendNull();
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, isMapVal, mapRowNum);
         }
     }
 

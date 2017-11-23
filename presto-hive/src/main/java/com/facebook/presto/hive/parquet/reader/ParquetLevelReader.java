@@ -16,4 +16,6 @@ package com.facebook.presto.hive.parquet.reader;
 public interface ParquetLevelReader
 {
     int readLevel();
+
+    int peekLevel();
 }

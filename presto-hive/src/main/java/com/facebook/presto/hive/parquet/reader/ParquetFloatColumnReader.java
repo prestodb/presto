@@ -17,6 +17,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 
+import java.util.Optional;
+
 import static java.lang.Float.floatToRawIntBits;
 
 public class ParquetFloatColumnReader
@@ -28,13 +30,13 @@ public class ParquetFloatColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<boolean[]> isNullAtRowNum, boolean isMapKey, boolean isMapVal, int mapRowNum)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
         }
         else {
-            blockBuilder.appendNull();
+            handleNull(blockBuilder, isNullAtRowNum, isMapKey, isMapVal, mapRowNum);
         }
     }
 
