@@ -80,18 +80,18 @@ public class OrcMetadataReader
     private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(Slice data)
             throws IOException
     {
-        CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
+        CodedInputStream input = CodedInputStream.newInstance(data.getInput());
         OrcProto.PostScript postScript = OrcProto.PostScript.parseFrom(input);
 
         return new PostScript(
                 postScript.getVersionList(),
-                postScript.getFooterLength(),
-                postScript.getMetadataLength(),
+                toIntExact(postScript.getFooterLength()),
+                toIntExact(postScript.getMetadataLength()),
                 toCompression(postScript.getCompression()),
-                postScript.getCompressionBlockSize(),
+                toIntExact(postScript.getCompressionBlockSize()),
                 toHiveWriterVersion(postScript.getWriterVersion()));
     }
 
@@ -139,19 +139,21 @@ public class OrcMetadataReader
                 toUserMetadata(footer.getMetadataList()));
     }
 
-    private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
+    private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> stripes)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, OrcMetadataReader::toStripeInformation));
-    }
-
-    private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
-    {
-        return new StripeInformation(
-                toIntExact(stripeInformation.getNumberOfRows()),
-                stripeInformation.getOffset(),
-                stripeInformation.getIndexLength(),
-                stripeInformation.getDataLength(),
-                stripeInformation.getFooterLength());
+        ImmutableList.Builder<StripeInformation> builder = ImmutableList.builder();
+        long rowOffset = 0;
+        for (OrcProto.StripeInformation stripe : stripes) {
+            builder.add(new StripeInformation(
+                    rowOffset,
+                    toIntExact(stripe.getNumberOfRows()),
+                    stripe.getOffset(),
+                    toIntExact(stripe.getIndexLength()),
+                    stripe.getDataLength(),
+                    toIntExact(stripe.getFooterLength())));
+            rowOffset += stripe.getNumberOfRows();
+        }
+        return builder.build();
     }
 
     @Override

@@ -18,11 +18,11 @@ import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
+import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -55,7 +55,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
-import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
@@ -105,63 +104,46 @@ public class OrcRecordReader
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
 
-    private static class StripeHandle
-    {
-        private final HiveWriterVersion hiveWriterVersion;
-        private final CompressionKind compressionKind;
-        private final int bufferSize;
-        private final long rowsInFile;
-        private final long stripeRowOffset;
-        private final int rowsInRowGroup;
-        private final List<OrcType> types;
-        private final StripeInformation stripe;
-        private final Map<String, Slice> userMetadata;
-
-        public StripeHandle(
-                HiveWriterVersion hiveWriterVersion,
-                CompressionKind compressionKind,
-                int bufferSize,
-                long rowsInFile,
-                long stripeRowOffset,
-                int rowsInRowGroup,
-                List<OrcType> types, StripeInformation stripe, Map<String, Slice> userMetadata)
-        {
-            this.hiveWriterVersion = hiveWriterVersion;
-            this.compressionKind = compressionKind;
-            this.bufferSize = bufferSize;
-            this.rowsInFile = rowsInFile;
-            this.stripeRowOffset = stripeRowOffset;
-            this.rowsInRowGroup = rowsInRowGroup;
-            this.types = types;
-            this.stripe = stripe;
-            this.userMetadata = userMetadata;
-        }
-    }
-    
     public OrcRecordReader(
-            StripeHandle stripeHandle,
+            PostScript postScript,
+            Footer footer,
+            StripeInformation stripe,
+            Optional<StripeStatistics> stripeStat,
             Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
             OrcDataSource orcDataSource,
-            long splitOffset,
-            long splitLength,
-            MetadataReader delegate,
+            Optional<OrcDecompressor> decompressor,
+            DateTimeZone hiveStorageTimeZone,
+            MetadataReader metadataReader,
             DataSize maxMergeDistance,
             DataSize maxReadSize,
             DataSize maxBlockSize,
-            DateTimeZone hiveStorageTimeZone,
-            AbstractAggregatedMemoryContext systemMemoryUsage)
-            throws IOException
+            AggregatedMemoryContext systemMemoryUsage)
     {
-        MetadataReader metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), requireNonNull(delegate, "delegate is null"));
-        Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), stripeHandle.compressionKind, stripeHandle.bufferSize);
 
+//
+//    }
+//
+//    public OrcRecordReader(
+//            PostScript postScript,
+//            Footer footer,
+//            StripeHandle stripeHandle,
+//            Map<Integer, Type> includedColumns,
+//            OrcPredicate predicate,
+//            OrcDataSource orcDataSource,
+//            MetadataReader metadataReader,
+//            DataSize maxMergeDistance,
+//            DataSize maxReadSize,
+//            DataSize maxBlockSize,
+//            DateTimeZone hiveStorageTimeZone,
+//            AbstractAggregatedMemoryContext systemMemoryUsage)
+//            throws IOException
+//    {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(orcDataSource, "orcDataSource is null");
         requireNonNull(decompressor, "decompressor is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        requireNonNull(stripeHandle.userMetadata, "userMetadata is null");
 
         this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
         this.writeValidation = Optional.empty();
@@ -170,7 +152,7 @@ public class OrcRecordReader
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
         ImmutableMap.Builder<Integer, Type> presentColumnsAndTypes = ImmutableMap.builder();
-        OrcType root = stripeHandle.types.get(0);
+        OrcType root = footer.getTypes().get(0);
         for (Map.Entry<Integer, Type> entry : includedColumns.entrySet()) {
             // an old file can have less columns since columns can be added
             // after the file was written
@@ -183,17 +165,26 @@ public class OrcRecordReader
 
         this.maxBlockBytes = requireNonNull(maxBlockSize, "maxBlockSize is null").toBytes();
 
-        this.totalRowCount = stripeHandle.stripe.getNumberOfRows();
-        this.stripes = ImmutableList.of(stripeHandle.stripe);
-        this.stripeFilePositions = ImmutableList.of(stripeHandle.stripeRowOffset);
+        if (isStripeIncluded(root, stripe, stripeStat, predicate)) {
+            this.totalRowCount = stripe.getNumberOfRows();
+            this.stripes = ImmutableList.of(stripe);
+            this.stripeFilePositions = ImmutableList.of(stripe.getRowOffsetInFile());
+            this.splitLength = stripe.getTotalLength();
+        }
+        else {
+            this.totalRowCount = 0;
+            this.stripes = ImmutableList.of();
+            this.stripeFilePositions = ImmutableList.of();
+            this.splitLength = 0;
+        }
 
+        // todo only cache data section
         orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, maxReadSize);
         this.orcDataSource = orcDataSource;
-        this.splitLength = splitLength;
 
-        this.fileRowCount = stripeHandle.rowsInFile;
+        this.fileRowCount = footer.getNumberOfRows();
 
-        this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(stripeHandle.userMetadata, Slices::copyOf));
+        this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(footer.getUserMetadata(), Slices::copyOf));
 
         this.systemMemoryUsage = requireNonNull(systemMemoryUsage, "systemMemoryUsage is null").newAggregatedMemoryContext();
         this.currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
@@ -201,15 +192,15 @@ public class OrcRecordReader
         stripeReader = new StripeReader(
                 orcDataSource,
                 decompressor,
-                stripeHandle.types,
+                footer.getTypes(),
                 this.presentColumns,
-                stripeHandle.rowsInRowGroup,
+                footer.getRowsInRowGroup(),
                 predicate,
-                stripeHandle.hiveWriterVersion,
+                postScript.getHiveWriterVersion(),
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(orcDataSource, stripeHandle.types, hiveStorageTimeZone, presentColumnsAndTypes.build());
+        streamReaders = createStreamReaders(orcDataSource, footer.getTypes(), hiveStorageTimeZone, presentColumnsAndTypes.build());
         maxBytesPerCell = new long[streamReaders.length];
     }
 

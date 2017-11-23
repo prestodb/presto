@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.slice.FixedLengthSliceInput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
@@ -66,8 +67,11 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.facebook.presto.orc.stream.CheckpointInputStreamSource.createCheckpointStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class StripeReader
 {
@@ -105,70 +109,28 @@ public class StripeReader
     public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
-        // read the stripe footer
-        StripeFooter stripeFooter = readStripeFooter(stripe, systemMemoryUsage);
-        List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
-
-        // get streams for selected columns
-        Map<StreamId, Stream> streams = new HashMap<>();
-        boolean hasRowGroupDictionary = false;
-        for (Stream stream : stripeFooter.getStreams()) {
-            if (includedOrcColumns.contains(stream.getColumn())) {
-                streams.put(new StreamId(stream), stream);
-
-                ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn()).getColumnEncodingKind();
-                if (columnEncoding == DICTIONARY && stream.getStreamKind() == StreamKind.IN_DICTIONARY) {
-                    hasRowGroupDictionary = true;
-                }
-            }
+        // read footer
+        StripeFooter stripeFooter;
+        if (stripe.getFooterData().isPresent()) {
+            stripeFooter = readStripeFooter(stripe.getFooterData().get(), systemMemoryUsage);
         }
+        else {
+            stripeFooter = readStripeFooter(stripe, systemMemoryUsage);
+        }
+
+        boolean hasRowGroupDictionary = stripeFooter.getStreams().stream()
+                .anyMatch(stream -> stripeFooter.getColumnEncodings().get(stream.getColumn()).getColumnEncodingKind() == DICTIONARY && stream.getStreamKind() == StreamKind.IN_DICTIONARY);
 
         // handle stripes with more than one row group or a dictionary
         boolean invalidCheckPoint = false;
         if ((stripe.getNumberOfRows() > rowsInRowGroup) || hasRowGroupDictionary) {
-            // determine ranges of the stripe to read
-            Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
-            diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
-
-            // read the file regions
-            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
-
-            // read the bloom filter for each column
-            Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
-
-            // read the row index for each column
-            Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData, bloomFilterIndexes);
-            if (writeValidation.isPresent()) {
-                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), stripe.getOffset(), columnIndexes);
-            }
-
-            // select the row groups matching the tuple domain
-            Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
-
-            // if all row groups are skipped, return null
-            if (selectedRowGroups.isEmpty()) {
-                // set accounted memory usage to zero
-                systemMemoryUsage.close();
-                return null;
-            }
-
-            // value streams
-            Map<StreamId, ValueInputStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
-
-            // build the dictionary streams
-            InputStreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
-
-            // build the row groups
             try {
-                List<RowGroup> rowGroups = createRowGroups(
-                        stripe.getNumberOfRows(),
-                        streams,
-                        valueStreams,
-                        columnIndexes,
-                        selectedRowGroups,
-                        columnEncodings);
+                // if index data is provided, use optimized read code
+                if (stripe.getIndexData().isPresent()) {
+                    return readStripe(stripe, systemMemoryUsage, stripeFooter, stripe.getIndexData().get());
 
-                return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
+                }
+                return readStripe(stripe, systemMemoryUsage, stripeFooter);
             }
             catch (InvalidCheckpointException e) {
                 // The ORC file contains a corrupt checkpoint stream
@@ -181,15 +143,153 @@ public class StripeReader
             }
         }
 
-        // stripe only has one row group and no dictionary
-        ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
-        for (Entry<StreamId, DiskRange> entry : getDiskRanges(stripeFooter.getStreams()).entrySet()) {
-            StreamId streamId = entry.getKey();
-            if (streams.keySet().contains(streamId)) {
-                diskRangesBuilder.put(entry);
+        return readStripeAsSingleGroup(stripe, systemMemoryUsage, stripeFooter, invalidCheckPoint);
+    }
+
+    private Stripe readStripe(
+            StripeInformation stripe,
+            AggregatedMemoryContext systemMemoryUsage,
+            StripeFooter stripeFooter,
+            Slice indexData)
+            throws IOException
+    {
+        // slice the index data into streams
+        Map<StreamId, OrcInputStream> indexStreamsData = new HashMap<>();
+        int offset = 0;
+        for (Stream stream : stripeFooter.getStreams()) {
+            if (isIndexStream(stream) && includedOrcColumns.contains(stream.getColumn())) {
+                StreamId streamId = new StreamId(stream);
+                verify(
+                        offset + stream.getLength() <= indexData.length(),
+                        "Data for index stream %s is not located in index section: offset=%s, length=%s, indexDataSize=%s",
+                        streamId,
+                        offset,
+                        stream.getLength(),
+                        indexData.length());
+                Slice streamSlice = indexData.slice(offset, stream.getLength());
+                indexStreamsData.put(streamId, new OrcInputStream(orcDataSource.getId(), streamSlice.getInput(), decompressor, systemMemoryUsage));
             }
+            offset += stream.getLength();
         }
-        ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
+
+        // read the bloom filter for each column
+        Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(indexStreamsData);
+
+        // read the row index for each column
+        Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(indexStreamsData, bloomFilterIndexes);
+        if (writeValidation.isPresent()) {
+            writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), stripe.getOffset(), columnIndexes);
+        }
+
+        // select the row groups matching the tuple domain
+        Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
+
+        // if all row groups are skipped, return null
+        if (selectedRowGroups.isEmpty()) {
+            // set accounted memory usage to zero
+            systemMemoryUsage.close();
+            return null;
+        }
+
+        // get data streams for selected columns
+        Map<StreamId, Stream> dataStreams = stripeFooter.getStreams().stream()
+                .filter(stream -> includedOrcColumns.contains(stream.getColumn()))
+                .filter(stream -> !isIndexStream(stream))
+                .collect(toImmutableMap(StreamId::new, identity()));
+
+        // determine data ranges of the stripe to read
+        Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter).entrySet().stream()
+                .filter(entry -> dataStreams.containsKey(entry.getKey()))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+        // read the data regions
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
+
+        // build the value streams
+        Map<StreamId, ValueInputStream<?>> valueStreams = createValueStreams(dataStreams, streamsData, stripeFooter.getColumnEncodings());
+
+        // build the dictionary streams
+        InputStreamSources dictionaryStreamSources = createDictionaryStreamSources(dataStreams, valueStreams, stripeFooter.getColumnEncodings());
+
+        // build the row groups
+        List<RowGroup> rowGroups = createRowGroups(
+                stripe.getNumberOfRows(),
+                dataStreams,
+                valueStreams,
+                columnIndexes,
+                selectedRowGroups,
+                stripeFooter.getColumnEncodings());
+
+        return new Stripe(stripe.getNumberOfRows(), stripeFooter.getColumnEncodings(), rowGroups, dictionaryStreamSources);
+    }
+
+    private Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage, StripeFooter stripeFooter)
+            throws IOException
+    {
+        List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
+
+        // get streams for selected columns
+        Map<StreamId, Stream> streams = stripeFooter.getStreams().stream()
+                .filter(stream -> includedOrcColumns.contains(stream.getColumn()))
+                .collect(toImmutableMap(StreamId::new, identity()));
+
+        // determine ranges of the stripe to read
+        Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter);
+        diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
+
+        // read the file regions
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
+
+        // read the bloom filter for each column
+        Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streamsData);
+
+        // read the row index for each column
+        Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streamsData, bloomFilterIndexes);
+        if (writeValidation.isPresent()) {
+            writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), stripe.getOffset(), columnIndexes);
+        }
+
+        // select the row groups matching the tuple domain
+        Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
+
+        // if all row groups are skipped, return null
+        if (selectedRowGroups.isEmpty()) {
+            // set accounted memory usage to zero
+            systemMemoryUsage.close();
+            return null;
+        }
+
+        // value streams
+        Map<StreamId, ValueInputStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
+
+        // build the dictionary streams
+        InputStreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
+
+        // build the row groups
+        List<RowGroup> rowGroups = createRowGroups(
+                stripe.getNumberOfRows(),
+                streams,
+                valueStreams,
+                columnIndexes,
+                selectedRowGroups,
+                columnEncodings);
+
+        return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
+    }
+
+    private Stripe readStripeAsSingleGroup(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage, StripeFooter stripeFooter, boolean invalidCheckPoint)
+            throws IOException
+    {
+        List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
+
+        // get streams for selected columns
+        Map<StreamId, Stream> streams = stripeFooter.getStreams().stream()
+                .filter(stream -> includedOrcColumns.contains(stream.getColumn()))
+                .collect(toImmutableMap(StreamId::new, identity()));
+
+        // determine ranges of the stripe to read
+        Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter);
+        diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
 
         // read the file regions
         Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
@@ -262,7 +362,7 @@ public class StripeReader
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             StreamId streamId = entry.getKey();
             Stream stream = entry.getValue();
-            ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn()).getColumnEncodingKind();
+            ColumnEncodingKind columnEncoding = columnEncodings.get(streamId.getColumn()).getColumnEncodingKind();
 
             // skip index and empty streams
             if (isIndexStream(stream) || stream.getLength() == 0) {
@@ -270,7 +370,7 @@ public class StripeReader
             }
 
             OrcInputStream inputStream = streamsData.get(streamId);
-            OrcTypeKind columnType = types.get(stream.getColumn()).getOrcTypeKind();
+            OrcTypeKind columnType = types.get(streamId.getColumn()).getOrcTypeKind();
 
             valueStreams.put(streamId, ValueStreams.createValueStreams(streamId, inputStream, columnType, columnEncoding, stream.isUseVInts()));
         }
@@ -354,7 +454,7 @@ public class StripeReader
         return new RowGroup(groupId, rowOffset, rowCount, minAverageRowBytes, rowGroupStreams);
     }
 
-    private StripeFooter readStripeFooter(StripeInformation stripe, AbstractAggregatedMemoryContext systemMemoryUsage)
+    private StripeFooter readStripeFooter(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         long offset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();
@@ -363,7 +463,13 @@ public class StripeReader
         // read the footer
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
-        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage)) {
+        return readStripeFooter(Slices.wrappedBuffer(tailBuffer), systemMemoryUsage);
+    }
+
+    private StripeFooter readStripeFooter(Slice footerData, AggregatedMemoryContext systemMemoryUsage)
+            throws IOException
+    {
+        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), footerData.getInput(), decompressor, systemMemoryUsage)) {
             return metadataReader.readStripeFooter(types, inputStream);
         }
     }
@@ -373,29 +479,29 @@ public class StripeReader
         return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT || stream.getStreamKind() == BLOOM_FILTER;
     }
 
-    private Map<Integer, List<HiveBloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
+    private Map<Integer, List<HiveBloomFilter>> readBloomFilterIndexes(Map<StreamId, OrcInputStream> streamsData)
             throws IOException
     {
         ImmutableMap.Builder<Integer, List<HiveBloomFilter>> bloomFilters = ImmutableMap.builder();
-        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
-            Stream stream = entry.getValue();
-            if (stream.getStreamKind() == BLOOM_FILTER) {
-                OrcInputStream inputStream = streamsData.get(entry.getKey());
-                bloomFilters.put(stream.getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
+        for (Entry<StreamId, OrcInputStream> entry : streamsData.entrySet()) {
+            StreamId streamId = entry.getKey();
+            if (streamId.getStreamKind() == BLOOM_FILTER) {
+                OrcInputStream inputStream = streamsData.get(streamId);
+                bloomFilters.put(streamId.getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
             }
         }
         return bloomFilters.build();
     }
 
-    private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes)
+    private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, OrcInputStream> streamsData, Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes)
             throws IOException
     {
         ImmutableMap.Builder<Integer, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
-        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
-            Stream stream = entry.getValue();
-            if (stream.getStreamKind() == ROW_INDEX) {
-                OrcInputStream inputStream = streamsData.get(entry.getKey());
-                List<HiveBloomFilter> bloomFilters = bloomFilterIndexes.get(stream.getColumn());
+        for (Entry<StreamId, OrcInputStream> entry : streamsData.entrySet()) {
+            StreamId streamId = entry.getKey();
+            if (streamId.getStreamKind() == ROW_INDEX) {
+                OrcInputStream inputStream = entry.getValue();
+                List<HiveBloomFilter> bloomFilters = bloomFilterIndexes.get(streamId.getColumn());
                 List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(hiveWriterVersion, inputStream);
                 if (bloomFilters != null && !bloomFilters.isEmpty()) {
                     ImmutableList.Builder<RowGroupIndex> newRowGroupIndexes = ImmutableList.builder();
@@ -407,7 +513,7 @@ public class StripeReader
                     }
                     rowGroupIndexes = newRowGroupIndexes.build();
                 }
-                columnIndexes.put(stream.getColumn(), rowGroupIndexes);
+                columnIndexes.put(streamId.getColumn(), rowGroupIndexes);
             }
         }
         return columnIndexes.build();
@@ -454,11 +560,12 @@ public class StripeReader
         return stream.getStreamKind() == DICTIONARY_DATA || (stream.getStreamKind() == LENGTH && (columnEncoding == DICTIONARY || columnEncoding == DICTIONARY_V2));
     }
 
-    private static Map<StreamId, DiskRange> getDiskRanges(List<Stream> streams)
+    private static Map<StreamId, DiskRange> getDiskRanges(StripeFooter stripeFooter)
     {
         ImmutableMap.Builder<StreamId, DiskRange> streamDiskRanges = ImmutableMap.builder();
         long stripeOffset = 0;
-        for (Stream stream : streams) {
+        // Note all streams must be processed in order because streams do not have an offset
+        for (Stream stream : stripeFooter.getStreams()) {
             int streamLength = toIntExact(stream.getLength());
             // ignore zero byte streams
             if (streamLength > 0) {

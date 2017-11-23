@@ -102,6 +102,7 @@ public class OrcWriter
     private final List<ColumnWriter> columnWriters;
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
     private long stripeStartOffset;
+    private long stripeStartRowOffset;
     private int stripeRowCount;
     private int rowGroupRowCount;
     private int bufferedBytes;
@@ -405,12 +406,13 @@ public class OrcWriter
 
         StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
-        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footerLength);
+        StripeInformation stripeInformation = new StripeInformation(stripeStartRowOffset, stripeRowCount, stripeStartOffset, toIntExact(indexLength), dataLength, footerLength);
         closedStripes.add(new ClosedStripe(stripeInformation, statistics));
 
         // open next stripe
         columnWriters.forEach(ColumnWriter::reset);
         dictionaryCompressionOptimizer.reset();
+        stripeStartRowOffset += stripeRowCount;
         rowGroupRowCount = 0;
         stripeRowCount = 0;
         stripeStartOffset = output.size();

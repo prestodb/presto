@@ -60,20 +60,20 @@ public class DwrfMetadataReader
         implements MetadataReader
 {
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(Slice data)
             throws IOException
     {
-        CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
+        CodedInputStream input = CodedInputStream.newInstance(data.getInput());
         DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(input);
 
         HiveWriterVersion writerVersion = postScript.hasWriterVersion() && postScript.getWriterVersion() > 0 ? ORC_HIVE_8732 : ORIGINAL;
 
         return new PostScript(
-                ImmutableList.of(),
-                postScript.getFooterLength(),
+                ImmutableList.<Integer>of(),
+                toIntExact(postScript.getFooterLength()),
                 0,
                 toCompression(postScript.getCompression()),
-                postScript.getCompressionBlockSize(),
+                toIntExact(postScript.getCompressionBlockSize()),
                 writerVersion);
     }
 
@@ -104,19 +104,21 @@ public class DwrfMetadataReader
                 toUserMetadata(footer.getMetadataList()));
     }
 
-    private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> types)
+    private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> stripes)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toStripeInformation));
-    }
-
-    private static StripeInformation toStripeInformation(DwrfProto.StripeInformation stripeInformation)
-    {
-        return new StripeInformation(
-                toIntExact(stripeInformation.getNumberOfRows()),
-                stripeInformation.getOffset(),
-                stripeInformation.getIndexLength(),
-                stripeInformation.getDataLength(),
-                stripeInformation.getFooterLength());
+        ImmutableList.Builder<StripeInformation> builder = ImmutableList.builder();
+        long rowOffset = 0;
+        for (DwrfProto.StripeInformation stripe : stripes) {
+            builder.add(new StripeInformation(
+                    rowOffset,
+                    toIntExact(stripe.getNumberOfRows()),
+                    stripe.getOffset(),
+                    toIntExact(stripe.getIndexLength()),
+                    stripe.getDataLength(),
+                    toIntExact(stripe.getFooterLength())));
+            rowOffset += stripe.getNumberOfRows();
+        }
+        return builder.build();
     }
 
     @Override

@@ -22,9 +22,11 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
+import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -65,8 +67,11 @@ public class OrcReader
     private final HiveWriterVersion hiveWriterVersion;
     private final int bufferSize;
     private final Optional<OrcDecompressor> decompressor;
+    private final Slice postScriptData;
     private final Footer footer;
+    private final Slice footerData;
     private final Metadata metadata;
+    private final Slice metadataData;
 
     private final Optional<OrcWriteValidation> writeValidation;
 
@@ -116,10 +121,11 @@ public class OrcReader
 
         // decode the post script
         int postScriptOffset = buffer.length - SIZE_OF_BYTE - postScriptSize;
-        PostScript postScript = metadataReader.readPostScript(buffer, postScriptOffset, postScriptSize);
+        postScriptData = Slices.wrappedBuffer(buffer, postScriptOffset, postScriptSize);
+        PostScript postScript = metadataReader.readPostScript(postScriptData);
 
         // verify this is a supported version
-        checkOrcVersion(orcDataSource, postScript.getVersion());
+        checkOrcVersion(orcDataSource.getId(), postScript.getVersion());
         validateWrite(validation -> validation.getVersion().equals(postScript.getVersion()), "Unexpected version");
 
         this.bufferSize = toIntExact(postScript.getCompressionBlockSize());
@@ -154,14 +160,14 @@ public class OrcReader
         }
 
         // read metadata
-        Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+        metadataData = completeFooterSlice.slice(0, metadataSize);
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataData.getInput(), decompressor, new AggregatedMemoryContext())) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
-        Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, new AggregatedMemoryContext())) {
+        footerData = completeFooterSlice.slice(metadataSize, footerSize);
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerData.getInput(), decompressor, new AggregatedMemoryContext())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
 
@@ -174,6 +180,35 @@ public class OrcReader
         }
     }
 
+    List<OrcStripeSplit> getOrcStripeSplits(boolean readStripeData)
+            throws IOException
+    {
+        ImmutableList.Builder<OrcStripeSplit> builder = ImmutableList.builder();
+        int stripeOrdinal = 0;
+        for (StripeInformation stripeInformation : footer.getStripes()) {
+            Optional<Slice> indexData = Optional.empty();
+            Optional<Slice> footerData = Optional.empty();
+            if (readStripeData) {
+                byte[] footerBuffer = new byte[toIntExact(stripeInformation.getFooterLength())];
+                orcDataSource.readFully(stripeInformation.getOffset() + stripeInformation.getIndexLength() + stripeInformation.getDataLength(), footerBuffer);
+                footerData = Optional.of(Slices.wrappedBuffer(footerBuffer));
+
+                byte[] indexBuffer = new byte[toIntExact(stripeInformation.getIndexLength())];
+                orcDataSource.readFully(stripeInformation.getOffset(), indexBuffer);
+                indexData = Optional.of(Slices.wrappedBuffer(indexBuffer));
+            }
+            builder.add(new OrcStripeSplit(
+                    postScriptData,
+                    this.footerData,
+                    Optional.of(metadataData),
+                    stripeOrdinal,
+                    indexData,
+                    footerData));
+            stripeOrdinal++;
+        }
+        return builder.build();
+    }
+    
     public List<String> getColumnNames()
     {
         return footer.getTypes().get(0).getFieldNames();
@@ -278,7 +313,7 @@ public class OrcReader
      * warn the user that we may not be able to read all of the column encodings.
      */
     // This is based on the Apache Hive ORC code
-    private static void checkOrcVersion(OrcDataSource orcDataSource, List<Integer> version)
+    static void checkOrcVersion(OrcDataSourceId orcDataSourceId, List<Integer> version)
     {
         if (version.size() >= 1) {
             int major = version.get(0);
@@ -289,7 +324,7 @@ public class OrcReader
 
             if (major > CURRENT_MAJOR_VERSION || (major == CURRENT_MAJOR_VERSION && minor > CURRENT_MINOR_VERSION)) {
                 log.warn("ORC file %s was written by a newer Hive version %s. This file may not be readable by this version of Hive (%s.%s).",
-                        orcDataSource,
+                        orcDataSourceId,
                         Joiner.on('.').join(version),
                         CURRENT_MAJOR_VERSION,
                         CURRENT_MINOR_VERSION);

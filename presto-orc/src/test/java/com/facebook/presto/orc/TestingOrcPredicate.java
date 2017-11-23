@@ -65,57 +65,57 @@ public final class TestingOrcPredicate
     {
     }
 
-    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values, Format format, boolean isHiveWriter)
+    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values, Format format, boolean isHiveWriter, boolean noFileStats)
     {
         List<Object> expectedValues = newArrayList(values);
         if (BOOLEAN.equals(type)) {
-            return new BooleanOrcPredicate(expectedValues, format == DWRF);
+            return new BooleanOrcPredicate(expectedValues, noFileStats);
         }
         if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
             return new LongOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((Number) value).longValue())
                             .collect(toList()),
-                    format == DWRF);
+                    noFileStats);
         }
         if (TIMESTAMP.equals(type)) {
             return new LongOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
                             .collect(toList()),
-                    format == DWRF);
+                    noFileStats);
         }
         if (DATE.equals(type)) {
             return new DateOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
                             .collect(toList()),
-                    format == DWRF);
+                    noFileStats);
         }
         if (REAL.equals(type) || DOUBLE.equals(type)) {
             return new DoubleOrcPredicate(
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((Number) value).doubleValue())
                             .collect(toList()),
-                    format == DWRF);
+                    noFileStats);
         }
         if (type instanceof VarbinaryType) {
             // binary does not have stats
-            return new BasicOrcPredicate<>(expectedValues, Object.class, format == DWRF);
+            return new BasicOrcPredicate<>(expectedValues, Object.class, noFileStats);
         }
         if (type instanceof VarcharType) {
             return new StringOrcPredicate(expectedValues, format, isHiveWriter);
         }
         if (type instanceof CharType) {
-            return new CharOrcPredicate(expectedValues, format == DWRF);
+            return new CharOrcPredicate(expectedValues, noFileStats);
         }
         if (type instanceof DecimalType) {
-            return new DecimalOrcPredicate(expectedValues, format == DWRF);
+            return new DecimalOrcPredicate(expectedValues, noFileStats);
         }
 
         String baseType = type.getTypeSignature().getBase();
         if (ARRAY.equals(baseType) || MAP.equals(baseType) || ROW.equals(baseType)) {
-            return new BasicOrcPredicate<>(expectedValues, Object.class, format == DWRF);
+            return new BasicOrcPredicate<>(expectedValues, Object.class, noFileStats);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
     }

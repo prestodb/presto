@@ -44,13 +44,13 @@ public class PostScript
     }
 
     private final List<Integer> version;
-    private final long footerLength;
-    private final long metadataLength;
+    private final int footerLength;
+    private final int metadataLength;
     private final CompressionKind compression;
-    private final long compressionBlockSize;
+    private final int compressionBlockSize;
     private final HiveWriterVersion hiveWriterVersion;
 
-    public PostScript(List<Integer> version, long footerLength, long metadataLength, CompressionKind compression, long compressionBlockSize, HiveWriterVersion hiveWriterVersion)
+    public PostScript(List<Integer> version, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize, HiveWriterVersion hiveWriterVersion)
     {
         this.version = ImmutableList.copyOf(requireNonNull(version, "version is null"));
         this.footerLength = footerLength;
@@ -65,12 +65,12 @@ public class PostScript
         return version;
     }
 
-    public long getFooterLength()
+    public int getFooterLength()
     {
         return footerLength;
     }
 
-    public long getMetadataLength()
+    public int getMetadataLength()
     {
         return metadataLength;
     }
@@ -80,7 +80,7 @@ public class PostScript
         return compression;
     }
 
-    public long getCompressionBlockSize()
+    public int getCompressionBlockSize()
     {
         return compressionBlockSize;
     }

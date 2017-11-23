@@ -17,6 +17,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,11 +40,11 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(Slice data)
             throws OrcCorruptionException
     {
         try {
-            return delegate.readPostScript(data, offset, length);
+            return delegate.readPostScript(data);
         }
         catch (IOException | RuntimeException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid postscript");

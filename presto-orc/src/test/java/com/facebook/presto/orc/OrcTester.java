@@ -499,45 +499,58 @@ public class OrcTester
             boolean isHiveWriter)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format, isHiveWriter), type)) {
-            assertEquals(recordReader.getReaderPosition(), 0);
-            assertEquals(recordReader.getFilePosition(), 0);
-
-            boolean isFirst = true;
-            int rowsProcessed = 0;
-            Iterator<?> iterator = expectedValues.iterator();
-            for (int batchSize = toIntExact(recordReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(recordReader.nextBatch())) {
-                if (skipStripe && rowsProcessed < 10000) {
-                    assertEquals(advance(iterator, batchSize), batchSize);
-                }
-                else if (skipFirstBatch && isFirst) {
-                    assertEquals(advance(iterator, batchSize), batchSize);
-                    isFirst = false;
-                }
-                else {
-                    Block block = recordReader.readBlock(type, 0);
-
-                    List<Object> data = new ArrayList<>(block.getPositionCount());
-                    for (int position = 0; position < block.getPositionCount(); position++) {
-                        data.add(type.getObjectValue(SESSION, block, position));
-                    }
-
-                    for (int i = 0; i < batchSize; i++) {
-                        assertTrue(iterator.hasNext());
-                        Object expected = iterator.next();
-                        Object actual = data.get(i);
-                        assertColumnValueEquals(type, actual, expected);
-                    }
-                }
-                assertEquals(recordReader.getReaderPosition(), rowsProcessed);
-                assertEquals(recordReader.getFilePosition(), rowsProcessed);
-                rowsProcessed += batchSize;
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format, isHiveWriter, format == DWRF), type)) {
+            assertFileContentsNew(recordReader, type, expectedValues, skipFirstBatch, skipStripe);
+        }
+        List<OrcStripeSplit> orcStripeSplits = getOrcStripeSplits(tempFile, metadataReader);
+        if (orcStripeSplits.size() == 1) {
+            OrcStripeSplit orcStripeSplit = orcStripeSplits.get(0);
+            try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(type, expectedValues, format, isHiveWriter, false), type, orcStripeSplit)) {
+                assertFileContentsNew(recordReader, type, expectedValues, skipFirstBatch, skipStripe);
             }
-            assertFalse(iterator.hasNext());
+        }
+    }
 
+    private static void assertFileContentsNew(OrcRecordReader recordReader, Type type, List<?> expectedValues, boolean skipFirstBatch, boolean skipStripe)
+            throws IOException
+    {
+        assertEquals(recordReader.getReaderPosition(), 0);
+        assertEquals(recordReader.getFilePosition(), 0);
+
+        boolean isFirst = true;
+        int rowsProcessed = 0;
+        Iterator<?> iterator = expectedValues.iterator();
+        for (int batchSize = toIntExact(recordReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(recordReader.nextBatch())) {
+            if (skipStripe && rowsProcessed < 10000) {
+                assertEquals(advance(iterator, batchSize), batchSize);
+            }
+            else if (skipFirstBatch && isFirst) {
+                assertEquals(advance(iterator, batchSize), batchSize);
+                isFirst = false;
+            }
+            else {
+                Block block = recordReader.readBlock(type, 0);
+
+                List<Object> data = new ArrayList<>(block.getPositionCount());
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    data.add(type.getObjectValue(SESSION, block, position));
+                }
+
+                for (int i = 0; i < batchSize; i++) {
+                    assertTrue(iterator.hasNext());
+                    Object expected = iterator.next();
+                    Object actual = data.get(i);
+                    assertColumnValueEquals(type, actual, expected);
+                }
+            }
             assertEquals(recordReader.getReaderPosition(), rowsProcessed);
             assertEquals(recordReader.getFilePosition(), rowsProcessed);
+            rowsProcessed += batchSize;
         }
+        assertFalse(iterator.hasNext());
+
+        assertEquals(recordReader.getReaderPosition(), rowsProcessed);
+        assertEquals(recordReader.getFilePosition(), rowsProcessed);
     }
 
     private static void assertColumnValueEquals(Type type, Object actual, Object expected)
@@ -615,13 +628,43 @@ public class OrcTester
     static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate, Type type)
             throws IOException
     {
+        OrcReader orcReader = createOrcReader(new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true), metadataReader);
+        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, new AggregatedMemoryContext());
+    }
+
+    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate, Type type, OrcStripeSplit orcStripeSplit)
+            throws IOException
+    {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+        return orcStripeSplit.open(
+                ImmutableMap.of(0, type),
+                orcDataSource,
+                metadataReader,
+                predicate,
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                HIVE_STORAGE_TIME_ZONE,
+                new AggregatedMemoryContext());
+    }
+
+    private static List<OrcStripeSplit> getOrcStripeSplits(TempFile tempFile, MetadataReader metadataReader)
+            throws IOException
+    {
+        try (OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true)) {
+            OrcReader orcReader = createOrcReader(orcDataSource, metadataReader);
+            return orcReader.getOrcStripeSplits(true);
+        }
+    }
+
+    private static OrcReader createOrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader)
+            throws IOException
+    {
         OrcReader orcReader = new OrcReader(orcDataSource, metadataReader, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
-
-        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, new AggregatedMemoryContext());
+        return orcReader;
     }
 
     private static DataSize writeOrcColumnNew(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values)

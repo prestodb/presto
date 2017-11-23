@@ -15,6 +15,7 @@ package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,7 +23,7 @@ import java.util.List;
 
 public interface MetadataReader
 {
-    PostScript readPostScript(byte[] data, int offset, int length)
+    PostScript readPostScript(Slice slice)
             throws IOException;
 
     Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
