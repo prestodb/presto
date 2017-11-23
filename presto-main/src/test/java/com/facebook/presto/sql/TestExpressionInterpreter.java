@@ -288,9 +288,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("-(CAST(NULL AS BIGINT))", "null");
         assertOptimizedEquals("-(unbound_long+(1+1))", "-(unbound_long+2)");
         assertOptimizedEquals("-(1.1+1.2)", "-2.3");
-        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("-(9876543210.9874561203-9876543210.9874561203)", "CAST(0 AS DECIMAL(20,10))");
+        assertOptimizedEquals("-(9876543210.9874561203-9876543210.9874561203)", "CAST(0 AS DECIMAL(20,10))");
         assertOptimizedEquals("-(bound_decimal_short+123.45)", "-246.90");
-        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("-(bound_decimal_long-12345678901234567890.123)", "CAST(0 AS DECIMAL(20,10))");
+        assertOptimizedEquals("-(bound_decimal_long-12345678901234567890.123)", "CAST(0 AS DECIMAL(20,10))");
     }
 
     @Test
@@ -363,7 +363,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("1.15 between 1.1 and 1.2", "true");
         assertOptimizedEquals("9876543210.98745612035 between 9876543210.9874561203 and 9876543210.9874561204", "true");
         assertOptimizedEquals("123.455 between bound_decimal_short and 123.46", "true");
-        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("12345678901234567890.1235 between bound_decimal_long and 12345678901234567890.123", "false");
+        assertOptimizedEquals("12345678901234567890.1235 between bound_decimal_long and 12345678901234567890.123", "false");
     }
 
     @Test
@@ -810,12 +810,11 @@ public class TestExpressionInterpreter
                         "end",
                 "2.2");
 
-        // TODO enabled when DECIMAL is default for literal:
-//        assertOptimizedEquals("case " +
-//                        "when false then 1234567890.0987654321 " +
-//                        "when true then 3.3 " +
-//                        "end",
-//                "CAST(3.3 AS DECIMAL(20,10))");
+        assertOptimizedEquals("case " +
+                        "when false then 1234567890.0987654321 " +
+                        "when true then 3.3 " +
+                        "end",
+                "CAST(3.3 AS DECIMAL(20,10))");
 
         assertOptimizedEquals("case " +
                         "when false then 1 " +

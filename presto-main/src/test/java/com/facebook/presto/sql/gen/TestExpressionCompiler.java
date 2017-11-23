@@ -204,7 +204,7 @@ public class TestExpressionCompiler
         assertExecute("'foo'", createVarcharType(3), "foo");
         assertExecute("4.2E0", DOUBLE, 4.2);
         assertExecute("10000000000 + 1", BIGINT, 10000000001L);
-        assertExecute("4.2", DOUBLE, 4.2);
+        assertExecute("4.2", createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
         assertExecute("DECIMAL '4.2'", createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
         assertExecute("X' 1 f'", VARBINARY, new SqlVarbinary(Slices.wrappedBuffer((byte) 0x1f).getBytes()));
         assertExecute("X' '", VARBINARY, new SqlVarbinary(new byte[0]));
@@ -1753,8 +1753,8 @@ public class TestExpressionCompiler
                 else if (type.equals("bigint")) {
                     value = "CAST( " + value + " AS BIGINT)";
                 }
-                else if (type.trim().toLowerCase().startsWith("decimal")) {
-                    value = "CAST( " + value + " AS " + type + " )";
+                else if (type.equals("double")) {
+                    value = "CAST( " + value + " AS DOUBLE)";
                 }
                 unrolledValues.add(ImmutableSet.of(String.valueOf(value)));
             }

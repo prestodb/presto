@@ -65,33 +65,33 @@ public class TestLegacyJoinUsing
     {
         // long, double
         assertions.assertQuery(
-                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DOUBLE '1.0', 3)) y (a, b) USING(a)",
-                "VALUES (1, 2.0, 1.0, 3)");
+                "SELECT * FROM (VALUES (1, 2e0)) x (a, b) JOIN (VALUES (DOUBLE '1.0', 3)) y (a, b) USING(a)",
+                "VALUES (1, 2e0, 1e0, 3)");
 
         // double, long
         assertions.assertQuery(
-                "SELECT * FROM (VALUES (1.0E0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)");
+                "SELECT * FROM (VALUES (1.0E0, 2e0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1e0, 2e0, 1, 3)");
 
         // long decimal, bigint
         assertions.assertQuery(
-                "SELECT * FROM (VALUES (DECIMAL '0000000000000000001', 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
-                "VALUES (DECIMAL '1', 2.0, 1, 3)");
+                "SELECT * FROM (VALUES (DECIMAL '0000000000000000001', 2e0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (DECIMAL '1', 2e0, 1, 3)");
 
         // bigint, long decimal
         assertions.assertQuery(
-                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DECIMAL '0000000000000000001', 3)) y (a, b) USING(a)",
-                "VALUES (1, 2.0, DECIMAL '1', 3)");
+                "SELECT * FROM (VALUES (1, 2e0)) x (a, b) JOIN (VALUES (DECIMAL '0000000000000000001', 3)) y (a, b) USING(a)",
+                "VALUES (1, 2e0, DECIMAL '1', 3)");
 
         // bigint, short decimal
         assertions.assertQuery(
-                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (1.0, 3)) y (a, b) USING(a)",
-                "VALUES (1, 2.0, 1.0, 3)");
+                "SELECT * FROM (VALUES (1, 2e0)) x (a, b) JOIN (VALUES (1e0, 3)) y (a, b) USING(a)",
+                "VALUES (1, 2e0, 1e0, 3)");
 
         // short decimal, bigint
         assertions.assertQuery(
-                "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)");
+                "SELECT * FROM (VALUES (1e0, 2e0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1e0, 2e0, 1, 3)");
 
         assertions.assertQuery(
                 "SELECT * FROM (VALUES (1, 2)) x (a, b) JOIN (VALUES (CAST (1 AS SMALLINT), CAST(3 AS SMALLINT))) y (a, b) USING(a)",
