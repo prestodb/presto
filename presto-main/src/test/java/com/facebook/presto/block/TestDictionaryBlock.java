@@ -18,11 +18,8 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
-
-import java.util.List;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static org.testng.Assert.assertEquals;
@@ -62,11 +59,11 @@ public class TestDictionaryBlock
         Slice firstExpectedValue = expectedValues[0];
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
 
-        List<Integer> positionsToCopy = Ints.asList(0, 10, 20, 30, 40);
-        DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy);
+        int[] positionsToCopy = new int[] {0, 10, 20, 30, 40};
+        DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 1);
-        assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
+        assertEquals(copiedBlock.getPositionCount(), positionsToCopy.length);
         assertBlock(copiedBlock.getDictionary(), new Slice[] {firstExpectedValue});
         assertBlock(copiedBlock, new Slice[] {firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue});
     }
@@ -77,12 +74,12 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        List<Integer> positionsToCopy = Ints.asList(50, 55, 40, 45, 60);
+        int[] positionsToCopy = new int[] {50, 55, 40, 45, 60};
 
-        DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy);
+        DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 2);
-        assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
+        assertEquals(copiedBlock.getPositionCount(), positionsToCopy.length);
 
         assertBlock(copiedBlock.getDictionary(), new Slice[] {expectedValues[0], expectedValues[5]});
         assertDictionaryIds(copiedBlock, 0, 1, 0, 1, 0);
@@ -94,12 +91,12 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        List<Integer> positionsToCopy = Ints.asList(52, 52, 52);
+        int[] positionsToCopy = new int[] {52, 52, 52};
 
-        DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy);
+        DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 1);
-        assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
+        assertEquals(copiedBlock.getPositionCount(), positionsToCopy.length);
 
         assertBlock(copiedBlock.getDictionary(), new Slice[] {expectedValues[2]});
         assertDictionaryIds(copiedBlock, 0, 0, 0);
@@ -112,10 +109,10 @@ public class TestDictionaryBlock
         Slice[] expectedValues = createExpectedValues(1);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
 
-        List<Integer> positionsToCopy = Ints.asList(0, 2, 4, 5);
-        DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy);
+        int[] positionsToCopy = new int[] {0, 2, 4, 5};
+        DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
-        assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
+        assertEquals(copiedBlock.getPositionCount(), positionsToCopy.length);
         assertBlock(copiedBlock.getDictionary(), expectedValues);
     }
 

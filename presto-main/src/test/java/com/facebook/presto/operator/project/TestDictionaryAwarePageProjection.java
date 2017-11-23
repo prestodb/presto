@@ -26,7 +26,6 @@ import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -262,7 +261,7 @@ public class TestDictionaryAwarePageProjection
         assertBlockEquals(
                 BIGINT,
                 result,
-                block.copyPositions(new IntArrayList(positions)));
+                block.copyPositions(positions, 0, positions.length));
         assertInstanceOf(result, expectedResultType);
     }
 
