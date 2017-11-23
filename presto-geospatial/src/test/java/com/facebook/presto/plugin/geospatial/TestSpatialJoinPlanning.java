@@ -36,7 +36,7 @@ import static java.util.Collections.emptyList;
 public class TestSpatialJoinPlanning
         extends BasePlanTest
 {
-    private static final String POINTS_SQL = "(VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name)";
+    private static final String POINTS_SQL = "(VALUES (2.1e0, 2.1e0, 'x')) AS a (lng, lat, name)";
     private static final String POLYGONS_SQL = "(VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a')) AS b (wkt, name)";
 
     public TestSpatialJoinPlanning()
