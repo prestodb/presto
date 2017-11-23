@@ -16,7 +16,6 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -44,14 +43,14 @@ public class TestArrayBlock
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
         assertBlock(blockBuilder, expectedValues);
         assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 1, 3, 4, 7));
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(2, 3, 5, 6));
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
         long[][] expectedValuesWithNull = (long[][]) alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
         assertBlock(blockBuilderWithNull, expectedValuesWithNull);
         assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(0, 1, 5, 6, 7, 10, 11, 12, 15));
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(2, 3, 4, 9, 13, 14));
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
     }
 
     @Test
@@ -67,14 +66,14 @@ public class TestArrayBlock
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
         assertBlock(blockBuilder, expectedValues);
         assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 1, 3, 4, 7));
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(2, 3, 5, 6));
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
         Slice[][] expectedValuesWithNull = (Slice[][]) alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
         assertBlock(blockBuilderWithNull, expectedValuesWithNull);
         assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(0, 1, 5, 6, 7, 10, 11, 12, 15));
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(2, 3, 4, 9, 13, 14));
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
     }
 
     @Test
@@ -95,14 +94,14 @@ public class TestArrayBlock
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
         assertBlock(blockBuilder, expectedValues);
         assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 1, 3, 4, 7));
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(2, 3, 5, 6));
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
         long[][][] expectedValuesWithNull = (long[][][]) alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
         assertBlock(blockBuilderWithNull, expectedValuesWithNull);
         assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(0, 1, 5, 6, 7, 10, 11, 12, 15));
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(2, 3, 4, 9, 13, 14));
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
     }
 
     @Test
