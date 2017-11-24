@@ -58,6 +58,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
+import static java.lang.Thread.currentThread;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -767,7 +768,7 @@ public abstract class AbstractTestDistributedQueries
     private static void assertUntilTimeout(Runnable assertion, Duration timeout)
     {
         long start = System.nanoTime();
-        while (!Thread.currentThread().isInterrupted()) {
+        while (!currentThread().isInterrupted()) {
             try {
                 assertion.run();
                 return;
