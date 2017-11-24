@@ -968,7 +968,7 @@ public abstract class AbstractTestDistributedQueries
                 .build();
         // This is optimized using CAST(null AS interval day to second) which may be problematic to deserialize on worker
         assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
-                "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
+                        "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
                 "VALUES (1, '0 00:00:01.000')");
     }
 }
