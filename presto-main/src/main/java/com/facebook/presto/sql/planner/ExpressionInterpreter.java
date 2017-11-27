@@ -37,7 +37,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -117,6 +116,7 @@ import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
@@ -172,9 +172,7 @@ public class ExpressionInterpreter
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
-            throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, String.format("Cannot cast type %s to %s",
-                    expectedType.getTypeSignature(),
-                    actualType.getTypeSignature()));
+            throw new SemanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", expectedType, actualType);
         }
 
         Map<NodeRef<Expression>, Type> coercions = ImmutableMap.<NodeRef<Expression>, Type>builder()

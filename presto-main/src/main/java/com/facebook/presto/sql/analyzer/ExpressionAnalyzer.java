@@ -1151,7 +1151,7 @@ public class ExpressionAnalyzer
         public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
         {
             if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT) {
-                throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, node, String.format("GROUPING supports up to %d column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT));
+                throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, node, "GROUPING supports up to %s column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT);
             }
 
             for (Expression columnArgument : node.getGroupingColumns()) {
