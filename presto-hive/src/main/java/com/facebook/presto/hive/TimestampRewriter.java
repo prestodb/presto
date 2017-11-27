@@ -14,9 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.AbstractArrayBlock;
+import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -97,6 +101,9 @@ public class TimestampRewriter
         if (type.equals(TIMESTAMP)) {
             return modifyTimestampsInTimestampBlock(block, modification);
         }
+        if (type instanceof ArrayType) {
+            return modifyTimestampsInArrayBlock(type, block, modification);
+        }
         throw new IllegalArgumentException("Unsupported block; block=" + block.getClass().getName() + "; type=" + type);
     }
 
@@ -122,5 +129,31 @@ public class TimestampRewriter
         }
 
         return blockBuilder.build();
+    }
+
+    private Block modifyTimestampsInArrayBlock(Type type, Block block, LongUnaryOperator modification)
+    {
+        if (block instanceof AbstractArrayBlock) {
+            AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
+            Block innerBlock = modifyTimestampsInBlock(arrayBlock.getValues(),
+                    type.getTypeParameters().get(0),
+                    modification);
+
+            return new ArrayBlock(arrayBlock.getPositionCount(), arrayBlock.getValueIsNull(), arrayBlock.getOffsets(), innerBlock);
+        }
+        else {
+            // Dear reviewer: This is slow path for sake when ARRAY is not represented as either AbstractArrayBlock or Lazy block wrapping AbstractArrayBlock.
+            //                Do we need this? Or should we just throw IllegalArgumentException("unsupported block type") here?
+            BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            for (int i = 0; i < block.getPositionCount(); ++i) {
+                if (block.isNull(i)) {
+                    builder.appendNull();
+                }
+                else {
+                    type.writeObject(builder, modifyTimestampsInBlock(block.getObject(i, Block.class), type.getTypeParameters().get(0), modification));
+                }
+            }
+            return builder.build();
+        }
     }
 }

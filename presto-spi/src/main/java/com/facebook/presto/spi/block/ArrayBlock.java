@@ -107,25 +107,25 @@ public class ArrayBlock
     }
 
     @Override
-    protected Block getValues()
+    public Block getValues()
     {
         return values;
     }
 
     @Override
-    protected int[] getOffsets()
+    public int[] getOffsets()
     {
         return offsets;
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return arrayOffset;
     }
 
     @Override
-    protected boolean[] getValueIsNull()
+    public boolean[] getValueIsNull()
     {
         return valueIsNull;
     }
