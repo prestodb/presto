@@ -60,7 +60,7 @@ public class JdbcRecordCursor
 {
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
+    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
 
     private final List<JdbcColumnHandle> columnHandles;
 

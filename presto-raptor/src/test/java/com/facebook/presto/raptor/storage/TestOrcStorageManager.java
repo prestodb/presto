@@ -108,7 +108,7 @@ import static org.testng.FileAssert.assertFile;
 @Test(singleThreaded = true)
 public class TestOrcStorageManager
 {
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
+    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final String CURRENT_NODE = "node";
     private static final String CONNECTOR_ID = "test";
