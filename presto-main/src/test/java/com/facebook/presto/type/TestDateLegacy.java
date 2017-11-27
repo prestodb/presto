@@ -11,16 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.type;
 
-// TODO unignore when new semantics is implemented
-// Note: ignore done using comments because @Test(enabled = false) misbehave on subclass
-public class TestDateTimeOperators
-        // extends TestDateTimeOperatorsBase
+public class TestDateLegacy
+        extends TestDateBase
 {
-    public TestDateTimeOperators()
+    public TestDateLegacy()
     {
-        // super(false);
+        super(true);
     }
 }

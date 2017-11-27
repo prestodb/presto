@@ -12,15 +12,13 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.type;
+package com.facebook.presto.operator.scalar;
 
-// TODO unignore when new semantics is implemented
-// Note: ignore done using comments because @Test(enabled = false) misbehave on subclass
-public class TestDateTimeOperators
-        // extends TestDateTimeOperatorsBase
+public class TestDateTimeFunctionsLegacy
+        extends TestDateTimeFunctionsBase
 {
-    public TestDateTimeOperators()
+    public TestDateTimeFunctionsLegacy()
     {
-        // super(false);
+        super(true);
     }
 }
