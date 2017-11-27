@@ -59,7 +59,8 @@ final class PrestoSystemRequirements
                     runtimeName);
         // Querying java.vendor allows us to differentiate between a Oracle(TM)
         // and a non-Oracle(TM) vendor like IBM(TM).
-        } else if (!"Oracle Corporation".equals(vendor)) {
+        }
+        else if (!"Oracle Corporation".equals(vendor)) {
             warnRequirement("Presto is running on a JVM from an unsupported " +
                     "vendor (found %s) - the only supported vendor is " +
                     "Oracle(TM)", vendor);
