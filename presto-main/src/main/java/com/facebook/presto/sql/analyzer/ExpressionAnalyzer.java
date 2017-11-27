@@ -1158,12 +1158,8 @@ public class ExpressionAnalyzer
                 process(columnArgument, context);
             }
 
-            if (node.getGroupingColumns().size() <= MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER) {
-                return setExpressionType(node, INTEGER);
-            }
-            else {
-                return setExpressionType(node, BIGINT);
-            }
+            boolean useInt = node.getGroupingColumns().size() <= MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER;
+            return setExpressionType(node, useInt ? INTEGER : BIGINT);
         }
 
         private Type getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)
