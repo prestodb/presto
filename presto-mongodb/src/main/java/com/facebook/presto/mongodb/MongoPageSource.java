@@ -64,7 +64,6 @@ public class MongoPageSource
     private final List<Type> columnTypes;
     private Document currentDoc;
     private long count;
-    private long totalCount;
     private boolean finished;
 
     public MongoPageSource(
@@ -123,7 +122,6 @@ public class MongoPageSource
             }
         }
 
-        totalCount += count;
         return pageBuilder.build();
     }
 
