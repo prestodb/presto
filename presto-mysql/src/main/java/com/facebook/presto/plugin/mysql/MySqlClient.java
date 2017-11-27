@@ -143,6 +143,8 @@ public class MySqlClient
 
         String sqlType = super.toSqlType(type);
         switch (sqlType) {
+            case "real":
+                return "float";
             case "varbinary":
                 return "mediumblob";
             case "time with timezone":
