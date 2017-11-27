@@ -81,6 +81,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(smallintDataType(), (short) 32_456)
                 .addRoundTrip(tinyintDataType(), (byte) 125)
                 .addRoundTrip(doubleDataType(), 123.45d)
+                .addRoundTrip(realDataType(), 123.45f)
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
     }
 
