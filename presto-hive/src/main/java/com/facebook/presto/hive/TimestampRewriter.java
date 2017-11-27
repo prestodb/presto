@@ -15,13 +15,16 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.AbstractArrayBlock;
+import com.facebook.presto.spi.block.AbstractMapBlock;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
@@ -34,11 +37,13 @@ public class TimestampRewriter
 {
     private final List<Type> columnTypes;
     private final DateTimeZone storageTimeZone;
+    private final TypeManager typeManager;
 
-    public TimestampRewriter(List<Type> columnTypes, DateTimeZone storageTimeZone)
+    public TimestampRewriter(List<Type> columnTypes, DateTimeZone storageTimeZone, TypeManager typeManager)
     {
         this.columnTypes = columnTypes;
         this.storageTimeZone = storageTimeZone;
+        this.typeManager = typeManager;
     }
 
     public Page rewritePageHiveToPresto(Page page)
@@ -104,6 +109,9 @@ public class TimestampRewriter
         if (type instanceof ArrayType) {
             return modifyTimestampsInArrayBlock(type, block, modification);
         }
+        if (type instanceof MapType) {
+            return modifyTimestampsInMapBlock(type, block, modification);
+        }
         throw new IllegalArgumentException("Unsupported block; block=" + block.getClass().getName() + "; type=" + type);
     }
 
@@ -155,5 +163,21 @@ public class TimestampRewriter
             }
             return builder.build();
         }
+    }
+
+    private Block modifyTimestampsInMapBlock(Type type, Block block, LongUnaryOperator modification)
+    {
+        if (block instanceof AbstractMapBlock) {
+            AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+            MapType mapType = (MapType) type;
+            Type keyType = type.getTypeParameters().get(0);
+            Type valueType = type.getTypeParameters().get(1);
+            Block innerKeyBlock = modifyTimestampsInBlock(mapBlock.getKeys(), keyType, modification);
+            Block innerValueBlock = modifyTimestampsInBlock(mapBlock.getValues(), valueType, modification);
+
+            return mapType.createBlockFromKeyValue(mapBlock.getPositionCount(), mapBlock.getMapIsNull(), mapBlock.getOffsets(), innerKeyBlock, innerValueBlock);
+        }
+
+        throw new IllegalArgumentException("Not supported block type; blockType=" + block.getClass().getName() + "; prestoType=" + type);
     }
 }

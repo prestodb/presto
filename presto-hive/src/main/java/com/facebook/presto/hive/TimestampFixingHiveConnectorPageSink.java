@@ -43,7 +43,7 @@ public class TimestampFixingHiveConnectorPageSink
                 .map(columnHandle -> typeManager.getType(columnHandle.getTypeSignature()))
                 .collect(toImmutableList());
 
-        timestampRewriter = new TimestampRewriter(columnTypes, storageTimeZone);
+        timestampRewriter = new TimestampRewriter(columnTypes, storageTimeZone, typeManager);
     }
 
     @Override
