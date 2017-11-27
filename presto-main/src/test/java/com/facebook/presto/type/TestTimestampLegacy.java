@@ -13,14 +13,11 @@
  */
 package com.facebook.presto.type;
 
-import org.testng.annotations.Test;
-
-@Test(enabled = false) // TODO unignore when new semantics is implemented
-public class TestTimestamp
+public class TestTimestampLegacy
         extends TestTimestampBase
 {
-    public TestTimestamp()
+    public TestTimestampLegacy()
     {
-        super(false);
+        super(true);
     }
 }
