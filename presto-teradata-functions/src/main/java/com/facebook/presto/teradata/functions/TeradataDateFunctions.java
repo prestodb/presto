@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeys;
 import static com.facebook.presto.teradata.functions.dateformat.DateFormatParser.createDateTimeFormatter;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -111,8 +112,12 @@ public final class TeradataDateFunctions
 
     private static long parseMillis(ConnectorSession session, Slice dateTime, Slice formatString)
     {
+        TimeZoneKey timeZoneKey = UTC_KEY;
+        if (session.isLegacyTimestamp()) {
+            timeZoneKey = session.getTimeZoneKey();
+        }
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(CHRONOLOGIES[session.getTimeZoneKey().getKey()])
+                .withChronology(CHRONOLOGIES[timeZoneKey.getKey()])
                 .withLocale(session.getLocale());
 
         try {
