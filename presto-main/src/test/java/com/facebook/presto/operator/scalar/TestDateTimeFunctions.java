@@ -42,6 +42,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -132,10 +133,10 @@ public class TestDateTimeFunctions
         }
     }
 
-    private static void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
+    private void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
     {
         long expectedDays = epochDaysInZone(timeZoneKey, instant);
-        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of()));
+        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of(), isLegacyTimestamp(session) ));
         assertEquals(dateTimeCalculation, expectedDays);
     }
 

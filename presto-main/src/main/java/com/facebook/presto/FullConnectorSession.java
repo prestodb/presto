@@ -43,6 +43,7 @@ public class FullConnectorSession
     private final ConnectorId connectorId;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
+    private final boolean isLegacyTimestamp;
 
     public FullConnectorSession(
             String queryId,
@@ -50,7 +51,8 @@ public class FullConnectorSession
             Optional<String> source,
             TimeZoneKey timeZoneKey,
             Locale locale,
-            long startTime)
+            long startTime,
+            boolean isLegacyTimestamp)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
@@ -63,6 +65,7 @@ public class FullConnectorSession
         this.connectorId = null;
         this.catalog = null;
         this.sessionPropertyManager = null;
+        this.isLegacyTimestamp = isLegacyTimestamp;
     }
 
     public FullConnectorSession(
@@ -75,7 +78,8 @@ public class FullConnectorSession
             Map<String, String> properties,
             ConnectorId connectorId,
             String catalog,
-            SessionPropertyManager sessionPropertyManager)
+            SessionPropertyManager sessionPropertyManager,
+            boolean isLegacyTimestamp)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
@@ -88,6 +92,7 @@ public class FullConnectorSession
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.isLegacyTimestamp = isLegacyTimestamp;
     }
 
     @Override
@@ -124,6 +129,12 @@ public class FullConnectorSession
     public long getStartTime()
     {
         return startTime;
+    }
+
+    @Override
+    public boolean isLegacyTimestamp()
+    {
+        return isLegacyTimestamp;
     }
 
     @Override
