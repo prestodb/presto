@@ -19,6 +19,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
+import java.util.Optional;
+
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 
 public final class SqlTimestamp
 {
@@ -27,12 +30,19 @@ public final class SqlTimestamp
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(JSON_FORMAT);
 
     private final long millisUtc;
-    private final TimeZoneKey sessionTimeZoneKey;
+    private final Optional<TimeZoneKey> sessionTimeZoneKey;
 
+    public SqlTimestamp(long millisUtc)
+    {
+        this.millisUtc = millisUtc;
+        sessionTimeZoneKey = Optional.empty();
+    }
+
+    @Deprecated
     public SqlTimestamp(long millisUtc, TimeZoneKey sessionTimeZoneKey)
     {
         this.millisUtc = millisUtc;
-        this.sessionTimeZoneKey = sessionTimeZoneKey;
+        this.sessionTimeZoneKey = Optional.of(sessionTimeZoneKey);
     }
 
     public long getMillisUtc()
@@ -40,9 +50,16 @@ public final class SqlTimestamp
         return millisUtc;
     }
 
-    public TimeZoneKey getSessionTimeZoneKey()
+    @Deprecated
+    public Optional<TimeZoneKey> getSessionTimeZoneKey()
     {
         return sessionTimeZoneKey;
+    }
+
+    @Deprecated
+    private boolean isLegacyTimestamp()
+    {
+        return sessionTimeZoneKey.isPresent();
     }
 
     @Override
@@ -69,6 +86,11 @@ public final class SqlTimestamp
     @Override
     public String toString()
     {
-        return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(sessionTimeZoneKey.getId())).format(formatter);
+        if (isLegacyTimestamp()) {
+            return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(formatter);
+        }
+        else {
+            return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(UTC_KEY.getId())).format(formatter);
+        }
     }
 }
