@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -135,6 +137,36 @@ public abstract class TestTimeBase
         assertFunction("cast(TIME '03:04:05.321' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
                 new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), DATE_TIME_ZONE.toTimeZone()));
+    }
+
+    @Test
+    public void testCastToTimeWithTimeZoneWithTZWithRulesChanged()
+    {
+        TimeZoneKey timeZoneThatChangedSince1970 = getTimeZoneKey("Asia/Kathmandu");
+        DateTimeZone dateTimeZoneThatChangedSince1970 = getDateTimeZone(timeZoneThatChangedSince1970);
+        Session session = testSessionBuilder()
+                .setTimeZoneKey(timeZoneThatChangedSince1970)
+                .build();
+        try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
+            localAssertions.assertFunction(
+                    "cast(TIME '03:04:05.321' as time with time zone)",
+                    TIME_WITH_TIME_ZONE,
+                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, dateTimeZoneThatChangedSince1970).getMillis(), dateTimeZoneThatChangedSince1970.toTimeZone()));
+        }
+    }
+
+    @Test
+    public void testCastToTimeWithTimeZoneDSTIsNotAppliedWhenTimeCrossesDST()
+    {
+        // Australia/Sydney will switch DST a second after session start
+        // For simplicity we have to use time zone that is going forward when entering DST zone with 1970-01-01
+        Session session = testSessionBuilder()
+                .setTimeZoneKey(getTimeZoneKey("Australia/Sydney"))
+                .setStartTime(new DateTime(2017, 10, 1, 1, 59, 59, 999, getDateTimeZone(getTimeZoneKey("Australia/Sydney"))).getMillis())
+                .build();
+        try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
+            localAssertions.assertFunctionString("cast(TIME '12:00:00.000' as time with time zone)", TIME_WITH_TIME_ZONE, "12:00:00.000 Australia/Sydney");
+        }
     }
 
     @Test

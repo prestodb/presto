@@ -282,4 +282,9 @@ public final class DateTimeOperators
     {
         return chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
     }
+
+    public static long modulo24Hour(long millis)
+    {
+        return MILLIS_OF_DAY.get(millis);
+    }
 }
