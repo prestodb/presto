@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.google.common.base.StandardSystemProperty;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
@@ -36,16 +35,34 @@ final class PrestoSystemRequirements
 {
     private static final int MIN_FILE_DESCRIPTORS = 4096;
     private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
-    private static final List<String> JVM_VENDORS = ImmutableList.of(
-            "Azul Systems, Inc.", "Oracle Corporation");
 
     private PrestoSystemRequirements() {}
 
     public static void verifyJvmRequirements()
     {
+        String runtimeName = System.getProperty("java.runtime.name");
         String vendor = StandardSystemProperty.JAVA_VENDOR.value();
-        if (!JVM_VENDORS.contains(vendor)) {
-            failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
+
+        // The Oracle(TM) and IBM(TM) JVM runtimes both return:
+        // Java(TM) SE Runtime Environment
+        //
+        // OpenJDK runtimes return:
+        // OpenJDK Runtime Environment
+        //
+        // Querying java.runtime.name allows us to differentiate between an
+        // OpenJDK JVM and a non-OpenJDK JVM because many OpenJDK's will
+        // return "Oracle" as their vendor name. However, it doesn't allow us
+        // to distinguish between different vendors like IBM(TM) and Oracle(TM).
+        if (!"Java(TM) SE Runtime Environment".equals(runtimeName)) {
+            warnRequirement("Presto is running on an unsupported JVM runtime " +
+                    "(found %s) - only the Oracle(TM) runtime is supported",
+                    runtimeName);
+        // Querying java.vendor allows us to differentiate between a Oracle(TM)
+        // and a non-Oracle(TM) vendor like IBM(TM).
+        } else if (!"Oracle Corporation".equals(vendor)) {
+            warnRequirement("Presto is running on a JVM from an unsupported " +
+                    "vendor (found %s) - the only supported vendor is " +
+                    "Oracle(TM)", vendor);
         }
 
         verifyJavaVersion();
