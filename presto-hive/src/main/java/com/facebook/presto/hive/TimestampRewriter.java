@@ -79,7 +79,13 @@ public class TimestampRewriter
         if (!hasTimestampParameter(type)) {
             return block;
         }
-        return new LazyBlock(block.getPositionCount(), lazyBlock -> lazyBlock.setBlock(modifyTimestampsInBlock(block, type, modification)));
+        return new LazyBlock(block.getPositionCount(), lazyBlock -> {
+            Block targetBlock = block;
+            if (block instanceof LazyBlock) {
+                targetBlock = ((LazyBlock) block).getBlock();
+            }
+            lazyBlock.setBlock(modifyTimestampsInBlock(targetBlock, type, modification));
+        });
     }
 
     private Block modifyTimestampsInBlock(Block block, Type type, LongUnaryOperator modification)
