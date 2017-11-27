@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestDateTimeFunctionsLegacy
         extends TestDateTimeFunctionsBase
@@ -30,6 +31,12 @@ public class TestDateTimeFunctionsLegacy
     public TestDateTimeFunctionsLegacy()
     {
         super(true);
+    }
+
+    @Test
+    public void testToIso8601ForTimestampWithoutTimeZone()
+    {
+        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
     }
 
     @Test
