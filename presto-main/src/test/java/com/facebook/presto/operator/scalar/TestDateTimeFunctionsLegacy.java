@@ -14,11 +14,65 @@
 
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimestampType;
+import org.joda.time.DateTime;
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+
 public class TestDateTimeFunctionsLegacy
         extends TestDateTimeFunctionsBase
 {
     public TestDateTimeFunctionsLegacy()
     {
         super(true);
+    }
+
+    @Test
+    public void testLocalTime()
+    {
+        Session localSession = Session.builder(session)
+                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, DATE_TIME_ZONE).getMillis())
+                .build();
+        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
+            localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "15:30:00.000");
+        }
+    }
+
+    @Test
+    public void testCurrentTime()
+    {
+        Session localSession = Session.builder(session)
+                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, DATE_TIME_ZONE).getMillis())
+                .build();
+        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
+            localAssertion.assertFunctionString("CURRENT_TIME", TIME_WITH_TIME_ZONE, "15:30:00.000 Asia/Kathmandu");
+        }
+    }
+
+    @Test
+    public void testLocalTimestamp()
+    {
+        Session localSession = Session.builder(session)
+                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, DATE_TIME_ZONE).getMillis())
+                .build();
+        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
+            localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 15:45:00.000");
+        }
+    }
+
+    @Test
+    public void testCurrentTimestamp()
+    {
+        Session localSession = Session.builder(session)
+                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, DATE_TIME_ZONE).getMillis())
+                .build();
+        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
+            localAssertion.assertFunctionString("CURRENT_TIMESTAMP", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 15:45:00.000 Asia/Kathmandu");
+            localAssertion.assertFunctionString("NOW()", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 15:45:00.000 Asia/Kathmandu");
+        }
     }
 }
