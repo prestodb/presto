@@ -155,10 +155,12 @@ public class MapStreamReader
             offsets[i] = offsets[i - 1] + length;
         }
 
+        Block result = mapType.createBlockFromKeyValue(nextBatchSize, nullVector, offsets, keyValueBlock[0], keyValueBlock[1]);
+
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(nullVector, offsets, keyValueBlock[0], keyValueBlock[1]);
+        return result;
     }
 
     private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)

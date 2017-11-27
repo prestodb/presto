@@ -210,7 +210,7 @@ public class ParquetReader
             elementOffsets.add(elementPositionCount * 2);
             offsets[i] = offsets[i - 1] + elementPositionCount;
         }
-        return ((MapType) type).createBlockFromKeyValue(new boolean[batchSize], offsets, blocks[0], blocks[1]);
+        return ((MapType) type).createBlockFromKeyValue(batchSize, new boolean[batchSize], offsets, blocks[0], blocks[1]); // FIXME add missing nulls support
     }
 
     public Block readStruct(Type type, List<String> path)

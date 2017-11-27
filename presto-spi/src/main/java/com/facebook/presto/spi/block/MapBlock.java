@@ -169,6 +169,7 @@ public class MapBlock
     }
 
     public static MapBlock fromKeyValueBlock(
+            int rowCount,
             boolean[] mapIsNull,
             int[] offsets,
             Block keyBlock,
@@ -202,7 +203,7 @@ public class MapBlock
 
         return new MapBlock(
                 0,
-                mapCount,
+                rowCount,
                 mapIsNull,
                 offsets,
                 keyBlock,
