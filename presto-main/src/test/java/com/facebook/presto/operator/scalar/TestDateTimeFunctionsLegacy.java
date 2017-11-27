@@ -42,17 +42,17 @@ public class TestDateTimeFunctionsLegacy
     @Test
     public void testFormatDateCanImplicitlyAddTimeZoneToTimestampLiteral()
     {
-        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 Asia/Kathmandu");
+        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 Asia/Kabul");
     }
 
     @Test
     public void testLocalTime()
     {
         Session localSession = Session.builder(session)
-                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, DATE_TIME_ZONE).getMillis())
+                .setStartTime(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis())
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "15:30:00.000");
+            localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "14:30:00.000");
         }
     }
 
@@ -60,7 +60,10 @@ public class TestDateTimeFunctionsLegacy
     public void testCurrentTime()
     {
         Session localSession = Session.builder(session)
-                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, DATE_TIME_ZONE).getMillis())
+                // we use Asia/Kathmandu here to test the difference in semantic change of current_time
+                // between legacy and non-legacy timestamp
+                .setTimeZoneKey(KATHMANDU_ZONE_KEY)
+                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, KATHMANDU_ZONE).getMillis())
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
             localAssertion.assertFunctionString("CURRENT_TIME", TIME_WITH_TIME_ZONE, "15:30:00.000 Asia/Kathmandu");
@@ -71,10 +74,10 @@ public class TestDateTimeFunctionsLegacy
     public void testLocalTimestamp()
     {
         Session localSession = Session.builder(session)
-                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, DATE_TIME_ZONE).getMillis())
+                .setStartTime(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis())
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 15:45:00.000");
+            localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 14:30:00.000");
         }
     }
 
@@ -82,11 +85,11 @@ public class TestDateTimeFunctionsLegacy
     public void testCurrentTimestamp()
     {
         Session localSession = Session.builder(session)
-                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, DATE_TIME_ZONE).getMillis())
+                .setStartTime(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis())
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("CURRENT_TIMESTAMP", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 15:45:00.000 Asia/Kathmandu");
-            localAssertion.assertFunctionString("NOW()", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 15:45:00.000 Asia/Kathmandu");
+            localAssertion.assertFunctionString("CURRENT_TIMESTAMP", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 14:30:00.000 Asia/Kabul");
+            localAssertion.assertFunctionString("NOW()", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 14:30:00.000 Asia/Kabul");
         }
     }
 }
