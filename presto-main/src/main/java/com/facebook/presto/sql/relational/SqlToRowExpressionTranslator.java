@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
@@ -141,7 +142,7 @@ public final class SqlToRowExpressionTranslator
             Session session,
             boolean optimize)
     {
-        RowExpression result = new Visitor(functionKind, types, typeManager, session.getTimeZoneKey()).process(expression, null);
+        RowExpression result = new Visitor(functionKind, types, typeManager, session.getTimeZoneKey(), SystemSessionProperties.isLegacyTimestamp(session)).process(expression, null);
 
         requireNonNull(result, "translated expression is null");
 
@@ -160,13 +161,16 @@ public final class SqlToRowExpressionTranslator
         private final Map<NodeRef<Expression>, Type> types;
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
+        @Deprecated
+        private final boolean isLegacyTimestamp;
 
-        private Visitor(FunctionKind functionKind, Map<NodeRef<Expression>, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
+        private Visitor(FunctionKind functionKind, Map<NodeRef<Expression>, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey, boolean isLegacyTimestamp)
         {
             this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.typeManager = typeManager;
             this.timeZoneKey = timeZoneKey;
+            this.isLegacyTimestamp = isLegacyTimestamp;
         }
 
         private Type getType(Expression node)
@@ -267,8 +271,13 @@ public final class SqlToRowExpressionTranslator
                 value = parseTimeWithTimeZone(node.getValue());
             }
             else {
-                // parse in time zone of client
-                value = parseTimeWithoutTimeZone(timeZoneKey, node.getValue());
+                if (isLegacyTimestamp) {
+                    // parse in time zone of client
+                    value = parseTimeWithoutTimeZone(timeZoneKey, node.getValue());
+                }
+                else {
+                    value = parseTimeWithoutTimeZone(node.getValue());
+                }
             }
             return constant(value, getType(node));
         }
@@ -281,8 +290,13 @@ public final class SqlToRowExpressionTranslator
                 value = parseTimestampWithTimeZone(timeZoneKey, node.getValue());
             }
             else {
-                // parse in time zone of client
-                value = parseTimestampWithoutTimeZone(timeZoneKey, node.getValue());
+                if (isLegacyTimestamp) {
+                    // parse in time zone of client
+                    value = parseTimestampWithoutTimeZone(timeZoneKey, node.getValue());
+                }
+                else {
+                    value = parseTimestampWithoutTimeZone(node.getValue());
+                }
             }
             return constant(value, getType(node));
         }

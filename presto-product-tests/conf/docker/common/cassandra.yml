@@ -9,3 +9,4 @@ services:
     environment:
         - HEAP_NEWSIZE=128M
         - MAX_HEAP_SIZE=512M
+    command: bash -c "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f"

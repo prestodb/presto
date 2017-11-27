@@ -30,7 +30,7 @@ public abstract class AbstractMapBlock
         implements Block
 {
     // inverse of hash fill ratio, must be integer
-    static final int HASH_MULTIPLIER = 2;
+    public static final int HASH_MULTIPLIER = 2;
 
     protected final Type keyType;
     protected final MethodHandle keyNativeHashCode;
@@ -45,25 +45,25 @@ public abstract class AbstractMapBlock
         this.keyBlockNativeEquals = keyBlockNativeEquals;
     }
 
-    protected abstract Block getKeys();
+    public abstract Block getKeys();
 
-    protected abstract Block getValues();
+    public abstract Block getValues();
 
-    protected abstract int[] getHashTables();
+    public abstract int[] getHashTables();
 
     /**
      * offset is entry-based, not position-based. In other words,
      * if offset[1] is 6, it means the first map has 6 key-value pairs,
      * not 6 key/values (which would be 3 pairs).
      */
-    protected abstract int[] getOffsets();
+    public abstract int[] getOffsets();
 
     /**
      * offset is entry-based, not position-based. (see getOffsets)
      */
-    protected abstract int getOffsetBase();
+    public abstract int getOffsetBase();
 
-    protected abstract boolean[] getMapIsNull();
+    public abstract boolean[] getMapIsNull();
 
     int getOffset(int position)
     {

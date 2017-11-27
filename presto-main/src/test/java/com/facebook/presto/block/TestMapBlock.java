@@ -126,7 +126,7 @@ public class TestMapBlock
                 offsets[i + 1] = offsets[i] + map.size();
             }
         }
-        return mapType(VARCHAR, BIGINT).createBlockFromKeyValue(mapIsNull, offsets, createStringsBlock(keys), createLongsBlock(values));
+        return mapType(VARCHAR, BIGINT).createBlockFromKeyValue(maps.length, mapIsNull, offsets, createStringsBlock(keys), createLongsBlock(values));
     }
 
     private void createBlockBuilderWithValues(Map<String, Long> map, BlockBuilder mapBlockBuilder)

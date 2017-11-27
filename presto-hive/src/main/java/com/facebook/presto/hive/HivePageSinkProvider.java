@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -55,6 +56,7 @@ public class HivePageSinkProvider
     private final NodeManager nodeManager;
     private final EventClient eventClient;
     private final HiveSessionProperties hiveSessionProperties;
+    private final DateTimeZone storageTimeZone;
     private final HiveWriterStats hiveWriterStats;
 
     @Inject
@@ -81,6 +83,7 @@ public class HivePageSinkProvider
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.immutablePartitions = config.isImmutablePartitions();
+        this.storageTimeZone = config.getDateTimeZone();
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(config.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
@@ -94,14 +97,22 @@ public class HivePageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
         HiveWritableTableHandle handle = (HiveOutputTableHandle) tableHandle;
-        return createPageSink(handle, true, session);
+        if (session.isLegacyTimestamp()) {
+            return createPageSink(handle, true, session);
+        }
+
+        return new TimestampFixingHiveConnectorPageSink(createPageSink(handle, true, session), handle, typeManager, storageTimeZone);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
-        return createPageSink(handle, false, session);
+        if (session.isLegacyTimestamp()) {
+            return createPageSink(handle, false, session);
+        }
+
+        return new TimestampFixingHiveConnectorPageSink(createPageSink(handle, false, session), handle, typeManager, storageTimeZone);
     }
 
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session)
