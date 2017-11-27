@@ -30,8 +30,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.LocalTime;
 import org.joda.time.ReadableInstant;
+import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -121,9 +121,15 @@ public abstract class TestDateTimeFunctionsBase
     {
         TimeZoneKey kievTimeZoneKey = getTimeZoneKey("Europe/Kiev");
         TimeZoneKey bahiaBanderasTimeZoneKey = getTimeZoneKey("America/Bahia_Banderas"); // The zone has 'gap' on 1970-01-01
-        for (long instant = new DateTime(2000, 6, 15, 0, 0).getMillis(); instant < new DateTime(2016, 6, 15, 0, 0).getMillis(); instant += TimeUnit.HOURS.toMillis(1)) {
+        TimeZoneKey montrealTimeZoneKey = getTimeZoneKey("America/Montreal");
+        long timeIncrement = TimeUnit.MINUTES.toMillis(53);
+        // We expect UTC millis later on so we have to use UTC chronology
+        for (long instant = ISOChronology.getInstanceUTC().getDateTimeMillis(2000, 6, 15, 0, 0, 0, 0);
+                instant < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
+                instant += timeIncrement) {
             assertCurrentDateAtInstant(kievTimeZoneKey, instant);
             assertCurrentDateAtInstant(bahiaBanderasTimeZoneKey, instant);
+            assertCurrentDateAtInstant(montrealTimeZoneKey, instant);
             assertCurrentDateAtInstant(TIME_ZONE_KEY, instant);
         }
     }
@@ -138,33 +144,6 @@ public abstract class TestDateTimeFunctionsBase
     private static long epochDaysInZone(TimeZoneKey timeZoneKey, long instant)
     {
         return LocalDate.from(Instant.ofEpochMilli(instant).atZone(ZoneId.of(timeZoneKey.getId()))).toEpochDay();
-    }
-
-    @Test
-    public void testLocalTime()
-    {
-        long millis = new LocalTime(session.getStartTime(), DateTimeZone.UTC).getMillisOfDay();
-        functionAssertions.assertFunction("LOCALTIME", TimeType.TIME, toTime(millis));
-    }
-
-    @Test
-    public void testCurrentTime()
-    {
-        long millis = new LocalTime(session.getStartTime(), DateTimeZone.UTC).getMillisOfDay();
-        functionAssertions.assertFunction("CURRENT_TIME", TIME_WITH_TIME_ZONE, new SqlTimeWithTimeZone(millis, session.getTimeZoneKey()));
-    }
-
-    @Test
-    public void testLocalTimestamp()
-    {
-        functionAssertions.assertFunction("localtimestamp", TimestampType.TIMESTAMP, sqlTimestampOf(session.getStartTime(), session));
-    }
-
-    @Test
-    public void testCurrentTimestamp()
-    {
-        functionAssertions.assertFunction("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
-        functionAssertions.assertFunction("now()", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
     }
 
     @Test
