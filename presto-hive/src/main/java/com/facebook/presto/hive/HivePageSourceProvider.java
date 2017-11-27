@@ -103,7 +103,10 @@ public class HivePageSourceProvider
                 typeManager,
                 hiveSplit.getColumnCoercions());
         if (pageSource.isPresent()) {
-            return pageSource.get();
+            if (session.isLegacyTimestamp()) {
+                return pageSource.get();
+            }
+            return new TimestampFixingHiveConnectorPageSource(pageSource.get(), hiveColumns, typeManager, hiveStorageTimeZone);
         }
         throw new RuntimeException("Could not find a file reader for split " + hiveSplit);
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.tests.hive;
 
 import com.teradata.tempto.ProductTest;
+import com.teradata.tempto.assertions.QueryAssert;
 import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -21,6 +22,7 @@ import org.testng.annotations.Test;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
@@ -33,6 +35,7 @@ import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
+import static java.util.Collections.nCopies;
 
 public class TestTimestampCompatibility
         extends ProductTest
@@ -61,6 +64,11 @@ public class TestTimestampCompatibility
         };
     }
 
+    private static QueryAssert.Row singleNullRow()
+    {
+        return new QueryAssert.Row(new ArrayList(nCopies(1, null)));
+    }
+
     @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
     public void testTimestampCompatibility(String storageFormat, String legacyTimestamp)
             throws SQLException
@@ -75,6 +83,24 @@ public class TestTimestampCompatibility
         QueryResult hiveResult = onHive().executeQuery(String.format("SELECT * FROM %s", TABLE_NAME));
         assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP));
         assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP));
+
+        resetSessionProperty(connection, "legacy_timestamp");
+    }
+
+    @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
+    public void testTimestampWithNullCompatibility(String storageFormat, String legacyTimestamp)
+            throws SQLException
+    {
+        Connection connection = defaultQueryExecutor().getConnection();
+        setSessionProperty(connection, "legacy_timestamp", legacyTimestamp);
+
+        query(String.format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        query(String.format("CREATE TABLE %s WITH (format = '%s') AS SELECT * FROM (VALUES (TIMESTAMP '%s'), (CAST(NULL AS TIMESTAMP))) t(ts)", TABLE_NAME, storageFormat, TIMESTAMP_LITERAL));
+
+        QueryResult prestoResult = query(String.format("SELECT * FROM %s", TABLE_NAME));
+        QueryResult hiveResult = onHive().executeQuery(String.format("SELECT * FROM %s", TABLE_NAME));
+        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP), singleNullRow());
+        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP), singleNullRow());
 
         resetSessionProperty(connection, "legacy_timestamp");
     }
