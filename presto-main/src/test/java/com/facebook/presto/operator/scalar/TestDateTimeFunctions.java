@@ -32,6 +32,14 @@ public class TestDateTimeFunctions
     }
 
     @Test
+    public void testFormatDateCannotImplicitlyAddTimeZoneToTimestampLiteral()
+    {
+        assertInvalidFunction(
+                "format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')",
+                "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
+    }
+
+    @Test
     public void testLocalTime()
     {
         Session localSession = Session.builder(session)
