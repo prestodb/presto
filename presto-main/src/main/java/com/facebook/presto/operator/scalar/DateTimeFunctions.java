@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
@@ -34,6 +35,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -41,6 +43,7 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
+import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
@@ -252,18 +255,18 @@ public final class DateTimeFunctions
     @ScalarFunction(value = "at_timezone", hidden = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
+    public static long timeAtTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
     {
-        return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), zoneId.toStringUtf8());
+        return timeAtTimeZone(session, timeWithTimeZone, getTimeZoneKey(zoneId.toStringUtf8()));
     }
 
     @ScalarFunction(value = "at_timezone", hidden = true)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeAtTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
+    public static long timeAtTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
-        checkCondition((zoneOffset % 60_000) == 0, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
-        int zoneOffsetMinutes = (int) (zoneOffset / 60_000);
-        return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
+        checkCondition((zoneOffset % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
+        long zoneOffsetMinutes = zoneOffset / 60_000L;
+        return timeAtTimeZone(session, timeWithTimeZone, getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
     @ScalarFunction(value = "at_timezone", hidden = true)
@@ -278,8 +281,8 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
-        checkCondition((zoneOffset % 60_000) == 0, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
-        int zoneOffsetMinutes = (int) (zoneOffset / 60_000);
+        checkCondition((zoneOffset % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
+        long zoneOffsetMinutes = zoneOffset / 60_000L;
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
@@ -1192,6 +1195,33 @@ public final class DateTimeFunctions
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+    }
+
+    private static long timeAtTimeZone(ConnectorSession session, long timeWithTimeZone, TimeZoneKey timeZoneKey)
+    {
+        DateTimeZone sourceTimeZone = getDateTimeZone(unpackZoneKey(timeWithTimeZone));
+        DateTimeZone targetTimeZone = getDateTimeZone(timeZoneKey);
+        long millis = unpackMillisUtc(timeWithTimeZone);
+
+        // STEP 1. Calculate source UTC millis in session start
+        millis += valueToSessionTimeZoneOffsetDiff(session.getStartTime(), sourceTimeZone);
+
+        // STEP 2. Calculate target UTC millis in 1970
+        millis -= valueToSessionTimeZoneOffsetDiff(session.getStartTime(), targetTimeZone);
+
+        // STEP 3. Make sure that value + offset is in 0 - 23:59:59.999
+        long localMillis = millis + targetTimeZone.getOffset(0);
+        // Loops up to 2 times in total
+        while (localMillis > TimeUnit.DAYS.toMillis(1)) {
+            millis -= TimeUnit.DAYS.toMillis(1);
+            localMillis -= TimeUnit.DAYS.toMillis(1);
+        }
+        while (localMillis < 0) {
+            millis += TimeUnit.DAYS.toMillis(1);
+            localMillis += TimeUnit.DAYS.toMillis(1);
+        }
+
+        return packDateTimeWithZone(millis, timeZoneKey);
     }
 
     // HACK WARNING!
