@@ -730,13 +730,14 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitTimeLiteral(TimeLiteral node, StackableAstVisitorContext<Context> context)
         {
-            Type type;
-            if (timeHasTimeZone(node.getValue())) {
-                type = TIME_WITH_TIME_ZONE;
+            boolean hasTimeZone;
+            try {
+                hasTimeZone = timeHasTimeZone(node.getValue());
             }
-            else {
-                type = TIME;
+            catch (IllegalArgumentException e) {
+                throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid time literal", node.getValue());
             }
+            Type type = hasTimeZone ? TIME_WITH_TIME_ZONE : TIME;
             return setExpressionType(node, type);
         }
 

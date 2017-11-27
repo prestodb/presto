@@ -19,6 +19,7 @@ import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -57,6 +58,7 @@ public abstract class TestTimeBase
         assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, session));
         assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, session));
         assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, session));
+        assertInvalidFunction("TIME 'text'", SemanticErrorCode.INVALID_LITERAL, "line 1:1: 'text' is not a valid time literal");
     }
 
     @Test
