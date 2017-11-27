@@ -281,12 +281,6 @@ public class ServerMainModule
         // memory revoking scheduler
         binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);
 
-        // workaround for CodeCache GC issue
-        if (JavaVersion.current().getMajor() == 8) {
-            configBinder(binder).bindConfig(CodeCacheGcConfig.class);
-            binder.bind(CodeCacheGcTrigger.class).in(Scopes.SINGLETON);
-        }
-
         // Add monitoring for JVM pauses
         binder.bind(PauseMeter.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PauseMeter.class).withGeneratedName();
