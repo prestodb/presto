@@ -36,18 +36,18 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 
 @Test
-public class TestPostgresSqlTypeMapping
+public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
     private final TestingPostgreSqlServer postgreSqlServer;
 
-    public TestPostgresSqlTypeMapping()
+    public TestPostgreSqlTypeMapping()
             throws Exception
     {
         this(new TestingPostgreSqlServer("testuser", "tpch"));
     }
 
-    private TestPostgresSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
+    private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
             throws Exception
     {
         super(() -> createPostgreSqlQueryRunner(postgreSqlServer, emptyList()));
