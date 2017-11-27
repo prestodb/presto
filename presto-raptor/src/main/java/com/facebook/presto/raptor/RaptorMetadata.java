@@ -56,6 +56,7 @@ import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.Nullable;
@@ -94,6 +95,7 @@ import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_P
 import static com.facebook.presto.raptor.RaptorTableProperties.getBucketColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getBucketCount;
 import static com.facebook.presto.raptor.RaptorTableProperties.getDistributionName;
+import static com.facebook.presto.raptor.RaptorTableProperties.getShardDayBoundaryTimeZone;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
 import static com.facebook.presto.raptor.RaptorTableProperties.isOrganized;
@@ -532,6 +534,7 @@ public class RaptorMetadata
 
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(getSortColumns(tableMetadata.getProperties()), columnHandleMap);
         Optional<RaptorColumnHandle> temporalColumnHandle = getTemporalColumnHandle(getTemporalColumn(tableMetadata.getProperties()), columnHandleMap);
+        DateTimeZone shardDayBoundaryTimeZone = getShardDayBoundaryTimeZone(tableMetadata.getProperties());
 
         if (temporalColumnHandle.isPresent()) {
             RaptorColumnHandle column = temporalColumnHandle.get();
@@ -570,7 +573,8 @@ public class RaptorMetadata
                 distribution.map(info -> OptionalLong.of(info.getDistributionId())).orElse(OptionalLong.empty()),
                 distribution.map(info -> OptionalInt.of(info.getBucketCount())).orElse(OptionalInt.empty()),
                 organized,
-                distribution.map(DistributionInfo::getBucketColumns).orElse(ImmutableList.of()));
+                distribution.map(DistributionInfo::getBucketColumns).orElse(ImmutableList.of()),
+                Optional.ofNullable(shardDayBoundaryTimeZone));
     }
 
     private DistributionInfo getDistributionInfo(long distributionId, Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
@@ -649,6 +653,7 @@ public class RaptorMetadata
 
                 if (table.getTemporalColumnHandle().isPresent() && table.getTemporalColumnHandle().get().equals(column)) {
                     dao.updateTemporalColumnId(tableId, columnId);
+                    dao.updateTableTimeZone(tableId, table.getTableTimeZone().map(DateTimeZone::toString).orElse(null));
                 }
             }
 
@@ -695,6 +700,8 @@ public class RaptorMetadata
                 .map(temporalColumnId -> getOnlyElement(columnHandles.build().stream()
                         .filter(columnHandle -> columnHandle.getColumnId() == temporalColumnId)
                         .collect(toList())));
+        Optional<DateTimeZone> shardDayBoundaryTimezone = Optional.ofNullable(dao.getTableTimeZone(tableId))
+                .map(DateTimeZone::forID);
 
         return new RaptorInsertTableHandle(connectorId,
                 transactionId,
@@ -706,7 +713,8 @@ public class RaptorMetadata
                 nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
                 handle.getBucketCount(),
                 bucketColumnHandles,
-                temporalColumnHandle);
+                temporalColumnHandle,
+                shardDayBoundaryTimezone);
     }
 
     private List<RaptorColumnHandle> getSortColumnHandles(long tableId)

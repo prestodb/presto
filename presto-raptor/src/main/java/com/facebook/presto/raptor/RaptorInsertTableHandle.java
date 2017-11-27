@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +42,7 @@ public class RaptorInsertTableHandle
     private final OptionalInt bucketCount;
     private final List<RaptorColumnHandle> bucketColumnHandles;
     private final Optional<RaptorColumnHandle> temporalColumnHandle;
+    private final Optional<DateTimeZone> tableTimeZone;
 
     @JsonCreator
     public RaptorInsertTableHandle(
@@ -54,7 +56,8 @@ public class RaptorInsertTableHandle
             @JsonProperty("sortOrders") List<SortOrder> sortOrders,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
-            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
+            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle,
+            @JsonProperty("tableTimeZone") Optional<DateTimeZone> tableTimeZone)
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
@@ -70,6 +73,7 @@ public class RaptorInsertTableHandle
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.temporalColumnHandle = requireNonNull(temporalColumnHandle, "temporalColumnHandle is null");
+        this.tableTimeZone = requireNonNull(tableTimeZone, "tableTimeZone is null");
     }
 
     @JsonProperty
@@ -136,6 +140,12 @@ public class RaptorInsertTableHandle
     public Optional<RaptorColumnHandle> getTemporalColumnHandle()
     {
         return temporalColumnHandle;
+    }
+
+    @JsonProperty
+    public Optional<DateTimeZone> getTableTimeZone()
+    {
+        return tableTimeZone;
     }
 
     @Override

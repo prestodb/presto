@@ -17,6 +17,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -39,6 +40,7 @@ public class RaptorTableProperties
     public static final String BUCKETED_ON_PROPERTY = "bucketed_on";
     public static final String DISTRIBUTION_NAME_PROPERTY = "distribution_name";
     public static final String ORGANIZED_PROPERTY = "organized";
+    public static final String SHARD_DAY_BOUNDARY_TIME_ZONE = "shard_day_boundary_time_zone";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -68,6 +70,10 @@ public class RaptorTableProperties
                 .add(booleanSessionProperty(
                         ORGANIZED_PROPERTY,
                         "Keep the table organized using the sort order",
+                        null,
+                        false))
+                .add(timezoneSessionProperty(SHARD_DAY_BOUNDARY_TIME_ZONE,
+                        "Day boundary time zone to split shards",
                         null,
                         false))
                 .build();
@@ -110,6 +116,11 @@ public class RaptorTableProperties
         return (value == null) ? false : value;
     }
 
+    public static DateTimeZone getShardDayBoundaryTimeZone(Map<String, Object> tableProperties)
+    {
+        return (DateTimeZone) tableProperties.get(SHARD_DAY_BOUNDARY_TIME_ZONE);
+    }
+
     public static PropertyMetadata<String> lowerCaseStringSessionProperty(String name, String description)
     {
         return new PropertyMetadata<>(
@@ -142,5 +153,18 @@ public class RaptorTableProperties
     private static List<String> stringList(Object value)
     {
         return (value == null) ? ImmutableList.of() : ((List<String>) value);
+    }
+
+    private static PropertyMetadata<DateTimeZone> timezoneSessionProperty(String name, String description, DateTimeZone defaultTimeZone, boolean hidden)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                createUnboundedVarcharType(),
+                DateTimeZone.class,
+                defaultTimeZone,
+                hidden,
+                value -> DateTimeZone.forID((String) value),
+                DateTimeZone::toString);
     }
 }

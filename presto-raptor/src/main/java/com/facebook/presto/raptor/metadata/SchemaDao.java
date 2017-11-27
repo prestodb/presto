@@ -42,6 +42,7 @@ public interface SchemaDao
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
             "  maintenance_blocked DATETIME,\n" +
+            "  table_time_zone VARCHAR(255) NULL,\n" +
             "  UNIQUE (schema_name, table_name),\n" +
             "  UNIQUE (distribution_id, table_id),\n" +
             "  UNIQUE (maintenance_blocked, table_id),\n" +

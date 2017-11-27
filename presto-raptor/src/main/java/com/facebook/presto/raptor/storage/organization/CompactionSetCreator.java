@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.createOrganizationSet;
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -32,13 +31,15 @@ import static java.util.stream.Collectors.toCollection;
 
 public class CompactionSetCreator
 {
+    private final ShardSplitterProvider shardSplitterProvider;
     private final DataSize maxShardSize;
     private final long maxShardRows;
 
-    public CompactionSetCreator(DataSize maxShardSize, long maxShardRows)
+    public CompactionSetCreator(ShardSplitterProvider shardSplitterProvider, DataSize maxShardSize, long maxShardRows)
     {
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
 
+        this.shardSplitterProvider = requireNonNull(shardSplitterProvider, "shardSplitterProvider is null");
         this.maxShardSize = requireNonNull(maxShardSize, "maxShardSize is null");
         this.maxShardRows = maxShardRows;
     }
@@ -47,7 +48,7 @@ public class CompactionSetCreator
     // All shards provided to this method will be considered for creating a compaction set.
     public Set<OrganizationSet> createCompactionSets(Table tableInfo, Collection<ShardIndexInfo> shards)
     {
-        Collection<Collection<ShardIndexInfo>> shardsByDaysBuckets = getShardsByDaysBuckets(tableInfo, shards);
+        Collection<Collection<ShardIndexInfo>> shardsByDaysBuckets = shardSplitterProvider.forTable(tableInfo).getShardsByDaysBuckets(shards);
 
         ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         for (Collection<ShardIndexInfo> shardInfos : shardsByDaysBuckets) {
