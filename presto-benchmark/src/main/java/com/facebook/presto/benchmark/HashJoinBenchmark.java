@@ -26,7 +26,6 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
-import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
@@ -49,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
 {
-    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
+    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
     private LookupSourceFactoryManager lookupSourceFactoryManager;
 
     public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
