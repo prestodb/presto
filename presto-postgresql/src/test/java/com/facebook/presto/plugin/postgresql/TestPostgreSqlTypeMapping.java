@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -37,8 +38,10 @@ import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
 import static com.facebook.presto.tests.datatype.DataType.integerDataType;
 import static com.facebook.presto.tests.datatype.DataType.realDataType;
 import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
+import static com.facebook.presto.tests.datatype.DataType.varbinaryDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 
 @Test
@@ -78,6 +81,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(smallintDataType(), (short) 32_456)
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
+                .addRoundTrip(varbinaryDataType(), new SqlVarbinary("hello".getBytes(UTF_8)))
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
     }
 
