@@ -135,7 +135,7 @@ public class TestDateTimeFunctions
     private static void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
     {
         long expectedDays = epochDaysInZone(timeZoneKey, instant);
-        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of()));
+        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of(), true));
         assertEquals(dateTimeCalculation, expectedDays);
     }
 
