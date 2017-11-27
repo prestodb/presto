@@ -64,6 +64,8 @@ public final class DateTimeFunctions
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
     private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
+    private static final DateTimeField MINUTE_OF_HOUR = UTC_CHRONOLOGY.minuteOfHour();
+    private static final DateTimeField HOUR_OF_DAY = UTC_CHRONOLOGY.hourOfDay();
     private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
     private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
     private static final DateTimeField DAY_OF_YEAR = UTC_CHRONOLOGY.dayOfYear();
@@ -304,7 +306,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIME)
     public static long truncateTime(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIME) long time)
     {
-        return getTimeField(getChronology(session.getTimeZoneKey()), unit).roundFloor(time);
+        if (session.isLegacyTimestamp()) {
+            return getTimeField(getChronology(session.getTimeZoneKey()), unit).roundFloor(time);
+        }
+        else {
+            return getTimeField(UTC_CHRONOLOGY, unit).roundFloor(time);
+        }
     }
 
     @Description("truncate to the specified precision")
@@ -323,7 +330,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP)
     public static long truncateTimestamp(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
+        }
+        else {
+            return getTimestampField(UTC_CHRONOLOGY, unit).roundFloor(timestamp);
+        }
     }
 
     @Description("truncate to the specified precision")
@@ -547,7 +559,44 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice formatDatetime(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
-        return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
+        if (session.isLegacyTimestamp()) {
+            return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
+        }
+        else {
+            if (datetimeFormatSpecifiesZone(formatString)) {
+                // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
+            }
+            return formatDatetime(UTC_CHRONOLOGY, session.getLocale(), timestamp, formatString);
+        }
+    }
+
+    /**
+     * Checks whether {@link DateTimeFormat} pattern contains time zone-related field.
+     */
+    private static boolean datetimeFormatSpecifiesZone(Slice formatString)
+    {
+        boolean quoted = false;
+        for (char c : formatString.toStringUtf8().toCharArray()) {
+            if (quoted) {
+                if (c == '\'') {
+                    quoted = false;
+                }
+                continue;
+            }
+
+            switch (c) {
+                case 'z':
+                case 'Z':
+                    return true;
+                case '\'':
+                    // '' (two apostrophes) in a pattern denote single apostrophe and here we interpret this as "start quote" + "end quote".
+                    // This has no impact on method's result value.
+                    quoted = true;
+                    break;
+            }
+        }
+        return false;
     }
 
     @Description("formats the given time by the given format")
@@ -580,7 +629,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice dateFormat(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
-        return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
+        if (session.isLegacyTimestamp()) {
+            return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
+        }
+        else {
+            return dateFormat(UTC_CHRONOLOGY, session.getLocale(), timestamp, formatString);
+        }
     }
 
     @ScalarFunction("date_format")
@@ -609,7 +663,7 @@ public final class DateTimeFunctions
     public static long dateParse(ConnectorSession session, @SqlType("varchar(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(getChronology(session.getTimeZoneKey()))
+                .withChronology(session.isLegacyTimestamp() ? getChronology(session.getTimeZoneKey()) : UTC_CHRONOLOGY)
                 .withLocale(session.getLocale());
 
         try {
@@ -669,7 +723,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long minuteFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).minuteOfHour().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).minuteOfHour().get(timestamp);
+        }
+        else {
+            return MINUTE_OF_HOUR.get(timestamp);
+        }
     }
 
     @Description("minute of the hour of the given timestamp")
@@ -685,7 +744,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long minuteFromTime(ConnectorSession session, @SqlType(StandardTypes.TIME) long time)
     {
-        return getChronology(session.getTimeZoneKey()).minuteOfHour().get(time);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).minuteOfHour().get(time);
+        }
+        else {
+            return MINUTE_OF_HOUR.get(time);
+        }
     }
 
     @Description("minute of the hour of the given time")
@@ -709,7 +773,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long hourFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).hourOfDay().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).hourOfDay().get(timestamp);
+        }
+        else {
+            return HOUR_OF_DAY.get(timestamp);
+        }
     }
 
     @Description("hour of the day of the given timestamp")
@@ -725,7 +794,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long hourFromTime(ConnectorSession session, @SqlType(StandardTypes.TIME) long time)
     {
-        return getChronology(session.getTimeZoneKey()).hourOfDay().get(time);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).hourOfDay().get(time);
+        }
+        else {
+            return HOUR_OF_DAY.get(time);
+        }
     }
 
     @Description("hour of the day of the given time")
@@ -749,7 +823,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).dayOfWeek().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).dayOfWeek().get(timestamp);
+        }
+        else {
+            return DAY_OF_WEEK.get(timestamp);
+        }
     }
 
     @Description("day of the week of the given timestamp")
@@ -773,7 +852,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).dayOfMonth().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).dayOfMonth().get(timestamp);
+        }
+        else {
+            return DAY_OF_MONTH.get(timestamp);
+        }
     }
 
     @Description("day of the month of the given timestamp")
@@ -805,7 +889,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfYearFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).dayOfYear().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).dayOfYear().get(timestamp);
+        }
+        else {
+            return DAY_OF_YEAR.get(timestamp);
+        }
     }
 
     @Description("day of the year of the given timestamp")
@@ -829,7 +918,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long weekFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).weekOfWeekyear().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).weekOfWeekyear().get(timestamp);
+        }
+        else {
+            return WEEK_OF_YEAR.get(timestamp);
+        }
     }
 
     @Description("week of the year of the given timestamp")
@@ -853,7 +947,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearOfWeekFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).weekyear().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).weekyear().get(timestamp);
+        }
+        else {
+            return YEAR_OF_WEEK.get(timestamp);
+        }
     }
 
     @Description("year of the ISO week of the given timestamp")
@@ -877,7 +976,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long monthFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).monthOfYear().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).monthOfYear().get(timestamp);
+        }
+        else {
+            return MONTH_OF_YEAR.get(timestamp);
+        }
     }
 
     @Description("month of the year of the given timestamp")
@@ -909,7 +1013,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long quarterFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return QUARTER_OF_YEAR.getField(getChronology(session.getTimeZoneKey())).get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return QUARTER_OF_YEAR.getField(getChronology(session.getTimeZoneKey())).get(timestamp);
+        }
+        else {
+            return QUARTER_OF_YEAR.getField(UTC_CHRONOLOGY).get(timestamp);
+        }
     }
 
     @Description("quarter of the year of the given timestamp")
@@ -933,7 +1042,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).year().get(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getChronology(session.getTimeZoneKey()).year().get(timestamp);
+        }
+        else {
+            return YEAR.get(timestamp);
+        }
     }
 
     @Description("year of the given timestamp")

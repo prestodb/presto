@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestDateTimeFunctionsLegacy
         extends TestDateTimeFunctionsBase
@@ -29,6 +30,12 @@ public class TestDateTimeFunctionsLegacy
     public TestDateTimeFunctionsLegacy()
     {
         super(true);
+    }
+
+    @Test
+    public void testFormatDateCanImplicitlyAddTimeZoneToTimestampLiteral()
+    {
+        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 Asia/Kathmandu");
     }
 
     @Test
