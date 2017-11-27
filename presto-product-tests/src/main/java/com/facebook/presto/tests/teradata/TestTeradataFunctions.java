@@ -14,15 +14,16 @@
 package com.facebook.presto.tests.teradata;
 
 import io.prestodb.tempto.ProductTest;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
-import java.sql.Timestamp;
 
 import static com.facebook.presto.tests.TestGroups.FUNCTIONS;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 
 public class TestTeradataFunctions
         extends ProductTest
@@ -52,7 +53,7 @@ public class TestTeradataFunctions
     public void testToTimestamp()
     {
         assertThat(onPresto().executeQuery("SELECT to_timestamp('1988/04/08;02:03:04','yyyy/mm/dd;hh24:mi:ss')"))
-                .contains(row(Timestamp.valueOf("1988-04-08 02:03:04.0")));
+                .contains(row(parseTimestampInLocalTime("1988-04-08 02:03:04.0", DateTimeZone.forID("Asia/Kathmandu"))));
     }
 
     @Test(groups = FUNCTIONS)
