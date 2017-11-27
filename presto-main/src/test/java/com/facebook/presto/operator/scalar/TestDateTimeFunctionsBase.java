@@ -75,10 +75,10 @@ import static org.testng.Assert.assertEquals;
 public abstract class TestDateTimeFunctionsBase
         extends AbstractTestFunctions
 {
-    protected static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
+    protected static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kabul");
     protected static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
     protected static final DateTimeZone UTC_TIME_ZONE = getDateTimeZone(UTC_KEY);
-    protected static final DateTimeZone DATE_TIME_ZONE_NUMERICAL = getDateTimeZone(getTimeZoneKey("+05:45"));
+    protected static final DateTimeZone DATE_TIME_ZONE_NUMERICAL = getDateTimeZone(getTimeZoneKey("+04:30"));
     protected static final TimeZoneKey WEIRD_ZONE_KEY = getTimeZoneKey("+07:09");
     protected static final DateTimeZone WEIRD_ZONE = getDateTimeZone(WEIRD_ZONE_KEY);
 
@@ -95,7 +95,7 @@ public abstract class TestDateTimeFunctionsBase
     protected static final DateTime LEGACY_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, DATE_TIME_ZONE);
     protected static final DateTime TIMESTAMP_WITH_NUMERICAL_ZONE = new DateTime(2001, 8, 22, 3, 4, 5, 321, DATE_TIME_ZONE_NUMERICAL);
     protected static final String TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321'";
-    protected static final String TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+05:45";
+    protected static final String TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+04:30";
     protected static final String TIMESTAMP_ISO8601_STRING_NO_TIME_ZONE = "2001-08-22T03:04:05.321";
     protected static final DateTime WEIRD_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, WEIRD_ZONE);
     protected static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
@@ -260,9 +260,9 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("month(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMonthOfYear());
         assertFunction("quarter(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMonthOfYear() / 4 + 1);
         assertFunction("year(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getYear());
-        assertFunction("timezone_hour(" + TIMESTAMP_LITERAL + ")", BIGINT, 5L);
-        assertFunction("timezone_hour(localtimestamp)", BIGINT, 5L);
-        assertFunction("timezone_hour(current_timestamp)", BIGINT, 5L);
+        assertFunction("timezone_hour(" + TIMESTAMP_LITERAL + ")", BIGINT, 4L);
+        assertFunction("timezone_hour(localtimestamp)", BIGINT, 4L);
+        assertFunction("timezone_hour(current_timestamp)", BIGINT, 4L);
 
         assertFunction("second(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getSecondOfMinute());
         assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMinuteOfHour());
@@ -987,8 +987,8 @@ public abstract class TestDateTimeFunctionsBase
                 TIME_WITH_TIME_ZONE,
                 new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 4, 15, 0, 0, UTC_TIME_ZONE).getMillis(), TimeZoneKey.UTC_KEY));
 
-        // Noop on Asia/Kathmandu
-        assertFunction("at_timezone(TIME '10:00 Asia/Kathmandu', 'Asia/Kathmandu')",
+        // Noop on Asia/Kabul
+        assertFunction("at_timezone(TIME '10:00 Asia/Kabul', 'Asia/Kabul')",
                 TIME_WITH_TIME_ZONE,
                 new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 10, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 

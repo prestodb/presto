@@ -21,6 +21,7 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -63,7 +64,7 @@ public class TestDateTimeFunctions
                 .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
                 .build();
         FunctionAssertions localAssertion = new FunctionAssertions(localSession);
-        localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "15:45:00.000");
+        localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "14:30:00.000");
     }
 
     @Test
@@ -72,7 +73,9 @@ public class TestDateTimeFunctions
     {
         Session localSession = testSessionBuilder()
                 .setSystemProperty("legacy_timestamp", "false")
-                .setTimeZoneKey(TIME_ZONE_KEY)
+                // we use Asia/Kathmandu here to test the difference in semantic change of current_time
+                // between legacy and non-legacy timestamp
+                .setTimeZoneKey(getTimeZoneKey("Asia/Kathmandu"))
                 .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
                 .build();
         FunctionAssertions localAssertion = new FunctionAssertions(localSession);
@@ -88,7 +91,7 @@ public class TestDateTimeFunctions
                 .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
                 .build();
         FunctionAssertions localAssertion = new FunctionAssertions(localSession);
-        localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 15:45:00.000");
+        localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 14:30:00.000");
     }
 
     @Test
@@ -100,7 +103,7 @@ public class TestDateTimeFunctions
                 .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
                 .build();
         FunctionAssertions localAssertion = new FunctionAssertions(localSession);
-        localAssertion.assertFunctionString("CURRENT_TIMESTAMP", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 15:45:00.000 Asia/Kathmandu");
-        localAssertion.assertFunctionString("NOW()", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 15:45:00.000 Asia/Kathmandu");
+        localAssertion.assertFunctionString("CURRENT_TIMESTAMP", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 14:30:00.000 Asia/Kabul");
+        localAssertion.assertFunctionString("NOW()", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 14:30:00.000 Asia/Kabul");
     }
 }
