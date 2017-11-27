@@ -21,8 +21,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
@@ -112,6 +114,9 @@ public class TimestampRewriter
         if (type instanceof MapType) {
             return modifyTimestampsInMapBlock(type, block, modification);
         }
+        if (type instanceof RowType) {
+            return modifyTimestampsInRowBlock(type, block, modification);
+        }
         throw new IllegalArgumentException("Unsupported block; block=" + block.getClass().getName() + "; type=" + type);
     }
 
@@ -176,6 +181,20 @@ public class TimestampRewriter
             Block innerValueBlock = modifyTimestampsInBlock(mapBlock.getValues(), valueType, modification);
 
             return mapType.createBlockFromKeyValue(mapBlock.getPositionCount(), mapBlock.getMapIsNull(), mapBlock.getOffsets(), innerKeyBlock, innerValueBlock);
+        }
+
+        throw new IllegalArgumentException("Not supported block type; blockType=" + block.getClass().getName() + "; prestoType=" + type);
+    }
+
+    private Block modifyTimestampsInRowBlock(Type type, Block block, LongUnaryOperator modification)
+    {
+        if (block instanceof RowBlock) {
+            RowBlock rowBlock = (RowBlock) block;
+            Block[] wrappedFieldBlocks = new Block[rowBlock.getFieldBlocks().length];
+            for (int i = 0; i < wrappedFieldBlocks.length; i++) {
+                wrappedFieldBlocks[i] = modifyTimestampsInBlock(rowBlock.getFieldBlocks()[i], type.getTypeParameters().get(i), modification);
+            }
+            return new RowBlock(rowBlock.getOffsetBase(), rowBlock.getPositionCount(), rowBlock.getRowIsNull(), rowBlock.getFieldBlockOffsets(), wrappedFieldBlocks);
         }
 
         throw new IllegalArgumentException("Not supported block type; blockType=" + block.getClass().getName() + "; prestoType=" + type);

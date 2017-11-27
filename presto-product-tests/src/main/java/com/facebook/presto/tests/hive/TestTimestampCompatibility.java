@@ -45,7 +45,6 @@ public class TestTimestampCompatibility
     private static final String TIMESTAMP_LITERAL = "2000-01-01 00:00:00";
     private static final Timestamp EXPECTED_TIMESTAMP = parseTimestampInLocalTime(TIMESTAMP_LITERAL, PRODUCT_TESTS_TIME_ZONE);
 
-    // format, params, legacy_mode
     @DataProvider(name = "storage_formats")
     public static Object[][] storageFormats()
     {
@@ -368,6 +367,127 @@ public class TestTimestampCompatibility
                 TIMESTAMP_LITERAL,
                 TIMESTAMP_LITERAL,
                 TABLE_NAME));
+        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP));
+
+        resetSessionProperty(connection, "legacy_timestamp");
+    }
+
+    @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
+    public void testSingleRowRowCompatibility(String storageFormat, String legacyTimestamp)
+            throws SQLException
+    {
+        if (storageFormat.equals("PARQUET")) {
+            throw new SkipException("This is disabled due to #8729 bug in Presto.");
+        }
+        Connection connection = defaultQueryExecutor().getConnection();
+        setSessionProperty(connection, "legacy_timestamp", legacyTimestamp);
+
+        query(String.format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        query(String.format("CREATE TABLE %s WITH (format = '%s') AS SELECT CAST(row(TIMESTAMP '%s') AS row(ts TIMESTAMP)) c",
+                TABLE_NAME, storageFormat, TIMESTAMP_LITERAL));
+
+        QueryResult prestoResult = query(String.format("SELECT c.ts FROM %s", TABLE_NAME));
+        QueryResult hiveResult = onHive().executeQuery(String.format("SELECT c.ts FROM %s", TABLE_NAME));
+        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP));
+
+        resetSessionProperty(connection, "legacy_timestamp");
+    }
+
+    @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
+    public void testNullInRowRowCompatibility(String storageFormat, String legacyTimestamp)
+            throws SQLException
+    {
+        if (storageFormat.equals("PARQUET")) {
+            throw new SkipException("This is disabled due to #8729 bug in Presto.");
+        }
+        Connection connection = defaultQueryExecutor().getConnection();
+        setSessionProperty(connection, "legacy_timestamp", legacyTimestamp);
+
+        query(String.format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        query(String.format("CREATE TABLE %s WITH (format = '%s') AS SELECT CAST(row(TIMESTAMP '%s', NULL, TIMESTAMP '%s') AS row(ts1 TIMESTAMP, ts2 TIMESTAMP, ts3 TIMESTAMP)) c",
+                TABLE_NAME, storageFormat, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL));
+
+        QueryResult prestoResult = query(String.format("SELECT c.ts1, c.ts2, c.ts3 FROM %s", TABLE_NAME));
+        QueryResult hiveResult = onHive().executeQuery(String.format("SELECT c.ts1, c.ts2, c.ts3 FROM %s", TABLE_NAME));
+        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
+
+        resetSessionProperty(connection, "legacy_timestamp");
+    }
+
+    @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
+    public void testMultiRowRowCompatibility(String storageFormat, String legacyTimestamp)
+            throws SQLException
+    {
+        if (storageFormat.equals("PARQUET")) {
+            throw new SkipException("This is disabled due to #8729 bug in Presto.");
+        }
+        Connection connection = defaultQueryExecutor().getConnection();
+        setSessionProperty(connection, "legacy_timestamp", legacyTimestamp);
+
+        query(String.format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        query(String.format("CREATE TABLE %s WITH (format = '%s') AS " +
+                        "SELECT * FROM" +
+                        "   (VALUES" +
+                        "       (row(CAST(row(TIMESTAMP '%s', TIMESTAMP '%s', TIMESTAMP '%s') AS row(ts1 TIMESTAMP, ts2 TIMESTAMP, ts3 TIMESTAMP))))," +
+                        "       (row(CAST(row(TIMESTAMP '%s', TIMESTAMP '%s', TIMESTAMP '%s') AS row(ts1 TIMESTAMP, ts2 TIMESTAMP, ts3 TIMESTAMP))))) t(c)",
+                TABLE_NAME, storageFormat, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL));
+
+        QueryResult prestoResult = query(String.format("SELECT c.ts1, c.ts2, c.ts3 FROM %s", TABLE_NAME));
+        QueryResult hiveResult = onHive().executeQuery(String.format("SELECT c.ts1, c.ts2, c.ts3 FROM %s", TABLE_NAME));
+        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP),
+                row(EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP),
+                row(EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP));
+
+        resetSessionProperty(connection, "legacy_timestamp");
+    }
+
+    @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
+    public void testMultiRowNullRowCompatibility(String storageFormat, String legacyTimestamp)
+            throws SQLException
+    {
+        if (storageFormat.equals("PARQUET")) {
+            throw new SkipException("This is disabled due to #8729 bug in Presto.");
+        }
+        Connection connection = defaultQueryExecutor().getConnection();
+        setSessionProperty(connection, "legacy_timestamp", legacyTimestamp);
+
+        query(String.format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        query(String.format("CREATE TABLE %s WITH (format = '%s') AS " +
+                        "SELECT * FROM" +
+                        "   (VALUES" +
+                        "       (row(CAST(row(TIMESTAMP '%s') AS row(ts TIMESTAMP))))," +
+                        "       (NULL)," +
+                        "       (row(CAST(row(TIMESTAMP '%s') AS row(ts TIMESTAMP))))) t(c)",
+                TABLE_NAME, storageFormat, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL, TIMESTAMP_LITERAL));
+
+        QueryResult prestoResult = query(String.format("SELECT CASE WHEN c IS NULL THEN NULL ELSE c.ts END FROM %s", TABLE_NAME));
+        QueryResult hiveResult = onHive().executeQuery(String.format("SELECT CASE WHEN c IS NULL THEN NULL ELSE c.ts END FROM %s", TABLE_NAME));
+        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP), singleNullRow(), row(EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP), singleNullRow(), row(EXPECTED_TIMESTAMP));
+
+        resetSessionProperty(connection, "legacy_timestamp");
+    }
+
+    @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
+    public void testNestedRowRowCompatibility(String storageFormat, String legacyTimestamp)
+            throws SQLException
+    {
+        if (storageFormat.equals("PARQUET")) {
+            throw new SkipException("This is disabled due to #8729 bug in Presto.");
+        }
+        Connection connection = defaultQueryExecutor().getConnection();
+        setSessionProperty(connection, "legacy_timestamp", legacyTimestamp);
+
+        query(String.format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        query(String.format("CREATE TABLE %s WITH (format = '%s') AS SELECT row(row(row(row(TIMESTAMP '%s')))) c",
+                TABLE_NAME, storageFormat, TIMESTAMP_LITERAL));
+
+        QueryResult prestoResult = query(String.format("SELECT c.field0.field0.field0.field0 FROM %s", TABLE_NAME));
+        QueryResult hiveResult = onHive().executeQuery(String.format("SELECT c.field0.field0.field0.field0 FROM %s", TABLE_NAME));
         assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP));
         assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP));
 
