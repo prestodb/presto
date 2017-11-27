@@ -18,7 +18,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 
-@Test(enabled = false) // TODO unignore when new semantics is implemented
 public class TestTimestampWithTimeZone
         extends TestTimestampWithTimeZoneBase
 {

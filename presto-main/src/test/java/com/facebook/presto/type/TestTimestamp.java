@@ -17,7 +17,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 
-@Test(enabled = false) // TODO unignore when new semantics is implemented
 public class TestTimestamp
         extends TestTimestampBase
 {
