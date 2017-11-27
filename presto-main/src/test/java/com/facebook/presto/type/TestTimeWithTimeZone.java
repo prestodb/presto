@@ -13,18 +13,14 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -37,36 +33,18 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestTimeWithTimeZone
+        extends AbstractTestFunctions
 {
     private static final DateTimeZone WEIRD_ZONE = DateTimeZone.forOffsetHoursMinutes(7, 9);
     private static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(7 * 60 + 9);
 
-    private Session session;
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
+    public TestTimeWithTimeZone()
     {
-        session = testSessionBuilder()
+        super(testSessionBuilder()
                 .setTimeZoneKey(getTimeZoneKey("+06:09"))
-                .build();
-
-        functionAssertions = new FunctionAssertions(session);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(functionAssertions);
-        functionAssertions = null;
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
+                .build());
     }
 
     @Test
@@ -105,6 +83,7 @@ public class TestTimeWithTimeZone
                 INTERVAL_DAY_TIME,
                 "-0 12:11:11.111");
     }
+
     @Test
     public void testEqual()
     {
