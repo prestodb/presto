@@ -109,6 +109,7 @@ import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowRoleGrants;
 import com.facebook.presto.sql.tree.ShowRoles;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
@@ -1674,6 +1675,16 @@ public class TestSqlParser
                 new ShowRoles(Optional.of(new Identifier("foo")), true));
         assertStatement("SHOW CURRENT ROLES IN foo",
                 new ShowRoles(Optional.of(new Identifier("foo")), true));
+    }
+
+    @Test
+    public void testShowRoleGrants()
+            throws Exception
+    {
+        assertStatement("SHOW ROLE GRANTS",
+                new ShowRoleGrants(Optional.empty(), Optional.empty()));
+        assertStatement("SHOW ROLE GRANTS FROM catalog",
+                new ShowRoleGrants(Optional.of(new Identifier("catalog"))));
     }
 
     @Test
