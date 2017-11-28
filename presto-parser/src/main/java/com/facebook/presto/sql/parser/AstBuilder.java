@@ -932,7 +932,8 @@ class AstBuilder
     {
         return new ShowRoles(
                 getLocation(context),
-                getIdentifierIfPresent(context.identifier()));
+                getIdentifierIfPresent(context.identifier()),
+                context.CURRENT() != null);
     }
 
     @Override
