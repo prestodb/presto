@@ -35,12 +35,22 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ThriftModule
         implements Module
 {
+    private final String connectorId;
+
+    public ThriftModule(String connectorId)
+    {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -54,6 +64,8 @@ public class ThriftModule
         configBinder(binder).bindConfig(ThriftConnectorConfig.class);
         binder.bind(ThriftSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(ThriftIndexProvider.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(PrestoThriftServiceProvider.class)
+                .as(generatedNameOf(RetryingPrestoThriftServiceProvider.class, connectorId));
     }
 
     @Provides
