@@ -30,12 +30,13 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class HivePrivilegeInfo
 {
     public enum HivePrivilege
     {
-        SELECT, INSERT, UPDATE, DELETE, OWNERSHIP;
+        SELECT, INSERT, UPDATE, DELETE, OWNERSHIP
     }
 
     private final HivePrivilege hivePrivilege;
@@ -43,7 +44,7 @@ public class HivePrivilegeInfo
 
     public HivePrivilegeInfo(HivePrivilege hivePrivilege, boolean grantOption)
     {
-        this.hivePrivilege = hivePrivilege;
+        this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
         this.grantOption = grantOption;
     }
 
@@ -57,20 +58,15 @@ public class HivePrivilegeInfo
         return grantOption;
     }
 
-    public HivePrivilegeInfo withGrantOption(boolean grantOption)
-    {
-        return new HivePrivilegeInfo(hivePrivilege, grantOption);
-    }
-
     public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant)
     {
         boolean withGrantOption = userGrant.isGrantOption();
         String name = userGrant.getPrivilege().toUpperCase(ENGLISH);
         switch (name) {
             case "ALL":
-                return Arrays.asList(HivePrivilege.values()).stream()
+                return ImmutableSet.copyOf(Arrays.stream(HivePrivilege.values())
                         .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, withGrantOption))
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toSet()));
             case "SELECT":
                 return ImmutableSet.of(new HivePrivilegeInfo(SELECT, withGrantOption));
             case "INSERT":
@@ -81,8 +77,9 @@ public class HivePrivilegeInfo
                 return ImmutableSet.of(new HivePrivilegeInfo(DELETE, withGrantOption));
             case "OWNERSHIP":
                 return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, withGrantOption));
+            default:
+                throw new IllegalArgumentException("Unsupported privilege name: " + name);
         }
-        return ImmutableSet.of();
     }
 
     public static HivePrivilege toHivePrivilege(Privilege privilege)
@@ -110,7 +107,7 @@ public class HivePrivilegeInfo
 
     public Set<PrivilegeInfo> toPrivilegeInfo()
     {
-        switch (getHivePrivilege()) {
+        switch (hivePrivilege) {
             case SELECT:
                 return ImmutableSet.of(new PrivilegeInfo(Privilege.SELECT, isGrantOption()));
             case INSERT:
@@ -120,11 +117,12 @@ public class HivePrivilegeInfo
             case UPDATE:
                 return ImmutableSet.of(new PrivilegeInfo(Privilege.UPDATE, isGrantOption()));
             case OWNERSHIP:
-                return Arrays.asList(Privilege.values()).stream()
+                return ImmutableSet.copyOf(Arrays.stream(Privilege.values())
                         .map(privilege -> new PrivilegeInfo(privilege, Boolean.TRUE))
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toSet()));
+            default:
+                throw new IllegalArgumentException("Unsupported hivePrivilege: " + hivePrivilege);
         }
-        return null;
     }
 
     @Override
