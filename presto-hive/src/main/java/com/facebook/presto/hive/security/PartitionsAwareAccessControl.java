@@ -211,4 +211,16 @@ public class PartitionsAwareAccessControl
     {
         delegate.checkCanSetRole(transactionHandle, identity, role, catalogName);
     }
+
+    @Override
+    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        delegate.checkCanShowRoles(transactionHandle, identity, catalogName);
+    }
+
+    @Override
+    public Set<String> filterRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName, Set<String> roles)
+    {
+        return delegate.filterRoles(transactionHandle, identity, catalogName, roles);
+    }
 }
