@@ -195,4 +195,15 @@ public class AllowAllAccessControl
     public void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog)
     {
     }
+
+    @Override
+    public void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName)
+    {
+    }
+
+    @Override
+    public Set<String> filterRoles(TransactionId transactionId, Identity identity, String catalogName, Set<String> roles)
+    {
+        return roles;
+    }
 }
