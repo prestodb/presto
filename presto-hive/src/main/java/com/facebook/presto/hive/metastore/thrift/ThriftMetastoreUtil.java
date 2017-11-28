@@ -68,6 +68,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
@@ -100,13 +101,13 @@ public final class ThriftMetastoreUtil
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
-        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(table.getOwner(), privileges));
+        result.setPrivileges(toMetastoreApiPrincipalPrivilegeSet(new PrestoPrincipal(USER, table.getOwner()), privileges));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
         return result;
     }
 
-    public static PrincipalPrivilegeSet toMetastoreApiPrincipalPrivilegeSet(String grantee, PrincipalPrivileges privileges)
+    private static PrincipalPrivilegeSet toMetastoreApiPrincipalPrivilegeSet(PrestoPrincipal grantee, PrincipalPrivileges privileges)
     {
         ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> userPrivileges = ImmutableMap.builder();
         for (Map.Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getUserPrivileges().asMap().entrySet()) {
@@ -125,13 +126,14 @@ public final class ThriftMetastoreUtil
         return new PrincipalPrivilegeSet(userPrivileges.build(), ImmutableMap.of(), rolePrivileges.build());
     }
 
-    public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(String grantee, HivePrivilegeInfo privilegeInfo)
+    public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(PrestoPrincipal grantee, HivePrivilegeInfo privilegeInfo)
     {
         return new PrivilegeGrantInfo(
                 privilegeInfo.getHivePrivilege().name().toLowerCase(),
                 0,
-                grantee,
-                org.apache.hadoop.hive.metastore.api.PrincipalType.USER, privilegeInfo.isGrantOption());
+                grantee.getName(),
+                fromPrestoPrincipalType(grantee.getType()),
+                privilegeInfo.isGrantOption());
     }
 
     public static org.apache.hadoop.hive.metastore.api.PrincipalType toMetastoreApiPrincipalType(PrincipalType principalType)
@@ -404,7 +406,7 @@ public final class ThriftMetastoreUtil
     {
         switch (principalType) {
             case USER:
-                return PrincipalType.USER;
+                return USER;
             case ROLE:
                 return ROLE;
             default:

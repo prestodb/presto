@@ -33,7 +33,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -249,10 +248,10 @@ public class FileHiveMetastore
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(table), false);
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
-            setTablePrivileges(entry.getKey(), USER, table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new PrestoPrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
-            setTablePrivileges(entry.getKey(), ROLE, table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
     }
 
@@ -367,10 +366,10 @@ public class FileHiveMetastore
         deleteTablePrivileges(table);
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
-            setTablePrivileges(entry.getKey(), USER, table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new PrestoPrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
-            setTablePrivileges(entry.getKey(), ROLE, table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
     }
 
@@ -876,7 +875,7 @@ public class FileHiveMetastore
         if (principal.getType() == USER && table.getOwner().equals(principal.getName())) {
             result.add(new HivePrivilegeInfo(OWNERSHIP, true));
         }
-        Path permissionFilePath = getPermissionsPath(getPermissionsDirectory(table), principal.getName(), principal.getType());
+        Path permissionFilePath = getPermissionsPath(getPermissionsDirectory(table), principal);
         result.addAll(readFile("permissions", permissionFilePath, permissionsCodec).orElse(ImmutableList.of()).stream()
                 .map(PermissionMetadata::toHivePrivilegeInfo)
                 .collect(toSet()));
@@ -884,29 +883,27 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setTablePrivileges(grantee, USER, databaseName, tableName, privileges);
+        setTablePrivileges(grantee, databaseName, tableName, privileges);
     }
 
     @Override
-    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, new PrestoPrincipal(USER, grantee));
+        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, grantee);
         currentPrivileges.removeAll(privileges);
 
-        setTablePrivileges(grantee, USER, databaseName, tableName, currentPrivileges);
+        setTablePrivileges(grantee, databaseName, tableName, currentPrivileges);
     }
 
     private synchronized void setTablePrivileges(
-            String principalName,
-            PrincipalType principalType,
+            PrestoPrincipal grantee,
             String databaseName,
             String tableName,
             Collection<HivePrivilegeInfo> privileges)
     {
-        requireNonNull(principalName, "principalName is null");
-        requireNonNull(principalType, "principalType is null");
+        requireNonNull(grantee, "grantee is null");
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");
         requireNonNull(privileges, "privileges is null");
@@ -921,7 +918,7 @@ public class FileHiveMetastore
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Could not create permissions directory");
             }
 
-            Path permissionFilePath = getPermissionsPath(permissionsDirectory, principalName, principalType);
+            Path permissionFilePath = getPermissionsPath(permissionsDirectory, grantee);
             List<PermissionMetadata> permissions = privileges.stream()
                     .map(PermissionMetadata::new)
                     .collect(toList());
@@ -975,9 +972,9 @@ public class FileHiveMetastore
         return new Path(getTableMetadataDirectory(table), PRESTO_PERMISSIONS_DIRECTORY_NAME);
     }
 
-    private static Path getPermissionsPath(Path permissionsDirectory, String principalName, PrincipalType principalType)
+    private static Path getPermissionsPath(Path permissionsDirectory, PrestoPrincipal grantee)
     {
-        return new Path(permissionsDirectory, principalType.name().toLowerCase(Locale.US) + "_" + principalName);
+        return new Path(permissionsDirectory, grantee.getType().toString().toLowerCase(Locale.US) + "_" + grantee.getName());
     }
 
     private List<Path> getChildSchemaDirectories(Path metadataDirectory)

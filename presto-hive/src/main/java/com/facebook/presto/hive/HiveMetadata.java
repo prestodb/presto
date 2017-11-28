@@ -151,6 +151,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatistics.EMPTY_STATISTICS;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -1376,7 +1377,7 @@ public class HiveMetadata
                 .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption))
                 .collect(toSet());
 
-        metastore.grantTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.grantTablePrivileges(schemaName, tableName, getPrestoPrincipal(grantee), hivePrivilegeInfos);
     }
 
     @Override
@@ -1389,7 +1390,18 @@ public class HiveMetadata
                 .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption))
                 .collect(toSet());
 
-        metastore.revokeTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.revokeTablePrivileges(schemaName, tableName, getPrestoPrincipal(grantee), hivePrivilegeInfos);
+    }
+
+    private PrestoPrincipal getPrestoPrincipal(String grantee)
+    {
+        // TODO this hack will be removed after grant for roles is introduced
+        if (grantee.equalsIgnoreCase("public")) {
+            return new PrestoPrincipal(ROLE, "public");
+        }
+        else {
+            return new PrestoPrincipal(USER, grantee);
+        }
     }
 
     @Override
