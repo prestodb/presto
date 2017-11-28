@@ -94,5 +94,8 @@ public enum SemanticErrorCode
 
     DUPLICATE_PROPERTY,
 
+    ROLE_ALREADY_EXIST,
+    MISSING_ROLE,
+
     TOO_MANY_GROUPING_SETS,
 }
