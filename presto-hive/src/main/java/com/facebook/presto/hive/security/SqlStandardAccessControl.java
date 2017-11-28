@@ -188,7 +188,7 @@ public class SqlStandardAccessControl
     public void checkCanSelectFromColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
     {
         // TODO: Implement column level access control
-        if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
+        if (!checkTablePermission(transaction, identity, tableName, SELECT, false)) {
             denySelectTable(tableName.toString());
         }
     }
@@ -196,7 +196,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, INSERT)) {
+        if (!checkTablePermission(transaction, identity, tableName, INSERT, false)) {
             denyInsertTable(tableName.toString());
         }
     }
@@ -204,7 +204,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, DELETE)) {
+        if (!checkTablePermission(transaction, identity, tableName, DELETE, false)) {
             denyDeleteTable(tableName.toString());
         }
     }
@@ -228,11 +228,10 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
     {
+        checkCanSelectFromColumns(transaction, identity, tableName, columnNames);
+
         // TODO implement column level access control
-        if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
-            denySelectTable(tableName.toString());
-        }
-        if (!hasGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
+        if (!checkTablePermission(transaction, identity, tableName, SELECT, true)) {
             denyCreateViewWithSelect(tableName.toString(), identity);
         }
     }
@@ -377,10 +376,15 @@ public class SqlStandardAccessControl
 
     private boolean isTableOwner(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        return checkTablePermission(transaction, identity, tableName, OWNERSHIP);
+        return checkTablePermission(transaction, identity, tableName, OWNERSHIP, false);
     }
 
-    private boolean checkTablePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, HivePrivilege requiredPrivilege)
+    private boolean checkTablePermission(
+            ConnectorTransactionHandle transaction,
+            ConnectorIdentity identity,
+            SchemaTableName tableName,
+            HivePrivilege requiredPrivilege,
+            boolean grantOptionRequired)
     {
         if (isAdmin(transaction, identity)) {
             return true;
@@ -397,6 +401,7 @@ public class SqlStandardAccessControl
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         return listApplicableTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), new PrestoPrincipal(USER, identity.getUser()))
                 .stream()
+                .filter(privilegeInfo -> !grantOptionRequired || privilegeInfo.isGrantOption())
                 .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(requiredPrivilege));
     }
 
