@@ -1271,7 +1271,11 @@ public final class SqlFormatter
         @Override
         protected Void visitShowRoles(ShowRoles node, Integer context)
         {
-            builder.append("SHOW ROLES");
+            builder.append("SHOW ");
+            if (node.isCurrent()) {
+                builder.append("CURRENT ");
+            }
+            builder.append("ROLES");
 
             if (node.getCatalog().isPresent()) {
                 builder.append(" FROM ")
