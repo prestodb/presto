@@ -46,7 +46,7 @@ public class TestLookupJoinPageBuilder
         Block block = blockBuilder.build();
         Page page = new Page(block, block);
 
-        JoinProbeFactory joinProbeFactory = new JoinProbeFactory(ImmutableList.of(BIGINT, BIGINT), new int[]{0, 1}, ImmutableList.of(0, 1), OptionalInt.empty());
+        JoinProbeFactory joinProbeFactory = new JoinProbeFactory(new int[]{0, 1}, ImmutableList.of(0, 1), OptionalInt.empty());
         JoinProbe probe = joinProbeFactory.createJoinProbe(page);
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT, BIGINT), page);
         LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT, BIGINT));
@@ -95,7 +95,7 @@ public class TestLookupJoinPageBuilder
         }
         Block block = blockBuilder.build();
         Page page = new Page(block);
-        JoinProbeFactory joinProbeFactory = new JoinProbeFactory(ImmutableList.of(BIGINT), new int[]{0}, ImmutableList.of(0), OptionalInt.empty());
+        JoinProbeFactory joinProbeFactory = new JoinProbeFactory(new int[]{0}, ImmutableList.of(0), OptionalInt.empty());
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT), page);
         LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
 
