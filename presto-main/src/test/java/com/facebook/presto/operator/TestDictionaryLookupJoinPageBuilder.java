@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.SimpleJoinProbe.SimpleJoinProbeFactory;
+import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -46,8 +46,8 @@ public class TestDictionaryLookupJoinPageBuilder
         Block block = blockBuilder.build();
         Page page = new Page(block, block);
 
-        SimpleJoinProbeFactory simpleJoinProbeFactory = new SimpleJoinProbeFactory(ImmutableList.of(BIGINT, BIGINT), new int[]{0, 1}, ImmutableList.of(0, 1), OptionalInt.empty());
-        JoinProbe probe = simpleJoinProbeFactory.createJoinProbe(page);
+        JoinProbeFactory joinProbeFactory = new JoinProbeFactory(ImmutableList.of(BIGINT, BIGINT), new int[]{0, 1}, ImmutableList.of(0, 1), OptionalInt.empty());
+        JoinProbe probe = joinProbeFactory.createJoinProbe(page);
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT, BIGINT), page);
         LookupJoinPageBuilder lookupJoinPageBuilder = new DictionaryLookupJoinPageBuilder(ImmutableList.of(BIGINT, BIGINT));
 
@@ -95,12 +95,12 @@ public class TestDictionaryLookupJoinPageBuilder
         }
         Block block = blockBuilder.build();
         Page page = new Page(block);
-        SimpleJoinProbeFactory simpleJoinProbeFactory = new SimpleJoinProbeFactory(ImmutableList.of(BIGINT), new int[]{0}, ImmutableList.of(0), OptionalInt.empty());
+        JoinProbeFactory joinProbeFactory = new JoinProbeFactory(ImmutableList.of(BIGINT), new int[]{0}, ImmutableList.of(0), OptionalInt.empty());
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT), page);
         LookupJoinPageBuilder lookupJoinPageBuilder = new DictionaryLookupJoinPageBuilder(ImmutableList.of(BIGINT));
 
         // empty
-        JoinProbe probe = simpleJoinProbeFactory.createJoinProbe(page);
+        JoinProbe probe = joinProbeFactory.createJoinProbe(page);
         Page output = lookupJoinPageBuilder.build(probe);
         assertEquals(output.getChannelCount(), 2);
         assertTrue(output.getBlock(0) instanceof DictionaryBlock);
@@ -108,7 +108,7 @@ public class TestDictionaryLookupJoinPageBuilder
         lookupJoinPageBuilder.reset();
 
         // the probe covers non-sequential positions
-        probe = simpleJoinProbeFactory.createJoinProbe(page);
+        probe = joinProbeFactory.createJoinProbe(page);
         for (int joinPosition = 0; probe.advanceNextPosition(); joinPosition++) {
             if (joinPosition % 2 == 1) {
                 continue;
@@ -126,7 +126,7 @@ public class TestDictionaryLookupJoinPageBuilder
         lookupJoinPageBuilder.reset();
 
         // the probe covers everything
-        probe = simpleJoinProbeFactory.createJoinProbe(page);
+        probe = joinProbeFactory.createJoinProbe(page);
         for (int joinPosition = 0; probe.advanceNextPosition(); joinPosition++) {
             lookupJoinPageBuilder.appendRow(probe, lookupSource, joinPosition);
         }
@@ -141,7 +141,7 @@ public class TestDictionaryLookupJoinPageBuilder
         lookupJoinPageBuilder.reset();
 
         // the probe covers some sequential positions
-        probe = simpleJoinProbeFactory.createJoinProbe(page);
+        probe = joinProbeFactory.createJoinProbe(page);
         for (int joinPosition = 0; probe.advanceNextPosition(); joinPosition++) {
             if (joinPosition < 10 || joinPosition >= 50) {
                 continue;

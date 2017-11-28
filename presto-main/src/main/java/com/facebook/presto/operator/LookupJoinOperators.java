@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.SimpleJoinProbe.SimpleJoinProbeFactory;
+import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -93,7 +93,7 @@ public class LookupJoinOperators
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
-                new SimpleJoinProbeFactory(probeTypes, probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                new JoinProbeFactory(probeTypes, probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
                 totalOperatorsCount,
                 probeJoinChannel,
                 probeHashChannel,

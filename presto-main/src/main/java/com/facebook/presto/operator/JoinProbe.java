@@ -15,20 +15,124 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 
-public interface JoinProbe
+import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+
+public class JoinProbe
 {
-    int getOutputChannelCount();
+    public static class JoinProbeFactory
+    {
+        private List<Type> types;
+        private int[] probeOutputChannels;
+        private List<Integer> probeJoinChannels;
+        private final OptionalInt probeHashChannel;
 
-    int[] getOutputChannels();
+        public JoinProbeFactory(List<Type> types, int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+        {
+            this.types = types;
+            this.probeOutputChannels = probeOutputChannels;
+            this.probeJoinChannels = probeJoinChannels;
+            this.probeHashChannel = probeHashChannel;
+        }
 
-    boolean advanceNextPosition();
+        public JoinProbe createJoinProbe(Page page)
+        {
+            return new JoinProbe(types, probeOutputChannels, page, probeJoinChannels, probeHashChannel);
+        }
+    }
 
-    long getCurrentJoinPosition(LookupSource lookupSource);
+    private final List<Type> types;
+    private final int[] probeOutputChannels;
+    private final int positionCount;
+    private final Block[] blocks;
+    private final Block[] probeBlocks;
+    private final Page page;
+    private final Page probePage;
+    private final Optional<Block> probeHashBlock;
 
-    void appendTo(PageBuilder pageBuilder);
+    private int position = -1;
 
-    int getPosition();
+    private JoinProbe(List<Type> types, int[] probeOutputChannels, Page page, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+    {
+        this.types = types;
+        this.probeOutputChannels = probeOutputChannels;
+        this.positionCount = page.getPositionCount();
+        this.blocks = new Block[page.getChannelCount()];
+        this.probeBlocks = new Block[probeJoinChannels.size()];
 
-    Page getPage();
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            blocks[i] = page.getBlock(i);
+        }
+
+        for (int i = 0; i < probeJoinChannels.size(); i++) {
+            probeBlocks[i] = blocks[probeJoinChannels.get(i)];
+        }
+        this.page = page;
+        this.probePage = new Page(page.getPositionCount(), probeBlocks);
+        this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt())) : Optional.empty();
+    }
+
+    public int getOutputChannelCount()
+    {
+        return probeOutputChannels.length;
+    }
+
+    public int[] getOutputChannels()
+    {
+        return probeOutputChannels;
+    }
+
+    public boolean advanceNextPosition()
+    {
+        position++;
+        return position < positionCount;
+    }
+
+    public void appendTo(PageBuilder pageBuilder)
+    {
+        int pageBuilderOutputChannel = 0;
+        for (int outputIndex : probeOutputChannels) {
+            Type type = types.get(outputIndex);
+            Block block = blocks[outputIndex];
+            type.appendTo(block, position, pageBuilder.getBlockBuilder(pageBuilderOutputChannel++));
+        }
+    }
+
+    public long getCurrentJoinPosition(LookupSource lookupSource)
+    {
+        if (currentRowContainsNull()) {
+            return -1;
+        }
+        if (probeHashBlock.isPresent()) {
+            long rawHash = BIGINT.getLong(probeHashBlock.get(), position);
+            return lookupSource.getJoinPosition(position, probePage, page, rawHash);
+        }
+        return lookupSource.getJoinPosition(position, probePage, page);
+    }
+
+    public int getPosition()
+    {
+        return position;
+    }
+
+    public Page getPage()
+    {
+        return page;
+    }
+
+    private boolean currentRowContainsNull()
+    {
+        for (Block probeBlock : probeBlocks) {
+            if (probeBlock.isNull(position)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
