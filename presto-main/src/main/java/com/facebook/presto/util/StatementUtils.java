@@ -53,6 +53,7 @@ import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowRoles;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowStats;
@@ -86,6 +87,7 @@ public class StatementUtils
         builder.put(ShowCreate.class, QueryType.DESCRIBE);
         builder.put(ShowFunctions.class, QueryType.DESCRIBE);
         builder.put(ShowGrants.class, QueryType.DESCRIBE);
+        builder.put(ShowRoles.class, QueryType.DESCRIBE);
         builder.put(ShowPartitions.class, QueryType.DESCRIBE);
         builder.put(ShowSchemas.class, QueryType.DESCRIBE);
         builder.put(ShowSession.class, QueryType.DESCRIBE);
