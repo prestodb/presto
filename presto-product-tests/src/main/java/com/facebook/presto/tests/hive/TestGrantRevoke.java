@@ -63,6 +63,7 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint)", tableName));
 
+        onPresto().executeQuery("SET ROLE admin");
         assertAccessDeniedOnAllOperationsOnTable(bobExecutor, tableName);
     }
 
