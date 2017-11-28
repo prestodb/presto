@@ -32,6 +32,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrivilegeInfo;
@@ -241,6 +242,14 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildRoles(Session session, String catalog)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ROLES));
+
+        try {
+            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+        }
+        catch (AccessDeniedException exception) {
+            return table.build();
+        }
+
         for (String role : metadata.listRoles(session, catalog)) {
             table.add(role);
         }

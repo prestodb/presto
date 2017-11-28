@@ -257,6 +257,36 @@ public class FileBasedAccessControl
         }
     }
 
+    @Override
+    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, Optional<PrestoPrincipal> grantor)
+    {
+    }
+
+    @Override
+    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role)
+    {
+    }
+
+    @Override
+    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+    }
+
     private boolean canSetSessionProperty(ConnectorIdentity identity, String property)
     {
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {
