@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
@@ -26,6 +27,7 @@ import java.util.Map.Entry;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ClientSession
@@ -40,6 +42,7 @@ public class ClientSession
     private final Locale locale;
     private final Map<String, String> properties;
     private final Map<String, String> preparedStatements;
+    private final Map<String, SelectedRole> roles;
     private final String transactionId;
     private final boolean debug;
     private final Duration clientRequestTimeout;
@@ -57,6 +60,7 @@ public class ClientSession
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
+                session.getRoles(),
                 session.getTransactionId(),
                 session.isDebug(),
                 session.getClientRequestTimeout());
@@ -75,6 +79,26 @@ public class ClientSession
                 session.getLocale(),
                 properties,
                 session.getPreparedStatements(),
+                session.getRoles(),
+                session.getTransactionId(),
+                session.isDebug(),
+                session.getClientRequestTimeout());
+    }
+
+    public static ClientSession withRoles(ClientSession session, Map<String, SelectedRole> roles)
+    {
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                session.getClientInfo(),
+                session.getCatalog(),
+                session.getSchema(),
+                session.getTimeZone().getId(),
+                session.getLocale(),
+                session.getProperties(),
+                session.getPreparedStatements(),
+                roles,
                 session.getTransactionId(),
                 session.isDebug(),
                 session.getClientRequestTimeout());
@@ -93,6 +117,7 @@ public class ClientSession
                 session.getLocale(),
                 session.getProperties(),
                 preparedStatements,
+                session.getRoles(),
                 session.getTransactionId(),
                 session.isDebug(),
                 session.getClientRequestTimeout());
@@ -111,6 +136,7 @@ public class ClientSession
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
+                session.getRoles(),
                 transactionId,
                 session.isDebug(),
                 session.getClientRequestTimeout());
@@ -129,6 +155,7 @@ public class ClientSession
                 session.getLocale(),
                 session.getProperties(),
                 session.getPreparedStatements(),
+                session.getRoles(),
                 null,
                 session.isDebug(),
                 session.getClientRequestTimeout());
@@ -149,6 +176,25 @@ public class ClientSession
             boolean debug,
             Duration clientRequestTimeout)
     {
+        this(server, user, source, clientInfo, catalog, schema, timeZoneId, locale, properties, preparedStatements, emptyMap(), transactionId, debug, clientRequestTimeout);
+    }
+
+    public ClientSession(
+            URI server,
+            String user,
+            String source,
+            String clientInfo,
+            String catalog,
+            String schema,
+            String timeZoneId,
+            Locale locale,
+            Map<String, String> properties,
+            Map<String, String> preparedStatements,
+            Map<String, SelectedRole> roles,
+            String transactionId,
+            boolean debug,
+            Duration clientRequestTimeout)
+    {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
         this.source = source;
@@ -161,6 +207,7 @@ public class ClientSession
         this.debug = debug;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
+        this.roles = ImmutableMap.copyOf(requireNonNull(roles, "roles is null"));
         this.clientRequestTimeout = clientRequestTimeout;
 
         // verify the properties are valid
@@ -221,6 +268,14 @@ public class ClientSession
     public Map<String, String> getPreparedStatements()
     {
         return preparedStatements;
+    }
+
+    /**
+     * Returns the map of catalog name -> selected role
+     */
+    public Map<String, SelectedRole> getRoles()
+    {
+        return roles;
     }
 
     public String getTransactionId()
