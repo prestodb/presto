@@ -39,7 +39,6 @@ import java.util.OptionalInt;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.isDictionaryProcessingJoinEnabled;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
@@ -74,7 +73,6 @@ public class LookupJoinOperator
     private JoinProbe probe;
 
     private Page outputPage;
-    private boolean useDictionaryProcessing;
 
     private Optional<PartitioningSpiller> spiller = Optional.empty();
     private Optional<LocalPartitionGenerator> partitionGenerator = Optional.empty();
@@ -130,13 +128,7 @@ public class LookupJoinOperator
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         operatorContext.setInfoSupplier(this.statisticsCounter);
 
-        this.useDictionaryProcessing = isDictionaryProcessingJoinEnabled(operatorContext.getSession());
-        if (useDictionaryProcessing) {
-            this.pageBuilder = new DictionaryLookupJoinPageBuilder(buildOutputTypes);
-        }
-        else {
-            this.pageBuilder = new CopyPositionLookupJoinPageBuilder(allTypes, buildOutputTypes.size());
-        }
+        this.pageBuilder = new DictionaryLookupJoinPageBuilder(buildOutputTypes);
     }
 
     @Override
@@ -323,13 +315,9 @@ public class LookupJoinOperator
             return output;
         }
 
-        // If useDictionaryProcessing is turned on, it is impossible to have probe == null && !pageBuilder.isEmpty(),
+        // It is impossible to have probe == null && !pageBuilder.isEmpty(),
         // because we will flush a page whenever we reach the probe end
-        if (!pageBuilder.isEmpty() && probe == null && finished && !useDictionaryProcessing) {
-            Page page = pageBuilder.build(null);
-            pageBuilder.reset();
-            return page;
-        }
+        verify(probe != null || pageBuilder.isEmpty());
         return null;
     }
 
@@ -689,10 +677,8 @@ public class LookupJoinOperator
 
     private void clearProbe()
     {
-        if (useDictionaryProcessing) {
-            // Before updating the probe flush the current page
-            buildPage();
-        }
+        // Before updating the probe flush the current page
+        buildPage();
         probe = null;
     }
 }
