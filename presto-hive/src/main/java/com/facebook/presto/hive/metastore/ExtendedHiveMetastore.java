@@ -94,6 +94,12 @@ public interface ExtendedHiveMetastore
 
     void updatePartitionParameters(String databaseName, String tableName, List<String> partitionValues, Function<Map<String, String>, Map<String, String>> update);
 
+    void createRole(String role, String grantor);
+
+    void dropRole(String role);
+
+    Set<String> listRoles();
+
     Set<String> getRoles(String user);
 
     Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName);
