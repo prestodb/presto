@@ -14,6 +14,8 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -81,6 +83,12 @@ public interface HiveMetastore
     void dropRole(String role);
 
     Set<String> listRoles();
+
+    void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor);
+
+    void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor);
+
+    Set<RoleGrant> listRoleGrants(PrestoPrincipal principal);
 
     Set<String> getRoles(String user);
 
