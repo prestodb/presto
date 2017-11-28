@@ -93,4 +93,7 @@ public enum SemanticErrorCode
     STANDALONE_LAMBDA,
 
     DUPLICATE_PROPERTY,
+
+    ROLE_ALREADY_EXIST,
+    MISSING_ROLE,
 }

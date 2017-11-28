@@ -27,6 +27,7 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
@@ -279,6 +280,23 @@ public interface Metadata
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
+
+    /**
+     * Creates the specified role in the specified connector.
+     *
+     * @param grantor represents the principal specified by WITH ADMIN statement
+     */
+    void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog);
+
+    /**
+     * Drops the specified role in the specified catalog.
+     */
+    void dropRole(Session session, String role, String catalog);
+
+    /**
+     * List available roles in specified catalog.
+     */
+    Set<String> listRoles(Session session, String catalog);
 
     /**
      * Grants the specified privilege to the specified user on the specified table
