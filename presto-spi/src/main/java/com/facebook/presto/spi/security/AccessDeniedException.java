@@ -285,6 +285,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames, tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateRole(String roleName)
+    {
+        throw new AccessDeniedException(format("Cannot create role %s", roleName));
+    }
+
+    public static void denyDropRole(String roleName)
+    {
+        throw new AccessDeniedException(format("Cannot drop role %s", roleName));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {
