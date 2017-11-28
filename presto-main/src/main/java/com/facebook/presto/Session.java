@@ -290,11 +290,9 @@ public final class Session
         for (Entry<String, SelectedRole> entry : identity.getRoles().entrySet()) {
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
-
             ConnectorId connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
                     .getConnectorId();
-
             if (role.getType() == SelectedRole.Type.ROLE) {
                 accessControl.checkCanSetRole(transactionId, identity, role.getRole().get(), catalogName);
             }
