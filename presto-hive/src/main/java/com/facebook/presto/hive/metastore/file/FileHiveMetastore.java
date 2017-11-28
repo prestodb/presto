@@ -32,7 +32,9 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,6 +55,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -60,6 +63,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -74,10 +78,13 @@ import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -104,6 +111,7 @@ public class FileHiveMetastore
     private final JsonCodec<PartitionMetadata> partitionCodec = JsonCodec.jsonCodec(PartitionMetadata.class);
     private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
     private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
+    private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
 
     private final Object rolesLock = new Object();
 
@@ -608,6 +616,8 @@ public class FileHiveMetastore
             Set<String> roles = new HashSet<>(listRoles());
             roles.remove(role);
             writeFile("roles", getRolesFile(), rolesCodec, ImmutableList.copyOf(roles), true);
+            Set<RoleGrant> grants = listRoleGrantsSanitized();
+            writeRoleGrantsFile(grants);
         }
     }
 
@@ -617,6 +627,132 @@ public class FileHiveMetastore
         synchronized (rolesLock) {
             return ImmutableSet.copyOf(readFile("roles", getRolesFile(), rolesCodec).orElse(ImmutableList.of()));
         }
+    }
+
+    @Override
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    {
+        synchronized (rolesLock) {
+            Set<String> existingRoles = listRoles();
+            Set<RoleGrant> existingGrants = listRoleGrantsSanitized();
+            Set<RoleGrant> modifiedGrants = new HashSet<>(existingGrants);
+            for (PrestoPrincipal grantee : grantees) {
+                for (String role : roles) {
+                    checkArgument(existingRoles.contains(role), "Role does not exist: %s", role);
+                    if (grantee.getType() == ROLE) {
+                        checkArgument(existingRoles.contains(grantee.getName()), "Role does not exist: %s", grantee.getName());
+                    }
+
+                    RoleGrant grantWithAdminOption = new RoleGrant(grantee, role, true);
+                    RoleGrant grantWithoutAdminOption = new RoleGrant(grantee, role, false);
+
+                    if (withAdminOption) {
+                        modifiedGrants.remove(grantWithoutAdminOption);
+                        modifiedGrants.add(grantWithAdminOption);
+                    }
+                    else {
+                        modifiedGrants.remove(grantWithAdminOption);
+                        modifiedGrants.add(grantWithoutAdminOption);
+                    }
+                }
+            }
+            modifiedGrants = removeDuplicatedEntries(modifiedGrants);
+            if (!existingGrants.equals(modifiedGrants)) {
+                writeRoleGrantsFile(modifiedGrants);
+            }
+        }
+    }
+
+    @Override
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    {
+        synchronized (rolesLock) {
+            Set<RoleGrant> existingGrants = listRoleGrantsSanitized();
+            Set<RoleGrant> modifiedGrants = new HashSet<>(existingGrants);
+            for (PrestoPrincipal grantee : grantees) {
+                for (String role : roles) {
+                    RoleGrant grantWithAdminOption = new RoleGrant(grantee, role, true);
+                    RoleGrant grantWithoutAdminOption = new RoleGrant(grantee, role, false);
+
+                    if (modifiedGrants.contains(grantWithAdminOption) || modifiedGrants.contains(grantWithoutAdminOption)) {
+                        if (adminOptionFor) {
+                            modifiedGrants.remove(grantWithAdminOption);
+                            modifiedGrants.add(grantWithoutAdminOption);
+                        }
+                        else {
+                            modifiedGrants.remove(grantWithAdminOption);
+                            modifiedGrants.remove(grantWithoutAdminOption);
+                        }
+                    }
+                }
+            }
+            modifiedGrants = removeDuplicatedEntries(modifiedGrants);
+            if (!existingGrants.equals(modifiedGrants)) {
+                writeRoleGrantsFile(modifiedGrants);
+            }
+        }
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        synchronized (rolesLock) {
+            ImmutableSet.Builder<RoleGrant> result = ImmutableSet.builder();
+            if (principal.getType() == USER) {
+                result.add(new RoleGrant(principal, PUBLIC_ROLE_NAME, false));
+                if (ADMIN_USERS.contains(principal.getName())) {
+                    result.add(new RoleGrant(principal, ADMIN_ROLE_NAME, true));
+                }
+            }
+            result.addAll(listRoleGrantsSanitized().stream()
+                    .filter(grant -> grant.getGrantee().equals(principal))
+                    .collect(toSet()));
+            return result.build();
+        }
+    }
+
+    private Set<RoleGrant> listRoleGrantsSanitized()
+    {
+        checkState(Thread.holdsLock(rolesLock));
+        Set<RoleGrant> grants = readRoleGrantsFile();
+        Set<String> existingRoles = listRoles();
+        return removeDuplicatedEntries(removeNonExistingRoles(grants, existingRoles));
+    }
+
+    private Set<RoleGrant> removeDuplicatedEntries(Set<RoleGrant> grants)
+    {
+        Map<RoleGranteeTuple, RoleGrant> map = new HashMap<>();
+        for (RoleGrant grant : grants) {
+            RoleGranteeTuple tuple = new RoleGranteeTuple(grant.getRoleName(), grant.getGrantee());
+            map.merge(tuple, grant, (first, second) -> first.isGrantable() ? first : second);
+        }
+        return ImmutableSet.copyOf(map.values());
+    }
+
+    private static Set<RoleGrant> removeNonExistingRoles(Set<RoleGrant> grants, Set<String> existingRoles)
+    {
+        ImmutableSet.Builder<RoleGrant> result = ImmutableSet.builder();
+        for (RoleGrant grant : grants) {
+            if (!existingRoles.contains(grant.getRoleName())) {
+                continue;
+            }
+            PrestoPrincipal grantee = grant.getGrantee();
+            if (grantee.getType() == ROLE && !existingRoles.contains(grantee.getName())) {
+                continue;
+            }
+            result.add(grant);
+        }
+        return result.build();
+    }
+
+    private Set<RoleGrant> readRoleGrantsFile()
+    {
+        return ImmutableSet.copyOf(readFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec).orElse(ImmutableList.of()));
+    }
+
+    private void writeRoleGrantsFile(Set<RoleGrant> roleGrants)
+    {
+        writeFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec, ImmutableList.copyOf(roleGrants), true);
     }
 
     @Override
@@ -937,6 +1073,11 @@ public class FileHiveMetastore
         return new Path(catalogDirectory, ".roles");
     }
 
+    private Path getRoleGrantsFile()
+    {
+        return new Path(catalogDirectory, ".roleGrants");
+    }
+
     private void deleteMetadataDirectory(Path metadataDirectory)
     {
         try {
@@ -1028,5 +1169,56 @@ public class FileHiveMetastore
             return false;
         }
         return isChildDirectory(parentDirectory, childDirectory.getParent());
+    }
+
+    private static class RoleGranteeTuple
+    {
+        private final String role;
+        private final PrestoPrincipal grantee;
+
+        private RoleGranteeTuple(String role, PrestoPrincipal grantee)
+        {
+            this.role = requireNonNull(role, "role is null");
+            this.grantee = requireNonNull(grantee, "grantee is null");
+        }
+
+        public String getRole()
+        {
+            return role;
+        }
+
+        public PrestoPrincipal getGrantee()
+        {
+            return grantee;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RoleGranteeTuple that = (RoleGranteeTuple) o;
+            return Objects.equals(role, that.role) &&
+                    Objects.equals(grantee, that.grantee);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(role, grantee);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("role", role)
+                    .add("grantee", grantee)
+                    .toString();
+        }
     }
 }

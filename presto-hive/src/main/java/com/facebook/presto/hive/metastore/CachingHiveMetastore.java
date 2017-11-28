@@ -16,6 +16,8 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -76,6 +78,7 @@ public class CachingHiveMetastore
     private final LoadingCache<String, Set<String>> userRolesCache;
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> userTablePrivileges;
     private final LoadingCache<String, Set<String>> rolesCache;
+    private final LoadingCache<PrestoPrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
     public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
@@ -202,6 +205,17 @@ public class CachingHiveMetastore
                             throws Exception
                     {
                         return loadRoles();
+                    }
+                }, executor));
+
+        roleGrantsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(new CacheLoader<PrestoPrincipal, Set<RoleGrant>>()
+                {
+                    @Override
+                    public Set<RoleGrant> load(PrestoPrincipal key)
+                            throws Exception
+                    {
+                        return loadRoleGrants(key);
                     }
                 }, executor));
     }
@@ -656,6 +670,7 @@ public class CachingHiveMetastore
         }
         finally {
             rolesCache.invalidateAll();
+            roleGrantsCache.invalidateAll();
         }
     }
 
@@ -668,6 +683,39 @@ public class CachingHiveMetastore
     private Set<String> loadRoles()
     {
         return delegate.listRoles();
+    }
+
+    @Override
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    {
+        try {
+            delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+        }
+        finally {
+            roleGrantsCache.invalidateAll();
+        }
+    }
+
+    @Override
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    {
+        try {
+            delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+        }
+        finally {
+            roleGrantsCache.invalidateAll();
+        }
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        return get(roleGrantsCache, principal);
+    }
+
+    public Set<RoleGrant> loadRoleGrants(PrestoPrincipal principal)
+    {
+        return delegate.listRoleGrants(principal);
     }
 
     private void invalidatePartitionCache(String databaseName, String tableName)
