@@ -75,6 +75,7 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.ArrayType;
@@ -198,6 +199,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -1075,7 +1077,7 @@ public abstract class AbstractTestHiveClient
         // alter the table schema
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session.getUser());
+            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session);
             Table oldTable = transaction.getMetastore(schemaName).getTable(schemaName, tableName).get();
             HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
@@ -2181,7 +2183,7 @@ public abstract class AbstractTestHiveClient
         ConnectorSession session = newSession();
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
-        PrincipalPrivileges privileges = testingPrincipalPrivilege(session.getUser());
+        PrincipalPrivileges privileges = testingPrincipalPrivilege(session);
         Path targetPath;
         try {
             try (Transaction transaction = newTransaction()) {
@@ -4297,7 +4299,7 @@ public abstract class AbstractTestHiveClient
                     .setBucketProperty(bucketProperty)
                     .setSerdeParameters(ImmutableMap.of());
 
-            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner);
+            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
             transaction.getMetastore(schemaName).createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
 
             transaction.commit();
@@ -4320,7 +4322,7 @@ public abstract class AbstractTestHiveClient
             Optional<Table> table = transaction.getMetastore(schemaName).getTable(schemaName, tableName);
             Table.Builder tableBuilder = Table.builder(table.get());
             tableBuilder.getStorageBuilder().setBucketProperty(bucketProperty);
-            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner);
+            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
             // hack: replaceView can be used as replaceTable despite its name
             transaction.getMetastore(schemaName).replaceView(schemaName, tableName, tableBuilder.build(), principalPrivileges);
 
@@ -4328,14 +4330,19 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private PrincipalPrivileges testingPrincipalPrivilege(String tableOwner)
+    private PrincipalPrivileges testingPrincipalPrivilege(ConnectorSession session)
+    {
+        return testingPrincipalPrivilege(session.getUser(), session.getUser());
+    }
+
+    private PrincipalPrivileges testingPrincipalPrivilege(String tableOwner, String grantor)
     {
         return new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, new PrestoPrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, new PrestoPrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, new PrestoPrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, new PrestoPrincipal(USER, grantor)))
                         .build(),
                 ImmutableMultimap.of());
     }

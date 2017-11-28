@@ -834,12 +834,13 @@ public class HiveMetadata
 
     private static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
     {
+        PrestoPrincipal grantor = new PrestoPrincipal(USER, tableOwner);
         return new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, grantor))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, grantor))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, grantor))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, grantor))
                         .build(),
                 ImmutableMultimap.of());
     }
@@ -1733,7 +1734,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption))
+                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new PrestoPrincipal(USER, session.getUser())))
                 .collect(toSet());
 
         metastore.grantTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
@@ -1746,7 +1747,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption))
+                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new PrestoPrincipal(USER, session.getUser())))
                 .collect(toSet());
 
         metastore.revokeTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
