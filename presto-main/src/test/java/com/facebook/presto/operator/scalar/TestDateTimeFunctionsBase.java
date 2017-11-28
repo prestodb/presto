@@ -173,6 +173,9 @@ public abstract class TestDateTimeFunctionsBase
 
         DateTime expected = new DateTime(dateTime, getDateTimeZone(getTimeZoneKeyForOffset((timeZoneHoursOffset * 60L) + timezoneMinutesOffset)));
         assertFunction("from_unixtime(" + seconds + ", " + timeZoneHoursOffset + ", " + timezoneMinutesOffset + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+        assertInvalidFunction("from_unixtime(" + seconds + ", " + ((0x1L << 32) + 1) + ", 0)", "Invalid offset minutes 257698037820");
+        assertNumericOverflow("from_unixtime(" + seconds + ", " + (Long.MAX_VALUE / 10) + ", 0)", "bigint multiplication overflow: 922337203685477580 * 60");
+        assertNumericOverflow("from_unixtime(" + seconds + ", " + (Long.MAX_VALUE / 60) + ", 10)", "bigint addition overflow: 9223372036854775800 + 10");
     }
 
     @Test
