@@ -74,6 +74,7 @@ public class InformationSchemaMetadata
     public static final SchemaTableName TABLE_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "views");
     public static final SchemaTableName TABLE_SCHEMATA = new SchemaTableName(INFORMATION_SCHEMA, "schemata");
     public static final SchemaTableName TABLE_TABLE_PRIVILEGES = new SchemaTableName(INFORMATION_SCHEMA, "table_privileges");
+    public static final SchemaTableName TABLE_ROLES = new SchemaTableName(INFORMATION_SCHEMA, "roles");
 
     public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
             .table(tableMetadataBuilder(TABLE_COLUMNS)
@@ -113,6 +114,9 @@ public class InformationSchemaMetadata
                     .column("privilege_type", createUnboundedVarcharType())
                     .column("is_grantable", BOOLEAN)
                     .column("with_hierarchy", BOOLEAN)
+                    .build())
+            .table(tableMetadataBuilder(TABLE_ROLES)
+                    .column("role_name", createUnboundedVarcharType())
                     .build())
             .build();
 
