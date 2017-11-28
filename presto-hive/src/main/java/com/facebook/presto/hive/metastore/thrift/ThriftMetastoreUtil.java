@@ -26,9 +26,11 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
@@ -185,6 +187,39 @@ public final class ThriftMetastoreUtil
             result.addAll(metastore.listTablePrivileges(databaseName, tableName, current));
         }
         return result.build();
+    }
+
+    public static Set<String> listEnabledRoles(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
+    {
+        Optional<SelectedRole> role = identity.getRole();
+
+        if (role.isPresent() && role.get().getType() == SelectedRole.Type.NONE) {
+            return ImmutableSet.of("public");
+        }
+
+        PrestoPrincipal principal;
+        if (!role.isPresent() || role.get().getType() == SelectedRole.Type.ALL) {
+            principal = new PrestoPrincipal(USER, identity.getUser());
+        }
+        else {
+            principal = new PrestoPrincipal(ROLE, identity.getRole().get().getRole().get());
+        }
+
+        Set<String> roles = listApplicableRoles(principal, listRoleGrants)
+                .stream()
+                .map(RoleGrant::getRoleName)
+                .collect(toSet());
+
+        // The admin role must be enabled explicitly. If it is, will be re-added below.
+        roles.remove("admin");
+
+        roles.add("public");
+
+        if (principal.getType() == ROLE) {
+            roles.add(principal.getName());
+        }
+
+        return ImmutableSet.copyOf(roles);
     }
 
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition)

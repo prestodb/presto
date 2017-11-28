@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -360,6 +361,111 @@ public class TestHiveRoles
         assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM USER grant_revoke_existing_user_1", ".*?Role 'grant_revoke_role_existing_1' does not exist");
         executeFromAdmin("CREATE ROLE grant_revoke_role_existing_1");
         assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist");
+    }
+
+    @Test
+    public void testSetRole()
+            throws Exception
+    {
+        assertUpdate("CREATE ROLE set_role_1");
+        assertUpdate("CREATE ROLE set_role_2");
+        assertUpdate("CREATE ROLE set_role_3");
+        assertUpdate("CREATE ROLE set_role_4");
+        assertUpdate("GRANT set_role_1 TO USER set_user_1");
+        assertUpdate("GRANT set_role_2 TO ROLE set_role_1");
+        assertUpdate("GRANT set_role_3 TO ROLE set_role_2");
+
+        Session unsetRole = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("set_user_1", Optional.empty()))
+                .build();
+        Session setRoleAll = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("set_user_1", Optional.empty()))
+                .setRole("hive", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()))
+                .build();
+        Session setRoleNone = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("set_user_1", Optional.empty()))
+                .setRole("hive", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()))
+                .build();
+        Session setRole1 = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("set_user_1", Optional.empty()))
+                .setRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_1")))
+                .build();
+        Session setRole2 = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("set_user_1", Optional.empty()))
+                .setRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_2")))
+                .build();
+        Session setRole3 = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("set_user_1", Optional.empty()))
+                .setRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_3")))
+                .build();
+        Session setRole4 = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("set_user_1", Optional.empty()))
+                .setRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_4")))
+                .build();
+
+        MaterializedResult actual = getQueryRunner().execute(unsetRole, "SELECT * FROM hive.information_schema.applicable_roles");
+        MaterializedResult expected = MaterializedResult.resultBuilder(unsetRole, createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+                .row("set_user_1", "USER", "public", "NO")
+                .row("set_user_1", "USER", "set_role_1", "NO")
+                .row("set_role_1", "ROLE", "set_role_2", "NO")
+                .row("set_role_2", "ROLE", "set_role_3", "NO")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        actual = getQueryRunner().execute(unsetRole, "SELECT * FROM hive.information_schema.enabled_roles");
+        expected = MaterializedResult.resultBuilder(unsetRole, createUnboundedVarcharType())
+                .row("public")
+                .row("set_role_1")
+                .row("set_role_2")
+                .row("set_role_3")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        actual = getQueryRunner().execute(setRoleAll, "SELECT * FROM hive.information_schema.enabled_roles");
+        expected = MaterializedResult.resultBuilder(setRoleAll, createUnboundedVarcharType())
+                .row("public")
+                .row("set_role_1")
+                .row("set_role_2")
+                .row("set_role_3")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        actual = getQueryRunner().execute(setRoleNone, "SELECT * FROM hive.information_schema.enabled_roles");
+        expected = MaterializedResult.resultBuilder(setRoleNone, createUnboundedVarcharType())
+                .row("public")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        actual = getQueryRunner().execute(setRole1, "SELECT * FROM hive.information_schema.enabled_roles");
+        expected = MaterializedResult.resultBuilder(setRole1, createUnboundedVarcharType())
+                .row("public")
+                .row("set_role_1")
+                .row("set_role_2")
+                .row("set_role_3")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        actual = getQueryRunner().execute(setRole2, "SELECT * FROM hive.information_schema.enabled_roles");
+        expected = MaterializedResult.resultBuilder(setRole2, createUnboundedVarcharType())
+                .row("public")
+                .row("set_role_2")
+                .row("set_role_3")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        actual = getQueryRunner().execute(setRole3, "SELECT * FROM hive.information_schema.enabled_roles");
+        expected = MaterializedResult.resultBuilder(setRole3, createUnboundedVarcharType())
+                .row("public")
+                .row("set_role_3")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        assertQueryFails(setRole4, "SELECT * FROM hive.information_schema.enabled_roles", ".*?Cannot set role set_role_4");
+
+        assertUpdate("DROP ROLE set_role_1");
+        assertUpdate("DROP ROLE set_role_2");
+        assertUpdate("DROP ROLE set_role_3");
+        assertUpdate("DROP ROLE set_role_4");
     }
 
     private Set<String> listRoles()
