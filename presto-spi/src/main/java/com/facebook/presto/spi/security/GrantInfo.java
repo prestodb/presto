@@ -17,31 +17,32 @@ import com.facebook.presto.spi.SchemaTableName;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public class GrantInfo
 {
-    private final Set<PrivilegeInfo> privilegeInfo;
-    private final ConnectorIdentity grantee;
+    private final PrivilegeInfo privilegeInfo;
+    private final PrestoPrincipal grantee;
     private final SchemaTableName schemaTableName;
-    private final Optional<ConnectorIdentity> grantor;
+    private final Optional<PrestoPrincipal> grantor;
     private final Optional<Boolean> withHierarchy;
 
-    public GrantInfo(Set<PrivilegeInfo> privilegeInfo, ConnectorIdentity grantee, SchemaTableName schemaTableName, Optional<ConnectorIdentity> grantor, Optional<Boolean> withHierarchy)
+    public GrantInfo(PrivilegeInfo privilegeInfo, PrestoPrincipal grantee, SchemaTableName schemaTableName, Optional<PrestoPrincipal> grantor, Optional<Boolean> withHierarchy)
     {
-        this.privilegeInfo = privilegeInfo;
-        this.grantee = grantee;
-        this.schemaTableName = schemaTableName;
-        this.grantor = grantor;
-        this.withHierarchy = withHierarchy;
+        this.privilegeInfo = requireNonNull(privilegeInfo, "privilegeInfo is null");
+        this.grantee = requireNonNull(grantee, "grantee is null");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.grantor = requireNonNull(grantor, "grantor is null");
+        this.withHierarchy = requireNonNull(withHierarchy, "withHierarchy is null");
     }
 
-    public Set<PrivilegeInfo> getPrivilegeInfo()
+    public PrivilegeInfo getPrivilegeInfo()
     {
         return privilegeInfo;
     }
 
-    public ConnectorIdentity getIdentity()
+    public PrestoPrincipal getGrantee()
     {
         return grantee;
     }
@@ -51,7 +52,7 @@ public class GrantInfo
         return schemaTableName;
     }
 
-    public Optional<ConnectorIdentity> getGrantor()
+    public Optional<PrestoPrincipal> getGrantor()
     {
         return grantor;
     }
@@ -78,7 +79,7 @@ public class GrantInfo
         }
         GrantInfo grantInfo = (GrantInfo) o;
         return Objects.equals(privilegeInfo, grantInfo.getPrivilegeInfo()) &&
-                Objects.equals(grantee, grantInfo.getIdentity()) &&
+                Objects.equals(grantee, grantInfo.getGrantee()) &&
                 Objects.equals(schemaTableName, grantInfo.getSchemaTableName()) &&
                 Objects.equals(grantor, grantInfo.getGrantor()) &&
                 Objects.equals(withHierarchy, grantInfo.getWithHierarchy());
