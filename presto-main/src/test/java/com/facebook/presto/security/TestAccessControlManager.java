@@ -198,7 +198,7 @@ public class TestAccessControlManager
                 connectorId,
                 connector,
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl, transactionManager),
                 systemId,
                 new SystemConnector(
                         systemId,
