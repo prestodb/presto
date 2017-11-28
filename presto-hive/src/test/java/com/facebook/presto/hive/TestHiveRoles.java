@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -379,28 +380,22 @@ public class TestHiveRoles
                 .setIdentity(new Identity("set_user_1", Optional.empty()))
                 .build();
         Session setRoleAll = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity("set_user_1", Optional.empty()))
-                .setRole("hive", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()))
+                .setIdentity(new Identity("set_user_1", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()))))
                 .build();
         Session setRoleNone = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity("set_user_1", Optional.empty()))
-                .setRole("hive", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()))
+                .setIdentity(new Identity("set_user_1", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()))))
                 .build();
         Session setRole1 = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity("set_user_1", Optional.empty()))
-                .setRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_1")))
+                .setIdentity(new Identity("set_user_1", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_1")))))
                 .build();
         Session setRole2 = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity("set_user_1", Optional.empty()))
-                .setRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_2")))
+                .setIdentity(new Identity("set_user_1", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_2")))))
                 .build();
         Session setRole3 = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity("set_user_1", Optional.empty()))
-                .setRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_3")))
+                .setIdentity(new Identity("set_user_1", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_3")))))
                 .build();
         Session setRole4 = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity("set_user_1", Optional.empty()))
-                .setRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_4")))
+                .setIdentity(new Identity("set_user_1", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_4")))))
                 .build();
 
         MaterializedResult actual = getQueryRunner().execute(unsetRole, "SELECT * FROM hive.information_schema.applicable_roles");

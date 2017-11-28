@@ -886,7 +886,7 @@ class AstBuilder
                 privileges,
                 context.TABLE() != null,
                 getQualifiedName(context.qualifiedName()),
-                (Identifier) visit(context.grantee),
+                getPrincipalSpecification(context.grantee),
                 context.OPTION() != null);
     }
 
@@ -908,7 +908,7 @@ class AstBuilder
                 privileges,
                 context.TABLE() != null,
                 getQualifiedName(context.qualifiedName()),
-                (Identifier) visit(context.grantee));
+                getPrincipalSpecification(context.grantee));
     }
 
     @Override
