@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
