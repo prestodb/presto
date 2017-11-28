@@ -19,12 +19,12 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class Identity
+public class ConnectorIdentity
 {
     private final String user;
     private final Optional<Principal> principal;
 
-    public Identity(String user, Optional<Principal> principal)
+    public ConnectorIdentity(String user, Optional<Principal> principal)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -40,16 +40,6 @@ public class Identity
         return principal;
     }
 
-    public ConnectorIdentity toConnectorIdentity()
-    {
-        return new ConnectorIdentity(user, principal);
-    }
-
-    public ConnectorIdentity toConnectorIdentity(String catalog)
-    {
-        return new ConnectorIdentity(user, principal);
-    }
-
     @Override
     public boolean equals(Object o)
     {
@@ -59,24 +49,23 @@ public class Identity
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Identity identity = (Identity) o;
-        return Objects.equals(user, identity.user);
+        ConnectorIdentity that = (ConnectorIdentity) o;
+        return Objects.equals(user, that.user) &&
+                Objects.equals(principal, that.principal);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(user);
+        return Objects.hash(user, principal);
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("Identity{");
+        StringBuilder sb = new StringBuilder("ConnectorIdentity{");
         sb.append("user='").append(user).append('\'');
-        if (principal.isPresent()) {
-            sb.append(", principal=").append(principal.get());
-        }
+        principal.ifPresent(principal -> sb.append(", principal=").append(principal));
         sb.append('}');
         return sb.toString();
     }
