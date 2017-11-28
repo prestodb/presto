@@ -82,6 +82,7 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
@@ -264,10 +265,18 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
-            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
-            return simpleQuery(
-                    selectList(aliasedName("role_name", "Role")),
-                    from(catalog, TABLE_ROLES));
+
+            if (node.isCurrent()) {
+                return simpleQuery(
+                        selectList(aliasedName("role_name", "Role")),
+                        from(catalog, TABLE_ENABLED_ROLES));
+            }
+            else {
+                accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+                return simpleQuery(
+                        selectList(aliasedName("role_name", "Role")),
+                        from(catalog, TABLE_ROLES));
+            }
         }
 
         @Override
