@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +39,7 @@ public class HivePrivilegeInfo
 
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
+    private final PrestoPrincipal grantor;
 
     public static HivePrivilege toHivePrivilege(Privilege privilege)
     {
@@ -55,10 +57,11 @@ public class HivePrivilegeInfo
         }
     }
 
-    public HivePrivilegeInfo(HivePrivilege hivePrivilege, boolean grantOption)
+    public HivePrivilegeInfo(HivePrivilege hivePrivilege, boolean grantOption, PrestoPrincipal grantor)
     {
         this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
         this.grantOption = grantOption;
+        this.grantor = requireNonNull(grantor, "grantor is null");
     }
 
     public HivePrivilege getHivePrivilege()
@@ -69,6 +72,11 @@ public class HivePrivilegeInfo
     public boolean isGrantOption()
     {
         return grantOption;
+    }
+
+    public PrestoPrincipal getGrantor()
+    {
+        return grantor;
     }
 
     public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)

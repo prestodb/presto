@@ -873,7 +873,7 @@ public class FileHiveMetastore
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
         Table table = getRequiredTable(databaseName, tableName);
         if (principal.getType() == USER && table.getOwner().equals(principal.getName())) {
-            result.add(new HivePrivilegeInfo(OWNERSHIP, true));
+            result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal));
         }
         Path permissionFilePath = getPermissionsPath(getPermissionsDirectory(table), principal);
         result.addAll(readFile("permissions", permissionFilePath, permissionsCodec).orElse(ImmutableList.of()).stream()

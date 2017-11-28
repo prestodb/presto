@@ -70,7 +70,6 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromPrestoPrincipalType;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromRolePrincipalGrants;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.parsePrivilege;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
@@ -809,7 +808,7 @@ public class ThriftHiveMetastore
     public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
-                .map(privilege -> toMetastoreApiPrivilegeGrantInfo(grantee, privilege))
+                .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                 .collect(Collectors.toSet());
         checkArgument(!containsAllPrivilege(requestedPrivileges), "\"ALL\" not supported in PrivilegeGrantInfo.privilege");
 
@@ -859,7 +858,7 @@ public class ThriftHiveMetastore
     public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
-                .map(privilege -> toMetastoreApiPrivilegeGrantInfo(grantee, privilege))
+                .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                 .collect(Collectors.toSet());
         checkArgument(!containsAllPrivilege(requestedPrivileges), "\"ALL\" not supported in PrivilegeGrantInfo.privilege");
 
@@ -907,7 +906,7 @@ public class ThriftHiveMetastore
                             Table table = client.getTable(databaseName, tableName);
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
                             if (principal.getType() == USER && table.getOwner().equals(principal.getName())) {
-                                privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
+                                privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, principal));
                             }
                             List<HiveObjectPrivilege> hiveObjectPrivilegeList = client.listPrivileges(
                                     principal.getName(),
