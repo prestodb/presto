@@ -459,6 +459,24 @@ public class TestingHiveMetastore
     }
 
     @Override
+    public synchronized void createRole(String role, String grantor)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public synchronized void dropRole(String role)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public synchronized Set<String> listRoles()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public synchronized Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
         return getTable(databaseName, tableName).map(table ->
