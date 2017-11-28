@@ -26,6 +26,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
@@ -50,11 +51,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -78,7 +77,6 @@ import static com.facebook.presto.hive.util.Statistics.reduce;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
-import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -764,65 +762,37 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeRoles(roles, grantees, adminOptionFor, grantor));
     }
 
-    public synchronized Set<RoleGrant> listApplicableRoles(PrestoPrincipal principal)
-    {
-        checkReadable();
-        Set<RoleGrant> result = new HashSet<>();
-        Queue<PrestoPrincipal> queue = new LinkedList<>();
-        queue.add(principal);
-        while (!queue.isEmpty()) {
-            PrestoPrincipal current = queue.poll();
-            Set<RoleGrant> grants = listRoleGrants(current);
-            for (RoleGrant grant : grants) {
-                if (!result.contains(grant)) {
-                    result.add(grant);
-                    queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
-                }
-            }
-        }
-        return ImmutableSet.copyOf(result);
-    }
-
     public synchronized Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
     {
         checkReadable();
         return delegate.listRoleGrants(principal);
     }
 
-    public synchronized Set<String> getRoles(String user)
-    {
-        checkReadable();
-        return delegate.getRoles(user);
-    }
-
-    public synchronized Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
-    {
-        checkReadable();
-        return delegate.getDatabasePrivileges(user, databaseName);
-    }
-
-    public synchronized Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
+    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
     {
         checkReadable();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> tableAction = tableActions.get(schemaTableName);
         if (tableAction == null) {
-            return delegate.getTablePrivileges(user, databaseName, tableName);
+            return delegate.listTablePrivileges(databaseName, tableName, principal);
         }
         switch (tableAction.getType()) {
             case ADD:
             case ALTER: {
-                if (!user.equals(tableAction.getData().getTable().getOwner())) {
-                    throw new PrestoException(NOT_SUPPORTED, "Cannot access a table newly created in the transaction with a different user");
+                if (principal.getType() == PrincipalType.ROLE) {
+                    return ImmutableSet.of();
                 }
-                Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(user);
+                if (!principal.getName().equals(tableAction.getData().getTable().getOwner())) {
+                    return ImmutableSet.of();
+                }
+                Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(principal.getName());
                 return ImmutableSet.<HivePrivilegeInfo>builder()
                         .addAll(privileges)
                         .add(new HivePrivilegeInfo(OWNERSHIP, true))
                         .build();
             }
             case INSERT_EXISTING:
-                return delegate.getTablePrivileges(user, databaseName, tableName);
+                return delegate.listTablePrivileges(databaseName, tableName, principal);
             case DROP:
                 throw new TableNotFoundException(schemaTableName);
             default:

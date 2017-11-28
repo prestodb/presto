@@ -37,7 +37,6 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -46,13 +45,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -60,12 +56,10 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Locale.US;
@@ -74,14 +68,10 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
-import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
 public class InMemoryHiveMetastore
         implements HiveMetastore
 {
-    private static final String PUBLIC_ROLE_NAME = "public";
-
     @GuardedBy("this")
     private final Map<String, Database> databases = new HashMap<>();
     @GuardedBy("this")
@@ -94,8 +84,6 @@ public class InMemoryHiveMetastore
     private final Map<SchemaTableName, PartitionStatistics> columnStatistics = new HashMap<>();
     @GuardedBy("this")
     private final Map<PartitionName, PartitionStatistics> partitionColumnStatistics = new HashMap<>();
-    @GuardedBy("this")
-    private final Map<String, Set<String>> roleGrants = new HashMap<>();
     @GuardedBy("this")
     private final Map<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new HashMap<>();
 
@@ -208,22 +196,7 @@ public class InMemoryHiveMetastore
 
         PrincipalPrivilegeSet privileges = table.getPrivileges();
         if (privileges != null) {
-            for (Entry<String, List<PrivilegeGrantInfo>> entry : privileges.getUserPrivileges().entrySet()) {
-                String user = entry.getKey();
-                Set<HivePrivilegeInfo> userPrivileges = entry.getValue().stream()
-                        .map(HivePrivilegeInfo::parsePrivilege)
-                        .flatMap(Collection::stream)
-                        .collect(toImmutableSet());
-                setTablePrivileges(user, USER, table.getDbName(), table.getTableName(), userPrivileges);
-            }
-            for (Entry<String, List<PrivilegeGrantInfo>> entry : privileges.getRolePrivileges().entrySet()) {
-                String role = entry.getKey();
-                Set<HivePrivilegeInfo> rolePrivileges = entry.getValue().stream()
-                        .map(HivePrivilegeInfo::parsePrivilege)
-                        .flatMap(Collection::stream)
-                        .collect(toImmutableSet());
-                setTablePrivileges(role, ROLE, table.getDbName(), table.getTableName(), rolePrivileges);
-            }
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -555,76 +528,21 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Set<String> getRoles(String user)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
     {
-        return roleGrants.getOrDefault(user, ImmutableSet.of(PUBLIC_ROLE_NAME));
-    }
-
-    public synchronized void setUserRoles(String user, Set<String> roles)
-    {
-        if (!roles.contains(PUBLIC_ROLE_NAME)) {
-            roles = ImmutableSet.<String>builder()
-                    .addAll(roles)
-                    .add(PUBLIC_ROLE_NAME)
-                    .build();
-        }
-        roleGrants.put(user, ImmutableSet.copyOf(roles));
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
+    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
     {
-        Set<HivePrivilegeInfo> privileges = new HashSet<>();
-        if (isDatabaseOwner(user, databaseName)) {
-            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
-        }
-        return privileges;
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
+    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
     {
-        Set<HivePrivilegeInfo> privileges = new HashSet<>();
-        if (isTableOwner(user, databaseName, tableName)) {
-            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
-        }
-        privileges.addAll(tablePrivileges.getOrDefault(new PrincipalTableKey(user, USER, tableName, databaseName), ImmutableSet.of()));
-        for (String role : getRoles(user)) {
-            privileges.addAll(tablePrivileges.getOrDefault(new PrincipalTableKey(role, ROLE, tableName, databaseName), ImmutableSet.of()));
-        }
-        return privileges;
-    }
-
-    public synchronized void setTablePrivileges(String principalName,
-            PrincipalType principalType,
-            String databaseName,
-            String tableName,
-            Set<HivePrivilegeInfo> privileges)
-    {
-        tablePrivileges.put(new PrincipalTableKey(principalName, principalType, tableName, databaseName), ImmutableSet.copyOf(privileges));
-    }
-
-    @Override
-    public synchronized void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
-    {
-        Set<HivePrivilegeInfo> hivePrivileges = privilegeGrantInfoSet.stream()
-                .map(HivePrivilegeInfo::parsePrivilege)
-                .flatMap(Collection::stream)
-                .collect(toImmutableSet());
-
-        setTablePrivileges(grantee, USER, databaseName, tableName, hivePrivileges);
-    }
-
-    @Override
-    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
-    {
-        Set<HivePrivilegeInfo> currentPrivileges = getTablePrivileges(grantee, databaseName, tableName);
-        currentPrivileges.removeAll(privilegeGrantInfoSet.stream()
-                .map(HivePrivilegeInfo::parsePrivilege)
-                .flatMap(Collection::stream)
-                .collect(toImmutableSet()));
-
-        setTablePrivileges(grantee, USER, databaseName, tableName, currentPrivileges);
+        throw new UnsupportedOperationException();
     }
 
     private static boolean isParentDir(File directory, File baseDirectory)
