@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
@@ -77,6 +78,7 @@ public class ShardOrganizationManager
 
     private final String currentNodeIdentifier;
     private final ShardOrganizer organizer;
+    private final DateTimeZone shardSplitTimeZone;
 
     private final Set<Long> tablesInProgress = newConcurrentHashSet();
 
@@ -93,7 +95,8 @@ public class ShardOrganizationManager
                 shardManager,
                 organizer,
                 config.isOrganizationEnabled(),
-                config.getOrganizationInterval());
+                config.getOrganizationInterval(),
+                config.getShardSplitTimezone());
     }
 
     public ShardOrganizationManager(
@@ -102,7 +105,8 @@ public class ShardOrganizationManager
             ShardManager shardManager,
             ShardOrganizer organizer,
             boolean enabled,
-            Duration organizationInterval)
+            Duration organizationInterval,
+            DateTimeZone shardSplitTimeZone)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
@@ -116,6 +120,7 @@ public class ShardOrganizationManager
 
         requireNonNull(organizationInterval, "organizationInterval is null");
         this.organizationIntervalMillis = max(1, organizationInterval.roundTo(MILLISECONDS));
+        this.shardSplitTimeZone = requireNonNull(shardSplitTimeZone, "shardSplitTimeZone is null");
     }
 
     @PostConstruct
@@ -189,7 +194,7 @@ public class ShardOrganizationManager
                 .collect(toSet());
 
         Collection<ShardIndexInfo> indexInfos = getOrganizationEligibleShards(dbi, metadataDao, tableInfo, filteredShards, true);
-        Set<OrganizationSet> organizationSets = createOrganizationSets(tableInfo, indexInfos);
+        Set<OrganizationSet> organizationSets = createOrganizationSets(tableInfo, indexInfos, shardSplitTimeZone);
 
         if (organizationSets.isEmpty()) {
             return;
@@ -226,9 +231,9 @@ public class ShardOrganizationManager
     }
 
     @VisibleForTesting
-    static Set<OrganizationSet> createOrganizationSets(Table tableInfo, Collection<ShardIndexInfo> shards)
+    static Set<OrganizationSet> createOrganizationSets(Table tableInfo, Collection<ShardIndexInfo> shards, DateTimeZone shardSplitTimeZone)
     {
-        return getShardsByDaysBuckets(tableInfo, shards).stream()
+        return getShardsByDaysBuckets(tableInfo, shards, shardSplitTimeZone).stream()
                 .map(indexInfos -> getOverlappingOrganizationSets(tableInfo, indexInfos))
                 .flatMap(Collection::stream)
                 .collect(toSet());
