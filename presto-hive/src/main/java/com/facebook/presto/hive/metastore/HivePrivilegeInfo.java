@@ -16,7 +16,6 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.google.common.collect.ImmutableSet;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -25,11 +24,9 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class HivePrivilegeInfo
@@ -41,30 +38,6 @@ public class HivePrivilegeInfo
 
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
-
-    public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant)
-    {
-        boolean withGrantOption = userGrant.isGrantOption();
-        String name = userGrant.getPrivilege().toUpperCase(ENGLISH);
-        switch (name) {
-            case "ALL":
-                return ImmutableSet.copyOf(Arrays.stream(HivePrivilege.values())
-                        .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, withGrantOption))
-                        .collect(Collectors.toSet()));
-            case "SELECT":
-                return ImmutableSet.of(new HivePrivilegeInfo(SELECT, withGrantOption));
-            case "INSERT":
-                return ImmutableSet.of(new HivePrivilegeInfo(INSERT, withGrantOption));
-            case "UPDATE":
-                return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, withGrantOption));
-            case "DELETE":
-                return ImmutableSet.of(new HivePrivilegeInfo(DELETE, withGrantOption));
-            case "OWNERSHIP":
-                return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, withGrantOption));
-            default:
-                throw new IllegalArgumentException("Unsupported privilege name: " + name);
-        }
-    }
 
     public static HivePrivilege toHivePrivilege(Privilege privilege)
     {
