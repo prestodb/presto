@@ -52,6 +52,8 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySetCata
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
@@ -249,5 +251,17 @@ public class DenyAllAccessControl
     public void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName)
     {
         denyShowRoles(catalogName);
+    }
+
+    @Override
+    public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName)
+    {
+        denyShowCurrentRoles(catalogName);
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName)
+    {
+        denyShowRoleGrants(catalogName);
     }
 }
