@@ -14,9 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,14 +26,12 @@ public class JoinProbe
 {
     public static class JoinProbeFactory
     {
-        private List<Type> types;
         private int[] probeOutputChannels;
         private List<Integer> probeJoinChannels;
         private final OptionalInt probeHashChannel;
 
-        public JoinProbeFactory(List<Type> types, int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+        public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
         {
-            this.types = types;
             this.probeOutputChannels = probeOutputChannels;
             this.probeJoinChannels = probeJoinChannels;
             this.probeHashChannel = probeHashChannel;
@@ -43,14 +39,12 @@ public class JoinProbe
 
         public JoinProbe createJoinProbe(Page page)
         {
-            return new JoinProbe(types, probeOutputChannels, page, probeJoinChannels, probeHashChannel);
+            return new JoinProbe(probeOutputChannels, page, probeJoinChannels, probeHashChannel);
         }
     }
 
-    private final List<Type> types;
     private final int[] probeOutputChannels;
     private final int positionCount;
-    private final Block[] blocks;
     private final Block[] probeBlocks;
     private final Page page;
     private final Page probePage;
@@ -58,20 +52,14 @@ public class JoinProbe
 
     private int position = -1;
 
-    private JoinProbe(List<Type> types, int[] probeOutputChannels, Page page, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+    private JoinProbe(int[] probeOutputChannels, Page page, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
     {
-        this.types = types;
         this.probeOutputChannels = probeOutputChannels;
         this.positionCount = page.getPositionCount();
-        this.blocks = new Block[page.getChannelCount()];
         this.probeBlocks = new Block[probeJoinChannels.size()];
 
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            blocks[i] = page.getBlock(i);
-        }
-
         for (int i = 0; i < probeJoinChannels.size(); i++) {
-            probeBlocks[i] = blocks[probeJoinChannels.get(i)];
+            probeBlocks[i] = page.getBlock(probeJoinChannels.get(i));
         }
         this.page = page;
         this.probePage = new Page(page.getPositionCount(), probeBlocks);
@@ -92,16 +80,6 @@ public class JoinProbe
     {
         position++;
         return position < positionCount;
-    }
-
-    public void appendTo(PageBuilder pageBuilder)
-    {
-        int pageBuilderOutputChannel = 0;
-        for (int outputIndex : probeOutputChannels) {
-            Type type = types.get(outputIndex);
-            Block block = blocks[outputIndex];
-            type.appendTo(block, position, pageBuilder.getBlockBuilder(pageBuilderOutputChannel++));
-        }
     }
 
     public long getCurrentJoinPosition(LookupSource lookupSource)

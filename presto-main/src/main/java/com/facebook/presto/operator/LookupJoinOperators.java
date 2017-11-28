@@ -93,7 +93,7 @@ public class LookupJoinOperators
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
-                new JoinProbeFactory(probeTypes, probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
                 totalOperatorsCount,
                 probeJoinChannel,
                 probeHashChannel,
