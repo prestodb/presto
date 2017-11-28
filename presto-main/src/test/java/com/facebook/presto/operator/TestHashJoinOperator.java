@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
@@ -72,7 +71,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.SystemSessionProperties.DICTIONARY_PROCESSING_JOIN;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.dropChannel;
 import static com.facebook.presto.operator.OperatorAssertion.without;
@@ -81,9 +79,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -148,31 +144,22 @@ public class TestHashJoinOperator
     @DataProvider(name = "hashJoinTestValues")
     public static Object[][] hashJoinTestValuesProvider()
     {
-        // parallelBuild, probeHashEnabled, buildHashEnabled, and isDictionaryProcessingJoinEnabled respectively
         return new Object[][] {
-                {true, true, true, true},
-                {true, true, true, false},
-                {true, true, false, true},
-                {true, true, false, false},
-                {true, false, true, true},
-                {true, false, true, false},
-                {true, false, false, true},
-                {true, false, false, false},
-                {false, true, true, true},
-                {false, true, true, false},
-                {false, true, false, true},
-                {false, true, false, false},
-                {false, false, true, true},
-                {false, false, true, false},
-                {false, false, false, true},
-                {false, false, false, false}};
+                {true, true, true},
+                {true, true, false},
+                {true, false, true},
+                {true, false, false},
+                {false, true, true},
+                {false, true, false},
+                {false, false, true},
+                {false, false, false}};
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         // build
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
@@ -210,7 +197,7 @@ public class TestHashJoinOperator
         // create a filter function that yields for every probe match
         // verify we will yield #match times totally
 
-        TaskContext taskContext = createTaskContext(true);
+        TaskContext taskContext = createTaskContext();
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
 
         // force a yield for every match
@@ -326,7 +313,7 @@ public class TestHashJoinOperator
     public void testInnerJoinWithSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, boolean isDictionaryProcessingJoinEnabled)
             throws Exception
     {
-        innerJoinWithSpill(probeHashEnabled, isDictionaryProcessingJoinEnabled, whenSpill, SINGLE_STREAM_SPILLER_FACTORY, PARTITIONING_SPILLER_FACTORY);
+        innerJoinWithSpill(probeHashEnabled, whenSpill, SINGLE_STREAM_SPILLER_FACTORY, PARTITIONING_SPILLER_FACTORY);
     }
 
     @Test(dataProvider = "joinWithFailingSpillValues")
@@ -359,7 +346,7 @@ public class TestHashJoinOperator
                 throw new IllegalArgumentException(format("Unsupported option: %s", whenSpillFails));
         }
         try {
-            innerJoinWithSpill(probeHashEnabled, isDictionaryProcessingJoinEnabled, whenSpill, buildSpillerFactory, partitioningSpillerFactory);
+            innerJoinWithSpill(probeHashEnabled, whenSpill, buildSpillerFactory, partitioningSpillerFactory);
             fail("Exception not thrown");
         }
         catch (RuntimeException exception) {
@@ -367,11 +354,11 @@ public class TestHashJoinOperator
         }
     }
 
-    private void innerJoinWithSpill(boolean probeHashEnabled, boolean isDictionaryProcessingJoinEnabled, List<WhenSpill> whenSpill, SingleStreamSpillerFactory buildSpillerFactory, PartitioningSpillerFactory joinSpillerFactory)
+    private void innerJoinWithSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, SingleStreamSpillerFactory buildSpillerFactory, PartitioningSpillerFactory joinSpillerFactory)
             throws Exception
     {
         TaskStateMachine taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0), executor);
-        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, createTestSession(isDictionaryProcessingJoinEnabled), taskStateMachine);
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, taskStateMachine);
 
         DriverContext joinDriverContext = taskContext.addPipelineContext(2, true, true).addDriverContext();
 
@@ -547,10 +534,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         // build
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
@@ -583,10 +570,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         // build
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
@@ -619,10 +606,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         // build
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
@@ -656,10 +643,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         // build
         List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
@@ -699,10 +686,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testProbeOuterJoinWithFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testProbeOuterJoinWithFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) -> BIGINT.getLong(rightBlocks[1], rightPosition) >= 1025));
@@ -744,10 +731,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         // build
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
@@ -782,10 +769,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) -> VARCHAR.getSlice(rightBlocks[0], rightPosition).toStringAscii().equals("a")));
@@ -823,10 +810,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         // build
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
@@ -860,10 +847,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) ->
@@ -901,10 +888,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         // build
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR))
@@ -939,10 +926,10 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean isDictionaryProcessingJoinEnabled)
+    public void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext(isDictionaryProcessingJoinEnabled);
+        TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) ->
@@ -1001,18 +988,9 @@ public class TestHashJoinOperator
                 {false, false}};
     }
 
-    private TaskContext createTaskContext(boolean isDictionaryProcessingJoinEnabled)
+    private TaskContext createTaskContext()
     {
-        return TestingTaskContext.createTaskContext(executor, scheduledExecutor, createTestSession(isDictionaryProcessingJoinEnabled));
-    }
-
-    private Session createTestSession(boolean isDictionaryProcessingJoinEnabled)
-    {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema(TINY_SCHEMA_NAME)
-                .setSystemProperty(DICTIONARY_PROCESSING_JOIN, String.valueOf(isDictionaryProcessingJoinEnabled))
-                .build();
+        return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION);
     }
 
     private static List<Integer> getHashChannels(RowPagesBuilder probe, RowPagesBuilder build)
