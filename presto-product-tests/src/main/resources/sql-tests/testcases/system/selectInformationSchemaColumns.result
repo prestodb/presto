@@ -1,4 +1,8 @@
 -- delimiter: |; trimValues:true;
+system| information_schema| applicable_roles| grantee| varchar| YES| null| null|
+system| information_schema| applicable_roles| grantee_type| varchar| YES| null| null|
+system| information_schema| applicable_roles| role_name| varchar| YES| null| null|
+system| information_schema| applicable_roles| is_grantable| varchar| YES| null| null|
 system| information_schema| columns| table_catalog| varchar| YES| null| null|
 system| information_schema| columns| table_schema| varchar| YES| null| null|
 system| information_schema| columns| table_name| varchar| YES| null| null|
