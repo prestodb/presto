@@ -137,7 +137,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!isTableOwner(transaction, identity, tableName)) {
             denyDropTable(tableName.toString());
         }
     }
@@ -145,7 +145,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRenameTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!isTableOwner(transaction, identity, tableName)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
     }
@@ -164,7 +164,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanAddColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!isTableOwner(transaction, identity, tableName)) {
             denyAddColumn(tableName.toString());
         }
     }
@@ -172,7 +172,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!isTableOwner(transaction, identity, tableName)) {
             denyDropColumn(tableName.toString());
         }
     }
@@ -180,7 +180,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRenameColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!isTableOwner(transaction, identity, tableName)) {
             denyRenameColumn(tableName.toString());
         }
     }
@@ -221,7 +221,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
     {
-        if (!checkTablePermission(transaction, identity, viewName, OWNERSHIP)) {
+        if (!isTableOwner(transaction, identity, viewName)) {
             denyDropView(viewName.toString());
         }
     }
@@ -249,7 +249,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
     {
-        if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (isTableOwner(transaction, identity, tableName)) {
             return;
         }
 
@@ -261,7 +261,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
-        if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (isTableOwner(transaction, identity, tableName)) {
             return;
         }
 
@@ -374,6 +374,11 @@ public class SqlStandardAccessControl
             return true;
         }
         return false;
+    }
+
+    private boolean isTableOwner(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        return checkTablePermission(transaction, identity, tableName, OWNERSHIP);
     }
 
     private boolean checkTablePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
