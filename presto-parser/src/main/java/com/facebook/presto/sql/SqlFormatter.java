@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
@@ -69,6 +70,7 @@ import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
@@ -1102,6 +1104,68 @@ public final class SqlFormatter
         protected Void visitDropRole(DropRole node, Integer context)
         {
             builder.append("DROP ROLE ").append(node.getName());
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(node.getCatalog().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitGrantRoles(GrantRoles node, Integer context)
+        {
+            builder.append("GRANT ");
+            Iterator<Identifier> roles = node.getRoles().iterator();
+            while (roles.hasNext()) {
+                builder.append(roles.next());
+                if (roles.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(" TO ");
+            Iterator<PrincipalSpecification> grantees = node.getGrantees().iterator();
+            while (grantees.hasNext()) {
+                builder.append(formatPrincipal(grantees.next()));
+                if (grantees.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            if (node.isWithAdminOption()) {
+                builder.append(" WITH ADMIN OPTION");
+            }
+            if (node.getGrantor().isPresent()) {
+                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(node.getCatalog().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitRevokeRoles(RevokeRoles node, Integer context)
+        {
+            builder.append("REVOKE ");
+            if (node.isAdminOptionFor()) {
+                builder.append("ADMIN OPTION FOR ");
+            }
+            Iterator<Identifier> roles = node.getRoles().iterator();
+            while (roles.hasNext()) {
+                builder.append(roles.next());
+                if (roles.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(" FROM ");
+            Iterator<PrincipalSpecification> grantees = node.getGrantees().iterator();
+            while (grantees.hasNext()) {
+                builder.append(formatPrincipal(grantees.next()));
+                if (grantees.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            if (node.getGrantor().isPresent()) {
+                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
             if (node.getCatalog().isPresent()) {
                 builder.append(" IN ").append(node.getCatalog().get());
             }

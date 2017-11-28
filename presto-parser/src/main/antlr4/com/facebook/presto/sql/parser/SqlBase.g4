@@ -60,6 +60,18 @@ statement
         (IN catalog=identifier)?                                       #createRole
     | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
     | GRANT
+        roles
+        TO principal (',' principal)*
+        (WITH ADMIN OPTION)?
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #grantRoles
+    | REVOKE
+        (ADMIN OPTION FOR)?
+        roles
+        FROM principal (',' principal)*
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #revokeRoles
+    | GRANT
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON TABLE? qualifiedName TO grantee=identifier
         (WITH GRANT OPTION)?                                           #grant
@@ -449,6 +461,10 @@ principal
     | ROLE identifier       #rolePrincipal
     ;
 
+roles
+    : identifier (',' identifier)*
+    ;
+
 identifier
     : IDENTIFIER             #unquotedIdentifier
     | QUOTED_IDENTIFIER      #quotedIdentifier
@@ -470,7 +486,7 @@ nonReserved
     | DATA | DATE | DAY | DESC | DISTRIBUTED
     | EXCLUDING | EXPLAIN
     | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTIONS
-    | GRANT | GRANTS | GRAPHVIZ
+    | GRANT | GRANTED | GRANTS | GRAPHVIZ
     | HOUR
     | IF | INCLUDING | INPUT | INTEGER | INTERVAL | ISOLATION
     | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
@@ -553,6 +569,7 @@ FROM: 'FROM';
 FULL: 'FULL';
 FUNCTIONS: 'FUNCTIONS';
 GRANT: 'GRANT';
+GRANTED: 'GRANTED';
 GRANTS: 'GRANTS';
 GRAPHVIZ: 'GRAPHVIZ';
 GROUP: 'GROUP';
