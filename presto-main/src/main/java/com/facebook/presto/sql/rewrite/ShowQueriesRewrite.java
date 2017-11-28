@@ -32,6 +32,8 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -65,6 +67,7 @@ import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowRoleGrants;
 import com.facebook.presto.sql.tree.ShowRoles;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
@@ -283,6 +286,26 @@ final class ShowQueriesRewrite
                         selectList(aliasedName("role_name", "Role")),
                         from(catalog, TABLE_ROLES));
             }
+        }
+
+        @Override
+        protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
+        {
+            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            }
+
+            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
+            PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
+
+            List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
+                    .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
+                    .collect(toList());
+
+            return simpleQuery(
+                    selectList(new AllColumns()),
+                    aliased(new Values(rows), "role_grants", ImmutableList.of("Role Grants")),
+                    ordering(ascending("Role Grants")));
         }
 
         @Override
