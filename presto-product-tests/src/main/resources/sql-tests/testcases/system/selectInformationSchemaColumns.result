@@ -13,6 +13,7 @@ system| information_schema| columns| is_nullable| varchar| YES| null| null|
 system| information_schema| columns| data_type| varchar| YES| null| null|
 system| information_schema| columns| comment| varchar| YES| null| null|
 system| information_schema| columns| extra_info| varchar| YES| null| null|
+system| information_schema| enabled_roles| role_name| varchar| YES| null| null|
 system| information_schema| roles| role_name| varchar| YES| null| null|
 system| information_schema| schemata| catalog_name| varchar| YES| null| null|
 system| information_schema| schemata| schema_name| varchar| YES| null| null|
