@@ -128,7 +128,7 @@ public class LookupJoinOperator
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         operatorContext.setInfoSupplier(this.statisticsCounter);
 
-        this.pageBuilder = new DictionaryLookupJoinPageBuilder(buildOutputTypes);
+        this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
     }
 
     @Override

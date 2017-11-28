@@ -32,7 +32,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestDictionaryLookupJoinPageBuilder
+public class TestLookupJoinPageBuilder
 {
     @Test
     public void testPageBuilder()
@@ -49,7 +49,7 @@ public class TestDictionaryLookupJoinPageBuilder
         JoinProbeFactory joinProbeFactory = new JoinProbeFactory(ImmutableList.of(BIGINT, BIGINT), new int[]{0, 1}, ImmutableList.of(0, 1), OptionalInt.empty());
         JoinProbe probe = joinProbeFactory.createJoinProbe(page);
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT, BIGINT), page);
-        LookupJoinPageBuilder lookupJoinPageBuilder = new DictionaryLookupJoinPageBuilder(ImmutableList.of(BIGINT, BIGINT));
+        LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT, BIGINT));
 
         int joinPosition = 0;
         while (!lookupJoinPageBuilder.isFull() && probe.advanceNextPosition()) {
@@ -97,7 +97,7 @@ public class TestDictionaryLookupJoinPageBuilder
         Page page = new Page(block);
         JoinProbeFactory joinProbeFactory = new JoinProbeFactory(ImmutableList.of(BIGINT), new int[]{0}, ImmutableList.of(0), OptionalInt.empty());
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT), page);
-        LookupJoinPageBuilder lookupJoinPageBuilder = new DictionaryLookupJoinPageBuilder(ImmutableList.of(BIGINT));
+        LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
 
         // empty
         JoinProbe probe = joinProbeFactory.createJoinProbe(page);
