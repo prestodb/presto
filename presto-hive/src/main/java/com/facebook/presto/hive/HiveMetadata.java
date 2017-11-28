@@ -1349,6 +1349,12 @@ public class HiveMetadata
     }
 
     @Override
+    public Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
+    {
+        return ImmutableSet.copyOf(metastore.listRoleGrants(principal));
+    }
+
+    @Override
     public void grantRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
     {
         metastore.grantRoles(roles, grantees, withAdminOption, grantor.orElse(new PrestoPrincipal(USER, session.getUser())));
