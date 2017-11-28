@@ -25,7 +25,7 @@ import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
-Simport static com.facebook.presto.tests.utils.QueryExecutors.onHive;
+import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.Row;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
