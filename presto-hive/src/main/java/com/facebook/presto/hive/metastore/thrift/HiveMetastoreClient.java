@@ -107,6 +107,12 @@ public interface HiveMetastoreClient
     List<String> getRoleNames()
             throws TException;
 
+    void createRole(String role, String grantor)
+            throws TException;
+
+    void dropRole(String role)
+            throws TException;
+
     boolean grantPrivileges(PrivilegeBag privilegeBag)
             throws TException;
 

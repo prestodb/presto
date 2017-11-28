@@ -232,6 +232,21 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public void createRole(String roleName, String grantor)
+            throws TException
+    {
+        Role role = new Role(roleName, 0, grantor);
+        client.create_role(role);
+    }
+
+    @Override
+    public void dropRole(String role)
+            throws TException
+    {
+        client.drop_role(role);
+    }
+
+    @Override
     public boolean grantPrivileges(PrivilegeBag privilegeBag)
             throws TException
     {

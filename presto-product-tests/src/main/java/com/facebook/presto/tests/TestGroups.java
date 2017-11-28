@@ -59,6 +59,7 @@ public final class TestGroups
     public static final String LDAP_CLI = "ldap_cli";
     public static final String SKIP_ON_CDH = "skip_on_cdh";
     public static final String TLS = "tls";
+    public static final String ROLES = "roles";
     public static final String CANCEL_QUERY = "cancel_query";
     public static final String BIG_QUERY = "big_query";
     public static final String HIVE_TABLE_STATISTICS = "hive_table_statistics";
