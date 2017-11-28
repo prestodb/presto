@@ -305,7 +305,7 @@ public final class Session
                 queryId,
                 Optional.of(transactionId),
                 clientTransactionSupport,
-                identity,
+                new Identity(identity.getUser(), identity.getPrincipal()),
                 source,
                 catalog,
                 schema,
@@ -327,7 +327,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(this);
+        return new FullConnectorSession(this, identity.toConnectorIdentity());
     }
 
     public ConnectorSession toConnectorSession(ConnectorId connectorId)
@@ -335,6 +335,7 @@ public final class Session
         requireNonNull(connectorId, "connectorId is null");
         return new FullConnectorSession(
                 this,
+                identity.toConnectorIdentity(connectorId.getCatalogName()),
                 connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
                 connectorId,
                 connectorId.getCatalogName(),

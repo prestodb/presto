@@ -16,7 +16,7 @@ package com.facebook.presto.testing;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -42,7 +42,7 @@ public class TestingConnectorSession
     public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
 
     private final String queryId;
-    private final Identity identity;
+    private final ConnectorIdentity identity;
     private final Optional<String> source;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
@@ -69,7 +69,7 @@ public class TestingConnectorSession
             boolean isLegacyTimestamp)
     {
         this.queryId = queryIdGenerator.createNextQueryId().toString();
-        this.identity = new Identity(requireNonNull(user, "user is null"), Optional.empty());
+        this.identity = new ConnectorIdentity(requireNonNull(user, "user is null"), Optional.empty());
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
@@ -93,7 +93,7 @@ public class TestingConnectorSession
     }
 
     @Override
-    public Identity getIdentity()
+    public ConnectorIdentity getIdentity()
     {
         return identity;
     }
