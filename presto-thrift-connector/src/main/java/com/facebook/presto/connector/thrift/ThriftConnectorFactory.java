@@ -75,7 +75,7 @@ public class ThriftConnectorFactory
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
                     locationModule,
-                    new ThriftModule());
+                    new ThriftModule(connectorId));
 
             Injector injector = app
                     .strictConfig()
