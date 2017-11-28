@@ -57,11 +57,13 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyDropRol
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
@@ -322,13 +324,39 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        // TODO
+        // currently specifying grantor is supported by metastore, but it is not supported by Hive itself
+        if (grantor.isPresent()) {
+            throw new AccessDeniedException("Hive Connector does not support GRANTED BY statement");
+        }
+        if (!hasAdminOptionForRoles(transactionHandle, identity, roles)) {
+            denyGrantRoles(roles, grantees);
+        }
     }
 
     @Override
     public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        // TODO
+        // currently specifying grantor is supported by metastore, but it is not supported by Hive itself
+        if (grantor.isPresent()) {
+            throw new AccessDeniedException("Hive Connector does not support GRANTED BY statement");
+        }
+        if (!hasAdminOptionForRoles(transactionHandle, identity, roles)) {
+            denyRevokeRoles(roles, grantees);
+        }
+    }
+
+    private boolean hasAdminOptionForRoles(ConnectorTransactionHandle transaction, Identity identity, Set<String> roles)
+    {
+        if (isAdmin(transaction, identity)) {
+            return true;
+        }
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
+        Set<RoleGrant> grants = listApplicableRoles(new PrestoPrincipal(USER, identity.getUser()), metastore::listRoleGrants);
+        Set<String> rolesWithGrantOption = grants.stream()
+                .filter(RoleGrant::isGrantable)
+                .map(RoleGrant::getRoleName)
+                .collect(toSet());
+        return rolesWithGrantOption.containsAll(roles);
     }
 
     private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, Identity identity, String schemaName, HivePrivilege... requiredPrivileges)
