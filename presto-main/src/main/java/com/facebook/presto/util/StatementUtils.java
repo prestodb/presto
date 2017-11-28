@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetPath;
+import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -114,6 +115,7 @@ public class StatementUtils
         builder.put(DropRole.class, QueryType.DATA_DEFINITION);
         builder.put(GrantRoles.class, QueryType.DATA_DEFINITION);
         builder.put(RevokeRoles.class, QueryType.DATA_DEFINITION);
+        builder.put(SetRole.class, QueryType.DATA_DEFINITION);
         builder.put(Grant.class, QueryType.DATA_DEFINITION);
         builder.put(Revoke.class, QueryType.DATA_DEFINITION);
         builder.put(Prepare.class, QueryType.DATA_DEFINITION);

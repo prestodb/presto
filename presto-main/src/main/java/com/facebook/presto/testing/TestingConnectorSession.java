@@ -71,7 +71,7 @@ public class TestingConnectorSession
             boolean isLegacyTimestamp)
     {
         this.queryId = queryIdGenerator.createNextQueryId().toString();
-        this.identity = new ConnectorIdentity(requireNonNull(user, "user is null"), Optional.empty());
+        this.identity = new ConnectorIdentity(requireNonNull(user, "user is null"), Optional.empty(), Optional.empty());
         this.path = requireNonNull(path, "path is null");
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");

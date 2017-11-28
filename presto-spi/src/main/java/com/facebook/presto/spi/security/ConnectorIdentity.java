@@ -23,11 +23,13 @@ public class ConnectorIdentity
 {
     private final String user;
     private final Optional<Principal> principal;
+    private final Optional<SelectedRole> role;
 
-    public ConnectorIdentity(String user, Optional<Principal> principal)
+    public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.role = requireNonNull(role, "role is null");
     }
 
     public String getUser()
@@ -38,6 +40,11 @@ public class ConnectorIdentity
     public Optional<Principal> getPrincipal()
     {
         return principal;
+    }
+
+    public Optional<SelectedRole> getRole()
+    {
+        return role;
     }
 
     @Override

@@ -105,7 +105,7 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestHiveFileSystem
 {
-    private static final HdfsContext TESTING_CONTEXT = new HdfsContext(new ConnectorIdentity("test", Optional.empty()));
+    private static final HdfsContext TESTING_CONTEXT = new HdfsContext(new ConnectorIdentity("test", Optional.empty(), Optional.empty()));
 
     protected String database;
     protected SchemaTableName table;
