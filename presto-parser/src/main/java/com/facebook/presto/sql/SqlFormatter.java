@@ -77,6 +77,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetPath;
+import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -1152,6 +1153,28 @@ public final class SqlFormatter
                     .collect(joining(", ")));
             if (node.getGrantor().isPresent()) {
                 builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(node.getCatalog().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitSetRole(SetRole node, Integer context)
+        {
+            builder.append("SET ROLE ");
+            SetRole.Type type = node.getType();
+            switch (type) {
+                case ALL:
+                case NONE:
+                    builder.append(type.toString());
+                    break;
+                case ROLE:
+                    builder.append(node.getRole().get());
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + type);
             }
             if (node.getCatalog().isPresent()) {
                 builder.append(" IN ").append(node.getCatalog().get());
