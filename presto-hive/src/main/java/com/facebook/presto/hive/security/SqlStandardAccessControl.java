@@ -265,8 +265,7 @@ public class SqlStandardAccessControl
             return;
         }
 
-        HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !hasGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
+        if (!hasGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
             denyGrantTablePrivilege(privilege.name(), tableName.toString());
         }
     }
@@ -278,8 +277,7 @@ public class SqlStandardAccessControl
             return;
         }
 
-        HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !hasGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
+        if (!hasGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
             denyRevokeTablePrivilege(privilege.name(), tableName.toString());
         }
     }
