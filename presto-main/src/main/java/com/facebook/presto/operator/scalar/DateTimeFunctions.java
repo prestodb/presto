@@ -1067,8 +1067,7 @@ public final class DateTimeFunctions
         return extractZoneOffsetMinutes(timestampWithTimeZone) / 60;
     }
 
-    @SuppressWarnings("fallthrough")
-    public static DateTimeFormatter createDateTimeFormatter(Slice format)
+    private static DateTimeFormatter createDateTimeFormatter(Slice format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
 
