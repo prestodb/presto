@@ -96,6 +96,12 @@ public interface HiveMetastore
 
     void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
+    void createRole(String role, String grantor);
+
+    void dropRole(String role);
+
+    Set<String> listRoles();
+
     Set<String> getRoles(String user);
 
     Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName);

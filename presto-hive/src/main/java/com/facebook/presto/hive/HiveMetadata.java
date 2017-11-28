@@ -58,6 +58,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
@@ -174,6 +175,7 @@ import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.hive.util.Statistics.fromComputedStatistics;
 import static com.facebook.presto.hive.util.Statistics.reduce;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -204,6 +206,7 @@ public class HiveMetadata
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String TABLE_COMMENT = "comment";
+    public static final Set<String> RESERVED_ROLES = ImmutableSet.of("all", "default", "none");
 
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
@@ -1666,6 +1669,28 @@ public class HiveMetadata
         return statisticTypes.stream()
                 .map(type -> new ColumnStatisticMetadata(columnName, type))
                 .collect(toImmutableList());
+    }
+
+    public void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
+    {
+        // roles are case insensitive in Hive
+        if (RESERVED_ROLES.contains(role)) {
+            throw new PrestoException(ALREADY_EXISTS, "Role name cannot be one of the reserved roles: " + RESERVED_ROLES);
+        }
+        metastore.createRole(role, null);
+    }
+
+    @Override
+    public void dropRole(ConnectorSession session, String role)
+    {
+        // roles are case insensitive in Hive
+        metastore.dropRole(role);
+    }
+
+    @Override
+    public Set<String> listRoles(ConnectorSession session)
+    {
+        return ImmutableSet.copyOf(metastore.listRoles());
     }
 
     @Override

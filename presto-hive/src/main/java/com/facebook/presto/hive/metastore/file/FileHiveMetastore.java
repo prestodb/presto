@@ -120,6 +120,7 @@ public class FileHiveMetastore
     private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
     private final JsonCodec<PartitionMetadata> partitionCodec = JsonCodec.jsonCodec(PartitionMetadata.class);
     private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
+    private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
 
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
@@ -676,6 +677,28 @@ public class FileHiveMetastore
     }
 
     @Override
+    public synchronized void createRole(String role, String grantor)
+    {
+        Set<String> roles = new HashSet<>(listRoles());
+        roles.add(role);
+        writeFile("roles", getRolesFile(), rolesCodec, ImmutableList.copyOf(roles), true);
+    }
+
+    @Override
+    public synchronized void dropRole(String role)
+    {
+        Set<String> roles = new HashSet<>(listRoles());
+        roles.remove(role);
+        writeFile("roles", getRolesFile(), rolesCodec, ImmutableList.copyOf(roles), true);
+    }
+
+    @Override
+    public synchronized Set<String> listRoles()
+    {
+        return ImmutableSet.copyOf(readFile("roles", getRolesFile(), rolesCodec).orElse(ImmutableList.of()));
+    }
+
+    @Override
     public synchronized Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
         requireNonNull(databaseName, "databaseName is null");
@@ -986,6 +1009,11 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+    }
+
+    private Path getRolesFile()
+    {
+        return new Path(catalogDirectory, ".roles");
     }
 
     private void deleteMetadataDirectory(Path metadataDirectory)

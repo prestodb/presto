@@ -517,6 +517,24 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public void createRole(String role, String grantor)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropRole(String role)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<String> listRoles()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public synchronized Set<String> getRoles(String user)
     {
         return roleGrants.getOrDefault(user, ImmutableSet.of(PUBLIC_ROLE_NAME));
