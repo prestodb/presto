@@ -18,7 +18,7 @@ Revokes the specified privileges from the specified grantee.
 
 Specifying ``ALL PRIVILEGES`` revokes :doc:`delete`, :doc:`insert` and :doc:`select` privileges.
 
-Specifying ``PUBLIC`` revokes privileges from the ``PUBLIC`` role. Users will retain privileges assigned to them directly or via other roles.
+Specifying ``ROLE PUBLIC`` revokes privileges from the ``PUBLIC`` role. Users will retain privileges assigned to them directly or via other roles.
 
 The optional ``GRANT OPTION FOR`` clause also revokes the privileges to grant the specified privileges.
 
