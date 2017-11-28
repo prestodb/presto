@@ -1227,7 +1227,7 @@ public final class SqlFormatter
             }
             builder.append(node.getTableName())
                     .append(" TO ")
-                    .append(node.getGrantee());
+                    .append(formatPrincipal(node.getGrantee()));
             if (node.isWithGrantOption()) {
                 builder.append(" WITH GRANT OPTION");
             }
@@ -1258,7 +1258,7 @@ public final class SqlFormatter
             }
             builder.append(node.getTableName())
                     .append(" FROM ")
-                    .append(node.getGrantee());
+                    .append(formatPrincipal(node.getGrantee()));
 
             return null;
         }
