@@ -15,6 +15,7 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -327,6 +328,15 @@ public class Console
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
                 session = ClientSession.builder(session)
                         .withProperties(sessionProperties)
+                        .build();
+            }
+
+            // update session roles
+            if (!query.getSetRoles().isEmpty()) {
+                Map<String, SelectedRole> roles = new HashMap<>(session.getRoles());
+                roles.putAll(query.getSetRoles());
+                session = ClientSession.builder(session)
+                        .withRoles(roles)
                         .build();
             }
 
