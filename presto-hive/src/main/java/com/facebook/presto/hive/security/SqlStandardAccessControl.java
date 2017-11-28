@@ -27,7 +27,6 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.RoleGrant;
-import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
@@ -417,7 +416,7 @@ public class SqlStandardAccessControl
         return checkTablePermission(transaction, identity, tableName, OWNERSHIP);
     }
 
-    private boolean checkTablePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
+    private boolean checkTablePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, HivePrivilege requiredPrivilege)
     {
         if (isAdmin(transaction, identity)) {
             return true;
@@ -432,15 +431,9 @@ public class SqlStandardAccessControl
         }
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        Set<HivePrivilege> privilegeSet = listApplicableTablePrivileges(
-                metastore,
-                tableName.getSchemaName(),
-                tableName.getTableName(),
-                new PrestoPrincipal(USER, identity.getUser()))
+        return listApplicableTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), new PrestoPrincipal(USER, identity.getUser()))
                 .stream()
-                .map(HivePrivilegeInfo::getHivePrivilege)
-                .collect(toSet());
-        return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
+                .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(requiredPrivilege));
     }
 
     private boolean hasGrantOptionForPrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName)
