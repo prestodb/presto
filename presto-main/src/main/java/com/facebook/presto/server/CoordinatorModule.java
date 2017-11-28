@@ -46,6 +46,7 @@ import com.facebook.presto.execution.RevokeRolesTask;
 import com.facebook.presto.execution.RevokeTask;
 import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.SetPathTask;
+import com.facebook.presto.execution.SetRoleTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.StartTransactionTask;
@@ -71,6 +72,7 @@ import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -98,6 +100,7 @@ import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetPath;
+import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
@@ -152,6 +155,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
+        jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
         jaxrsBinder(binder).bind(StatementResource.class);
 
         // resource for serving static content
@@ -253,6 +257,7 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, DropRole.class, DropRoleTask.class);
         bindDataDefinitionTask(binder, executionBinder, GrantRoles.class, GrantRolesTask.class);
         bindDataDefinitionTask(binder, executionBinder, RevokeRoles.class, RevokeRolesTask.class);
+        bindDataDefinitionTask(binder, executionBinder, SetRole.class, SetRoleTask.class);
         bindDataDefinitionTask(binder, executionBinder, Grant.class, GrantTask.class);
         bindDataDefinitionTask(binder, executionBinder, Revoke.class, RevokeTask.class);
         bindDataDefinitionTask(binder, executionBinder, Prepare.class, PrepareTask.class);

@@ -165,6 +165,7 @@ public class ClientOptions
                 toResourceEstimates(resourceEstimates),
                 toProperties(sessionProperties),
                 emptyMap(),
+                emptyMap(),
                 null,
                 clientRequestTimeout);
     }

@@ -180,4 +180,9 @@ public class AllowAllAccessControl
     public void checkCanRevokeRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
+
+    @Override
+    public void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog)
+    {
+    }
 }
