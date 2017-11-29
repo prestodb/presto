@@ -35,7 +35,6 @@ import com.google.common.collect.Ordering;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -54,12 +53,13 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -67,7 +67,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -269,17 +268,10 @@ public class HiveSplitManager
                 if (partition == null) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
                 }
-
-                // verify all partition is online
-                String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
                 String partName = makePartName(table.getPartitionColumns(), partition.getValues());
-                if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-                    throw new PartitionOfflineException(tableName, partName, false, null);
-                }
-                String prestoOffline = partition.getParameters().get(PRESTO_OFFLINE);
-                if (!isNullOrEmpty(prestoOffline)) {
-                    throw new PartitionOfflineException(tableName, partName, true, prestoOffline);
-                }
+
+                // verify partition is online
+                verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), table.getParameters());
 
                 // Verify that the partition schema matches the table schema.
                 // Either adding or dropping columns from the end of the table

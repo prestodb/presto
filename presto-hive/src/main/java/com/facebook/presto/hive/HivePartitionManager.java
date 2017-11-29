@@ -76,7 +76,6 @@ import static java.util.stream.Collectors.toList;
 
 public class HivePartitionManager
 {
-    public static final String PRESTO_OFFLINE = "presto_offline";
     private static final String PARTITION_VALUE_WILDCARD = "";
 
     private final DateTimeZone timeZone;
