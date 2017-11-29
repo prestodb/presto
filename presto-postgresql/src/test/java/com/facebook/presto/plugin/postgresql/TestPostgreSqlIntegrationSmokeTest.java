@@ -25,6 +25,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -84,6 +86,59 @@ public class TestPostgreSqlIntegrationSmokeTest
         computeActual("SELECT * FROM test_ft");
         execute("DROP FOREIGN TABLE tpch.test_ft");
         execute("DROP SERVER devnull");
+    }
+
+    @Test
+    public void testTableWithNoSupportedColumns()
+            throws Exception
+    {
+        String unsupportedDataType = "interval";
+        String supportedDataType = "varchar(5)";
+
+        try (AutoCloseable ignore1 = withTable("tpch.no_supported_columns", format("(c %s)", unsupportedDataType));
+                AutoCloseable ignore2 = withTable("tpch.supported_columns", format("(good %s)", supportedDataType));
+                AutoCloseable ignore3 = withTable("tpch.no_columns", "()")) {
+            assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains("orders", "no_supported_columns", "supported_columns", "no_columns");
+
+            assertQueryFails("SELECT c FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
+            assertQueryFails("SELECT * FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
+            assertQueryFails("SELECT 'a' FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
+
+            assertQueryFails("SELECT c FROM no_columns", "Table 'tpch.no_columns' not found");
+            assertQueryFails("SELECT * FROM no_columns", "Table 'tpch.no_columns' not found");
+            assertQueryFails("SELECT 'a' FROM no_columns", "Table 'tpch.no_columns' not found");
+
+            assertQueryFails("SELECT c FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
+            assertQueryFails("SELECT * FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
+            assertQueryFails("SELECT 'a' FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
+
+            assertQuery("SHOW COLUMNS FROM no_supported_columns", "SELECT 'nothing' WHERE false");
+            assertQuery("SHOW COLUMNS FROM no_columns", "SELECT 'nothing' WHERE false");
+
+            // Other tables should be visible in SHOW TABLES (the no_supported_columns might be included or might be not) and information_schema.tables
+            assertQuery("SHOW TABLES", "VALUES 'orders', 'no_supported_columns', 'supported_columns', 'no_columns'");
+            assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'tpch'", "VALUES 'orders', 'no_supported_columns', 'supported_columns', 'no_columns'");
+
+            // Other tables should be introspectable with SHOW COLUMNS and information_schema.columns
+            assertQuery("SHOW COLUMNS FROM supported_columns", "VALUES ('good', 'varchar(5)', '', '')");
+
+            // Listing columns in all tables should not fail due to tables with no columns
+            computeActual("SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch'");
+        }
+    }
+
+    private AutoCloseable withTable(String tableName, String tableDefinition)
+            throws Exception
+    {
+        execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
+        return () -> {
+            try {
+                execute(format("DROP TABLE %s", tableName));
+            }
+            catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
     }
 
     private void execute(String sql)

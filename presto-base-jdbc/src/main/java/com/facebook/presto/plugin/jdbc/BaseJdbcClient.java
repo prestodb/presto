@@ -192,9 +192,7 @@ public class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection()) {
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
-                boolean found = false;
                 while (resultSet.next()) {
-                    found = true;
                     Type columnType = toPrestoType(
                             resultSet.getInt("DATA_TYPE"),
                             resultSet.getInt("COLUMN_SIZE"),
@@ -205,11 +203,9 @@ public class BaseJdbcClient
                         columns.add(new JdbcColumnHandle(connectorId, columnName, columnType));
                     }
                 }
-                if (!found) {
-                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
-                }
                 if (columns.isEmpty()) {
-                    throw new PrestoException(NOT_SUPPORTED, "Table has no supported column types: " + tableHandle.getSchemaTableName());
+                    // In rare cases (e.g. PostgreSQL) a table might have no columns.
+                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
                 }
                 return ImmutableList.copyOf(columns);
             }
