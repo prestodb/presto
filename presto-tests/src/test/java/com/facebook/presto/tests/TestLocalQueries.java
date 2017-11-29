@@ -85,6 +85,13 @@ public class TestLocalQueries
     }
 
     @Test
+    public void testRejectStarQueryWithoutFromRelation()
+    {
+        assertQueryFails("SELECT *", "line \\S+ SELECT \\* not allowed in queries without FROM clause");
+        assertQueryFails("SELECT 1, '2', *", "line \\S+ SELECT \\* not allowed in queries without FROM clause");
+    }
+
+    @Test
     public void testDecimal()
     {
         assertQuery("SELECT DECIMAL '1.0'", "SELECT CAST('1.0' AS DECIMAL)");
