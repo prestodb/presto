@@ -15,6 +15,8 @@ ALTER TABLE presto_test_offline_partition ADD IF NOT EXISTS PARTITION (ds='2012-
 ALTER TABLE presto_test_offline_partition PARTITION (ds='2012-12-30') DISABLE OFFLINE;
 DROP TABLE IF EXISTS presto_test_offline_partition;
 
+DROP TABLE IF EXISTS presto_test_not_readable;
+
 DROP TABLE IF EXISTS presto_test_bucketed_by_string_int;
 DROP TABLE IF EXISTS presto_test_bucketed_by_bigint_boolean;
 DROP TABLE IF EXISTS presto_test_bucketed_by_double_float;

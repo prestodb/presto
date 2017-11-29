@@ -332,6 +332,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableUnpartitioned;
     protected SchemaTableName tableOffline;
     protected SchemaTableName tableOfflinePartition;
+    protected SchemaTableName tableNotReadable;
     protected SchemaTableName view;
     protected SchemaTableName invalidTable;
     protected SchemaTableName tableBucketedStringInt;
@@ -394,6 +395,7 @@ public abstract class AbstractTestHiveClient
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         tableOffline = new SchemaTableName(database, "presto_test_offline");
         tableOfflinePartition = new SchemaTableName(database, "presto_test_offline_partition");
+        tableNotReadable = new SchemaTableName(database, "presto_test_not_readable");
         view = new SchemaTableName(database, "presto_test_view");
         invalidTable = new SchemaTableName(database, INVALID_TABLE);
         tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
@@ -1053,6 +1055,20 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testGetTableSchemaNotReadablePartition()
+            throws Exception
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableNotReadable);
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(newSession(), tableHandle);
+            Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
+
+            assertPrimitiveField(map, "t_string", createUnboundedVarcharType(), false);
+        }
+    }
+
+    @Test
     public void testGetTableSchemaException()
             throws Exception
     {
@@ -1221,6 +1237,35 @@ public abstract class AbstractTestHiveClient
             catch (PartitionOfflineException e) {
                 assertEquals(e.getTableName(), tableOfflinePartition);
                 assertEquals(e.getPartition(), "ds=2012-12-30");
+            }
+        }
+    }
+
+    @Test
+    public void testGetPartitionSplitsTableNotReadablePartition()
+            throws Exception
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableNotReadable);
+            assertNotNull(tableHandle);
+
+            ColumnHandle dsColumn = metadata.getColumnHandles(session, tableHandle).get("ds");
+            assertNotNull(dsColumn);
+
+            Domain domain = Domain.singleValue(createUnboundedVarcharType(), utf8Slice("2012-12-30"));
+            TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, new Constraint<>(tupleDomain, bindings -> true), Optional.empty());
+            try {
+                getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, getOnlyElement(tableLayoutResults).getTableLayout().getHandle(), UNGROUPED_SCHEDULING));
+                fail("Expected HiveNotReadableException");
+            }
+            catch (HiveNotReadableException e) {
+                assertEquals(e.getMessage(), "Table 'default.presto_test_not_readable' is not readable: reason for not readable");
+                assertEquals(e.getTableName(), tableNotReadable);
+                assertEquals(e.getPartition(), Optional.empty());
             }
         }
     }

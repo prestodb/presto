@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -72,6 +73,7 @@ public class HiveSplitManager
         implements ConnectorSplitManager
 {
     public static final String PRESTO_OFFLINE = "presto_offline";
+    public static final String OBJECT_NOT_READABLE = "object_not_readable";
 
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
     private final NamenodeStats namenodeStats;
@@ -233,6 +235,11 @@ public class HiveSplitManager
 
     private Iterable<HivePartitionMetadata> getPartitionMetadata(SemiTransactionalHiveMetastore metastore, Table table, SchemaTableName tableName, List<HivePartition> hivePartitions, Optional<HiveBucketProperty> bucketProperty)
     {
+        String tableNotReadable = table.getParameters().get(OBJECT_NOT_READABLE);
+        if (!isNullOrEmpty(tableNotReadable)) {
+            throw new HiveNotReadableException(tableName, Optional.empty(), tableNotReadable);
+        }
+
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
         }
@@ -272,6 +279,12 @@ public class HiveSplitManager
 
                 // verify partition is online
                 verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), table.getParameters());
+
+                // verify partition is not marked as non-readable
+                String partitionNotReadable = partition.getParameters().get(OBJECT_NOT_READABLE);
+                if (!isNullOrEmpty(partitionNotReadable)) {
+                    throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
+                }
 
                 // Verify that the partition schema matches the table schema.
                 // Either adding or dropping columns from the end of the table
