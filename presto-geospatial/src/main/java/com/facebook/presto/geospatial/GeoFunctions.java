@@ -114,6 +114,31 @@ public final class GeoFunctions
         return Slices.utf8Slice(deserialize(input).asText());
     }
 
+    @SqlNullable
+    @Description("Returns the geometry that represents all points whose distance from the specified geometry is less than or equal to the specified distance")
+    @ScalarFunction("ST_Buffer")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stBuffer(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(DOUBLE) double distance)
+    {
+        if (Double.isNaN(distance)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
+        }
+
+        if (distance < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is negative");
+        }
+
+        if (distance == 0) {
+            return input;
+        }
+
+        OGCGeometry geometry = deserialize(input);
+        if (geometry.isEmpty()) {
+            return null;
+        }
+        return serialize(geometry.buffer(distance));
+    }
+
     @Description("Returns the Point value that is the mathematical centroid of a Geometry")
     @ScalarFunction("ST_Centroid")
     @SqlType(GEOMETRY_TYPE_NAME)
