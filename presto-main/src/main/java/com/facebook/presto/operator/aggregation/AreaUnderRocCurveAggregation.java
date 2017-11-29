@@ -25,10 +25,11 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -44,12 +45,11 @@ public class AreaUnderRocCurveAggregation
 {
     public static final AreaUnderRocCurveAggregation AUC = new AreaUnderRocCurveAggregation();
     public static final String NAME = "area_under_roc_curve";
-    private static final MethodHandle
-            INPUT_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "input", MultiKeyValuePairsState.class, Block.class, Block.class, int.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "input", MultiKeyValuePairsState.class, Block.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "combine", MultiKeyValuePairsState.class, MultiKeyValuePairsState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "output", MultiKeyValuePairsState.class, BlockBuilder.class);
 
-    protected AreaUnderRocCurveAggregation()
+    public AreaUnderRocCurveAggregation()
     {
         super(NAME,
                 ImmutableList.of(),
@@ -66,11 +66,6 @@ public class AreaUnderRocCurveAggregation
 
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        return generateAggregation();
-    }
-
-    protected InternalAggregationFunction generateAggregation()
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(AreaUnderRocCurveAggregation.class.getClassLoader());
 
@@ -166,43 +161,54 @@ public class AreaUnderRocCurveAggregation
     private static double computeAUC(boolean[] labels, double[] scores)
     {
         // labels sorted descending by scores
-        Integer[] sortedIndices = IntStream.range(0, labels.length).boxed().sorted((i, j) -> (int) Math.signum(scores[j] - scores[i])).toArray(Integer[]::new);
+        int[] indices = new int[labels.length];
+        for (int i = 0; i < labels.length; i++) {
+            indices[i] = i;
+        }
+        IntArrays.quickSort(indices, new AbstractIntComparator()
+        {
+            @Override
+            public int compare(int i, int j)
+            {
+                return Double.compare(scores[j], scores[i]);
+            }
+        });
 
-        int tp = 0;
-        int fp = 0;
+        int truePositive = 0;
+        int falsePositive = 0;
 
-        int tpPrev = 0;
-        int fpPrev = 0;
+        int truePositivePrev = 0;
+        int falsePositivePrev = 0;
 
         double area = 0.0;
 
         double scorePrev = Double.POSITIVE_INFINITY;
 
-        for (int i : sortedIndices) {
-            if (scores[i] != scorePrev) {
-                area += trapezoidArea(fp, fpPrev, tp, tpPrev);
+        for (int i : indices) {
+            if (Double.compare(scores[i], scorePrev) != 0) {
+                area += trapezoidArea(falsePositive, falsePositivePrev, truePositive, truePositivePrev);
 
                 scorePrev = scores[i];
-                fpPrev = fp;
-                tpPrev = tp;
+                falsePositivePrev = falsePositive;
+                truePositivePrev = truePositive;
             }
             if (labels[i]) {
-                tp++;
+                truePositive++;
             }
             else {
-                fp++;
+                falsePositive++;
             }
         }
 
         // AUC for single class outcome is not defined
-        if (tp == 0 || fp == 0) {
+        if (truePositive == 0 || falsePositive == 0) {
             return Double.POSITIVE_INFINITY;
         }
 
         // finalize by adding a trapezoid area based on the final tp/fp counts
-        area += trapezoidArea(fp, fpPrev, tp, tpPrev);
+        area += trapezoidArea(falsePositive, falsePositivePrev, truePositive, truePositivePrev);
 
-        return area / (tp * fp); // scaled value in the 0-1 range
+        return area / (truePositive * falsePositive); // scaled value in the 0-1 range
     }
 
     /**
@@ -211,7 +217,7 @@ public class AreaUnderRocCurveAggregation
     private static double trapezoidArea(double x1, double x2, double y1, double y2)
     {
         double base = Math.abs(x1 - x2);
-        double height = (y1 + y2) / 2.0;
-        return base * height;
+        double averageHeight = (y1 + y2) / 2;
+        return base * averageHeight;
     }
 }
