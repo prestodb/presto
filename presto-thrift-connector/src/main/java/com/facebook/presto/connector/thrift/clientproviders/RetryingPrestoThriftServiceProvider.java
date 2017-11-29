@@ -30,6 +30,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.util.RetryDriver;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.swift.service.RuntimeTApplicationException;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.log.Logger;
@@ -71,7 +72,7 @@ public class RetryingPrestoThriftServiceProvider
 
     private static Exception classifyException(Exception e)
     {
-        if (e instanceof TApplicationException) {
+        if (e instanceof TApplicationException || e instanceof RuntimeTApplicationException) {
             return new PrestoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by a remote thrift server", e);
         }
         return e;
