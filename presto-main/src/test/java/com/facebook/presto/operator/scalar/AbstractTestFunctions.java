@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
@@ -51,6 +52,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
@@ -126,16 +128,21 @@ public abstract class AbstractTestFunctions
         }
     }
 
-    protected void assertInvalidFunction(String projection, String message)
+    protected void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
     {
         try {
             evaluateInvalid(projection);
-            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
+            fail("Expected to throw a PrestoException with message matching " + messagePattern);
         }
         catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
+            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+            assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern));
         }
+    }
+
+    protected void assertInvalidFunction(String projection, String messagePattern)
+    {
+        assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
     }
 
     protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
