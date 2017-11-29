@@ -96,6 +96,11 @@ Operations
 
     Returns the closure of the combinatorial boundary of this geometry.
 
+.. function:: ST_Buffer(Geometry, distance) -> Geometry
+
+    Returns the geometry that represents all points whose distance from the specified geometry
+    is less than or equal to the specified distance.
+
 .. function:: ST_Difference(Geometry, Geometry) -> Geometry
 
     Returns the geometry value that represents the point set difference of the given geometries.
