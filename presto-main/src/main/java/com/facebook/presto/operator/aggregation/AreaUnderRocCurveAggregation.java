@@ -39,17 +39,17 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-public class AreaUnderROCCurveAggregation
+public class AreaUnderRocCurveAggregation
         extends SqlAggregationFunction
 {
-    public static final AreaUnderROCCurveAggregation AUC = new AreaUnderROCCurveAggregation();
+    public static final AreaUnderRocCurveAggregation AUC = new AreaUnderRocCurveAggregation();
     public static final String NAME = "area_under_roc_curve";
     private static final MethodHandle
-            INPUT_FUNCTION = methodHandle(AreaUnderROCCurveAggregation.class, "input", MultiKeyValuePairsState.class, Block.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(AreaUnderROCCurveAggregation.class, "combine", MultiKeyValuePairsState.class, MultiKeyValuePairsState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AreaUnderROCCurveAggregation.class, "output", MultiKeyValuePairsState.class, BlockBuilder.class);
+            INPUT_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "input", MultiKeyValuePairsState.class, Block.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "combine", MultiKeyValuePairsState.class, MultiKeyValuePairsState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "output", MultiKeyValuePairsState.class, BlockBuilder.class);
 
-    protected AreaUnderROCCurveAggregation()
+    protected AreaUnderRocCurveAggregation()
     {
         super(NAME,
                 ImmutableList.of(),
@@ -72,7 +72,7 @@ public class AreaUnderROCCurveAggregation
 
     protected InternalAggregationFunction generateAggregation()
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(AreaUnderROCCurveAggregation.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(AreaUnderRocCurveAggregation.class.getClassLoader());
 
         List<Type> inputTypes = ImmutableList.of(BOOLEAN, DOUBLE);
 

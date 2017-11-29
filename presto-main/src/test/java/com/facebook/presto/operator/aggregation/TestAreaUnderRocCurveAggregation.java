@@ -25,7 +25,7 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.asse
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
-public class TestAreaUnderROCCurveAggregation
+public class TestAreaUnderRocCurveAggregation
 {
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
