@@ -138,7 +138,7 @@ public final class SqlStageExecution
 
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
-        stateMachine.addStateChangeListener(stateChangeListener::stateChanged);
+        stateMachine.addStateChangeListener(stateChangeListener);
     }
 
     public PlanFragment getFragment()
