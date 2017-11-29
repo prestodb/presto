@@ -74,12 +74,12 @@ public class TestLocalQueries
 
         MaterializedResult expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE)
-                .row("regionkey", null, 5.0, 0.0, null)
-                .row("name", null, 25.0, 0.0, null)
-                .row("comment", null, 25.0, 0.0, null)
-                .row("nationkey", null, 25.0, 0.0, null)
-                .row(null, null, null, null, 25.0)
-                .build();
+                        .row("regionkey", null, 5.0, 0.0, null)
+                        .row("name", null, 25.0, 0.0, null)
+                        .row("comment", null, 25.0, 0.0, null)
+                        .row("nationkey", null, 25.0, 0.0, null)
+                        .row(null, null, null, null, 25.0)
+                        .build();
 
         assertEquals(result, expectedStatistics);
     }
