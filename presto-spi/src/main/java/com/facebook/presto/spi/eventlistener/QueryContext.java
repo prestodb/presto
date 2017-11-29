@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,6 +28,7 @@ public class QueryContext
     private final Optional<String> remoteClientAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
+    private final Set<String> clientTags;
     private final Optional<String> source;
 
     private final Optional<String> catalog;
@@ -46,6 +48,7 @@ public class QueryContext
             Optional<String> remoteClientAddress,
             Optional<String> userAgent,
             Optional<String> clientInfo,
+            Set<String> clientTags,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
@@ -60,6 +63,7 @@ public class QueryContext
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -98,6 +102,12 @@ public class QueryContext
     public Optional<String> getClientInfo()
     {
         return clientInfo;
+    }
+
+    @JsonProperty
+    public Set<String> getClientTags()
+    {
+        return clientTags;
     }
 
     @JsonProperty
