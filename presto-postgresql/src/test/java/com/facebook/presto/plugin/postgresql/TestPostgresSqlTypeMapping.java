@@ -22,7 +22,6 @@ import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
-import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -34,6 +33,7 @@ import java.util.function.Function;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 
 @Test
 public class TestPostgresSqlTypeMapping
@@ -50,7 +50,7 @@ public class TestPostgresSqlTypeMapping
     private TestPostgresSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
             throws Exception
     {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
+        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, emptyList()));
         this.postgreSqlServer = postgreSqlServer;
     }
 
