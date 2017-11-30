@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 
@@ -85,28 +86,14 @@ public class JoinCompiler
     private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
-            .build(new CacheLoader<CacheKey, LookupSourceSupplierFactory>()
-            {
-                @Override
-                public LookupSourceSupplierFactory load(CacheKey key)
-                        throws Exception
-                {
-                    return internalCompileLookupSourceFactory(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel());
-                }
-            });
+            .build(CacheLoader.from(key ->
+                    internalCompileLookupSourceFactory(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
     private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
-            .build(new CacheLoader<CacheKey, Class<? extends PagesHashStrategy>>()
-            {
-                @Override
-                public Class<? extends PagesHashStrategy> load(CacheKey key)
-                        throws Exception
-                {
-                    return internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel());
-                }
-            });
+            .build(CacheLoader.from(key ->
+                    internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
@@ -254,7 +241,7 @@ public class JoinCompiler
             FieldDefinition hashChannelField)
     {
         Parameter channels = arg("channels", type(List.class, type(List.class, Block.class)));
-        Parameter hashChannel = arg("hashChannel", type(Optional.class, Integer.class));
+        Parameter hashChannel = arg("hashChannel", type(OptionalInt.class));
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), channels, hashChannel);
 
         Variable thisVariable = constructorDefinition.getThis();
@@ -313,7 +300,7 @@ public class JoinCompiler
                 .condition(hashChannel.invoke("isPresent", boolean.class))
                 .ifTrue(thisVariable.setField(
                         hashChannelField,
-                        channels.invoke("get", Object.class, hashChannel.invoke("get", Object.class).cast(Integer.class).cast(int.class))))
+                        channels.invoke("get", Object.class, hashChannel.invoke("getAsInt", int.class))))
                 .ifFalse(thisVariable.setField(
                         hashChannelField,
                         constantNull(hashChannelField.getType()))));
@@ -837,7 +824,7 @@ public class JoinCompiler
                 constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
 
@@ -845,7 +832,7 @@ public class JoinCompiler
                 Session session,
                 LongArrayList addresses,
                 List<List<Block>> channels,
-                Optional<Integer> hashChannel,
+                OptionalInt hashChannel,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 Optional<Integer> sortChannel,
                 List<JoinFilterFunctionFactory> searchFunctionFactories)
@@ -867,14 +854,14 @@ public class JoinCompiler
         public PagesHashStrategyFactory(Class<? extends PagesHashStrategy> pagesHashStrategyClass)
         {
             try {
-                constructor = pagesHashStrategyClass.getConstructor(List.class, Optional.class);
+                constructor = pagesHashStrategyClass.getConstructor(List.class, OptionalInt.class);
             }
             catch (NoSuchMethodException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
 
-        public PagesHashStrategy createPagesHashStrategy(List<? extends List<Block>> channels, Optional<Integer> hashChannel)
+        public PagesHashStrategy createPagesHashStrategy(List<? extends List<Block>> channels, OptionalInt hashChannel)
         {
             try {
                 return constructor.newInstance(channels, hashChannel);

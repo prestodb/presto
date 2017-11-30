@@ -210,10 +210,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.createTable(session, tableMetadata);
+            delegate.createTable(session, tableMetadata, ignoreExisting);
         }
     }
 

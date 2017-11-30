@@ -18,6 +18,8 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.session.TestingSessionPropertyConfigurationManagerFactory;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,27 +48,27 @@ import static org.testng.Assert.assertEquals;
 
 public class TestQuerySessionSupplier
 {
+    private static final HttpServletRequest TEST_REQUEST = new MockHttpServletRequest(
+            ImmutableListMultimap.<String, String>builder()
+                    .put(PRESTO_USER, "testUser")
+                    .put(PRESTO_SOURCE, "testSource")
+                    .put(PRESTO_CATALOG, "testCatalog")
+                    .put(PRESTO_SCHEMA, "testSchema")
+                    .put(PRESTO_LANGUAGE, "zh-TW")
+                    .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                    .put(PRESTO_CLIENT_INFO, "client-info")
+                    .put(PRESTO_CLIENT_TAGS, "tag1,tag2 ,tag3, tag2")
+                    .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
+                    .put(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
+                    .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
+                    .build(),
+            "testRemote");
+
     @Test
     public void testCreateSession()
             throws Exception
     {
-        HttpServletRequest request = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_SOURCE, "testSource")
-                        .put(PRESTO_CATALOG, "testCatalog")
-                        .put(PRESTO_SCHEMA, "testSchema")
-                        .put(PRESTO_LANGUAGE, "zh-TW")
-                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
-                        .put(PRESTO_CLIENT_INFO, "client-info")
-                        .put(PRESTO_CLIENT_TAGS, "tag1,tag2 ,tag3, tag2")
-                        .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
-                        .put(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
-                        .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
-                        .build(),
-                "testRemote");
-
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request);
+        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST);
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
@@ -92,6 +94,31 @@ public class TestQuerySessionSupplier
                 .put("query1", "select * from foo")
                 .put("query2", "select * from bar")
                 .build());
+    }
+
+    @Test
+    public void testApplySessionPropertyConfigurationManager()
+            throws Exception
+    {
+        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST);
+        QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                new SessionPropertyManager());
+        SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
+                ImmutableMap.of(QUERY_MAX_MEMORY, "10GB", "key2", "20", "key3", "3"),
+                ImmutableMap.of("testCatalog", ImmutableMap.of("key1", "10")));
+        sessionSupplier.addConfigurationManager(factory);
+        sessionSupplier.setConfigurationManager(factory.getName(), ImmutableMap.of());
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+                .put(QUERY_MAX_MEMORY, "1GB")
+                .put(DISTRIBUTED_JOIN, "true")
+                .put(HASH_PARTITION_COUNT, "43")
+                .put("key2", "20")
+                .put("key3", "3")
+                .build());
+        assertEquals(session.getUnprocessedCatalogProperties(), ImmutableMap.of("testCatalog", ImmutableMap.of("key1", "10")));
     }
 
     @Test

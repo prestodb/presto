@@ -28,6 +28,7 @@ import com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder
 import com.facebook.presto.orc.stream.DecimalOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DecimalType;
@@ -216,16 +217,15 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException
+    public List<OutputDataStream> getOutputDataStreams()
     {
         checkState(closed);
 
-        ImmutableList.Builder<Stream> dataStreams = ImmutableList.builder();
-        presentStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        dataStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        scaleStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        return dataStreams.build();
+        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> dataStream.writeDataStreams(column, sliceOutput), dataStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> scaleStream.writeDataStreams(column, sliceOutput), scaleStream.getBufferedBytes()));
+        return outputDataStreams.build();
     }
 
     @Override

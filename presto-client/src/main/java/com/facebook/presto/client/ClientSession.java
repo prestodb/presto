@@ -26,7 +26,6 @@ import java.util.Map.Entry;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ClientSession
@@ -133,23 +132,6 @@ public class ClientSession
                 null,
                 session.isDebug(),
                 session.getClientRequestTimeout());
-    }
-
-    public ClientSession(
-            URI server,
-            String user,
-            String source,
-            String clientInfo,
-            String catalog,
-            String schema,
-            String timeZoneId,
-            Locale locale,
-            Map<String, String> properties,
-            String transactionId,
-            boolean debug,
-            Duration clientRequestTimeout)
-    {
-        this(server, user, source, clientInfo, catalog, schema, timeZoneId, locale, properties, emptyMap(), transactionId, debug, clientRequestTimeout);
     }
 
     public ClientSession(

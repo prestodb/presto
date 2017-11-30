@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.resourceGroups.QueryType.DATA_DEFINITION;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -140,10 +141,15 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        return stateMachine.waitForStateChange(currentState, maxWait);
+        // DDL does not have an output
+    }
+
+    @Override
+    public ListenableFuture<QueryState> getStateChange(QueryState currentState)
+    {
+        return stateMachine.getStateChange(currentState);
     }
 
     @Override

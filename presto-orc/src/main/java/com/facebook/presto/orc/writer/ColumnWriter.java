@@ -17,6 +17,7 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SliceOutput;
@@ -53,12 +54,9 @@ public interface ColumnWriter
             throws IOException;
 
     /**
-     * Write data streams to the output and return the streams in the
-     * order in which they were written.  The ordering is critical because
-     * the stream only contain a length with no offset.
+     * Get the data streams to be written.
      */
-    List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException;
+    List<OutputDataStream> getOutputDataStreams();
 
     long getBufferedBytes();
 

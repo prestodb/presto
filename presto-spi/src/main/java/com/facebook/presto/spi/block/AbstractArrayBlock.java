@@ -14,8 +14,11 @@
 package com.facebook.presto.spi.block;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+
+import static com.facebook.presto.spi.block.BlockUtil.compactArray;
+import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static java.lang.String.format;
 
 public abstract class AbstractArrayBlock
         implements Block
@@ -74,7 +77,7 @@ public abstract class AbstractArrayBlock
     {
         int positionCount = getPositionCount();
         if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
         }
 
         if (position == 0 && length == positionCount) {
@@ -94,7 +97,7 @@ public abstract class AbstractArrayBlock
     {
         int positionCount = getPositionCount();
         if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
         }
 
         int valueStart = getOffsets()[getOffsetBase() + position];
@@ -108,20 +111,19 @@ public abstract class AbstractArrayBlock
     {
         int positionCount = getPositionCount();
         if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
         }
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + length);
         Block newValues = getValues().copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
-        int[] newOffsets = new int[length + 1];
-        for (int i = 1; i < newOffsets.length; i++) {
-            newOffsets[i] = getOffset(position + i) - startValueOffset;
+        int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
+        boolean[] newValueIsNull = compactArray(getValueIsNull(), position + getOffsetBase(), length);
+
+        if (newValues == getValues() && newOffsets == getOffsets() && newValueIsNull == getValueIsNull()) {
+            return this;
         }
-
-        boolean[] newValueIsNull = Arrays.copyOfRange(getValueIsNull(), position + getOffsetBase(), position + getOffsetBase() + length);
-
         return new ArrayBlock(length, newValueIsNull, newOffsets, newValues);
     }
 

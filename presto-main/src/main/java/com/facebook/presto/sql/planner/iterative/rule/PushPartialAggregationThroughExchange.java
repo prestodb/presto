@@ -193,14 +193,17 @@ public class PushPartialAggregationThroughExchange
             InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
             Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
 
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            checkState(originalAggregation.getOrderBy().isEmpty() && originalAggregation.getOrdering().isEmpty(), "Aggregate with ORDER BY does not support partial aggregation");
+            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask(), ImmutableList.of(), ImmutableList.of()));
 
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(entry.getKey(),
                     new AggregationNode.Aggregation(
                             new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
                             signature,
-                            Optional.empty()));
+                            Optional.empty(),
+                            ImmutableList.of(),
+                            ImmutableList.of()));
         }
 
         PlanNode partial = new AggregationNode(

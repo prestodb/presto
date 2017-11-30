@@ -252,6 +252,7 @@ public class TestJsonFunctions
     {
         assertInvalidFunction("JSON 'INVALID'", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("JSON_PARSE('INVALID')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('\"x\": 1')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

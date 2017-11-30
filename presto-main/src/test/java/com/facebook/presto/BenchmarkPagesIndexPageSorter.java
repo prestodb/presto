@@ -56,7 +56,7 @@ public class BenchmarkPagesIndexPageSorter
     @Benchmark
     public int runBenchmark(BenchmarkData data)
     {
-        PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
+        PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         long[] addresses = pageSorter.sort(data.types, data.pages, data.sortChannels, nCopies(data.sortChannels.size(), ASC_NULLS_FIRST), 10_000);
         return addresses.length;
     }

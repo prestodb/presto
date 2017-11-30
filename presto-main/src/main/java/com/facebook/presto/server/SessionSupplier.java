@@ -15,8 +15,16 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+
+import java.io.IOException;
 
 public interface SessionSupplier
 {
     Session createSession(QueryId queryId, SessionContext context);
+
+    void addConfigurationManager(SessionPropertyConfigurationManagerFactory sessionConfigFactory);
+
+    void loadConfigurationManager()
+            throws IOException;
 }

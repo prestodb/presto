@@ -30,7 +30,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.PartialKey;
@@ -345,8 +344,8 @@ public class ColumnCardinalityCache
             Text columnFamily = new Text(getIndexColumnFamily(key.getFamily().getBytes(UTF_8), key.getQualifier().getBytes(UTF_8)).array());
 
             // Create scanner for querying the range
-            Scanner scanner = connector.createScanner(metricsTable, key.getAuths());
-            scanner.setRange(key.getRange());
+            BatchScanner scanner = connector.createBatchScanner(metricsTable, key.auths, 10);
+            scanner.setRanges(connector.tableOperations().splitRangeByTablets(metricsTable, key.range, Integer.MAX_VALUE));
             scanner.fetchColumn(columnFamily, CARDINALITY_CQ_AS_TEXT);
 
             try {

@@ -225,7 +225,7 @@ public class Field
                 if (this.isNull() && field.isNull()) {
                     retval = true;
                 }
-                else if (this.isNull() ^ field.isNull()) {
+                else if (this.isNull() != field.isNull()) {
                     retval = false;
                 }
                 else if (type.equals(VARBINARY)) {

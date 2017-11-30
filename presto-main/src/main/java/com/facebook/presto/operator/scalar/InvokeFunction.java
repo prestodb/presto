@@ -26,9 +26,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.primitives.Primitives.wrap;
@@ -79,9 +79,7 @@ public final class InvokeFunction
         Type returnType = boundVariables.getTypeVariable("T");
         return new ScalarFunctionImplementation(
                 true,
-                ImmutableList.of(false),
-                ImmutableList.of(false),
-                ImmutableList.of(Optional.of(InvokeLambda.class)),
+                ImmutableList.of(functionTypeArgumentProperty(InvokeLambda.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))),

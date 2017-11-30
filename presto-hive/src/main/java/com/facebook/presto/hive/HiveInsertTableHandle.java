@@ -27,7 +27,6 @@ public class HiveInsertTableHandle
 {
     @JsonCreator
     public HiveInsertTableHandle(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
@@ -39,7 +38,6 @@ public class HiveInsertTableHandle
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat)
     {
         super(
-                clientId,
                 schemaName,
                 tableName,
                 inputColumns,

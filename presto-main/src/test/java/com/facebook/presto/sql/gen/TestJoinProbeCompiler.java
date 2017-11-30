@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -108,7 +109,7 @@ public class TestJoinProbeCompiler
             }
         }
 
-        Optional<Integer> hashChannel = Optional.empty();
+        OptionalInt hashChannel = OptionalInt.empty();
         List<List<Block>> channels = ImmutableList.of(varcharChannel, extraUnusedDoubleChannel);
 
         if (hashEnabled) {
@@ -117,7 +118,7 @@ public class TestJoinProbeCompiler
                 hashChannelBuilder.add(TypeUtils.getHashBlock(ImmutableList.<Type>of(VARCHAR), block));
             }
             types = ImmutableList.of(VARCHAR, DOUBLE, BigintType.BIGINT);
-            hashChannel = Optional.of(2);
+            hashChannel = OptionalInt.of(2);
             channels = ImmutableList.of(varcharChannel, extraUnusedDoubleChannel, hashChannelBuilder.build());
             outputChannels = ImmutableList.of(0, 2);
             outputTypes = ImmutableList.of(VARCHAR, BigintType.BIGINT);
@@ -145,10 +146,11 @@ public class TestJoinProbeCompiler
             page = new Page(page.getBlock(0), page.getBlock(1), TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), page.getBlock(0)));
             outputPage = new Page(page.getBlock(0), page.getBlock(2));
         }
-        JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);
+        JoinProbe joinProbe = probeFactory.createJoinProbe(page);
 
         // verify channel count
         assertEquals(joinProbe.getOutputChannelCount(), outputChannels.size());
+        assertEquals(joinProbe.getOutputChannels(), outputChannels.stream().mapToInt(i -> i).toArray());
 
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
         for (int position = 0; position < page.getPositionCount(); position++) {
@@ -157,7 +159,7 @@ public class TestJoinProbeCompiler
             pageBuilder.declarePosition();
             joinProbe.appendTo(pageBuilder);
 
-            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, page, page));
+            assertEquals(joinProbe.getCurrentJoinPosition(lookupSource), lookupSource.getJoinPosition(position, page, page));
         }
         assertFalse(joinProbe.advanceNextPosition());
         assertPageEquals(outputTypes, pageBuilder.build(), outputPage);

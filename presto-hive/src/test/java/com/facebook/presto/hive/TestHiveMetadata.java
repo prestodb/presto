@@ -33,7 +33,6 @@ public class TestHiveMetadata
 {
     private static final HiveColumnHandle TEST_COLUMN_HANDLE = new HiveColumnHandle(
             "test",
-            "test",
             HiveType.HIVE_STRING,
             TypeSignature.parseTypeSignature("varchar"),
             0,
@@ -50,7 +49,6 @@ public class TestHiveMetadata
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    tupleDomain,
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
         }
@@ -68,7 +66,6 @@ public class TestHiveMetadata
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    tupleDomain,
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)), ImmutableList.of()));
         }
@@ -86,7 +83,6 @@ public class TestHiveMetadata
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    tupleDomain,
                     Integer.toString(i),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
         }
@@ -95,7 +91,6 @@ public class TestHiveMetadata
         TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
         partitions.add(new HivePartition(
                 new SchemaTableName("test", "test"),
-                tupleDomain,
                 "null",
                 ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)), ImmutableList.of()));
 

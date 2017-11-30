@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
+import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -40,6 +41,7 @@ public class TestHiveClientConfig
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(100_000)
                 .setMaxOutstandingSplits(1_000)
+                .setMaxOutstandingSplitsSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(1_000)
                 .setAllowCorruptWritesForTesting(false)
                 .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
@@ -53,6 +55,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionBatchSize(100)
                 .setMaxInitialSplits(200)
                 .setMaxInitialSplitSize(new DataSize(32, Unit.MEGABYTE))
+                .setSplitLoaderConcurrency(4)
                 .setDomainCompactionThreshold(100)
                 .setForceLocalScheduling(false)
                 .setMaxConcurrentFileRenames(20)
@@ -63,6 +66,7 @@ public class TestHiveClientConfig
                 .setDfsConnectMaxRetries(5)
                 .setVerifyChecksum(true)
                 .setDomainSocketPath(null)
+                .setS3FileSystemType(S3FileSystemType.PRESTO)
                 .setResourceConfigFiles((String) null)
                 .setHiveStorageFormat(HiveStorageFormat.RCBINARY)
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
@@ -104,6 +108,7 @@ public class TestHiveClientConfig
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-partitions-per-scan", "123")
                 .put("hive.max-outstanding-splits", "10")
+                .put("hive.max-outstanding-splits-size", "32MB")
                 .put("hive.max-split-iterator-threads", "10")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
                 .put("hive.metastore-cache-ttl", "2h")
@@ -121,9 +126,11 @@ public class TestHiveClientConfig
                 .put("hive.dfs.connect.max-retries", "10")
                 .put("hive.dfs.verify-checksum", "false")
                 .put("hive.dfs.domain-socket-path", "/foo")
+                .put("hive.s3-file-system-type", "EMRFS")
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("hive.max-initial-splits", "10")
                 .put("hive.max-initial-split-size", "16MB")
+                .put("hive.split-loader-concurrency", "1")
                 .put("hive.domain-compaction-threshold", "42")
                 .put("hive.recursive-directories", "true")
                 .put("hive.storage-format", "SEQUENCEFILE")
@@ -165,6 +172,7 @@ public class TestHiveClientConfig
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)
+                .setMaxOutstandingSplitsSize(new DataSize(32, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(10)
                 .setAllowCorruptWritesForTesting(true)
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
@@ -178,6 +186,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionBatchSize(1000)
                 .setMaxInitialSplits(10)
                 .setMaxInitialSplitSize(new DataSize(16, Unit.MEGABYTE))
+                .setSplitLoaderConcurrency(1)
                 .setDomainCompactionThreshold(42)
                 .setForceLocalScheduling(true)
                 .setMaxConcurrentFileRenames(100)
@@ -195,6 +204,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionsPerWriter(222)
                 .setWriteValidationThreads(11)
                 .setDomainSocketPath("/foo")
+                .setS3FileSystemType(S3FileSystemType.EMRFS)
                 .setUseParquetColumnNames(true)
                 .setUseOrcColumnNames(true)
                 .setParquetPredicatePushdownEnabled(true)

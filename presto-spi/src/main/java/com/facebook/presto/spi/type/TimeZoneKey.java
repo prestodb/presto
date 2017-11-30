@@ -203,7 +203,8 @@ public final class TimeZoneKey
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
-        if (zoneId.startsWith("etc/")) {
+        boolean startsWithEtc = zoneId.startsWith("etc/");
+        if (startsWithEtc) {
             zoneId = zoneId.substring(4);
         }
 
@@ -217,7 +218,11 @@ public final class TimeZoneKey
 
         // In some zones systems, these will start with UTC, GMT or UT.
         int length = zoneId.length();
+        boolean startsWithEtcGmt = false;
         if (length > 3 && (zoneId.startsWith("utc") || zoneId.startsWith("gmt"))) {
+            if (startsWithEtc && zoneId.startsWith("gmt")) {
+                startsWithEtcGmt = true;
+            }
             zoneId = zoneId.substring(3);
             length = zoneId.length();
         }
@@ -248,6 +253,10 @@ public final class TimeZoneKey
         char signChar = zoneId.charAt(0);
         if (signChar != '+' && signChar != '-') {
             return originalZoneId;
+        }
+        if (startsWithEtcGmt) {
+            // Flip sign for Etc/GMT(+/-)H[H]
+            signChar = signChar == '-' ? '+' : '-';
         }
 
         // extract the tens and ones characters for the hour

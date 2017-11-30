@@ -196,9 +196,9 @@ public class Analysis
 
     public Type getType(Expression expression)
     {
-        NodeRef<Expression> key = NodeRef.of(expression);
-        checkArgument(types.containsKey(key), "Expression not analyzed: %s", expression);
-        return types.get(key);
+        Type type = types.get(NodeRef.of(expression));
+        checkArgument(type != null, "Expression not analyzed: %s", expression);
+        return type;
     }
 
     public Type getTypeWithCoercions(Expression expression)
@@ -437,6 +437,13 @@ public class Analysis
     public Map<NodeRef<Expression>, FieldId> getColumnReferenceFields()
     {
         return unmodifiableMap(columnReferences);
+    }
+
+    public boolean isColumnReference(Expression expression)
+    {
+        requireNonNull(expression, "expression is null");
+        checkArgument(getType(expression) != null, "expression %s has not been analyzed", expression);
+        return columnReferences.containsKey(NodeRef.of(expression));
     }
 
     public void addTypes(Map<NodeRef<Expression>, Type> types)

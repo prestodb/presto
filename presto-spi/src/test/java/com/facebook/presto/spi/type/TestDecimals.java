@@ -17,9 +17,12 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
+import java.util.Objects;
 
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestDecimals
 {
@@ -28,6 +31,8 @@ public class TestDecimals
             throws Exception
     {
         assertParseResult("0", 0L, 1, 0);
+        assertParseResult("0.", 0L, 1, 0);
+        assertParseResult(".0", 0L, 1, 1);
         assertParseResult("+0", 0L, 1, 0);
         assertParseResult("-0", 0L, 1, 0);
         assertParseResult("000", 0L, 1, 0);
@@ -37,14 +42,20 @@ public class TestDecimals
         assertParseResult("+0000000000000000000000000000", 0L, 1, 0);
         assertParseResult("-0000000000000000000000000000", 0L, 1, 0);
         assertParseResult("1.1", 11L, 2, 1);
+        assertParseResult("1.", 1L, 1, 0);
         assertParseResult("+1.1", 11L, 2, 1);
+        assertParseResult("+1.", 1L, 1, 0);
         assertParseResult("-1.1", -11L, 2, 1);
+        assertParseResult("-1.", -1L, 1, 0);
         assertParseResult("0001.1", 11L, 2, 1);
         assertParseResult("+0001.1", 11L, 2, 1);
         assertParseResult("-0001.1", -11L, 2, 1);
         assertParseResult("0.1", 1L, 1, 1);
+        assertParseResult(".1", 1L, 1, 1);
         assertParseResult("+0.1", 1L, 1, 1);
+        assertParseResult("+.1", 1L, 1, 1);
         assertParseResult("-0.1", -1L, 1, 1);
+        assertParseResult("-.1", -1L, 1, 1);
         assertParseResult(".1", 1L, 1, 1);
         assertParseResult("+.1", 1L, 1, 1);
         assertParseResult("-.1", -1L, 1, 1);
@@ -110,6 +121,14 @@ public class TestDecimals
         assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000.123", encodeUnscaledValue("-123"), 21, 3);
     }
 
+    @Test
+    public void testRejectNoDigits()
+    {
+        assertParseFailure(".");
+        assertParseFailure("+.");
+        assertParseFailure("-.");
+    }
+
     private void assertParseResult(String value, Object expectedObject, int expectedPrecision, int expectedScale)
     {
         assertEquals(Decimals.parse(value),
@@ -124,6 +143,21 @@ public class TestDecimals
                 new DecimalParseResult(
                         expectedObject,
                         createDecimalType(expectedPrecision, expectedScale)));
+    }
+
+    private void assertParseFailure(String text)
+    {
+        try {
+            Decimals.parse(text);
+        }
+        catch (IllegalArgumentException e) {
+            String expectedMessage = format("Invalid decimal value '%s'", text);
+            if (!Objects.equals(e.getMessage(), expectedMessage)) {
+                fail(format("Unexpected exception, exception with message '%s' was expected", expectedMessage), e);
+            }
+            return;
+        }
+        fail("Parse failure was expected");
     }
 
     private static Slice encodeUnscaledValue(String unscaledValue)

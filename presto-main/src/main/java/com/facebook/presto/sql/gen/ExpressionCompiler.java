@@ -22,7 +22,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -53,27 +52,19 @@ import static java.util.Objects.requireNonNull;
 
 public class ExpressionCompiler
 {
-    private final Metadata metadata;
     private final PageFunctionCompiler pageFunctionCompiler;
-
-    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
-            new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
-            {
-                @Override
-                public Class<? extends CursorProcessor> load(CacheKey key)
-                        throws Exception
-                {
-                    return compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class);
-                }
-            });
-
+    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
     private final CacheStatsMBean cacheStatsMBean;
 
     @Inject
     public ExpressionCompiler(Metadata metadata, PageFunctionCompiler pageFunctionCompiler)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        requireNonNull(metadata, "metadata is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
+        this.cursorProcessors = CacheBuilder.newBuilder()
+                .recordStats()
+                .maximumSize(1000)
+                .build(CacheLoader.from(key -> compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class)));
         this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
 
@@ -92,7 +83,7 @@ public class ExpressionCompiler
                 return cursorProcessor.newInstance();
             }
             catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         };
     }

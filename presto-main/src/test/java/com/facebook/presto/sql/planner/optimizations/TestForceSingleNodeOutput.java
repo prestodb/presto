@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
@@ -30,30 +29,15 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableS
 public class TestForceSingleNodeOutput
         extends BasePlanTest
 {
-    private Session forceSingleNodeSession;
-
-    public TestForceSingleNodeOutput()
-    {
-        super();
-    }
-
-    @BeforeClass
-    public void setup()
-    {
-        this.forceSingleNodeSession = Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, "true")
-                .build();
-    }
-
     @Test
     public void testSimpleScan()
     {
         // don't force gather
-        assertPlanWithSession("SELECT * FROM orders", getQueryRunner().getDefaultSession(), false,
+        assertPlanWithSession("SELECT * FROM orders", singleNodeOutput(false), false,
                 output(
                         tableScan("orders")));
         // force gather
-        assertPlanWithSession("SELECT * FROM orders", forceSingleNodeSession, false,
+        assertPlanWithSession("SELECT * FROM orders", singleNodeOutput(true), false,
                 output(
                         exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
                                 tableScan("orders"))));
@@ -63,12 +47,12 @@ public class TestForceSingleNodeOutput
     public void testGroupBy()
     {
         // don't force gather
-        assertPlanWithSession("SELECT orderkey, count(*) FROM orders GROUP BY orderkey", getQueryRunner().getDefaultSession(), false,
+        assertPlanWithSession("SELECT orderkey, count(*) FROM orders GROUP BY orderkey", singleNodeOutput(false), false,
                 output(
                         node(AggregationNode.class,
                                 tableScan("orders"))));
         // force gather
-        assertPlanWithSession("SELECT orderkey, count(*) FROM orders GROUP BY orderkey", forceSingleNodeSession, false,
+        assertPlanWithSession("SELECT orderkey, count(*) FROM orders GROUP BY orderkey", singleNodeOutput(true), false,
                 output(
                         exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
                                 node(AggregationNode.class,
@@ -79,16 +63,23 @@ public class TestForceSingleNodeOutput
     public void testOrderBy()
     {
         // don't force gather
-        assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey", getQueryRunner().getDefaultSession(), false,
+        assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey", singleNodeOutput(false), false,
                 output(
                         anyTree(
                                 exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
                                         tableScan("orders")))));
         // force gather, same result
-        assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey", forceSingleNodeSession, false,
+        assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey", singleNodeOutput(true), false,
                 output(
                         anyTree(
                                 exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
                                         tableScan("orders")))));
+    }
+
+    private Session singleNodeOutput(boolean force)
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(force))
+                .build();
     }
 }

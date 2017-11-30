@@ -20,10 +20,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -35,10 +37,15 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.inject.Inject;
 
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.function.IntUnaryOperator;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -70,18 +77,25 @@ public class PagesIndex
     private final List<Type> types;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Block>[] channels;
+    private final boolean eagerCompact;
 
     private int nextBlockToCompact;
     private int positionCount;
     private long pagesMemorySize;
     private long estimatedSize;
 
-    private PagesIndex(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, List<Type> types, int expectedPositions)
+    private PagesIndex(
+            OrderingCompiler orderingCompiler,
+            JoinCompiler joinCompiler,
+            List<Type> types,
+            int expectedPositions,
+            boolean eagerCompact)
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
+        this.eagerCompact = eagerCompact;
 
         //noinspection rawtypes
         channels = (ObjectArrayList<Block>[]) new ObjectArrayList[types.size()];
@@ -102,11 +116,17 @@ public class PagesIndex
     {
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
         private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+        private final boolean eagerCompact;
+
+        public TestingFactory(boolean eagerCompact)
+        {
+            this.eagerCompact = eagerCompact;
+        }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, types, expectedPositions);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -115,18 +135,20 @@ public class PagesIndex
     {
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
+        private final boolean eagerCompact;
 
         @Inject
-        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler)
+        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig)
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, types, expectedPositions);
+            return new PagesIndex(orderingCompiler, joinCompiler, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -177,6 +199,9 @@ public class PagesIndex
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
+            if (eagerCompact) {
+                block = block.copyRegion(0, block.getPositionCount());
+            }
             channels[i].add(block);
             pagesMemorySize += block.getRetainedSizeInBytes();
         }
@@ -185,7 +210,6 @@ public class PagesIndex
             long sliceAddress = encodeSyntheticAddress(pageIndex, position);
             valueAddresses.add(sliceAddress);
         }
-
         estimatedSize = calculateEstimatedSize();
     }
 
@@ -196,17 +220,19 @@ public class PagesIndex
 
     public void compact()
     {
+        if (eagerCompact) {
+            return;
+        }
         for (int channel = 0; channel < types.size(); channel++) {
             ObjectArrayList<Block> blocks = channels[channel];
             for (int i = nextBlockToCompact; i < blocks.size(); i++) {
                 Block block = blocks.get(i);
-                if (block.getSizeInBytes() < block.getRetainedSizeInBytes()) {
-                    // Copy the block to compact its size
-                    Block compactedBlock = block.copyRegion(0, block.getPositionCount());
-                    blocks.set(i, compactedBlock);
-                    pagesMemorySize -= block.getRetainedSizeInBytes();
-                    pagesMemorySize += compactedBlock.getRetainedSizeInBytes();
-                }
+
+                // Copy the block to compact its size
+                Block compactedBlock = block.copyRegion(0, block.getPositionCount());
+                blocks.set(i, compactedBlock);
+                pagesMemorySize -= block.getRetainedSizeInBytes();
+                pagesMemorySize += compactedBlock.getRetainedSizeInBytes();
             }
         }
         nextBlockToCompact = channels[0].size();
@@ -372,15 +398,15 @@ public class PagesIndex
 
     public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of());
+        return createLookupSourceSupplier(session, joinChannels, OptionalInt.empty(), Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel)
     {
         return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<List<Integer>> outputChannels)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
     {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, outputChannels)
@@ -403,7 +429,7 @@ public class PagesIndex
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
-            Optional<Integer> hashChannel,
+            OptionalInt hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories)
@@ -414,7 +440,7 @@ public class PagesIndex
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
-            Optional<Integer> hashChannel,
+            OptionalInt hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
@@ -476,5 +502,53 @@ public class PagesIndex
                 .add("types", types)
                 .add("estimatedSize", estimatedSize)
                 .toString();
+    }
+
+    public Iterator<Page> getPages()
+    {
+        return new AbstractIterator<Page>()
+        {
+            private int pageCounter;
+
+            @Override
+            protected Page computeNext()
+            {
+                if (pageCounter == channels[0].size()) {
+                    return endOfData();
+                }
+
+                Block[] blocks = Stream.of(channels)
+                        .map(channel -> channel.get(pageCounter))
+                        .toArray(Block[]::new);
+                pageCounter++;
+                return new Page(blocks);
+            }
+        };
+    }
+
+    // TODO: This is similar to what OrderByOperator does, look into reusing this logic in OrderByOperator as well.
+    public Iterator<Page> getSortedPages()
+    {
+        return new AbstractIterator<Page>() {
+            private int currentPosition = 0;
+            private PageBuilder pageBuilder = new PageBuilder(types);
+            private int[] outputChannels = new int[types.size()];
+
+            {
+                Arrays.setAll(outputChannels, IntUnaryOperator.identity());
+            }
+
+            @Override
+            public Page computeNext()
+            {
+                currentPosition = buildPage(currentPosition, outputChannels, pageBuilder);
+                if (pageBuilder.isEmpty()) {
+                    return endOfData();
+                }
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return page;
+            }
+        };
     }
 }

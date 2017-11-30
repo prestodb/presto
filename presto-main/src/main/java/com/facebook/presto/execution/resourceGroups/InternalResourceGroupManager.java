@@ -42,13 +42,11 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -62,10 +60,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManagerFactory.LEGACY_RESOURCE_GROUP_MANAGER;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -180,18 +178,6 @@ public final class InternalResourceGroupManager
         return configurationManager.get();
     }
 
-    private static Map<String, String> loadProperties(File file)
-            throws Exception
-    {
-        requireNonNull(file, "file is null");
-
-        Properties properties = new Properties();
-        try (FileInputStream in = new FileInputStream(file)) {
-            properties.load(in);
-        }
-        return fromProperties(properties);
-    }
-
     @PreDestroy
     public void destroy()
     {
@@ -243,6 +229,7 @@ public final class InternalResourceGroupManager
                 session.getIdentity().getPrincipal().isPresent(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 getQueryPriority(session),
                 determineQueryType(queryExecution));
         if (!groups.containsKey(id)) {
@@ -286,6 +273,7 @@ public final class InternalResourceGroupManager
                 session.getIdentity().getPrincipal().isPresent(),
                 session.getUser(),
                 session.getSource(),
+                session.getClientTags(),
                 getQueryPriority(session),
                 determineQueryType(queryExecution));
         for (ResourceGroupSelector selector : configurationManager.get().getSelectors()) {
@@ -318,7 +306,7 @@ public final class InternalResourceGroupManager
     private static int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
     {
         if (resourceGroup.subGroups().isEmpty()) {
-            return Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getMaxRunningQueries() - resourceGroup.getRunningQueries());
+            return Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getSoftConcurrencyLimit() - resourceGroup.getRunningQueries());
         }
 
         int queriesQueuedInternal = 0;

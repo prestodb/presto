@@ -75,6 +75,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -111,6 +112,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
@@ -121,6 +123,7 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -301,7 +304,7 @@ public final class FunctionAssertions
     {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
+        Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
         RowExpression projectionRowExpression = toRowExpression(projectionExpression);
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
 
@@ -412,7 +415,7 @@ public final class FunctionAssertions
     {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
+        Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
         RowExpression projectionRowExpression = toRowExpression(projectionExpression);
 
         List<Object> results = new ArrayList<>();
@@ -526,7 +529,7 @@ public final class FunctionAssertions
     {
         requireNonNull(filter, "filter is null");
 
-        Expression filterExpression = createExpression(filter, metadata, SYMBOL_TYPES);
+        Expression filterExpression = createExpression(session, filter, metadata, SYMBOL_TYPES);
         RowExpression filterRowExpression = toRowExpression(filterExpression);
 
         List<Boolean> results = new ArrayList<>();
@@ -576,12 +579,17 @@ public final class FunctionAssertions
 
     public static Expression createExpression(String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
     {
-        Expression parsedExpression = SQL_PARSER.createExpression(expression);
+        return createExpression(TEST_SESSION, expression, metadata, symbolTypes);
+    }
+
+    public static Expression createExpression(Session session, String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
+    {
+        Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
 
         parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
 
         final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(
-                TEST_SESSION,
+                session,
                 metadata,
                 SQL_PARSER,
                 symbolTypes,
@@ -717,7 +725,9 @@ public final class FunctionAssertions
                 0,
                 new PlanNodeId("test"),
                 () -> processor,
-                ImmutableList.of(pageProjection.getType()));
+                ImmutableList.of(pageProjection.getType()),
+                new DataSize(0, BYTE),
+                0);
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
@@ -726,7 +736,7 @@ public final class FunctionAssertions
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of());
 
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of());
+            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), new DataSize(0, BYTE), 0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -740,7 +750,7 @@ public final class FunctionAssertions
     {
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(filter, ImmutableList.of(projection));
-            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()));
+            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()), new DataSize(0, BYTE), 0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -770,7 +780,9 @@ public final class FunctionAssertions
                     cursorProcessor,
                     pageProcessor,
                     ImmutableList.of(),
-                    ImmutableList.of(projection.getType()));
+                    ImmutableList.of(projection.getType()),
+                    new DataSize(0, BYTE),
+                    0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

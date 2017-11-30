@@ -33,7 +33,6 @@ import java.lang.reflect.Field;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -150,9 +149,11 @@ public abstract class AbstractTestBlock
                 else if (type == DictionaryId.class) {
                     retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
                 }
-                else if (BlockEncoding.class.isAssignableFrom(type) || type == AtomicLong.class || type == MethodHandle.class) {
-                    // TODO: Some of these should be accounted in retainedSize
-                    // do nothing
+                else if (type == MethodHandle.class) {
+                    // MethodHandles are only used in MapBlock/MapBlockBuilder,
+                    // and they are shared among blocks created by the same MapType.
+                    // So we don't account for the memory held onto by MethodHandle instances.
+                    // Otherwise, we will be counting it multiple times.
                 }
                 else {
                     throw new IllegalArgumentException(format("Unknown type encountered: %s", type));

@@ -15,6 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.PlanFlattener.FlattenedPlan;
+import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -25,6 +27,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;
@@ -41,10 +44,13 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +60,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -69,6 +76,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
@@ -91,6 +99,7 @@ public class QueryStateMachine
     private final TransactionManager transactionManager;
     private final Ticker ticker;
     private final Metadata metadata;
+    private final QueryOutputManager outputManager;
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
@@ -112,6 +121,9 @@ public class QueryStateMachine
 
     private final StateMachine<QueryState> queryState;
 
+    private final AtomicReference<String> setCatalog = new AtomicReference<>();
+    private final AtomicReference<String> setSchema = new AtomicReference<>();
+
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
 
@@ -125,10 +137,10 @@ public class QueryStateMachine
 
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
-    private final AtomicReference<List<String>> outputFieldNames = new AtomicReference<>(ImmutableList.of());
-
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<FlattenedPlan>> flattenedPlan = new AtomicReference<>(Optional.empty());
+
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
@@ -147,6 +159,7 @@ public class QueryStateMachine
 
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
+        this.outputManager = new QueryOutputManager(executor);
     }
 
     /**
@@ -425,9 +438,11 @@ public class QueryStateMachine
                 memoryPool.get().getId(),
                 isScheduled,
                 self,
-                outputFieldNames.get(),
+                outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
                 queryStats,
+                Optional.ofNullable(setCatalog.get()),
+                Optional.ofNullable(setSchema.get()),
                 setSessionProperties,
                 resetSessionProperties,
                 addedPreparedStatements,
@@ -440,6 +455,7 @@ public class QueryStateMachine
                 errorCode,
                 inputs.get(),
                 output.get(),
+                flattenedPlan.get(),
                 completeInfo,
                 getResourceGroup().map(ResourceGroupId::toString));
     }
@@ -454,10 +470,19 @@ public class QueryStateMachine
         this.memoryPool.set(requireNonNull(memoryPool, "memoryPool is null"));
     }
 
-    public void setOutputFieldNames(List<String> outputFieldNames)
+    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        requireNonNull(outputFieldNames, "outputFieldNames is null");
-        this.outputFieldNames.set(ImmutableList.copyOf(outputFieldNames));
+        outputManager.addOutputInfoListener(listener);
+    }
+
+    public void setColumns(List<String> columnNames, List<Type> columnTypes)
+    {
+        outputManager.setColumns(columnNames, columnTypes);
+    }
+
+    public void updateOutputLocations(Set<URI> newExchangeLocations, boolean noMoreExchangeLocations)
+    {
+        outputManager.updateOutputLocations(newExchangeLocations, noMoreExchangeLocations);
     }
 
     public void setInputs(List<Input> inputs)
@@ -472,9 +497,24 @@ public class QueryStateMachine
         this.output.set(output);
     }
 
+    public void setPlan(FlattenedPlan plan)
+    {
+        this.flattenedPlan.set(Optional.of(plan));
+    }
+
     public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
+    }
+
+    public void setSetCatalog(String catalog)
+    {
+        setCatalog.set(requireNonNull(catalog, "catalog is null"));
+    }
+
+    public void setSetSchema(String schema)
+    {
+        setSchema.set(requireNonNull(schema, "schema is null"));
     }
 
     public void addSetSessionProperties(String key, String value)
@@ -701,10 +741,9 @@ public class QueryStateMachine
         fireOnceStateChangeListener.stateChanged(finalQueryInfo.get());
     }
 
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
-        return queryState.waitForStateChange(currentState, maxWait);
+        return queryState.getStateChange(currentState);
     }
 
     public void recordHeartbeat()
@@ -776,6 +815,8 @@ public class QueryStateMachine
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),
+                queryInfo.getSetCatalog(),
+                queryInfo.getSetSchema(),
                 queryInfo.getSetSessionProperties(),
                 queryInfo.getResetSessionProperties(),
                 queryInfo.getAddedPreparedStatements(),
@@ -788,6 +829,7 @@ public class QueryStateMachine
                 queryInfo.getErrorCode(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
+                queryInfo.getPlan(),
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupName());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
@@ -841,5 +883,93 @@ public class QueryStateMachine
     private Duration nanosSince(long start)
     {
         return succinctNanos(tickerNanos() - start);
+    }
+
+    public static class QueryOutputManager
+    {
+        private final Executor executor;
+
+        @GuardedBy("this")
+        private final List<Consumer<QueryOutputInfo>> outputInfoListeners = new ArrayList<>();
+
+        @GuardedBy("this")
+        private List<String> columnNames;
+        @GuardedBy("this")
+        private List<Type> columnTypes;
+        @GuardedBy("this")
+        private final Set<URI> exchangeLocations = new LinkedHashSet<>();
+        @GuardedBy("this")
+        private boolean noMoreExchangeLocations;
+
+        public QueryOutputManager(Executor executor)
+        {
+            this.executor = requireNonNull(executor, "executor is null");
+        }
+
+        public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+        {
+            requireNonNull(listener, "listener is null");
+
+            Optional<QueryOutputInfo> queryOutputInfo;
+            synchronized (this) {
+                outputInfoListeners.add(listener);
+                queryOutputInfo = getQueryOutputInfo();
+            }
+            queryOutputInfo.ifPresent(info -> executor.execute(() -> listener.accept(info)));
+        }
+
+        public void setColumns(List<String> columnNames, List<Type> columnTypes)
+        {
+            requireNonNull(columnNames, "columnNames is null");
+            requireNonNull(columnTypes, "columnTypes is null");
+            checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes must be the same size");
+
+            Optional<QueryOutputInfo> queryOutputInfo;
+            List<Consumer<QueryOutputInfo>> outputInfoListeners;
+            synchronized (this) {
+                checkState(this.columnNames == null && this.columnTypes == null, "output fields already set");
+                this.columnNames = ImmutableList.copyOf(columnNames);
+                this.columnTypes = ImmutableList.copyOf(columnTypes);
+
+                queryOutputInfo = getQueryOutputInfo();
+                outputInfoListeners = ImmutableList.copyOf(this.outputInfoListeners);
+            }
+            queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
+        }
+
+        public void updateOutputLocations(Set<URI> newExchangeLocations, boolean noMoreExchangeLocations)
+        {
+            requireNonNull(newExchangeLocations, "newExchangeLocations is null");
+
+            Optional<QueryOutputInfo> queryOutputInfo;
+            List<Consumer<QueryOutputInfo>> outputInfoListeners;
+            synchronized (this) {
+                if (this.noMoreExchangeLocations) {
+                    checkArgument(this.exchangeLocations.containsAll(newExchangeLocations), "New locations added after no more locations set");
+                    return;
+                }
+
+                this.exchangeLocations.addAll(newExchangeLocations);
+                this.noMoreExchangeLocations = noMoreExchangeLocations;
+                queryOutputInfo = getQueryOutputInfo();
+                outputInfoListeners = ImmutableList.copyOf(this.outputInfoListeners);
+            }
+            queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
+        }
+
+        private synchronized Optional<QueryOutputInfo> getQueryOutputInfo()
+        {
+            if (columnNames == null || columnTypes == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, exchangeLocations, noMoreExchangeLocations));
+        }
+
+        private void fireStateChanged(QueryOutputInfo queryOutputInfo, List<Consumer<QueryOutputInfo>> outputInfoListeners)
+        {
+            for (Consumer<QueryOutputInfo> outputInfoListener : outputInfoListeners) {
+                executor.execute(() -> outputInfoListener.accept(queryOutputInfo));
+            }
+        }
     }
 }

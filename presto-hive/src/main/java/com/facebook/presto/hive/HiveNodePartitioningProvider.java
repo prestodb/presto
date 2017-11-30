@@ -38,13 +38,11 @@ import static java.util.Objects.requireNonNull;
 public class HiveNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
-    private final String connectorId;
     private final NodeManager nodeManager;
 
     @Inject
-    public HiveNodePartitioningProvider(HiveConnectorId connectorId, NodeManager nodeManager)
+    public HiveNodePartitioningProvider(NodeManager nodeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 

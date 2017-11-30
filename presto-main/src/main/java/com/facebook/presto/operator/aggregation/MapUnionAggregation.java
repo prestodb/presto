@@ -92,7 +92,7 @@ public class MapUnionAggregation
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type inputType)

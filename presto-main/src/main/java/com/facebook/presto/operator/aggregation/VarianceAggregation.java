@@ -29,7 +29,6 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVa
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction
-@Description("Returns the variance of the argument")
 public final class VarianceAggregation
 {
     private VarianceAggregation() {}
@@ -85,6 +84,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction(value = "stddev", alias = "stddev_samp")
+    @Description("Returns the sample standard deviation of the argument")
     @OutputFunction(StandardTypes.DOUBLE)
     public static void stddev(@AggregationState VarianceState state, BlockBuilder out)
     {
@@ -101,6 +101,7 @@ public final class VarianceAggregation
     }
 
     @AggregationFunction("stddev_pop")
+    @Description("Returns the population standard deviation of the argument")
     @OutputFunction(StandardTypes.DOUBLE)
     public static void stddevPop(@AggregationState VarianceState state, BlockBuilder out)
     {

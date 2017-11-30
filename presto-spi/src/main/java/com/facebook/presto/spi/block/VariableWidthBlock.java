@@ -18,12 +18,14 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
+import static com.facebook.presto.spi.block.BlockUtil.compactArray;
+import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.BlockUtil.compactSlice;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class VariableWidthBlock
@@ -168,17 +170,15 @@ public class VariableWidthBlock
     public Block copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
-
         positionOffset += arrayOffset;
 
-        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
-        // set new offsets to start from beginning of slice (since we are copying)
-        for (int i = 0; i < newOffsets.length; i++) {
-            newOffsets[i] -= offsets[positionOffset];
-        }
+        int[] newOffsets = compactOffsets(offsets, positionOffset, length);
+        Slice newSlice = compactSlice(slice, offsets[positionOffset], newOffsets[length]);
+        boolean[] newValueIsNull = compactArray(valueIsNull, positionOffset, length);
 
-        Slice newSlice = Slices.copyOf(slice, offsets[positionOffset], newOffsets[length]);
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        if (newOffsets == offsets && newSlice == slice && newValueIsNull == valueIsNull) {
+            return this;
+        }
         return new VariableWidthBlock(length, newSlice, newOffsets, newValueIsNull);
     }
 

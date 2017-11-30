@@ -46,6 +46,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
@@ -60,7 +64,7 @@ public class TestAnnotationEngineForScalars
         extends TestAnnotationEngine
 {
     @ScalarFunction("single_implementation_parametric_scalar")
-    @Description("Simple scalar with single implemenatation based on class")
+    @Description("Simple scalar with single implementation based on class")
     public static class SingleImplementationScalarFunction
     {
         @SqlType(DOUBLE)
@@ -87,14 +91,14 @@ public class TestAnnotationEngineForScalars
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
         assertFalse(scalar.isHidden());
-        assertEquals(scalar.getDescription(), "Simple scalar with single implemenatation based on class");
+        assertEquals(scalar.getDescription(), "Simple scalar with single implementation based on class");
 
         assertImplementationCount(scalar, 1, 0, 0);
 
         ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 1, new TypeRegistry(), null);
         assertFalse(specialized.getInstanceFactory().isPresent());
-        assertTrue(specialized.getNullableArguments().stream().allMatch(v -> !v));
-        assertTrue(specialized.getNullFlags().stream().allMatch(v -> !v));
+
+        assertEquals(specialized.getArgumentProperty(0).getNullConvention(), RETURN_NULL_ON_NULL);
     }
 
     @ScalarFunction(value = "hidden_scalar_function", hidden = true)
@@ -178,8 +182,9 @@ public class TestAnnotationEngineForScalars
 
         ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, new TypeRegistry(), null);
         assertFalse(specialized.getInstanceFactory().isPresent());
-        assertEquals(specialized.getNullableArguments(), ImmutableList.of(false, true));
-        assertEquals(specialized.getNullFlags(), ImmutableList.of(false, true));
+
+        assertEquals(specialized.getArgumentProperty(0), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
+        assertEquals(specialized.getArgumentProperty(1), valueTypeArgumentProperty(USE_NULL_FLAG));
     }
 
     @ScalarFunction("scalar_with_nullable_complex")
@@ -216,14 +221,15 @@ public class TestAnnotationEngineForScalars
 
         ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, new TypeRegistry(), null);
         assertFalse(specialized.getInstanceFactory().isPresent());
-        assertEquals(specialized.getNullableArguments(), ImmutableList.of(false, true));
-        assertEquals(specialized.getNullFlags(), ImmutableList.of(false, false));
+
+        assertEquals(specialized.getArgumentProperty(0), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
+        assertEquals(specialized.getArgumentProperty(1), valueTypeArgumentProperty(USE_BOXED_TYPE));
     }
 
     public static class StaticMethodScalarFunction
     {
         @ScalarFunction("static_method_scalar")
-        @Description("Simple scalar with single implemenatation based on method")
+        @Description("Simple scalar with single implementation based on method")
         @SqlType(DOUBLE)
         public static double fun(@SqlType(DOUBLE) double v)
         {
@@ -248,7 +254,7 @@ public class TestAnnotationEngineForScalars
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
         assertFalse(scalar.isHidden());
-        assertEquals(scalar.getDescription(), "Simple scalar with single implemenatation based on method");
+        assertEquals(scalar.getDescription(), "Simple scalar with single implementation based on method");
     }
 
     public static class MultiScalarFunction

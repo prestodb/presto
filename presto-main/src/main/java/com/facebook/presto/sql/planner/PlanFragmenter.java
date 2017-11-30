@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayout.NodePartitioning;
+import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -169,8 +169,8 @@ public class PlanFragmenter
         {
             PartitioningHandle partitioning = node.getLayout()
                     .map(layout -> metadata.getLayout(session, layout))
-                    .flatMap(TableLayout::getNodePartitioning)
-                    .map(NodePartitioning::getPartitioningHandle)
+                    .flatMap(TableLayout::getTablePartitioning)
+                    .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
             context.get().addSourceDistribution(node.getId(), partitioning);

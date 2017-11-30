@@ -36,6 +36,7 @@ import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class TopNRowNumberOperator
@@ -133,7 +134,7 @@ public class TopNRowNumberOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -256,7 +257,11 @@ public class TopNRowNumberOperator
         if (groupByHash.isPresent()) {
             GroupByHash hash = groupByHash.get();
             long groupByHashSize = hash.getEstimatedSize();
-            partitionIds = Optional.of(hash.getGroupIds(page));
+            Work<GroupByIdBlock> work = hash.getGroupIds(page);
+            boolean done = work.process();
+            // TODO: this class does not yield wrt memory limit; enable it
+            verify(done);
+            partitionIds = Optional.of(work.getResult());
             operatorContext.reserveMemory(hash.getEstimatedSize() - groupByHashSize);
         }
 
@@ -269,11 +274,11 @@ public class TopNRowNumberOperator
             }
             PartitionBuilder partitionBuilder = partitionRows.get(partitionId);
             if (partitionBuilder.getRowCount() < maxRowCountPerPartition) {
-                Block[] row = getSingleValueBlocks(page, position);
+                Block[] row = page.getSingleValuePage(position).getBlocks();
                 sizeDelta += partitionBuilder.addRow(row);
             }
             else if (compare(position, blocks, partitionBuilder.peekLastRow()) < 0) {
-                Block[] row = getSingleValueBlocks(page, position);
+                Block[] row = page.getSingleValuePage(position).getBlocks();
                 sizeDelta += partitionBuilder.replaceRow(row);
             }
         }
@@ -372,16 +377,6 @@ public class TopNRowNumberOperator
     public boolean isEmpty()
     {
         return partitionRows.isEmpty();
-    }
-
-    private static Block[] getSingleValueBlocks(Page page, int position)
-    {
-        Block[] blocks = page.getBlocks();
-        Block[] row = new Block[blocks.length];
-        for (int i = 0; i < blocks.length; i++) {
-            row[i] = blocks[i].getSingleValueBlock(position);
-        }
-        return row;
     }
 
     private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels, boolean generateRowNumber)

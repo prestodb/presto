@@ -32,7 +32,8 @@ public class ResourceGroupSpecBuilder
     private final ResourceGroupNameTemplate nameTemplate;
     private final String softMemoryLimit;
     private final int maxQueued;
-    private final int maxRunning;
+    private final Optional<Integer> softConcurrencyLimit;
+    private final int hardConcurrencyLimit;
     private final Optional<String> schedulingPolicy;
     private final Optional<Integer> schedulingWeight;
     private final Optional<Boolean> jmxExport;
@@ -48,7 +49,8 @@ public class ResourceGroupSpecBuilder
             ResourceGroupNameTemplate nameTemplate,
             String softMemoryLimit,
             int maxQueued,
-            int maxRunning,
+            Optional<Integer> softConcurrencyLimit,
+            int hardConcurrencyLimit,
             Optional<String> schedulingPolicy,
             Optional<Integer> schedulingWeight,
             Optional<Boolean> jmxExport,
@@ -62,7 +64,8 @@ public class ResourceGroupSpecBuilder
         this.nameTemplate = nameTemplate;
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         this.maxQueued = maxQueued;
-        this.maxRunning = maxRunning;
+        this.softConcurrencyLimit = requireNonNull(softConcurrencyLimit, "softConcurrencyLimit is null");
+        this.hardConcurrencyLimit = hardConcurrencyLimit;
         this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null");
         this.schedulingWeight = schedulingWeight;
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
@@ -109,7 +112,9 @@ public class ResourceGroupSpecBuilder
                 nameTemplate,
                 softMemoryLimit,
                 maxQueued,
-                maxRunning,
+                softConcurrencyLimit,
+                Optional.of(hardConcurrencyLimit),
+                Optional.empty(),
                 schedulingPolicy,
                 schedulingWeight,
                 Optional.of(subGroups.build()),
@@ -131,7 +136,11 @@ public class ResourceGroupSpecBuilder
             ResourceGroupNameTemplate nameTemplate = new ResourceGroupNameTemplate(resultSet.getString("name"));
             String softMemoryLimit = resultSet.getString("soft_memory_limit");
             int maxQueued = resultSet.getInt("max_queued");
-            int maxRunning = resultSet.getInt("max_running");
+            Optional<Integer> softConcurrencyLimit = Optional.of(resultSet.getInt("soft_concurrency_limit"));
+            if (resultSet.wasNull()) {
+                softConcurrencyLimit = Optional.empty();
+            }
+            int hardConcurrencyLimit = resultSet.getInt("hard_concurrency_limit");
             Optional<String> schedulingPolicy = Optional.ofNullable(resultSet.getString("scheduling_policy"));
             Optional<Integer> schedulingWeight = Optional.of(resultSet.getInt("scheduling_weight"));
             if (resultSet.wasNull()) {
@@ -154,7 +163,8 @@ public class ResourceGroupSpecBuilder
                     nameTemplate,
                     softMemoryLimit,
                     maxQueued,
-                    maxRunning,
+                    softConcurrencyLimit,
+                    hardConcurrencyLimit,
                     schedulingPolicy,
                     schedulingWeight,
                     jmxExport,

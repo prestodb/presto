@@ -21,6 +21,7 @@ import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarRow;
@@ -204,17 +205,16 @@ public class StructColumnWriter
     }
 
     @Override
-    public List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException
+    public List<OutputDataStream> getOutputDataStreams()
     {
         checkState(closed);
 
-        ImmutableList.Builder<Stream> dataStreams = ImmutableList.builder();
-        presentStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
+        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
         for (ColumnWriter structField : structFields) {
-            dataStreams.addAll(structField.writeDataStreams(outputStream));
+            outputDataStreams.addAll(structField.getOutputDataStreams());
         }
-        return dataStreams.build();
+        return outputDataStreams.build();
     }
 
     @Override

@@ -88,7 +88,6 @@ public class HivePageSourceProvider
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
                 pageSourceFactories,
-                hiveSplit.getClientId(),
                 hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path),
                 session,
                 path,
@@ -112,7 +111,6 @@ public class HivePageSourceProvider
     public static Optional<ConnectorPageSource> createHivePageSource(
             Set<HiveRecordCursorProvider> cursorProviders,
             Set<HivePageSourceFactory> pageSourceFactories,
-            String clientId,
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -158,7 +156,6 @@ public class HivePageSourceProvider
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
 
             Optional<RecordCursor> cursor = provider.createRecordCursor(
-                    clientId,
                     configuration,
                     session,
                     path,
@@ -298,7 +295,7 @@ public class HivePageSourceProvider
                         if (!doCoercion || !columnMapping.getCoercionFrom().isPresent()) {
                             return columnHandle;
                         }
-                        return new HiveColumnHandle(columnHandle.getClientId(),
+                        return new HiveColumnHandle(
                                 columnHandle.getName(),
                                 columnMapping.getCoercionFrom().get(),
                                 columnMapping.getCoercionFrom().get().getTypeSignature(),

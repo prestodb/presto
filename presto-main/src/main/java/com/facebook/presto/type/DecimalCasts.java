@@ -33,7 +33,6 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -71,6 +70,7 @@ import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.facebook.presto.util.JsonUtil.currentTokenAsLongDecimal;
 import static com.facebook.presto.util.JsonUtil.currentTokenAsShortDecimal;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -551,40 +551,51 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice shortDecimalToVarchar(long decimal, long precision, long scale, long tenToScale)
     {
-        return Slices.copiedBuffer(Decimals.toString(decimal, intScale(scale)), UTF_8);
+        return utf8Slice(Decimals.toString(decimal, intScale(scale)));
     }
 
     @UsedByGeneratedCode
     public static Slice longDecimalToVarchar(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
-        return Slices.copiedBuffer(Decimals.toString(decimal, intScale(scale)), UTF_8);
+        return utf8Slice(Decimals.toString(decimal, intScale(scale)));
     }
 
     @UsedByGeneratedCode
     public static long varcharToShortDecimal(Slice value, long precision, long scale, long tenToScale)
     {
+        BigDecimal result;
+        String stringValue = value.toString(UTF_8);
         try {
-            String stringValue = value.toString(UTF_8);
-            BigDecimal decimal = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
-            if (overflows(decimal, precision)) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s)", stringValue, precision, scale));
-            }
-            return decimal.unscaledValue().longValue();
+            result = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
         }
         catch (NumberFormatException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s)", value.toString(UTF_8), precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value is not a number.", stringValue, precision, scale));
         }
+
+        if (overflows(result, precision)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value too large.", stringValue, precision, scale));
+        }
+
+        return result.unscaledValue().longValue();
     }
 
     @UsedByGeneratedCode
     public static Slice varcharToLongDecimal(Slice value, long precision, long scale, BigInteger tenToScale)
     {
+        BigDecimal result;
         String stringValue = value.toString(UTF_8);
-        BigDecimal decimal = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
-        if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s)", stringValue, precision, scale));
+        try {
+            result = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
         }
-        return encodeUnscaledValue(decimal.unscaledValue());
+        catch (NumberFormatException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value is not a number.", stringValue, precision, scale));
+        }
+
+        if (overflows(result, precision)) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value too large.", stringValue, precision, scale));
+        }
+
+        return encodeUnscaledValue(result.unscaledValue());
     }
 
     @UsedByGeneratedCode

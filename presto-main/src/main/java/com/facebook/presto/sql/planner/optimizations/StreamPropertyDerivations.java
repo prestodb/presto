@@ -161,14 +161,19 @@ final class StreamPropertyDerivations
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties leftProperties = inputProperties.get(0);
+            boolean unordered = PropertyDerivations.spillPossible(session, node.getType());
 
             switch (node.getType()) {
                 case INNER:
-                    return leftProperties.translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
+                    return leftProperties
+                            .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
+                            .unordered(unordered);
                 case LEFT:
                     // the left can contain nulls in any stream so we can't say anything about the
                     // partitioning but the other properties of the left will be maintained.
-                    return leftProperties.withUnspecifiedPartitioning();
+                    return leftProperties
+                            .withUnspecifiedPartitioning()
+                            .unordered(unordered);
                 case RIGHT:
                     // since this is a right join, none of the matched output rows will contain nulls
                     // in the left partitioning columns, and all of the unmatched rows will have
@@ -233,16 +238,16 @@ final class StreamPropertyDerivations
                     .filter(entry -> !entry.getValue().isNull())  // TODO consider allowing nulls
                     .forEach(entry -> constants.add(entry.getKey()));
 
-            Optional<Set<Symbol>> partitionSymbols = layout.getPartitioningColumns()
+            Optional<Set<Symbol>> streamPartitionSymbols = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> getNonConstantSymbols(columns, assignments, constants));
 
             // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
             // the connector does not guarantee a single split in this case (since it might not understand
             // that the value is a constant).
-            if (partitionSymbols.isPresent() && partitionSymbols.get().isEmpty()) {
+            if (streamPartitionSymbols.isPresent() && streamPartitionSymbols.get().isEmpty()) {
                 return new StreamProperties(MULTIPLE, Optional.empty(), false);
             }
-            return new StreamProperties(MULTIPLE, partitionSymbols, false);
+            return new StreamProperties(MULTIPLE, streamPartitionSymbols, false);
         }
 
         private static Optional<Set<Symbol>> getNonConstantSymbols(Set<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
@@ -582,6 +587,24 @@ final class StreamPropertyDerivations
         private static StreamProperties ordered()
         {
             return new StreamProperties(SINGLE, Optional.of(ImmutableSet.of()), true);
+        }
+
+        private StreamProperties unordered(boolean unordered)
+        {
+            if (unordered) {
+                ActualProperties updatedProperies = null;
+                if (otherActualProperties != null) {
+                    updatedProperies = ActualProperties.builderFrom(otherActualProperties)
+                            .unordered(true)
+                            .build();
+                }
+                return new StreamProperties(
+                        distribution,
+                        partitioningColumns,
+                        false,
+                        updatedProperies);
+            }
+            return this;
         }
 
         public boolean isSingleStream()

@@ -53,7 +53,6 @@ import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCES
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -137,6 +136,23 @@ public class TestPrestoS3FileSystem
             fs.initialize(new URI("s3n://test-bucket/"), config);
             S3ClientOptions clientOptions = getFieldValue(fs.getS3Client(), AmazonS3Client.class, "clientOptions", S3ClientOptions.class);
             assertTrue(clientOptions.isPathStyleAccess());
+        }
+    }
+
+    @Test
+    public void testUnderscoreBucket()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.setBoolean(S3_PATH_STYLE_ACCESS, true);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            String expectedBucketName = "test-bucket_underscore";
+            fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
+            fs.setS3Client(s3);
+            fs.getS3ObjectMetadata(new Path("/test/path"));
+            assertEquals(expectedBucketName, s3.getGetObjectMetadataRequest().getBucketName());
         }
     }
 

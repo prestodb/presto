@@ -319,7 +319,8 @@ public class PruneUnreferencedOutputs
                     if (aggregation.getMask().isPresent()) {
                         expectedInputs.add(aggregation.getMask().get());
                     }
-                    aggregations.put(symbol, new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
+                    expectedInputs.addAll(aggregation.getOrderBy());
+                    aggregations.put(symbol, new Aggregation(call, aggregation.getSignature(), aggregation.getMask(), aggregation.getOrderBy(), aggregation.getOrdering()));
                 }
             }
 

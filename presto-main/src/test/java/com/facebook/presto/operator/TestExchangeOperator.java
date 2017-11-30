@@ -85,15 +85,7 @@ public class TestExchangeOperator
     private static final String TASK_2_ID = "task2";
     private static final String TASK_3_ID = "task3";
 
-    private final LoadingCache<String, TaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(new CacheLoader<String, TaskBuffer>()
-    {
-        @Override
-        public TaskBuffer load(String key)
-                throws Exception
-        {
-            return new TaskBuffer();
-        }
-    });
+    private final LoadingCache<String, TaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TaskBuffer::new));
 
     private ScheduledExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;

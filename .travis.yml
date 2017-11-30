@@ -24,10 +24,6 @@ env:
 sudo: required
 dist: trusty
 group: deprecated-2017Q3
-addons:
-  apt:
-    packages:
-      - oracle-java8-installer
 
 cache:
   directories:
@@ -65,7 +61,7 @@ before_script:
 script:
   - |
     if [[ -v MAVEN_CHECKS ]]; then
-      ./mvnw install -DskipTests -B -T C1
+      ./mvnw install -DskipTests -B -T C1 -P ci
     fi
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
@@ -157,6 +153,9 @@ after_script:
       --include='**/' \
       --include='**/surefire-reports/**.xml' \
       --include='**/surefire-reports/emailable-report.html' \
+      --include='**/product-tests-presto-jvm-error-file.log' \
+      --include='**/test-reports/junitreports/**.xml' \
+      --include='**/test-reports/emailable-report.html' \
       --exclude='*' \
       . /tmp/job_artifacts/
     wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/job_artifacts/log.txt

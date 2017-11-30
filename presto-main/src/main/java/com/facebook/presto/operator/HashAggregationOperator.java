@@ -221,7 +221,7 @@ public class HashAggregationOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -275,6 +275,9 @@ public class HashAggregationOperator
     private boolean inputProcessed;
     private boolean finishing;
     private boolean finished;
+
+    // for yield when memory is not available
+    private Work<?> unfinishedWork;
 
     public HashAggregationOperator(
             OperatorContext operatorContext,
@@ -353,19 +356,21 @@ public class HashAggregationOperator
             return false;
         }
         else {
-            return true;
+            return unfinishedWork == null;
         }
     }
 
     @Override
     public void addInput(Page page)
     {
+        checkState(unfinishedWork == null, "Operator has unfinished work");
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
         inputProcessed = true;
 
         if (aggregationBuilder == null) {
-            if (step.isOutputPartial() || !spillEnabled) {
+            // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause because ORDER BY is not yet implemented for spilling.
+            if (step.isOutputPartial() || !spillEnabled || hasOrderBy()) {
                 aggregationBuilder = new InMemoryHashAggregationBuilder(
                         accumulatorFactories,
                         step,
@@ -375,7 +380,8 @@ public class HashAggregationOperator
                         hashChannel,
                         operatorContext,
                         maxPartialMemory,
-                        joinCompiler);
+                        joinCompiler,
+                        true);
             }
             else {
                 aggregationBuilder = new SpillableHashAggregationBuilder(
@@ -397,8 +403,18 @@ public class HashAggregationOperator
         else {
             checkState(!aggregationBuilder.isFull(), "Aggregation buffer is full");
         }
-        aggregationBuilder.processPage(page);
+
+        // process the current page; save the unfinished work if we are waiting for memory
+        unfinishedWork = aggregationBuilder.processPage(page);
+        if (unfinishedWork.process()) {
+            unfinishedWork = null;
+        }
         aggregationBuilder.updateMemory();
+    }
+
+    private boolean hasOrderBy()
+    {
+        return accumulatorFactories.stream().anyMatch(AccumulatorFactory::hasOrderBy);
     }
 
     @Override
@@ -423,6 +439,16 @@ public class HashAggregationOperator
     {
         if (finished) {
             return null;
+        }
+
+        // process unfinished work if one exists
+        if (unfinishedWork != null) {
+            boolean workDone = unfinishedWork.process();
+            aggregationBuilder.updateMemory();
+            if (!workDone) {
+                return null;
+            }
+            unfinishedWork = null;
         }
 
         if (outputIterator == null) {
@@ -467,6 +493,12 @@ public class HashAggregationOperator
     public void close()
     {
         closeAggregationBuilder();
+    }
+
+    @VisibleForTesting
+    public HashAggregationBuilder getAggregationBuilder()
+    {
+        return aggregationBuilder;
     }
 
     private void closeAggregationBuilder()

@@ -141,8 +141,14 @@ public final class TaskTestUtils
                 new GenericSpillerFactory((types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 }),
+                (types, spillContext, memoryContext) -> {
+                    throw new UnsupportedOperationException();
+                },
+                (types, partitionFunction, spillContext, memoryContext) -> {
+                    throw new UnsupportedOperationException();
+                },
                 new TestingBlockEncodingSerde(new TestingTypeManager()),
-                new PagesIndex.TestingFactory(),
+                new PagesIndex.TestingFactory(false),
                 new JoinCompiler(),
                 new LookupJoinOperators(new JoinProbeCompiler()));
     }

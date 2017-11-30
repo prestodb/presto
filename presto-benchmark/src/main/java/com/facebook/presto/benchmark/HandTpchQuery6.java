@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,6 +44,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.relational.Expressions.field;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
@@ -75,7 +77,9 @@ public class HandTpchQuery6
                 1,
                 new PlanNodeId("test"),
                 () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(projection.get())),
-                ImmutableList.of(DOUBLE));
+                ImmutableList.of(DOUBLE),
+                new DataSize(0, BYTE),
+                0);
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,

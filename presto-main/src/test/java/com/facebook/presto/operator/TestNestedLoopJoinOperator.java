@@ -500,8 +500,8 @@ public class TestNestedLoopJoinOperator
                 valuesOperatorFactory.createOperator(driverContext),
                 nestedLoopBuildOperatorFactory.createOperator(driverContext));
 
-        valuesOperatorFactory.close();
-        nestedLoopBuildOperatorFactory.close();
+        valuesOperatorFactory.noMoreOperators();
+        nestedLoopBuildOperatorFactory.noMoreOperators();
 
         while (!driver.isFinished()) {
             driver.process();

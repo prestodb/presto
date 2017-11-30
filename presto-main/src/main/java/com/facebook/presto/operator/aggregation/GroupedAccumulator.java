@@ -34,4 +34,6 @@ public interface GroupedAccumulator
     void evaluateIntermediate(int groupId, BlockBuilder output);
 
     void evaluateFinal(int groupId, BlockBuilder output);
+
+    void prepareFinal();
 }

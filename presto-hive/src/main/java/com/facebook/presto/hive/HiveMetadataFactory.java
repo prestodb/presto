@@ -33,7 +33,6 @@ public class HiveMetadataFactory
 {
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
-    private final String connectorId;
     private final boolean allowCorruptWritesForTesting;
     private final boolean respectTableFormat;
     private final boolean bucketWritingEnabled;
@@ -56,7 +55,6 @@ public class HiveMetadataFactory
     @Inject
     @SuppressWarnings("deprecation")
     public HiveMetadataFactory(
-            HiveConnectorId connectorId,
             HiveClientConfig hiveClientConfig,
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
@@ -69,7 +67,7 @@ public class HiveMetadataFactory
             TypeTranslator typeTranslator,
             NodeVersion nodeVersion)
     {
-        this(connectorId,
+        this(
                 metastore,
                 hdfsEnvironment,
                 partitionManager,
@@ -92,7 +90,6 @@ public class HiveMetadataFactory
     }
 
     public HiveMetadataFactory(
-            HiveConnectorId connectorId,
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -113,8 +110,6 @@ public class HiveMetadataFactory
             TypeTranslator typeTranslator,
             String prestoVersion)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.respectTableFormat = respectTableFormat;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -153,7 +148,6 @@ public class HiveMetadataFactory
                 skipDeletionForAlter);
 
         return new HiveMetadata(
-                connectorId,
                 metastore,
                 hdfsEnvironment,
                 partitionManager,

@@ -20,7 +20,6 @@ import com.facebook.presto.matching.PropertyPattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -50,22 +49,20 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class GatherAndMergeWindows
-        implements RuleSet
 {
-    // TODO convert to a pattern that allows for a sequence of ProjectNode, instead
-    // of a canned number, once the pattern system supports it.
-    private static final Set<Rule<?>> RULES =
-            IntStream.range(0, 5)
-                    .boxed()
-                    .flatMap(numProjects ->
-                            Stream.of(
-                                    new MergeAdjacentWindowsOverProjects(numProjects),
-                                    new SwapAdjacentWindowsBySpecifications(numProjects)))
-                    .collect(toImmutableSet());
+    private GatherAndMergeWindows() {}
 
-    public Set<Rule<?>> rules()
+    public static Set<Rule<?>> rules()
     {
-        return RULES;
+        // TODO convert to a pattern that allows for a sequence of ProjectNode, instead
+        // of a canned number, once the pattern system supports it.
+        return IntStream.range(0, 5)
+                        .boxed()
+                        .flatMap(numProjects ->
+                                Stream.of(
+                                        new MergeAdjacentWindowsOverProjects(numProjects),
+                                        new SwapAdjacentWindowsBySpecifications(numProjects)))
+                        .collect(toImmutableSet());
     }
 
     private abstract static class ManipulateAdjacentWindowsOverProjects

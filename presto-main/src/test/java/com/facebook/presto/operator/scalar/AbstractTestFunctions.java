@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -54,9 +55,10 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
 {
-    private final Session session;
+    protected final Session session;
     private final FeaturesConfig config;
     protected FunctionAssertions functionAssertions;
+    protected FunctionAssertions decimalLiteralAsDecimal; // TODO remove when DECIMAL is default for literal
 
     protected AbstractTestFunctions()
     {
@@ -83,12 +85,15 @@ public abstract class AbstractTestFunctions
     public final void initTestFunctions()
     {
         functionAssertions = new FunctionAssertions(session, config);
+        decimalLiteralAsDecimal = new FunctionAssertions(
+                Session.builder(session).setSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false").build(),
+                config);
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroyTestFunctions()
     {
-        closeAllRuntimeException(functionAssertions);
+        closeAllRuntimeException(functionAssertions, decimalLiteralAsDecimal);
         functionAssertions = null;
     }
 
@@ -104,7 +109,8 @@ public abstract class AbstractTestFunctions
 
     protected void assertDecimalFunction(String statement, SqlDecimal expectedResult)
     {
-        assertFunction(statement,
+        decimalLiteralAsDecimal.assertFunction(
+                statement,
                 createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
                 expectedResult);
     }

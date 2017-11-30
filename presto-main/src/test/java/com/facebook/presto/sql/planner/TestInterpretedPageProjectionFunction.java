@@ -17,8 +17,8 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.InterpretedPageProjection;
-import com.facebook.presto.operator.project.PageProjectionOutput;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -33,7 +33,6 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -52,6 +51,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestInterpretedPageProjectionFunction
 {
+    // todo add cases for decimal
+
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%s"));
@@ -70,30 +71,30 @@ public class TestInterpretedPageProjectionFunction
     public void testArithmeticExpression()
     {
         assertProjection("42 + 87", 42 + 87);
-        assertProjection("42 + 22.2", 42 + 22.2);
-        assertProjection("11.1 + 22.2", 11.1 + 22.2);
+        assertProjection("42 + 22.2E0", 42 + 22.2);
+        assertProjection("11.1E0 + 22.2E0", 11.1 + 22.2);
 
         assertProjection("42 - 87", 42 - 87);
-        assertProjection("42 - 22.2", 42 - 22.2);
-        assertProjection("11.1 - 22.2", 11.1 - 22.2);
+        assertProjection("42 - 22.2E0", 42 - 22.2);
+        assertProjection("11.1E0 - 22.2E0", 11.1 - 22.2);
 
         assertProjection("42 * 87", 42 * 87);
-        assertProjection("42 * 22.2", 42 * 22.2);
-        assertProjection("11.1 * 22.2", 11.1 * 22.2);
+        assertProjection("42 * 22.2E0", 42 * 22.2);
+        assertProjection("11.1E0 * 22.2E0", 11.1 * 22.2);
 
         assertProjection("42 / 87", 42 / 87);
-        assertProjection("42 / 22.2", 42 / 22.2);
-        assertProjection("11.1 / 22.2", 11.1 / 22.2);
+        assertProjection("42 / 22.2E0", 42 / 22.2);
+        assertProjection("11.1E0 / 22.2E0", 11.1 / 22.2);
 
         assertProjection("42 % 87", 42 % 87);
-        assertProjection("42 % 22.2", 42 % 22.2);
-        assertProjection("11.1 % 22.2", 11.1 % 22.2);
+        assertProjection("42 % 22.2E0", 42 % 22.2);
+        assertProjection("11.1E0 % 22.2E0", 11.1 % 22.2);
 
         assertProjection("42 + BIGINT '87'", 42 + 87L);
-        assertProjection("BIGINT '42' - 22.2", 42L - 22.2);
+        assertProjection("BIGINT '42' - 22.2E0", 42L - 22.2);
         assertProjection("42 * BIGINT '87'", 42 * 87L);
-        assertProjection("BIGINT '11' / 22.2", 11L / 22.2);
-        assertProjection("11.1 % BIGINT '22'", 11.1 % 22L);
+        assertProjection("BIGINT '11' / 22.2E0", 11L / 22.2);
+        assertProjection("11.1E0 % BIGINT '22'", 11.1 % 22L);
     }
 
     @Test
@@ -120,10 +121,10 @@ public class TestInterpretedPageProjectionFunction
         assertProjection("COALESCE(NULL, NULL, 100)", 100);
         assertProjection("COALESCE(NULL, NULL, BIGINT '100')", 100L);
 
-        assertProjection("COALESCE(42.2, 87.2, 100.2)", 42.2);
-        assertProjection("COALESCE(NULL, 87.2, 100.2)", 87.2);
-        assertProjection("COALESCE(42.2, NULL, 100.2)", 42.2);
-        assertProjection("COALESCE(NULL, NULL, 100.2)", 100.2);
+        assertProjection("COALESCE(42.2E0, 87.2E0, 100.2E0)", 42.2);
+        assertProjection("COALESCE(NULL, 87.2E0, 100.2E0)", 87.2);
+        assertProjection("COALESCE(42.2E0, NULL, 100.2E0)", 42.2);
+        assertProjection("COALESCE(NULL, NULL, 100.2E0)", 100.2);
 
         assertProjection("COALESCE('foo', 'bar', 'zah')", "foo");
         assertProjection("COALESCE(NULL, 'bar', 'zah')", "bar");
@@ -137,15 +138,15 @@ public class TestInterpretedPageProjectionFunction
     public void testNullIf()
     {
         assertProjection("NULLIF(42, 42)", null);
-        assertProjection("NULLIF(42, 42.0)", null);
-        assertProjection("NULLIF(42.42, 42.42)", null);
+        assertProjection("NULLIF(42, 42.0E0)", null);
+        assertProjection("NULLIF(42.42E0, 42.42E0)", null);
         assertProjection("NULLIF('foo', 'foo')", null);
 
         assertProjection("NULLIF(42, 87)", 42);
-        assertProjection("NULLIF(42, 22.2)", 42);
+        assertProjection("NULLIF(42, 22.2E0)", 42);
         assertProjection("NULLIF(42, BIGINT '87')", 42);
-        assertProjection("NULLIF(BIGINT '42', 22.2)", 42L);
-        assertProjection("NULLIF(42.42, 22.2)", 42.42);
+        assertProjection("NULLIF(BIGINT '42', 22.2E0)", 42L);
+        assertProjection("NULLIF(42.42E0, 22.2E0)", 42.42);
         assertProjection("NULLIF('foo', 'bar')", "foo");
 
         assertProjection("NULLIF(NULL, NULL)", null);
@@ -153,8 +154,8 @@ public class TestInterpretedPageProjectionFunction
         assertProjection("NULLIF(42, NULL)", 42);
         assertProjection("NULLIF(NULL, 42)", null);
 
-        assertProjection("NULLIF(11.1, NULL)", 11.1);
-        assertProjection("NULLIF(NULL, 11.1)", null);
+        assertProjection("NULLIF(11.1E0, NULL)", 11.1);
+        assertProjection("NULLIF(NULL, 11.1E0)", null);
     }
 
     @Test
@@ -214,29 +215,29 @@ public class TestInterpretedPageProjectionFunction
 
         // project with yield
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        PageProjectionOutput output = projectionFunction.project(
+        Work<Block> work = projectionFunction.project(
                 TEST_SESSION.toConnectorSession(),
                 yieldSignal,
                 new Page(positions.length, blocks),
                 positionsList(positions, 0, positions.length));
 
-        Optional<Block> block;
+        Block block;
         // Get nothing for the first position.length compute due to yield
         // Currently we enforce a yield check for every position; free feel to adjust the number if the behavior changes
         for (int i = 0; i < positions.length; i++) {
             yieldSignal.setWithDelay(1, executor);
             yieldSignal.forceYieldForTesting();
-            assertFalse(output.compute().isPresent());
+            assertFalse(work.process());
             yieldSignal.reset();
         }
         // the next yield is not going to prevent a block to be produced
         yieldSignal.setWithDelay(1, executor);
         yieldSignal.forceYieldForTesting();
-        block = output.compute();
         yieldSignal.reset();
-        assertTrue(block.isPresent());
+        assertTrue(work.process());
+        block = work.getResult();
 
-        List<Object> actualValues = BlockAssertions.toValues(projectionFunction.getType(), block.get());
+        List<Object> actualValues = BlockAssertions.toValues(projectionFunction.getType(), block);
         assertEquals(actualValues.size(), positions.length);
         assertEquals(expectedValues.length, positions.length);
         for (int i = 0; i < positions.length; i++) {
@@ -244,15 +245,15 @@ public class TestInterpretedPageProjectionFunction
         }
 
         // project without yield
-        output = projectionFunction.project(
+        work = projectionFunction.project(
                 TEST_SESSION.toConnectorSession(),
                 new DriverYieldSignal(),
                 new Page(positions.length, blocks),
                 positionsList(positions, 0, positions.length));
-        block = output.compute();
-        assertTrue(block.isPresent());
+        assertTrue(work.process());
+        block = work.getResult();
 
-        actualValues = BlockAssertions.toValues(projectionFunction.getType(), block.get());
+        actualValues = BlockAssertions.toValues(projectionFunction.getType(), block);
         assertEquals(actualValues.size(), positions.length);
         assertEquals(expectedValues.length, positions.length);
         for (int i = 0; i < positions.length; i++) {

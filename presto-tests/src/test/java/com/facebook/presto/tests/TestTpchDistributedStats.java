@@ -24,6 +24,8 @@ import com.facebook.presto.tpch.ColumnNaming;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -44,18 +46,27 @@ import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.groupingBy;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestTpchDistributedStats
 {
     public static final int NUMBER_OF_TPCH_QUERIES = 22;
 
-    DistributedQueryRunner runner;
+    private DistributedQueryRunner runner;
 
-    public TestTpchDistributedStats()
+    @BeforeClass
+    public void setUp()
             throws Exception
     {
         runner = createQueryRunnerWithoutCatalogs(emptyMap(), emptyMap());
         runner.createCatalog("tpch", "tpch", ImmutableMap.of(
                 "tpch.column-naming", ColumnNaming.STANDARD.name()));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        runner.close();
+        runner = null;
     }
 
     @Test

@@ -37,6 +37,7 @@ import io.airlift.slice.Slices;
 import org.apache.commons.lang.StringUtils;
 
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
@@ -50,6 +51,7 @@ import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POLY
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.geospatial.GeometryUtils.serialize;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class GeoFunctions
@@ -61,7 +63,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice parseLine(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
-        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+        OGCGeometry geometry = geometryFromText(input);
         validateType("ST_LineFromText", geometry, EnumSet.of(LINE_STRING));
         return serialize(geometry);
     }
@@ -69,7 +71,7 @@ public final class GeoFunctions
     @Description("Returns a Geometry type Point object with the given coordinate values")
     @ScalarFunction("ST_Point")
     @SqlType(GEOMETRY_TYPE_NAME)
-    public static Slice stPoint(@SqlType(StandardTypes.DOUBLE) double x, @SqlType(StandardTypes.DOUBLE) double y)
+    public static Slice stPoint(@SqlType(DOUBLE) double x, @SqlType(DOUBLE) double y)
     {
         OGCGeometry geometry = createFromEsriGeometry(new Point(x, y), null);
         return serialize(geometry);
@@ -80,14 +82,14 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stPolygon(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
-        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+        OGCGeometry geometry = geometryFromText(input);
         validateType("ST_Polygon", geometry, EnumSet.of(POLYGON));
         return serialize(geometry);
     }
 
     @Description("Returns the area of a polygon using Euclidean measurement on a 2D plane (based on spatial ref) in projected units")
     @ScalarFunction("ST_Area")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static double stArea(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
@@ -100,7 +102,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stGeometryFromText(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
-        return serialize(OGCGeometry.fromText(input.toStringUtf8()));
+        return serialize(geometryFromText(input));
     }
 
     @SqlNullable
@@ -110,6 +112,31 @@ public final class GeoFunctions
     public static Slice stAsText(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         return Slices.utf8Slice(deserialize(input).asText());
+    }
+
+    @SqlNullable
+    @Description("Returns the geometry that represents all points whose distance from the specified geometry is less than or equal to the specified distance")
+    @ScalarFunction("ST_Buffer")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stBuffer(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(DOUBLE) double distance)
+    {
+        if (Double.isNaN(distance)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
+        }
+
+        if (distance < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is negative");
+        }
+
+        if (distance == 0) {
+            return input;
+        }
+
+        OGCGeometry geometry = deserialize(input);
+        if (geometry.isEmpty()) {
+            return null;
+        }
+        return serialize(geometry.buffer(distance));
     }
 
     @Description("Returns the Point value that is the mathematical centroid of a Geometry")
@@ -197,7 +224,7 @@ public final class GeoFunctions
 
     @Description("Returns the length of a LineString or Multi-LineString using Euclidean measurement on a 2D plane (based on spatial ref) in projected units")
     @ScalarFunction("ST_Length")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static double stLength(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
@@ -207,7 +234,7 @@ public final class GeoFunctions
 
     @Description("Returns X maxima of a bounding box of a Geometry")
     @ScalarFunction("ST_XMax")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static double stXMax(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
@@ -217,7 +244,7 @@ public final class GeoFunctions
 
     @Description("Returns Y maxima of a bounding box of a Geometry")
     @ScalarFunction("ST_YMax")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static double stYMax(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
@@ -227,7 +254,7 @@ public final class GeoFunctions
 
     @Description("Returns X minima of a bounding box of a Geometry")
     @ScalarFunction("ST_XMin")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static double stXMin(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
@@ -237,7 +264,7 @@ public final class GeoFunctions
 
     @Description("Returns Y minima of a bounding box of a Geometry")
     @ScalarFunction("ST_YMin")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static double stYMin(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
@@ -321,7 +348,7 @@ public final class GeoFunctions
     @SqlNullable
     @Description("Return the X coordinate of the point")
     @ScalarFunction("ST_X")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static Double stX(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
@@ -335,7 +362,7 @@ public final class GeoFunctions
     @SqlNullable
     @Description("Return the Y coordinate of the point")
     @ScalarFunction("ST_Y")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static Double stY(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
@@ -379,7 +406,7 @@ public final class GeoFunctions
 
     @Description("Returns the 2-dimensional cartesian minimum distance (based on spatial ref) between two geometries in projected units")
     @ScalarFunction("ST_Distance")
-    @SqlType(StandardTypes.DOUBLE)
+    @SqlType(DOUBLE)
     public static double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
         OGCGeometry leftGeometry = deserialize(left);
@@ -532,6 +559,13 @@ public final class GeoFunctions
         return leftGeometry.within(rightGeometry);
     }
 
+    private static OGCGeometry geometryFromText(Slice input)
+    {
+        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+        geometry.setSpatialReference(null);
+        return geometry;
+    }
+
     private static void validateType(String function, OGCGeometry geometry, Set<GeometryTypeName> validTypes)
     {
         GeometryTypeName type = GeometryUtils.valueOf(geometry.geometryType());
@@ -549,7 +583,7 @@ public final class GeoFunctions
 
     private static void verifySameSpatialReference(OGCGeometry leftGeometry, OGCGeometry rightGeometry)
     {
-        checkArgument(leftGeometry.getEsriSpatialReference().equals(rightGeometry.getEsriSpatialReference()), "Input Geometries Spatial Reference do not match");
+        checkArgument(Objects.equals(leftGeometry.getEsriSpatialReference(), rightGeometry.getEsriSpatialReference()), "Input geometries must have the same spatial reference");
     }
 
     // Points centroid is arithmetic mean of the input points

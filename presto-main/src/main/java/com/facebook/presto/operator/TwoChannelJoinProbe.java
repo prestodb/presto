@@ -48,13 +48,12 @@ public class TwoChannelJoinProbe
         }
 
         @Override
-        public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
+        public JoinProbe createJoinProbe(Page page)
         {
-            return new TwoChannelJoinProbe(types, lookupSource, page);
+            return new TwoChannelJoinProbe(types, page);
         }
     }
 
-    private final LookupSource lookupSource;
     private final int positionCount;
     private final Type typeA;
     private final Type typeB;
@@ -62,14 +61,14 @@ public class TwoChannelJoinProbe
     private final Block blockB;
     private final Block probeBlockA;
     private final Block probeBlockB;
+    private final int[] probeOutputChannels;
     private final Block[] probeBlocks;
     private final Page page;
     private final Page probePage;
     private int position = -1;
 
-    public TwoChannelJoinProbe(List<Type> types, LookupSource lookupSource, Page page)
+    public TwoChannelJoinProbe(List<Type> types, Page page)
     {
-        this.lookupSource = lookupSource;
         this.positionCount = page.getPositionCount();
         this.typeA = types.get(0);
         this.typeB = types.get(1);
@@ -80,6 +79,7 @@ public class TwoChannelJoinProbe
         this.probeBlocks = new Block[2];
         probeBlocks[0] = probeBlockA;
         probeBlocks[1] = probeBlockB;
+        this.probeOutputChannels = new int[]{0, 1};
         this.page = page;
         this.probePage = new Page(probeBlocks);
     }
@@ -88,6 +88,12 @@ public class TwoChannelJoinProbe
     public int getOutputChannelCount()
     {
         return 2;
+    }
+
+    @Override
+    public int[] getOutputChannels()
+    {
+        return probeOutputChannels;
     }
 
     @Override
@@ -105,7 +111,7 @@ public class TwoChannelJoinProbe
     }
 
     @Override
-    public long getCurrentJoinPosition()
+    public long getCurrentJoinPosition(LookupSource lookupSource)
     {
         if (currentRowContainsNull()) {
             return -1;

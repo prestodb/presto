@@ -116,7 +116,7 @@ public class DecimalSumAggregation
 
         Type intermediateType = stateSerializer.getSerializedType();
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

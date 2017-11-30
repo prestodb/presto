@@ -63,6 +63,9 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqu
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
 import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
 import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -114,9 +117,9 @@ public final class MapFilterFunction
                 TypeSignatureParameter.of(valueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
                 false,
-                ImmutableList.of(false, false),
-                ImmutableList.of(false, false),
-                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 generateFilter(mapType),
                 Optional.of(STATE_FACTORY.bindTo(mapType)),
                 isDeterministic());

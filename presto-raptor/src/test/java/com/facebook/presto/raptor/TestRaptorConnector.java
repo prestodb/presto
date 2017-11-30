@@ -84,7 +84,7 @@ public class TestRaptorConnector
                 new RaptorMetadataFactory(connectorId, dbi, shardManager),
                 new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false),
                 new RaptorPageSourceProvider(storageManager),
-                new RaptorPageSinkProvider(storageManager, new PagesIndexPageSorter(new PagesIndex.TestingFactory()), config),
+                new RaptorPageSinkProvider(storageManager, new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)), config),
                 new RaptorNodePartitioningProvider(nodeSupplier),
                 new RaptorSessionProperties(config),
                 new RaptorTableProperties(typeRegistry),
@@ -172,7 +172,8 @@ public class TestRaptorConnector
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_COMMITTED, false);
         connector.getMetadata(transaction).createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("test", name),
-                ImmutableList.of(new ColumnMetadata("id", BIGINT))));
+                ImmutableList.of(new ColumnMetadata("id", BIGINT))),
+                false);
         connector.commit(transaction);
 
         transaction = connector.beginTransaction(READ_COMMITTED, false);

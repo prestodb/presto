@@ -16,7 +16,7 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.hive.DirectoryLister;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.HiveTypeName;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -50,7 +50,7 @@ public class HiveFileIterator
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
-    private final Map<Integer, HiveType> columnCoercions;
+    private final Map<Integer, HiveTypeName> columnCoercions;
 
     private RemoteIterator<LocatedFileStatus> remoteIterator;
 
@@ -64,7 +64,7 @@ public class HiveFileIterator
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveType> columnCoercions)
+            Map<Integer, HiveTypeName> columnCoercions)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
@@ -170,7 +170,7 @@ public class HiveFileIterator
         return effectivePredicate;
     }
 
-    public Map<Integer, HiveType> getColumnCoercions()
+    public Map<Integer, HiveTypeName> getColumnCoercions()
     {
         return columnCoercions;
     }

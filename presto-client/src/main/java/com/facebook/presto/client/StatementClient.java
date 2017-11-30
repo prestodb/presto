@@ -27,6 +27,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
@@ -53,6 +54,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
@@ -87,11 +90,13 @@ public class StatementClient
     private final boolean debug;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
+    private final AtomicReference<String> setCatalog = new AtomicReference<>();
+    private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
     private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
-    private final AtomicReference<String> startedtransactionId = new AtomicReference<>();
+    private final AtomicReference<String> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
@@ -201,16 +206,32 @@ public class StatementClient
         return currentResults.get().getStats();
     }
 
-    public QueryResults current()
+    public QueryStatusInfo currentStatusInfo()
     {
         checkState(isValid(), "current position is not valid (cursor past end)");
         return currentResults.get();
     }
 
-    public QueryResults finalResults()
+    public QueryData currentData()
+    {
+        checkState(isValid(), "current position is not valid (cursor past end)");
+        return currentResults.get();
+    }
+
+    public QueryStatusInfo finalStatusInfo()
     {
         checkState((!isValid()) || isFailed(), "current position is still valid");
         return currentResults.get();
+    }
+
+    public Optional<String> getSetCatalog()
+    {
+        return Optional.ofNullable(setCatalog.get());
+    }
+
+    public Optional<String> getSetSchema()
+    {
+        return Optional.ofNullable(setSchema.get());
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -233,9 +254,10 @@ public class StatementClient
         return ImmutableSet.copyOf(deallocatedPreparedStatements);
     }
 
-    public String getStartedtransactionId()
+    @Nullable
+    public String getStartedTransactionId()
     {
-        return startedtransactionId.get();
+        return startedTransactionId.get();
     }
 
     public boolean isClearTransactionId()
@@ -258,7 +280,7 @@ public class StatementClient
 
     public boolean advance()
     {
-        URI nextUri = current().getNextUri();
+        URI nextUri = currentStatusInfo().getNextUri();
         if (isClosed() || (nextUri == null)) {
             valid.set(false);
             return false;
@@ -314,16 +336,17 @@ public class StatementClient
 
     private void processResponse(Headers headers, QueryResults results)
     {
+        setCatalog.set(headers.get(PRESTO_SET_CATALOG));
+        setSchema.set(headers.get(PRESTO_SET_SCHEMA));
+
         for (String setSession : headers.values(PRESTO_SET_SESSION)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
                 continue;
             }
-            setSessionProperties.put(keyValue.get(0), keyValue.size() > 1 ? keyValue.get(1) : "");
+            setSessionProperties.put(keyValue.get(0), keyValue.get(1));
         }
-        for (String clearSession : headers.values(PRESTO_CLEAR_SESSION)) {
-            resetSessionProperties.add(clearSession);
-        }
+        resetSessionProperties.addAll(headers.values(PRESTO_CLEAR_SESSION));
 
         for (String entry : headers.values(PRESTO_ADDED_PREPARE)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
@@ -338,9 +361,9 @@ public class StatementClient
 
         String startedTransactionId = headers.get(PRESTO_STARTED_TRANSACTION_ID);
         if (startedTransactionId != null) {
-            this.startedtransactionId.set(startedTransactionId);
+            this.startedTransactionId.set(startedTransactionId);
         }
-        if (headers.values(PRESTO_CLEAR_TRANSACTION_ID) != null) {
+        if (headers.get(PRESTO_CLEAR_TRANSACTION_ID) != null) {
             clearTransactionId.set(true);
         }
 
@@ -368,7 +391,7 @@ public class StatementClient
     {
         checkState(!isClosed(), "client is closed");
 
-        URI uri = current().getPartialCancelUri();
+        URI uri = currentStatusInfo().getPartialCancelUri();
         if (uri != null) {
             httpDelete(uri);
         }

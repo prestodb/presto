@@ -122,6 +122,11 @@ public class OptimizeMixedDistinctAggregations
                 return context.defaultRewrite(node, Optional.empty());
             }
 
+            if (!node.getOrderBySymbols().isEmpty()) {
+                // Skip if any aggregation contains a order by
+                return context.defaultRewrite(node, Optional.empty());
+            }
+
             AggregateInfo aggregateInfo = new AggregateInfo(
                     node.getGroupingKeys(),
                     Iterables.getOnlyElement(uniqueMasks),
@@ -155,7 +160,9 @@ public class OptimizeMixedDistinctAggregations
                                     false,
                                     ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference())),
                             entry.getValue().getSignature(),
-                            Optional.empty()));
+                            Optional.empty(),
+                            entry.getValue().getOrderBy(),
+                            entry.getValue().getOrdering()));
                 }
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
@@ -164,7 +171,9 @@ public class OptimizeMixedDistinctAggregations
                     aggregations.put(entry.getKey(), new Aggregation(
                             new FunctionCall(functionName, functionCall.getWindow(), false, false, ImmutableList.of(argument.toSymbolReference())),
                             getFunctionSignature(functionName, argument),
-                            Optional.empty()));
+                            Optional.empty(),
+                            entry.getValue().getOrderBy(),
+                            entry.getValue().getOrdering()));
                 }
             }
 
@@ -408,7 +417,7 @@ public class OptimizeMixedDistinctAggregations
                             functionCall = new FunctionCall(functionCall.getName(), functionCall.getWindow(), false, false, arguments.build());
                         }
                     }
-                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getSignature(), Optional.empty()));
+                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getSignature(), Optional.empty(), entry.getValue().getOrderBy(), entry.getValue().getOrdering()));
                 }
             }
             return new AggregationNode(

@@ -62,6 +62,7 @@ public class TestQueryStateInfo
                 groupRootAX,
                 new DataSize(6000, BYTE),
                 1,
+                1,
                 null,
                 10,
                 null,
@@ -75,6 +76,7 @@ public class TestQueryStateInfo
         ResourceGroupInfo rootAYInfo = new ResourceGroupInfo(
                 groupRootAY,
                 new DataSize(8000, BYTE),
+                1,
                 1,
                 new Duration(10, HOURS),
                 10,
@@ -90,6 +92,7 @@ public class TestQueryStateInfo
                 groupRootA,
                 new DataSize(8000, BYTE),
                 1,
+                1,
                 null,
                 10,
                 null,
@@ -104,6 +107,7 @@ public class TestQueryStateInfo
                 groupRootB,
                 new DataSize(8000, BYTE),
                 1,
+                1,
                 new Duration(10, HOURS),
                 10,
                 new Duration(1, DAYS),
@@ -117,6 +121,7 @@ public class TestQueryStateInfo
         ResourceGroupInfo rootInfo = new ResourceGroupInfo(
                 new ResourceGroupId("root"),
                 new DataSize(10000, BYTE),
+                2,
                 2,
                 null,
                 20,
@@ -208,6 +213,7 @@ public class TestQueryStateInfo
         assertEquals(progress.getCpuTimeMillis(), Duration.valueOf("24m").toMillis());
         assertEquals(progress.getScheduledTimeMillis(), Duration.valueOf("23m").toMillis());
         assertEquals(progress.getBlockedTimeMillis(), Duration.valueOf("26m").toMillis());
+        assertEquals(progress.getCurrentMemoryBytes(), DataSize.valueOf("21GB").toBytes());
         assertEquals(progress.getPeakMemoryBytes(), DataSize.valueOf("22GB").toBytes());
         assertEquals(progress.getInputRows(), 28);
         assertEquals(progress.getInputBytes(), DataSize.valueOf("27GB").toBytes());
@@ -260,6 +266,8 @@ public class TestQueryStateInfo
                         DataSize.valueOf("31GB"),
                         32,
                         ImmutableList.of()),
+                Optional.empty(),
+                Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),
@@ -271,6 +279,7 @@ public class TestQueryStateInfo
                 null,
                 null,
                 ImmutableSet.of(),
+                Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty());

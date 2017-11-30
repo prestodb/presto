@@ -110,6 +110,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
@@ -383,7 +384,7 @@ public class ExpressionInterpreter
                     throw new UnsupportedOperationException("not yet implemented");
                 }
             }
-            throw new UnsupportedOperationException("Inputs or cursor myst be set");
+            throw new UnsupportedOperationException("Inputs or cursor must be set");
         }
 
         @Override
@@ -958,7 +959,7 @@ public class ExpressionInterpreter
             ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionSignature);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
-                if (value == null && !function.getNullableArguments().get(i)) {
+                if (value == null && function.getArgumentProperty(i).getNullConvention() == RETURN_NULL_ON_NULL) {
                     return null;
                 }
             }

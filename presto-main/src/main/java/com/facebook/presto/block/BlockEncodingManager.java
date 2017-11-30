@@ -28,7 +28,6 @@ import com.facebook.presto.spi.block.RunLengthBlockEncoding;
 import com.facebook.presto.spi.block.ShortArrayBlockEncoding;
 import com.facebook.presto.spi.block.SingleMapBlockEncoding;
 import com.facebook.presto.spi.block.SingleRowBlockEncoding;
-import com.facebook.presto.spi.block.SliceArrayBlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
@@ -70,7 +69,6 @@ public final class BlockEncodingManager
         addBlockEncodingFactory(ShortArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(IntArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(LongArrayBlockEncoding.FACTORY);
-        addBlockEncodingFactory(SliceArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(DictionaryBlockEncoding.FACTORY);
         addBlockEncodingFactory(ArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(MapBlockEncoding.FACTORY);

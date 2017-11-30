@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 import static com.facebook.presto.tests.TestGroups.CLI;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -34,6 +35,7 @@ import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitio
 import static com.teradata.tempto.process.CliProcess.trimLines;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class PrestoCliTests
@@ -141,6 +143,87 @@ public class PrestoCliTests
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldHandleSession()
+            throws IOException, InterruptedException
+    {
+        launchPrestoCliWithServerArgument();
+        presto.waitForPrompt();
+
+        presto.getProcessInput().println("use hive.default;");
+        assertThat(presto.readLinesUntilPrompt()).contains("USE");
+
+        presto.getProcessInput().println("select * from nation;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
+
+        presto.getProcessInput().println("show session;");
+        assertThat(squeezeLines(presto.readLinesUntilPrompt()))
+                .contains("distributed_join|true|true|boolean|Use a distributed join instead of a broadcast join");
+
+        presto.getProcessInput().println("set session distributed_join = false;");
+        assertThat(presto.readLinesUntilPrompt()).contains("SET SESSION");
+
+        presto.getProcessInput().println("show session;");
+        assertThat(squeezeLines(presto.readLinesUntilPrompt()))
+                .contains("distributed_join|false|true|boolean|Use a distributed join instead of a broadcast join");
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldHandleTransaction()
+            throws IOException, InterruptedException
+    {
+        launchPrestoCliWithServerArgument();
+        presto.waitForPrompt();
+
+        presto.getProcessInput().println("use hive.default;");
+        assertThat(presto.readLinesUntilPrompt()).contains("USE");
+
+        // start transaction and create table
+        presto.getProcessInput().println("start transaction;");
+        assertThat(presto.readLinesUntilPrompt()).contains("START TRANSACTION");
+
+        presto.getProcessInput().println("create table txn_test (x bigint);");
+        assertThat(presto.readLinesUntilPrompt()).contains("CREATE TABLE");
+
+        // cause an error that aborts the transaction
+        presto.getProcessInput().println("select foo;");
+        assertThat(presto.readLinesUntilPrompt()).extracting(PrestoCliTests::removePrefix)
+                .contains("line 1:8: Column 'foo' cannot be resolved");
+
+        // verify commands are rejected until rollback
+        presto.getProcessInput().println("select * from nation;");
+        assertThat(presto.readLinesUntilPrompt()).extracting(PrestoCliTests::removePrefix)
+                .contains("Current transaction is aborted, commands ignored until end of transaction block");
+
+        presto.getProcessInput().println("rollback;");
+        assertThat(presto.readLinesUntilPrompt()).contains("ROLLBACK");
+
+        // verify commands work after rollback
+        presto.getProcessInput().println("select * from nation;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
+
+        // verify table was not created
+        presto.getProcessInput().println("show tables;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).doesNotContain("txn_test");
+
+        // start transaction, create two tables and commit
+        presto.getProcessInput().println("start transaction;");
+        assertThat(presto.readLinesUntilPrompt()).contains("START TRANSACTION");
+
+        presto.getProcessInput().println("create table txn_test1 (x bigint);");
+        assertThat(presto.readLinesUntilPrompt()).contains("CREATE TABLE");
+
+        presto.getProcessInput().println("create table txn_test2 (x bigint);");
+        assertThat(presto.readLinesUntilPrompt()).contains("CREATE TABLE");
+
+        presto.getProcessInput().println("commit;");
+        assertThat(presto.readLinesUntilPrompt()).contains("COMMIT");
+
+        // verify tables were created
+        presto.getProcessInput().println("show tables;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("txn_test1", "txn_test2");
+    }
+
     private void launchPrestoCliWithServerArgument(String... arguments)
             throws IOException, InterruptedException
     {
@@ -175,5 +258,18 @@ public class PrestoCliTests
 
         prestoClientOptions.add(arguments);
         launchPrestoCli(prestoClientOptions.build());
+    }
+
+    private static String removePrefix(String line)
+    {
+        int i = line.indexOf(':');
+        return (i >= 0) ? line.substring(i + 1).trim() : line;
+    }
+
+    public static List<String> squeezeLines(List<String> lines)
+    {
+        return lines.stream()
+                .map(line -> line.replaceAll(" +\\| +", "|").trim())
+                .collect(toList());
     }
 }

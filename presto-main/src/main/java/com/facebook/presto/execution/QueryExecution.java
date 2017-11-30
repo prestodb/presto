@@ -19,13 +19,22 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+
+import static java.util.Objects.requireNonNull;
 
 public interface QueryExecution
 {
@@ -35,14 +44,15 @@ public interface QueryExecution
 
     QueryState getState();
 
+    ListenableFuture<QueryState> getStateChange(QueryState currentState);
+
+    void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
+
     Optional<ResourceGroupId> getResourceGroup();
 
     void setResourceGroup(ResourceGroupId resourceGroupId);
 
     Plan getQueryPlan();
-
-    Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException;
 
     VersionedMemoryPoolId getMemoryPool();
 
@@ -77,4 +87,46 @@ public interface QueryExecution
     }
 
     Optional<QueryType> getQueryType();
+
+    /**
+     * Output schema and buffer URIs for query.  The info will always contain column names and types.  Buffer locations will always
+     * contain the full location set, but may be empty.  Users of this data should keep a private copy of the seen buffers to
+     * handle out of order events from the listener.  Once noMoreBufferLocations is set the locations will never change, and
+     * it is guaranteed that all previously sent locations are contained in the buffer locations.
+     */
+    class QueryOutputInfo
+    {
+        private final List<String> columnNames;
+        private final List<Type> columnTypes;
+        private final Set<URI> bufferLocations;
+        private final boolean noMoreBufferLocations;
+
+        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Set<URI> bufferLocations, boolean noMoreBufferLocations)
+        {
+            this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
+            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+            this.bufferLocations = ImmutableSet.copyOf(requireNonNull(bufferLocations, "bufferLocations is null"));
+            this.noMoreBufferLocations = noMoreBufferLocations;
+        }
+
+        public List<String> getColumnNames()
+        {
+            return columnNames;
+        }
+
+        public List<Type> getColumnTypes()
+        {
+            return columnTypes;
+        }
+
+        public Set<URI> getBufferLocations()
+        {
+            return bufferLocations;
+        }
+
+        public boolean isNoMoreBufferLocations()
+        {
+            return noMoreBufferLocations;
+        }
+    }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.PlanFlattener.FlattenedPlan;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
@@ -51,6 +52,8 @@ public class QueryInfo
     private final List<String> fieldNames;
     private final String query;
     private final QueryStats queryStats;
+    private final Optional<String> setCatalog;
+    private final Optional<String> setSchema;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Map<String, String> addedPreparedStatements;
@@ -64,6 +67,7 @@ public class QueryInfo
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
     private final Optional<Output> output;
+    private final Optional<FlattenedPlan> plan;
     private final boolean completeInfo;
     private final Optional<String> resourceGroupName;
 
@@ -78,6 +82,8 @@ public class QueryInfo
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
+            @JsonProperty("setCatalog") Optional<String> setCatalog,
+            @JsonProperty("setSchema") Optional<String> setSchema,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("addedPreparedStatements") Map<String, String> addedPreparedStatements,
@@ -90,6 +96,7 @@ public class QueryInfo
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
+            @JsonProperty("flattenedPlan") Optional<FlattenedPlan> plan,
             @JsonProperty("completeInfo") boolean completeInfo,
             @JsonProperty("resourceGroupName") Optional<String> resourceGroupName)
     {
@@ -99,6 +106,8 @@ public class QueryInfo
         requireNonNull(self, "self is null");
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(queryStats, "queryStats is null");
+        requireNonNull(setCatalog, "setCatalog is null");
+        requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
@@ -108,6 +117,7 @@ public class QueryInfo
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
+        requireNonNull(plan, "plan is null");
         requireNonNull(resourceGroupName, "resourceGroupName is null");
 
         this.queryId = queryId;
@@ -119,6 +129,8 @@ public class QueryInfo
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
         this.queryStats = queryStats;
+        this.setCatalog = setCatalog;
+        this.setSchema = setSchema;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.addedPreparedStatements = ImmutableMap.copyOf(addedPreparedStatements);
@@ -132,6 +144,7 @@ public class QueryInfo
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
+        this.plan = plan;
         this.completeInfo = completeInfo;
         this.resourceGroupName = resourceGroupName;
     }
@@ -188,6 +201,18 @@ public class QueryInfo
     public QueryStats getQueryStats()
     {
         return queryStats;
+    }
+
+    @JsonProperty
+    public Optional<String> getSetCatalog()
+    {
+        return setCatalog;
+    }
+
+    @JsonProperty
+    public Optional<String> getSetSchema()
+    {
+        return setSchema;
     }
 
     @JsonProperty
@@ -276,6 +301,12 @@ public class QueryInfo
     public Optional<Output> getOutput()
     {
         return output;
+    }
+
+    @JsonProperty
+    public Optional<FlattenedPlan> getPlan()
+    {
+        return plan;
     }
 
     @JsonProperty

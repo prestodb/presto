@@ -3,7 +3,7 @@
     {
       "name": "global",
       "softMemoryLimit": "1MB",
-      "maxRunning": 1,
+      "hardConcurrencyLimit": 1,
       "maxQueued": 1000,
       "softCpuLimit": "1h",
       "hardCpuLimit": "1d",
@@ -11,7 +11,7 @@
         {
           "name": "select",
           "softMemoryLimit": "2MB",
-          "maxRunning": 3,
+          "hardConcurrencyLimit": 3,
           "maxQueued": 4
         }
       ]

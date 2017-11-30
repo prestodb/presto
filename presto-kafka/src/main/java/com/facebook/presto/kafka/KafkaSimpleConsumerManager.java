@@ -60,7 +60,7 @@ public class KafkaSimpleConsumerManager
         this.connectTimeoutMillis = toIntExact(kafkaConnectorConfig.getKafkaConnectTimeout().toMillis());
         this.bufferSizeBytes = toIntExact(kafkaConnectorConfig.getKafkaBufferSize().toBytes());
 
-        this.consumerCache = CacheBuilder.newBuilder().build(new SimpleConsumerCacheLoader());
+        this.consumerCache = CacheBuilder.newBuilder().build(CacheLoader.from(this::createConsumer));
     }
 
     @PreDestroy
@@ -87,19 +87,13 @@ public class KafkaSimpleConsumerManager
         }
     }
 
-    private class SimpleConsumerCacheLoader
-            extends CacheLoader<HostAddress, SimpleConsumer>
+    private SimpleConsumer createConsumer(HostAddress host)
     {
-        @Override
-        public SimpleConsumer load(HostAddress host)
-                throws Exception
-        {
-            log.info("Creating new Consumer for %s", host);
-            return new SimpleConsumer(host.getHostText(),
-                    host.getPort(),
-                    connectTimeoutMillis,
-                    bufferSizeBytes,
-                    format("presto-kafka-%s-%s", connectorId, nodeManager.getCurrentNode().getNodeIdentifier()));
-        }
+        log.info("Creating new Consumer for %s", host);
+        return new SimpleConsumer(host.getHostText(),
+                host.getPort(),
+                connectTimeoutMillis,
+                bufferSizeBytes,
+                format("presto-kafka-%s-%s", connectorId, nodeManager.getCurrentNode().getNodeIdentifier()));
     }
 }

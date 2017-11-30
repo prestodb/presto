@@ -130,7 +130,7 @@ public class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
-        return new AggregationHeader(aggregationAnnotation.value(), parseDescription(aggregationDefinition), aggregationAnnotation.decomposable());
+        return new AggregationHeader(aggregationAnnotation.value(), parseDescription(aggregationDefinition), aggregationAnnotation.decomposable(), aggregationAnnotation.isOrderSensitive());
     }
 
     private static List<AggregationHeader> parseHeaders(AnnotatedElement aggregationDefinition, AnnotatedElement toParse)
@@ -142,7 +142,8 @@ public class AggregationFromAnnotationsParser
                         new AggregationHeader(
                                 name,
                                 parseDescription(aggregationDefinition, toParse),
-                                aggregationAnnotation.decomposable()))
+                                aggregationAnnotation.decomposable(),
+                                aggregationAnnotation.isOrderSensitive()))
                 .collect(toImmutableList());
     }
 

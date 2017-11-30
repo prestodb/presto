@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -30,6 +31,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -39,10 +41,12 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
@@ -59,7 +63,7 @@ public class MultiChannelGroupByHash
     private final List<ObjectArrayList<Block>> channelBuilders;
     private final Optional<Integer> inputHashChannel;
     private final HashGenerator hashGenerator;
-    private final Optional<Integer> precomputedHashChannel;
+    private final OptionalInt precomputedHashChannel;
     private final boolean processDictionary;
     private PageBuilder currentPageBuilder;
 
@@ -79,13 +83,19 @@ public class MultiChannelGroupByHash
     private long hashCollisions;
     private double expectedHashCollisions;
 
+    // reserve enough memory before rehash
+    private final UpdateMemory updateMemory;
+    private long preallocatedMemoryInBytes;
+    private long currentPageSizeInBytes;
+
     public MultiChannelGroupByHash(
             List<? extends Type> hashTypes,
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
             int expectedSize,
             boolean processDictionary,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            UpdateMemory updateMemory)
     {
         this.hashTypes = ImmutableList.copyOf(requireNonNull(hashTypes, "hashTypes is null"));
 
@@ -111,11 +121,11 @@ public class MultiChannelGroupByHash
             channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
         }
         if (inputHashChannel.isPresent()) {
-            this.precomputedHashChannel = Optional.of(hashChannels.length);
+            this.precomputedHashChannel = OptionalInt.of(hashChannels.length);
             channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
         }
         else {
-            this.precomputedHashChannel = Optional.empty();
+            this.precomputedHashChannel = OptionalInt.empty();
         }
         this.channelBuilders = channelBuilders.build();
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(this.types, outputChannels.build());
@@ -137,6 +147,10 @@ public class MultiChannelGroupByHash
 
         groupAddressByGroupId = new LongBigArray();
         groupAddressByGroupId.ensureCapacity(maxFill);
+
+        // This interface is used for actively reserving memory (push model) for rehash.
+        // The caller can also query memory usage on this object (pull model)
+        this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
     }
 
     @Override
@@ -158,7 +172,8 @@ public class MultiChannelGroupByHash
                 sizeOf(groupAddressByHash) +
                 sizeOf(groupIdsByHash) +
                 groupAddressByGroupId.sizeOf() +
-                sizeOf(rawHashByHashPosition);
+                sizeOf(rawHashByHashPosition) +
+                preallocatedMemoryInBytes;
     }
 
     @Override
@@ -195,43 +210,17 @@ public class MultiChannelGroupByHash
     }
 
     @Override
-    public void addPage(Page page)
+    public Work<?> addPage(Page page)
     {
-        if (canProcessDictionary(page)) {
-            addDictionaryPage(page);
-            return;
-        }
-
-        // get the group id for each position
-        int positionCount = page.getPositionCount();
-        for (int position = 0; position < positionCount; position++) {
-            // get the group for the current row
-            putIfAbsent(position, page);
-        }
+        currentPageSizeInBytes = page.getRetainedSizeInBytes();
+        return canProcessDictionary(page) ? new AddDictionaryPageWork(page) : new AddNonDictionaryPageWork(page);
     }
 
     @Override
-    public GroupByIdBlock getGroupIds(Page page)
+    public Work<GroupByIdBlock> getGroupIds(Page page)
     {
-        int positionCount = page.getPositionCount();
-
-        // we know the exact size required for the block
-        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
-
-        if (canProcessDictionary(page)) {
-            Block groupIds = processDictionary(page);
-            return new GroupByIdBlock(nextGroupId, groupIds);
-        }
-
-        // get the group id for each position
-        for (int position = 0; position < positionCount; position++) {
-            // get the group for the current row
-            int groupId = putIfAbsent(position, page);
-
-            // output the group id for this row
-            BIGINT.writeLong(blockBuilder, groupId);
-        }
-        return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+        currentPageSizeInBytes = page.getRetainedSizeInBytes();
+        return canProcessDictionary(page) ? new GetDictionaryGroupIdsWork(page) : new GetNonDictionaryGroupIdsWork(page);
     }
 
     @Override
@@ -253,8 +242,14 @@ public class MultiChannelGroupByHash
         return false;
     }
 
+    @VisibleForTesting
     @Override
-    public int putIfAbsent(int position, Page page)
+    public int getCapacity()
+    {
+        return hashCapacity;
+    }
+
+    private int putIfAbsent(int position, Page page)
     {
         long rawHash = hashGenerator.hashPosition(position, page);
         return putIfAbsent(position, page, rawHash);
@@ -294,7 +289,7 @@ public class MultiChannelGroupByHash
             type.appendTo(page.getBlock(hashChannel), position, currentPageBuilder.getBlockBuilder(i));
         }
         if (precomputedHashChannel.isPresent()) {
-            BIGINT.writeLong(currentPageBuilder.getBlockBuilder(precomputedHashChannel.get()), rawHash);
+            BIGINT.writeLong(currentPageBuilder.getBlockBuilder(precomputedHashChannel.getAsInt()), rawHash);
         }
         currentPageBuilder.declarePosition();
         int pageIndex = channelBuilders.get(0).size() - 1;
@@ -315,10 +310,15 @@ public class MultiChannelGroupByHash
         }
 
         // increase capacity, if necessary
-        if (nextGroupId >= maxFill) {
-            rehash();
+        if (needRehash()) {
+            tryRehash();
         }
         return groupId;
+    }
+
+    private boolean needRehash()
+    {
+        return nextGroupId >= maxFill;
     }
 
     private void startNewPage()
@@ -336,15 +336,26 @@ public class MultiChannelGroupByHash
         }
     }
 
-    private void rehash()
+    private boolean tryRehash()
     {
-        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
-
         long newCapacityLong = hashCapacity * 2L;
         if (newCapacityLong > Integer.MAX_VALUE) {
             throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
-        int newCapacity = (int) newCapacityLong;
+        int newCapacity = toIntExact(newCapacityLong);
+
+        // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
+        // This includes the new capacity for groupAddressByHash, rawHashByHashPosition, groupIdsByHash, and groupAddressByGroupId as well as the size of the current page
+        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES + Byte.BYTES) +
+                (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES +
+                currentPageSizeInBytes;
+        if (!updateMemory.update()) {
+            // reserved memory but has exceeded the limit
+            return false;
+        }
+        preallocatedMemoryInBytes = 0;
+
+        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
 
         int newMask = newCapacity - 1;
         long[] newKey = new long[newCapacity];
@@ -384,6 +395,7 @@ public class MultiChannelGroupByHash
         this.rawHashByHashPosition = rawHashes;
         this.groupIdsByHash = newValue;
         groupAddressByGroupId.ensureCapacity(maxFill);
+        return true;
     }
 
     private long hashPosition(long sliceAddress)
@@ -398,7 +410,7 @@ public class MultiChannelGroupByHash
 
     private long getRawHash(int sliceIndex, int position)
     {
-        return channelBuilders.get(precomputedHashChannel.get()).get(sliceIndex).getLong(position, 0);
+        return channelBuilders.get(precomputedHashChannel.getAsInt()).get(sliceIndex).getLong(position, 0);
     }
 
     private boolean positionEqualsCurrentRow(long address, int hashPosition, int position, Page page, byte rawHash, int[] hashChannels)
@@ -425,44 +437,11 @@ public class MultiChannelGroupByHash
         return maxFill;
     }
 
-    private void addDictionaryPage(Page page)
-    {
-        verify(canProcessDictionary(page), "invalid call to addDictionaryPage");
-
-        DictionaryBlock dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
-        updateDictionaryLookBack(dictionaryBlock.getDictionary());
-        Page dictionaryPage = createPageWithExtractedDictionary(page);
-
-        for (int i = 0; i < page.getPositionCount(); i++) {
-            int positionInDictionary = dictionaryBlock.getId(i);
-            getGroupId(hashGenerator, dictionaryPage, positionInDictionary);
-        }
-    }
-
     private void updateDictionaryLookBack(Block dictionary)
     {
         if (dictionaryLookBack == null || dictionaryLookBack.getDictionary() != dictionary) {
             dictionaryLookBack = new DictionaryLookBack(dictionary);
         }
-    }
-
-    private Block processDictionary(Page page)
-    {
-        verify(canProcessDictionary(page), "invalid call to processDictionary");
-
-        DictionaryBlock dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
-        updateDictionaryLookBack(dictionaryBlock.getDictionary());
-        Page dictionaryPage = createPageWithExtractedDictionary(page);
-
-        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(page.getPositionCount());
-        for (int i = 0; i < page.getPositionCount(); i++) {
-            int positionInDictionary = dictionaryBlock.getId(i);
-            int groupId = getGroupId(hashGenerator, dictionaryPage, positionInDictionary);
-            BIGINT.writeLong(blockBuilder, groupId);
-        }
-
-        verify(blockBuilder.getPositionCount() == page.getPositionCount(), "invalid position count");
-        return blockBuilder.build();
     }
 
     // For a page that contains DictionaryBlocks, create a new page in which
@@ -542,6 +521,201 @@ public class MultiChannelGroupByHash
         public void setProcessed(int position, int groupId)
         {
             processed[position] = groupId;
+        }
+    }
+
+    private class AddNonDictionaryPageWork
+            implements Work<Void>
+    {
+        private final Page page;
+
+        private int lastPosition;
+
+        public AddNonDictionaryPageWork(Page page)
+        {
+            this.page = requireNonNull(page, "page is null");
+        }
+
+        @Override
+        public boolean process()
+        {
+            int positionCount = page.getPositionCount();
+            checkState(lastPosition < positionCount, "position count out of bound");
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                // get the group for the current row
+                putIfAbsent(lastPosition, page);
+                lastPosition++;
+            }
+            return lastPosition == positionCount;
+        }
+
+        @Override
+        public Void getResult()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private class AddDictionaryPageWork
+            implements Work<Void>
+    {
+        private final Page page;
+        private final Page dictionaryPage;
+        private final DictionaryBlock dictionaryBlock;
+
+        private int lastPosition;
+
+        public AddDictionaryPageWork(Page page)
+        {
+            verify(canProcessDictionary(page), "invalid call to addDictionaryPage");
+            this.page = requireNonNull(page, "page is null");
+            this.dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
+            updateDictionaryLookBack(dictionaryBlock.getDictionary());
+            this.dictionaryPage = createPageWithExtractedDictionary(page);
+        }
+
+        @Override
+        public boolean process()
+        {
+            int positionCount = page.getPositionCount();
+            checkState(lastPosition < positionCount, "position count out of bound");
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                int positionInDictionary = dictionaryBlock.getId(lastPosition);
+                getGroupId(hashGenerator, dictionaryPage, positionInDictionary);
+                lastPosition++;
+            }
+            return lastPosition == positionCount;
+        }
+
+        @Override
+        public Void getResult()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private class GetNonDictionaryGroupIdsWork
+            implements Work<GroupByIdBlock>
+    {
+        private final BlockBuilder blockBuilder;
+        private final Page page;
+
+        private boolean finished;
+        private int lastPosition;
+
+        public GetNonDictionaryGroupIdsWork(Page page)
+        {
+            this.page = requireNonNull(page, "page is null");
+            // we know the exact size required for the block
+            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(page.getPositionCount());
+        }
+
+        @Override
+        public boolean process()
+        {
+            int positionCount = page.getPositionCount();
+            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(!finished);
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                // output the group id for this row
+                BIGINT.writeLong(blockBuilder, putIfAbsent(lastPosition, page));
+                lastPosition++;
+            }
+            return lastPosition == positionCount;
+        }
+
+        @Override
+        public GroupByIdBlock getResult()
+        {
+            checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
+            checkState(!finished, "result has produced");
+            finished = true;
+            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+        }
+    }
+
+    private class GetDictionaryGroupIdsWork
+            implements Work<GroupByIdBlock>
+    {
+        private final BlockBuilder blockBuilder;
+        private final Page page;
+        private final Page dictionaryPage;
+        private final DictionaryBlock dictionaryBlock;
+
+        private boolean finished;
+        private int lastPosition;
+
+        public GetDictionaryGroupIdsWork(Page page)
+        {
+            this.page = requireNonNull(page, "page is null");
+            verify(canProcessDictionary(page), "invalid call to processDictionary");
+
+            this.dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
+            updateDictionaryLookBack(dictionaryBlock.getDictionary());
+            this.dictionaryPage = createPageWithExtractedDictionary(page);
+
+            // we know the exact size required for the block
+            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(page.getPositionCount());
+        }
+
+        @Override
+        public boolean process()
+        {
+            int positionCount = page.getPositionCount();
+            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(!finished);
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                int positionInDictionary = dictionaryBlock.getId(lastPosition);
+                int groupId = getGroupId(hashGenerator, dictionaryPage, positionInDictionary);
+                BIGINT.writeLong(blockBuilder, groupId);
+                lastPosition++;
+            }
+            return lastPosition == positionCount;
+        }
+
+        @Override
+        public GroupByIdBlock getResult()
+        {
+            checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
+            checkState(!finished, "result has produced");
+            finished = true;
+            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
         }
     }
 }

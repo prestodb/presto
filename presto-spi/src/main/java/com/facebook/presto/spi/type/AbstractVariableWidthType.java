@@ -17,6 +17,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 
+import static java.lang.Math.min;
+
 public abstract class AbstractVariableWidthType
         extends AbstractType
         implements VariableWidthType
@@ -38,10 +40,13 @@ public abstract class AbstractVariableWidthType
         else {
             maxBlockSizeInBytes = blockBuilderStatus.getMaxBlockSizeInBytes();
         }
+
+        // it is guaranteed Math.min will not overflow; safe to cast
+        int expectedBytes = (int) min((long) expectedEntries * expectedBytesPerEntry, maxBlockSizeInBytes);
         return new VariableWidthBlockBuilder(
                 blockBuilderStatus,
                 expectedBytesPerEntry == 0 ? expectedEntries : Math.min(expectedEntries, maxBlockSizeInBytes / expectedBytesPerEntry),
-                expectedBytesPerEntry);
+                expectedBytes);
     }
 
     @Override

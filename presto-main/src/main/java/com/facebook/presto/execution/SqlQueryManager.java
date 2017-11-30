@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
+import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -66,6 +68,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -76,10 +79,12 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.verifyExpressionIsConstant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -206,7 +211,7 @@ public class SqlQueryManager
                 }
 
                 try {
-                    enforceQueryMaxRunTimeLimits();
+                    enforceTimeLimits();
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error enforcing query timeout limits");
@@ -271,18 +276,30 @@ public class SqlQueryManager
     }
 
     @Override
-    public Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
     {
         requireNonNull(queryId, "queryId is null");
-        requireNonNull(maxWait, "maxWait is null");
+        requireNonNull(listener, "listener is null");
 
         QueryExecution query = queries.get(queryId);
         if (query == null) {
-            return maxWait;
+            throw new NoSuchElementException();
         }
 
-        return query.waitForStateChange(currentState, maxWait);
+        query.addOutputInfoListener(listener);
+    }
+
+    @Override
+    public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query == null) {
+            return immediateFailedFuture(new NoSuchElementException());
+        }
+
+        return query.getStateChange(currentState);
     }
 
     @Override
@@ -378,8 +395,7 @@ public class SqlQueryManager
                 query = query.substring(0, maxQueryLength);
                 throw new PrestoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
             }
-
-            Statement wrappedStatement = sqlParser.createStatement(query);
+            Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
             statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
             List<Expression> parameters = wrappedStatement instanceof Execute ? ((Execute) wrappedStatement).getParameters() : emptyList();
             validateParameters(statement, parameters);
@@ -421,6 +437,7 @@ public class SqlQueryManager
                 queryMonitor.queryCreatedEvent(queryInfo);
                 queryMonitor.queryCompletedEvent(queryInfo);
                 stats.queryStarted();
+                stats.queryStopped();
                 stats.queryFinished(queryInfo);
             }
             finally {
@@ -463,7 +480,7 @@ public class SqlQueryManager
         }
 
         String sql = session.getPreparedStatementFromExecute((Execute) statement);
-        return sqlParser.createStatement(sql);
+        return sqlParser.createStatement(sql, createParsingOptions(session));
     }
 
     public static void validateParameters(Statement node, List<Expression> parameterValues)
@@ -536,17 +553,22 @@ public class SqlQueryManager
     }
 
     /**
-     * Enforce timeout at the query level
+     * Enforce query max runtime/execution time limits
      */
-    public void enforceQueryMaxRunTimeLimits()
+    public void enforceTimeLimits()
     {
         for (QueryExecution query : queries.values()) {
             if (query.getState().isDone()) {
                 continue;
             }
             Duration queryMaxRunTime = SystemSessionProperties.getQueryMaxRunTime(query.getSession());
-            DateTime executionStartTime = query.getQueryInfo().getQueryStats().getCreateTime();
-            if (executionStartTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
+            Duration queryMaxExecutionTime = SystemSessionProperties.getQueryMaxExecutionTime(query.getSession());
+            DateTime executionStartTime = query.getQueryInfo().getQueryStats().getExecutionStartTime();
+            DateTime createTime = query.getQueryInfo().getQueryStats().getCreateTime();
+            if (executionStartTime != null && executionStartTime.plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
+                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
+            }
+            if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
         }

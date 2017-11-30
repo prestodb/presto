@@ -21,6 +21,7 @@ public final class SliceBigArray
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceBigArray.class).instanceSize();
     private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
     private final ObjectBigArray<Slice> array;
+    private final ReferenceCountMap trackedSlices = new ReferenceCountMap();
     private long sizeOfSlices;
 
     public SliceBigArray()
@@ -38,7 +39,7 @@ public final class SliceBigArray
      */
     public long sizeOf()
     {
-        return INSTANCE_SIZE + array.sizeOf() + sizeOfSlices;
+        return INSTANCE_SIZE + array.sizeOf() + sizeOfSlices + trackedSlices.sizeOf();
     }
 
     /**
@@ -59,22 +60,8 @@ public final class SliceBigArray
      */
     public void set(long index, Slice value)
     {
-        Slice currentValue = array.get(index);
-        if (currentValue != null) {
-            sizeOfSlices -= getSize(currentValue);
-        }
-        if (value != null) {
-            sizeOfSlices += getSize(value);
-        }
+        updateRetainedSize(index, value);
         array.set(index, value);
-    }
-
-    // For now we approximate the retained size of a slice by object overhead plus length.
-    // In general this is more complicated than that as there may be multiple "view" slices
-    // pointing to the same backing memory of a slice.
-    private long getSize(Slice slice)
-    {
-        return slice.length() + SLICE_INSTANCE_SIZE;
     }
 
     /**
@@ -84,5 +71,34 @@ public final class SliceBigArray
     public void ensureCapacity(long length)
     {
         array.ensureCapacity(length);
+    }
+
+    private void updateRetainedSize(long index, Slice value)
+    {
+        Slice currentValue = array.get(index);
+        if (currentValue != null) {
+            int baseReferenceCount = trackedSlices.decrementAndGet(currentValue.getBase());
+            int sliceReferenceCount = trackedSlices.decrementAndGet(currentValue);
+            if (baseReferenceCount == 0) {
+                // it is the last referenced base
+                sizeOfSlices -= currentValue.getRetainedSize();
+            }
+            else if (sliceReferenceCount == 0) {
+                // it is the last referenced slice
+                sizeOfSlices -= SLICE_INSTANCE_SIZE;
+            }
+        }
+        if (value != null) {
+            int baseReferenceCount = trackedSlices.incrementAndGet(value.getBase());
+            int sliceReferenceCount = trackedSlices.incrementAndGet(value);
+            if (baseReferenceCount == 1) {
+                // it is the first referenced base
+                sizeOfSlices += value.getRetainedSize();
+            }
+            else if (sliceReferenceCount == 1) {
+                // it is the first referenced slice
+                sizeOfSlices += SLICE_INSTANCE_SIZE;
+            }
+        }
     }
 }

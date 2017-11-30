@@ -27,6 +27,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
+@Deprecated
 public class SliceArrayBlock
         extends AbstractVariableWidthBlock
 {
@@ -165,7 +166,7 @@ public class SliceArrayBlock
         Map<Slice, Slice> distinctValues = new IdentityHashMap<>();
         for (int i = 0; i < newValues.length; i++) {
             Slice slice = newValues[i];
-            if (slice == null) {
+            if (slice == null || slice.isCompact()) {
                 continue;
             }
             Slice distinct = distinctValues.get(slice);

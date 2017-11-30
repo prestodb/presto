@@ -36,7 +36,8 @@ public class ResourceGroupStateInfo
 
     private final List<ResourceGroupInfo> subGroups;
 
-    private final int maxRunningQueries;
+    private final int softConcurrencyLimit;
+    private final int hardConcurrencyLimit;
     private final int maxQueuedQueries;
     private final Duration runningTimeLimit;
     private final Duration queuedTimeLimit;
@@ -49,7 +50,8 @@ public class ResourceGroupStateInfo
             @JsonProperty("state") ResourceGroupState state,
             @JsonProperty("softMemoryLimit") DataSize softMemoryLimit,
             @JsonProperty("memoryUsage") DataSize memoryUsage,
-            @JsonProperty("maxRunningQueries") int maxRunningQueries,
+            @JsonProperty("softConcurrencyLimit") int softConcurrencyLimit,
+            @JsonProperty("hardConcurrencyLimit") int hardConcurrencyLimit,
             @JsonProperty("maxQueuedQueries") int maxQueuedQueries,
             @JsonProperty("runningTimeLimit") Duration runningTimeLimit,
             @JsonProperty("queuedTimeLimit") Duration queuedTimeLimit,
@@ -63,7 +65,8 @@ public class ResourceGroupStateInfo
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
 
-        this.maxRunningQueries = maxRunningQueries;
+        this.softConcurrencyLimit = softConcurrencyLimit;
+        this.hardConcurrencyLimit = hardConcurrencyLimit;
         this.maxQueuedQueries = maxQueuedQueries;
 
         this.runningTimeLimit = requireNonNull(runningTimeLimit, "runningTimeLimit is null");
@@ -100,9 +103,23 @@ public class ResourceGroupStateInfo
     }
 
     @JsonProperty
+    public int getSoftConcurrencyLimit()
+    {
+        return softConcurrencyLimit;
+    }
+
+    @JsonProperty
+    public int getHardConcurrencyLimit()
+    {
+        return hardConcurrencyLimit;
+    }
+
+    @JsonProperty
+    @Deprecated
     public int getMaxRunningQueries()
     {
-        return maxRunningQueries;
+        // TODO: Remove when dependent tools are updated
+        return hardConcurrencyLimit;
     }
 
     @JsonProperty

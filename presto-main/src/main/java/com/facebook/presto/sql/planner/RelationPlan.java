@@ -60,7 +60,7 @@ class RelationPlan
 
     public Symbol getSymbol(int fieldIndex)
     {
-        checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size() && fieldMappings.get(fieldIndex) != null, "No field->symbol mapping for field %s", fieldIndex);
+        checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size(), "No field->symbol mapping for field %s", fieldIndex);
         return fieldMappings.get(fieldIndex);
     }
 

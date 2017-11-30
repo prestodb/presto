@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.builder;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.MergeHashSort;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -93,11 +94,12 @@ public class SpillableHashAggregationBuilder
     }
 
     @Override
-    public void processPage(Page page)
+    public Work<?> processPage(Page page)
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
-
-        hashAggregationBuilder.processPage(page);
+        // hashAggregationBuilder is constructed with yieldForMemoryReservation = false
+        // Therefore the processing of the returned Work should always be true
+        return hashAggregationBuilder.processPage(page);
     }
 
     @Override
@@ -284,7 +286,8 @@ public class SpillableHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 DataSize.succinctBytes(0),
-                joinCompiler);
+                joinCompiler,
+                false);
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }
 }

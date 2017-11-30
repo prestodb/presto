@@ -87,7 +87,7 @@ public abstract class AbstractResourceConfigurationManager
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
             validateSelectors(managerSpec.getRootGroups(), spec);
-            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getQueryType(), spec.getGroup()));
+            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getClientTags(), spec.getQueryType(), spec.getGroup()));
         }
         return selectors.build();
     }
@@ -191,7 +191,8 @@ public abstract class AbstractResourceConfigurationManager
             }
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
-        group.setMaxRunningQueries(match.getMaxRunning());
+        group.setSoftConcurrencyLimit(match.getSoftConcurrencyLimit().orElse(match.getHardConcurrencyLimit()));
+        group.setHardConcurrencyLimit(match.getHardConcurrencyLimit());
         match.getQueuedTimeLimit().ifPresent(group::setQueuedTimeLimit);
         match.getRunningTimeLimit().ifPresent(group::setRunningTimeLimit);
         match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);

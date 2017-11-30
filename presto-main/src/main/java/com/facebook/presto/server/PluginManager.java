@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
@@ -77,6 +78,7 @@ public class PluginManager
     private final AccessControlManager accessControlManager;
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
+    private final SessionSupplier sessionSupplier;
     private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
@@ -95,6 +97,7 @@ public class PluginManager
             AccessControlManager accessControlManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
+            SessionSupplier sessionSupplier,
             TypeRegistry typeRegistry)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
@@ -116,6 +119,7 @@ public class PluginManager
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
@@ -193,6 +197,11 @@ public class PluginManager
         for (Class<?> functionClass : plugin.getFunctions()) {
             log.info("Registering functions from %s", functionClass.getName());
             metadata.addFunctions(extractFunctions(functionClass));
+        }
+
+        for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
+            log.info("Registering session property configuration manager %s", sessionConfigFactory.getName());
+            sessionSupplier.addConfigurationManager(sessionConfigFactory);
         }
 
         for (ResourceGroupConfigurationManagerFactory configurationManagerFactory : plugin.getResourceGroupConfigurationManagerFactories()) {

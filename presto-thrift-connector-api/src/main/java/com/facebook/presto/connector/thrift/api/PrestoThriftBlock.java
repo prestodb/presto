@@ -24,12 +24,17 @@ import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftInteger;
 import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftJson;
 import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTimestamp;
 import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftVarchar;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.swift.codec.ThriftConstructor;
 import com.facebook.swift.codec.ThriftField;
 import com.facebook.swift.codec.ThriftStruct;
+import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
@@ -48,6 +53,7 @@ import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 @ThriftStruct
@@ -294,6 +300,59 @@ public final class PrestoThriftBlock
             default:
                 throw new IllegalArgumentException("Unsupported block type: " + type);
         }
+    }
+
+    public static PrestoThriftBlock fromRecordSetColumn(RecordSet recordSet, int columnIndex, int totalRecords)
+    {
+        Type type = recordSet.getColumnTypes().get(columnIndex);
+        switch (type.getTypeSignature().getBase()) {
+            // use more efficient implementations for numeric types which are likely to be used in index join
+            case INTEGER:
+                return PrestoThriftInteger.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
+            case BIGINT:
+                return PrestoThriftBigint.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
+            case DATE:
+                return PrestoThriftDate.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
+            case TIMESTAMP:
+                return PrestoThriftTimestamp.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
+            default:
+                // less efficient implementation which converts to a block first
+                return fromBlock(convertColumnToBlock(recordSet, columnIndex, totalRecords), type);
+        }
+    }
+
+    private static Block convertColumnToBlock(RecordSet recordSet, int columnIndex, int positions)
+    {
+        Type type = recordSet.getColumnTypes().get(columnIndex);
+        BlockBuilder output = type.createBlockBuilder(new BlockBuilderStatus(), positions);
+        Class<?> javaType = type.getJavaType();
+        RecordCursor cursor = recordSet.cursor();
+        for (int position = 0; position < positions; position++) {
+            checkState(cursor.advanceNextPosition(), "cursor has less values than expected");
+            if (cursor.isNull(columnIndex)) {
+                output.appendNull();
+            }
+            else {
+                if (javaType == boolean.class) {
+                    type.writeBoolean(output, cursor.getBoolean(columnIndex));
+                }
+                else if (javaType == long.class) {
+                    type.writeLong(output, cursor.getLong(columnIndex));
+                }
+                else if (javaType == double.class) {
+                    type.writeDouble(output, cursor.getDouble(columnIndex));
+                }
+                else if (javaType == Slice.class) {
+                    Slice slice = cursor.getSlice(columnIndex);
+                    type.writeSlice(output, slice, 0, slice.length());
+                }
+                else {
+                    type.writeObject(output, cursor.getObject(columnIndex));
+                }
+            }
+        }
+        checkState(!cursor.advanceNextPosition(), "cursor has more values than expected");
+        return output.build();
     }
 
     private static PrestoThriftColumnData theOnlyNonNull(PrestoThriftColumnData... columnsData)

@@ -17,7 +17,6 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -157,7 +156,7 @@ public class BenchmarkQueryRunner
             ImmutableList.Builder<String> schemas = ImmutableList.builder();
             while (client.isValid() && client.advance()) {
                 // we do not process the output
-                Iterable<List<Object>> data = client.current().getData();
+                Iterable<List<Object>> data = client.currentData().getData();
                 if (data != null) {
                     for (List<Object> objects : data) {
                         schemas.add(objects.get(0).toString());
@@ -174,7 +173,7 @@ public class BenchmarkQueryRunner
                 throw new IllegalStateException("Query is gone (server restarted?)");
             }
 
-            QueryError resultsError = client.finalResults().getError();
+            QueryError resultsError = client.finalStatusInfo().getError();
             if (resultsError != null) {
                 RuntimeException cause = null;
                 if (resultsError.getFailureInfo() != null) {
@@ -208,7 +207,7 @@ public class BenchmarkQueryRunner
             throw new IllegalStateException("Query is gone (server restarted?)");
         }
 
-        QueryError resultsError = client.finalResults().getError();
+        QueryError resultsError = client.finalStatusInfo().getError();
         if (resultsError != null) {
             RuntimeException cause = null;
             if (resultsError.getFailureInfo() != null) {
@@ -218,7 +217,7 @@ public class BenchmarkQueryRunner
             throw new BenchmarkDriverExecutionException(format("Query %s failed: %s", name, resultsError.getMessage()), cause);
         }
 
-        return client.finalResults().getStats();
+        return client.finalStatusInfo().getStats();
     }
 
     @Override
@@ -248,7 +247,7 @@ public class BenchmarkQueryRunner
         }
         catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(interruptedException);
+            throw new RuntimeException(interruptedException);
         }
     }
 

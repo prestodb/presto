@@ -16,10 +16,10 @@ package com.facebook.presto.benchmark;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Throwables;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -38,7 +38,7 @@ public class JsonBenchmarkResultWriter
             jsonGenerator.writeArrayFieldStart("samples");
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -54,7 +54,7 @@ public class JsonBenchmarkResultWriter
             jsonGenerator.writeEndObject();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
         return this;
     }
@@ -68,7 +68,7 @@ public class JsonBenchmarkResultWriter
             jsonGenerator.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 }

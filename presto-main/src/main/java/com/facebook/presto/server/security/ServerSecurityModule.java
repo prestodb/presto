@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.security;
 
+import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -22,42 +22,38 @@ import io.airlift.http.server.TheServlet;
 
 import javax.servlet.Filter;
 
-import java.util.function.Predicate;
+import java.util.Set;
 
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.LDAP;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class ServerSecurityModule
         extends AbstractConfigurationAwareModule
 {
     @Override
-    protected void setup(Binder securityBinder)
+    protected void setup(Binder binder)
     {
-        bindSecurityConfig(
-                securityConfig -> securityConfig.getAuthenticationType() == KERBEROS,
-                binder -> {
-                    configBinder(binder).bindConfig(KerberosConfig.class);
-                    Multibinder.newSetBinder(binder, Filter.class, TheServlet.class)
-                            .addBinding()
-                            .to(SpnegoFilter.class)
-                            .in(Scopes.SINGLETON);
-                });
+        newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
+                .to(AuthenticationFilter.class).in(Scopes.SINGLETON);
 
-        bindSecurityConfig(
-                securityConfig -> securityConfig.getAuthenticationType() == LDAP,
-                binder -> {
-                    configBinder(binder).bindConfig(LdapConfig.class);
-                    Multibinder.newSetBinder(binder, Filter.class, TheServlet.class)
-                            .addBinding()
-                            .to(LdapFilter.class)
-                            .in(Scopes.SINGLETON);
-                });
-    }
+        Set<AuthenticationType> authTypes = buildConfigObject(SecurityConfig.class).getAuthenticationTypes();
+        Multibinder<Authenticator> authBinder = newSetBinder(binder, Authenticator.class);
 
-    private void bindSecurityConfig(Predicate<SecurityConfig> predicate, Module module)
-    {
-        install(installModuleIf(SecurityConfig.class, predicate, module));
+        if (authTypes.contains(CERTIFICATE)) {
+            authBinder.addBinding().to(CertificateAuthenticator.class).in(Scopes.SINGLETON);
+        }
+
+        if (authTypes.contains(KERBEROS)) {
+            configBinder(binder).bindConfig(KerberosConfig.class);
+            authBinder.addBinding().to(KerberosAuthenticator.class).in(Scopes.SINGLETON);
+        }
+
+        if (authTypes.contains(LDAP)) {
+            configBinder(binder).bindConfig(LdapConfig.class);
+            authBinder.addBinding().to(LdapAuthenticator.class).in(Scopes.SINGLETON);
+        }
     }
 }

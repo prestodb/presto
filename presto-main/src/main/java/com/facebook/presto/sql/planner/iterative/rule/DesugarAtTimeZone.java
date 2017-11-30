@@ -17,46 +17,37 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DesugarAtTimeZoneRewriter;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
-import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.AggregationExpressionRewrite;
-import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.FilterExpressionRewrite;
-import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.JoinExpressionRewrite;
-import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.ProjectExpressionRewrite;
-import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.TableScanExpressionRewrite;
-import com.facebook.presto.sql.planner.iterative.rule.ExpressionRewriteRuleSet.ValuesExpressionRewrite;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static java.util.Objects.requireNonNull;
+
 public class DesugarAtTimeZone
-        implements RuleSet
+        extends ExpressionRewriteRuleSet
 {
-    private final Metadata metadata;
-    private final SqlParser sqlParser;
-
-    private Set<Rule<?>> rules = ImmutableSet.of(
-            new ProjectExpressionRewrite(this::rewrite),
-            new AggregationExpressionRewrite(this::rewrite),
-            new FilterExpressionRewrite(this::rewrite),
-            new TableScanExpressionRewrite(this::rewrite),
-            new JoinExpressionRewrite(this::rewrite),
-            new ValuesExpressionRewrite(this::rewrite));
-
     public DesugarAtTimeZone(Metadata metadata, SqlParser sqlParser)
     {
-        this.metadata = metadata;
-        this.sqlParser = sqlParser;
+        super(createRewrite(metadata, sqlParser));
     }
 
     @Override
     public Set<Rule<?>> rules()
     {
-        return rules;
+        return ImmutableSet.of(
+                projectExpressionRewrite(),
+                aggregationExpressionRewrite(),
+                filterExpressionRewrite(),
+                tableScanExpressionRewrite(),
+                joinExpressionRewrite(),
+                valuesExpressionRewrite());
     }
 
-    private Expression rewrite(Expression expression, Rule.Context context)
+    private static ExpressionRewriter createRewrite(Metadata metadata, SqlParser sqlParser)
     {
-        return DesugarAtTimeZoneRewriter.rewrite(expression, context.getSession(), metadata, sqlParser, context.getSymbolAllocator());
+        requireNonNull(metadata, "metadata is null");
+        requireNonNull(sqlParser, "sqlParser is null");
+
+        return (expression, context) -> DesugarAtTimeZoneRewriter.rewrite(expression, context.getSession(), metadata, sqlParser, context.getSymbolAllocator());
     }
 }

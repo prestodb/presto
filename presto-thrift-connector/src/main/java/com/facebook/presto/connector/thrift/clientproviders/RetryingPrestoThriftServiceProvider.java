@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.clientproviders;
 
+import com.facebook.presto.connector.thrift.ThriftConnectorConfig;
 import com.facebook.presto.connector.thrift.annotations.ForRetryDriver;
 import com.facebook.presto.connector.thrift.annotations.NonRetrying;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
@@ -28,18 +29,20 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.util.RetryDriver;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.swift.service.RuntimeTApplicationException;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
+import org.apache.thrift.TApplicationException;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class RetryingPrestoThriftServiceProvider
@@ -50,19 +53,29 @@ public class RetryingPrestoThriftServiceProvider
     private final RetryDriver retry;
 
     @Inject
-    public RetryingPrestoThriftServiceProvider(@NonRetrying PrestoThriftServiceProvider original, @ForRetryDriver ListeningScheduledExecutorService retryExecutor)
+    public RetryingPrestoThriftServiceProvider(@NonRetrying PrestoThriftServiceProvider original, @ForRetryDriver ListeningScheduledExecutorService retryExecutor, ThriftConnectorConfig config)
     {
         this.original = requireNonNull(original, "original is null");
         requireNonNull(retryExecutor, "retryExecutor is null");
+        requireNonNull(config, "config is null");
 
         retry = RetryDriver.retry(retryExecutor)
-                .maxAttempts(5)
+                .maxAttempts(config.getMaxRetryAttempts())
                 .stopRetryingWhen(e -> e instanceof PrestoThriftServiceException && !((PrestoThriftServiceException) e).isRetryable())
+                .withClassifier(RetryingPrestoThriftServiceProvider::classifyException)
                 .exponentialBackoff(
-                        new Duration(10, TimeUnit.MILLISECONDS),
-                        new Duration(20, TimeUnit.MILLISECONDS),
-                        new Duration(30, TimeUnit.SECONDS),
-                        1.5);
+                        config.getMinRetrySleepTime(),
+                        config.getMaxRetrySleepTime(),
+                        config.getMaxRetryDuration(),
+                        config.getRetryScaleFactor());
+    }
+
+    private static Exception classifyException(Exception e)
+    {
+        if (e instanceof TApplicationException || e instanceof RuntimeTApplicationException) {
+            return new PrestoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by a remote thrift server", e);
+        }
+        return e;
     }
 
     @Override
@@ -131,6 +144,20 @@ public class RetryingPrestoThriftServiceProvider
         }
 
         @Override
+        public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(
+                PrestoThriftSchemaTableName schemaTableName,
+                List<String> indexColumnNames,
+                List<String> outputColumnNames,
+                PrestoThriftPageResult keys,
+                PrestoThriftTupleDomain outputConstraint,
+                int maxSplitCount,
+                PrestoThriftNullableToken nextToken)
+                throws PrestoThriftServiceException
+        {
+            return retry.runAsync("getLookupSplits", () -> getClient().getIndexSplits(schemaTableName, indexColumnNames, outputColumnNames, keys, outputConstraint, maxSplitCount, nextToken));
+        }
+
+        @Override
         public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
         {
             return retry.runAsync("getRows", () -> getClient().getRows(splitId, columns, maxBytes, nextToken));
@@ -146,7 +173,7 @@ public class RetryingPrestoThriftServiceProvider
                 client.close();
             }
             catch (Exception e) {
-                log.warn("Error closing client", e);
+                log.warn(e, "Error closing client");
             }
             client = null;
         }

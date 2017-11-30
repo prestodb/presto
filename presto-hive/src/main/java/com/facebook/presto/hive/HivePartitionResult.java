@@ -33,6 +33,7 @@ public class HivePartitionResult
 {
     private final List<HiveColumnHandle> partitionColumns;
     private final List<HivePartition> partitions;
+    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
     private final Optional<HiveBucketHandle> bucketHandle;
@@ -40,12 +41,14 @@ public class HivePartitionResult
     public HivePartitionResult(
             List<HiveColumnHandle> partitionColumns,
             List<HivePartition> partitions,
+            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             TupleDomain<ColumnHandle> unenforcedConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
             Optional<HiveBucketHandle> bucketHandle)
     {
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
         this.partitions = requireNonNull(partitions, "partitions is null");
+        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
@@ -59,6 +62,11 @@ public class HivePartitionResult
     public List<HivePartition> getPartitions()
     {
         return partitions;
+    }
+
+    public TupleDomain<? extends ColumnHandle> getCompactEffectivePredicate()
+    {
+        return compactEffectivePredicate;
     }
 
     public TupleDomain<ColumnHandle> getUnenforcedConstraint()

@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.HiveCluster;
+import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
+import com.facebook.presto.hive.metastore.thrift.HiveCluster;
+import com.facebook.presto.hive.metastore.thrift.HiveMetastoreClient;
+import com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient;
+import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
+import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -25,11 +30,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.BAD_DATABASE;
-import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_DATABASE;
-import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_PARTITION1;
-import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_PARTITION2;
-import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_TABLE;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.BAD_DATABASE;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_DATABASE;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION1;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION2;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;

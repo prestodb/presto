@@ -31,6 +31,7 @@ public class QueryProgressStats
     private final long cpuTimeMillis;
     private final long scheduledTimeMillis;
     private final long blockedTimeMillis;
+    private final long currentMemoryBytes;
     private final long peakMemoryBytes;
     private final long inputRows;
     private final long inputBytes;
@@ -45,6 +46,7 @@ public class QueryProgressStats
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("scheduledTimeMillis") long scheduledTimeMillis,
             @JsonProperty("blockedTimeMillis") long blockedTimeMillis,
+            @JsonProperty("currentMemoryBytes") long currentMemoryBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("inputRows") long inputRows,
             @JsonProperty("inputBytes") long inputBytes,
@@ -57,6 +59,7 @@ public class QueryProgressStats
         this.cpuTimeMillis = cpuTimeMillis;
         this.scheduledTimeMillis = scheduledTimeMillis;
         this.blockedTimeMillis = blockedTimeMillis;
+        this.currentMemoryBytes = currentMemoryBytes;
         this.peakMemoryBytes = peakMemoryBytes;
         this.inputRows = inputRows;
         this.inputBytes = inputBytes;
@@ -73,6 +76,7 @@ public class QueryProgressStats
                 queryStats.getTotalCpuTime().toMillis(),
                 queryStats.getTotalScheduledTime().toMillis(),
                 queryStats.getTotalBlockedTime().toMillis(),
+                queryStats.getTotalMemoryReservation().toBytes(),
                 queryStats.getPeakMemoryReservation().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
@@ -114,6 +118,12 @@ public class QueryProgressStats
     public long getBlockedTimeMillis()
     {
         return blockedTimeMillis;
+    }
+
+    @JsonProperty
+    public long getCurrentMemoryBytes()
+    {
+        return currentMemoryBytes;
     }
 
     @JsonProperty

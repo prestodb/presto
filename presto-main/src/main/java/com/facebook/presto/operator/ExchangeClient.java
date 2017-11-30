@@ -40,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -115,18 +114,23 @@ public class ExchangeClient
         this.maxBufferBytes = Long.MIN_VALUE;
     }
 
-    public synchronized ExchangeClientStatus getStatus()
+    public ExchangeClientStatus getStatus()
     {
-        int bufferedPages = pageBuffer.size();
-        if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
-            bufferedPages--;
-        }
-
-        ImmutableList.Builder<PageBufferClientStatus> exchangeStatus = ImmutableList.builder();
+        // The stats created by this method is only for diagnostics.
+        // It does not guarantee a consistent view between different exchange clients.
+        // Guaranteeing a consistent view introduces significant lock contention.
+        ImmutableList.Builder<PageBufferClientStatus> pageBufferClientStatusBuilder = ImmutableList.builder();
         for (HttpPageBufferClient client : allClients.values()) {
-            exchangeStatus.add(client.getStatus());
+            pageBufferClientStatusBuilder.add(client.getStatus());
         }
-        return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, exchangeStatus.build());
+        List<PageBufferClientStatus> pageBufferClientStatus = pageBufferClientStatusBuilder.build();
+        synchronized (this) {
+            int bufferedPages = pageBuffer.size();
+            if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
+                bufferedPages--;
+            }
+            return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
+        }
     }
 
     public synchronized void addLocation(URI location)
@@ -178,29 +182,6 @@ public class ExchangeClient
         }
 
         SerializedPage page = pageBuffer.poll();
-        return postProcessPage(page);
-    }
-
-    @Nullable
-    public SerializedPage getNextPage(Duration maxWaitTime)
-            throws InterruptedException
-    {
-        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
-
-        throwIfFailed();
-
-        if (closed.get()) {
-            return null;
-        }
-
-        scheduleRequestIfNecessary();
-
-        SerializedPage page = pageBuffer.poll();
-        // only wait for a page if we have remote clients
-        if (page == null && maxWaitTime.toMillis() >= 1 && !allClients.isEmpty()) {
-            page = pageBuffer.poll(maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
-        }
-
         return postProcessPage(page);
     }
 
@@ -351,7 +332,8 @@ public class ExchangeClient
         List<SettableFuture<?>> callers = ImmutableList.copyOf(blockedCallers);
         blockedCallers.clear();
         for (SettableFuture<?> blockedCaller : callers) {
-            blockedCaller.set(null);
+            // Notify callers in a separate thread to avoid callbacks while holding a lock
+            executor.execute(() -> blockedCaller.set(null));
         }
     }
 

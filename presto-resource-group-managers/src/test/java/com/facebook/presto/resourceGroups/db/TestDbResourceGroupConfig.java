@@ -27,7 +27,7 @@ public class TestDbResourceGroupConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(DbResourceGroupConfig.class).setConfigDbUrl(null));
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(DbResourceGroupConfig.class).setConfigDbUrl(null).setExactMatchSelectorEnabled(false));
     }
 
     @Test
@@ -35,8 +35,9 @@ public class TestDbResourceGroupConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("resource-groups.config-db-url", "jdbc:mysql//localhost:3306/config?user=presto_admin")
+                .put("resource-groups.exact-match-selector-enabled", "true")
                 .build();
-        DbResourceGroupConfig expected = new DbResourceGroupConfig().setConfigDbUrl("jdbc:mysql//localhost:3306/config?user=presto_admin");
+        DbResourceGroupConfig expected = new DbResourceGroupConfig().setConfigDbUrl("jdbc:mysql//localhost:3306/config?user=presto_admin").setExactMatchSelectorEnabled(true);
         assertFullMapping(properties, expected);
     }
 }

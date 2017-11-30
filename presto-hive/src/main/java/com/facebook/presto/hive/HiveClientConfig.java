@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -22,6 +23,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import org.joda.time.DateTimeZone;
 
@@ -47,10 +49,12 @@ public class HiveClientConfig
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
     private int maxOutstandingSplits = 1_000;
+    private DataSize maxOutstandingSplitsSize = new DataSize(256, MEGABYTE);
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
+    private int splitLoaderConcurrency = 4;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
     private boolean forceLocalScheduling;
@@ -74,6 +78,8 @@ public class HiveClientConfig
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
     private String domainSocketPath;
+
+    private S3FileSystemType s3FileSystemType = S3FileSystemType.PRESTO;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
@@ -141,6 +147,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
     {
         this.maxInitialSplitSize = maxInitialSplitSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getSplitLoaderConcurrency()
+    {
+        return splitLoaderConcurrency;
+    }
+
+    @Config("hive.split-loader-concurrency")
+    public HiveClientConfig setSplitLoaderConcurrency(int splitLoaderConcurrency)
+    {
+        this.splitLoaderConcurrency = splitLoaderConcurrency;
         return this;
     }
 
@@ -247,9 +266,24 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-outstanding-splits")
+    @ConfigDescription("Target number of buffered splits for each table scan in a query, before the scheduler tries to pause itself")
     public HiveClientConfig setMaxOutstandingSplits(int maxOutstandingSplits)
     {
         this.maxOutstandingSplits = maxOutstandingSplits;
+        return this;
+    }
+
+    @MinDataSize("1MB")
+    public DataSize getMaxOutstandingSplitsSize()
+    {
+        return maxOutstandingSplitsSize;
+    }
+
+    @Config("hive.max-outstanding-splits-size")
+    @ConfigDescription("Maximum amount of memory allowed for split buffering for each table scan in a query, before the query is failed")
+    public HiveClientConfig setMaxOutstandingSplitsSize(DataSize maxOutstandingSplits)
+    {
+        this.maxOutstandingSplitsSize = maxOutstandingSplits;
         return this;
     }
 
@@ -559,6 +593,19 @@ public class HiveClientConfig
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
+        return this;
+    }
+
+    @NotNull
+    public S3FileSystemType getS3FileSystemType()
+    {
+        return s3FileSystemType;
+    }
+
+    @Config("hive.s3-file-system-type")
+    public HiveClientConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
+    {
+        this.s3FileSystemType = s3FileSystemType;
         return this;
     }
 

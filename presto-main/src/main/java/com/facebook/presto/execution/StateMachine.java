@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.GuardedBy;
@@ -38,11 +37,9 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
- * Simple state machine which holds a single state.  Callers can register for
- * state change events, and can wait for the state to change.
+ * Simple state machine which holds a single state. Callers can register for state change events.
  */
 @ThreadSafe
 public class StateMachine<T>
@@ -128,8 +125,6 @@ public class StateMachine<T>
             if (isTerminalState(state)) {
                 this.stateChangeListeners.clear();
             }
-
-            lock.notifyAll();
         }
 
         fireStateChanged(newState, futureStateChange, stateChangeListeners);
@@ -203,8 +198,6 @@ public class StateMachine<T>
             if (isTerminalState(state)) {
                 this.stateChangeListeners.clear();
             }
-
-            lock.notifyAll();
         }
 
         fireStateChanged(newState, futureStateChange, stateChangeListeners);
@@ -272,39 +265,6 @@ public class StateMachine<T>
         if (inTerminalState) {
             stateChangeListener.stateChanged(state);
         }
-    }
-
-    /**
-     * Wait for the state to not be {@code .equals()} to the specified current state.
-     */
-    public Duration waitForStateChange(T currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
-        requireNonNull(currentState, "currentState is null");
-        requireNonNull(maxWait, "maxWait is null");
-
-        // don't wait if the state has already changed, or we are in a terminal state
-        if (isPossibleStateChange(currentState)) {
-            return maxWait;
-        }
-
-        // wait for task state to change
-        long remainingNanos = maxWait.roundTo(NANOSECONDS);
-        long start = System.nanoTime();
-        long end = start + remainingNanos;
-
-        synchronized (lock) {
-            while (remainingNanos > 0 && !isPossibleStateChange(currentState)) {
-                // wait for timeout or notification
-                NANOSECONDS.timedWait(lock, remainingNanos);
-                remainingNanos = end - System.nanoTime();
-            }
-        }
-        if (remainingNanos < 0) {
-            remainingNanos = 0;
-        }
-        return new Duration(remainingNanos, NANOSECONDS);
     }
 
     private boolean isPossibleStateChange(T currentState)

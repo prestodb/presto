@@ -15,8 +15,8 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.PageProjection;
-import com.facebook.presto.operator.project.PageProjectionOutput;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -121,9 +121,9 @@ public class TestPageFunctionCompiler
         String classSuffix = stageId + "_" + planNodeId;
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of(classSuffix));
         PageProjection projection = projectionSupplier.get();
-        PageProjectionOutput pageProjectionOutput = projection.project(SESSION, new DriverYieldSignal(), createLongBlockPage(0), SelectedPositions.positionsRange(0, 1));
+        Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), createLongBlockPage(0), SelectedPositions.positionsRange(0, 1));
         // class name should look like PageProjectionOutput_20170707_223500_67496_zguwn_2_7_XX
-        assertTrue(pageProjectionOutput.getClass().getSimpleName().startsWith("PageProjectionOutput_" + stageId.replace('.', '_') + "_" + planNodeId));
+        assertTrue(work.getClass().getSimpleName().startsWith("PageProjectionWork_" + stageId.replace('.', '_') + "_" + planNodeId));
     }
 
     @Test
@@ -161,28 +161,30 @@ public class TestPageFunctionCompiler
     private Block projectWithYield(PageProjection projection, Page page, SelectedPositions selectedPositions, int expectedYields)
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        PageProjectionOutput output = projection.project(SESSION, yieldSignal, page, selectedPositions);
+        Work<Block> work = projection.project(SESSION, yieldSignal, page, selectedPositions);
 
-        Optional<Block> result = Optional.empty();
+        boolean processed = false;
         for (int i = 0; i < 1000; i++) {
             yieldSignal.setWithDelay(1, executor);
             yieldSignal.forceYieldForTesting();
-            result = output.compute();
-            if (result.isPresent()) {
+            if (work.process()) {
+                processed = true;
                 assertEquals(i, expectedYields);
                 break;
             }
             yieldSignal.reset();
         }
-        if (!result.isPresent()) {
+        if (!processed) {
             fail("result is not present");
         }
-        return result.get();
+        return work.getResult();
     }
 
     private Block projectWithoutYield(PageProjection projection, Page page, SelectedPositions selectedPositions)
     {
-        return projection.project(SESSION, new DriverYieldSignal(), page, selectedPositions).compute().orElseThrow(IllegalStateException::new);
+        Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), page, selectedPositions);
+        assertTrue(work.process());
+        return work.getResult();
     }
 
     private static Page createLongBlockPage(long... values)

@@ -108,7 +108,7 @@ public class TestRaptorSplitManager
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
 
-        metadata.createTable(SESSION, TEST_TABLE);
+        metadata.createTable(SESSION, TEST_TABLE, false);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());
 
         List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()

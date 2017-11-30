@@ -18,11 +18,13 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static com.facebook.presto.operator.UpdateMemory.NOOP;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
@@ -35,7 +37,7 @@ public interface GroupByHash
             int expectedSize,
             JoinCompiler joinCompiler)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler);
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, NOOP);
     }
 
     static GroupByHash createGroupByHash(
@@ -44,12 +46,13 @@ public interface GroupByHash
             Optional<Integer> inputHashChannel,
             int expectedSize,
             boolean processDictionary,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            UpdateMemory updateMemory)
     {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
-            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize);
+            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
         }
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler);
+        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, updateMemory);
     }
 
     long getEstimatedSize();
@@ -64,13 +67,14 @@ public interface GroupByHash
 
     void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset);
 
-    void addPage(Page page);
+    Work<?> addPage(Page page);
 
-    GroupByIdBlock getGroupIds(Page page);
+    Work<GroupByIdBlock> getGroupIds(Page page);
 
     boolean contains(int position, Page page, int[] hashChannels);
 
-    int putIfAbsent(int position, Page page);
-
     long getRawHash(int groupyId);
+
+    @VisibleForTesting
+    int getCapacity();
 }

@@ -1,10 +1,12 @@
-============================
-Resource Group Configuration
-============================
+===============
+Resource Groups
+===============
 
 .. note::
-    Resource groups are currently experimental and must be enabled with the
-    ``experimental.resource-groups-enabled=true`` config flag.
+
+    Resource groups are disabled by default and must be enabled with the
+    ``experimental.resource-groups-enabled=true`` config flag. They are no
+    longer experimental and will be enabled by default in a future release.
 
 Resource groups place limits on resource usage, and can enforce queueing policies on
 queries that run within them or divide their resources among sub groups. A query
@@ -14,10 +16,16 @@ it does not cause running queries to fail; instead new queries become queued.
 A resource group may have sub groups or may accept queries, but may not do both.
 
 The resource groups and associated selection rules are configured by a manager which is pluggable.
-An implementation that uses a static file can be installed via the ``presto-resource-group-managers``
-plugin and enabled by adding ``resource-groups.configuration-manager=file`` to
-``etc/resource-groups.properties`` and setting ``resource-groups.config-file`` to the
-location of a JSON config file with the properties described below.
+Add an ``etc/resource-groups.properties`` file with the following contents to enable
+the built-in manager that reads a JSON config file:
+
+.. code-block:: none
+
+    resource-groups.configuration-manager=file
+    resource-groups.config-file=etc/resource_groups.json
+
+Change the value of ``resource-groups.config-file`` to point to a JSON config file,
+which can be an absolute path, or a path relative to the Presto data directory.
 
 Resource Group Properties
 -------------------------
@@ -27,7 +35,7 @@ Resource Group Properties
 * ``maxQueued`` (required): maximum number of queued queries. Once this limit is reached
   new queries will be rejected.
 
-* ``maxRunning`` (required): maximum number of running queries.
+* ``hardConcurrencyLimit`` (required): maximum number of running queries.
 
 * ``softMemoryLimit`` (required): maximum amount of distributed memory this
   group may use before new queries become queued. May be specified as
@@ -124,7 +132,7 @@ all other users are subject to the following limits:
         {
           "name": "global",
           "softMemoryLimit": "80%",
-          "maxRunning": 100,
+          "hardConcurrencyLimit": 100,
           "maxQueued": 1000,
           "schedulingPolicy": "weighted",
           "jmxExport": true,
@@ -132,14 +140,14 @@ all other users are subject to the following limits:
             {
               "name": "data_definition_${USER}",
               "softMemoryLimit": "10%",
-              "maxRunning": 3,
+              "hardConcurrencyLimit": 3,
               "maxQueued": 10,
               "schedulingWeight": 1
             },
             {
               "name": "adhoc_${USER}",
               "softMemoryLimit": "10%",
-              "maxRunning": 2,
+              "hardConcurrencyLimit": 2,
               "maxQueued": 1,
               "schedulingWeight": 9,
               "schedulingPolicy": "query_priority"
@@ -147,7 +155,7 @@ all other users are subject to the following limits:
             {
               "name": "pipeline",
               "softMemoryLimit": "20%",
-              "maxRunning": 5,
+              "hardConcurrencyLimit": 5,
               "maxQueued": 100,
               "schedulingWeight": 1,
               "jmxExport": true,
@@ -155,7 +163,7 @@ all other users are subject to the following limits:
                 {
                   "name": "pipeline_${USER}",
                   "softMemoryLimit": "10%",
-                  "maxRunning": 1,
+                  "hardConcurrencyLimit": 1,
                   "maxQueued": 100,
                   "schedulingPolicy": "query_priority"
                 }
@@ -166,7 +174,7 @@ all other users are subject to the following limits:
         {
           "name": "admin",
           "softMemoryLimit": "100%",
-          "maxRunning": 200,
+          "hardConcurrencyLimit": 200,
           "maxQueued": 100,
           "schedulingPolicy": "query_priority",
           "jmxExport": true

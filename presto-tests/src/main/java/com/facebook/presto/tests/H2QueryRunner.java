@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
@@ -40,6 +41,7 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.io.Closeable;
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -71,6 +73,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -292,12 +295,24 @@ public class H2QueryRunner
                         row.add(null);
                     }
                     else if (type instanceof DecimalType) {
+                        DecimalType decimalType = (DecimalType) type;
                         BigDecimal decimalValue = resultSet.getBigDecimal(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(decimalValue);
+                            row.add(decimalValue
+                                    .setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
+                                    .round(new MathContext(decimalType.getPrecision())));
+                        }
+                    }
+                    else if (type instanceof ArrayType) {
+                        Object[] arrayValue = (Object[]) resultSet.getArray(i).getArray();
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(newArrayList(arrayValue));
                         }
                     }
                     else {

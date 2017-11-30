@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -44,6 +45,7 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -61,6 +63,7 @@ import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -70,6 +73,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
@@ -209,8 +213,18 @@ public abstract class AbstractTestQueries
     {
         // Test for lambda expression without capture can be found in TestLambdaExpression
 
+        assertQuery("SELECT apply(0, x -> x + c1) FROM (VALUES 1) t(c1)", "VALUES 1");
+        assertQuery("SELECT apply(0, x -> x + t.c1) FROM (VALUES 1) t(c1)", "VALUES 1");
         assertQuery("SELECT apply(c1, x -> x + c2) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(c1, c2)", "VALUES 3, 7, 11");
         assertQuery("SELECT apply(c1 + 10, x -> apply(x + 100, y -> c1)) FROM (VALUES 1) t(c1)", "VALUES 1");
+        assertQuery("SELECT apply(c1 + 10, x -> apply(x + 100, y -> t.c1)) FROM (VALUES 1) t(c1)", "VALUES 1");
+        assertQuery("SELECT apply(CAST(ROW(10) AS ROW(x INTEGER)), r -> r.x)", "VALUES 10");
+        assertQuery("SELECT apply(CAST(ROW(10) AS ROW(x INTEGER)), r -> r.x) FROM (VALUES 1) u(x)", "VALUES 10");
+        assertQuery("SELECT apply(CAST(ROW(10) AS ROW(x INTEGER)), r -> r.x) FROM (VALUES 1) r(x)", "VALUES 10");
+        assertQuery("SELECT apply(CAST(ROW(10) AS ROW(x INTEGER)), r -> apply(3, y -> y + r.x)) FROM (VALUES 1) u(x)", "VALUES 13");
+        assertQuery("SELECT apply(CAST(ROW(10) AS ROW(x INTEGER)), r -> apply(3, y -> y + r.x)) FROM (VALUES 1) r(x)", "VALUES 13");
+        assertQuery("SELECT apply(CAST(ROW(10) AS ROW(x INTEGER)), r -> apply(3, y -> y + r.x)) FROM (VALUES 'a') r(x)", "VALUES 13");
+        assertQuery("SELECT apply(CAST(ROW(10) AS ROW(x INTEGER)), z -> apply(3, y -> y + r.x)) FROM (VALUES 1) r(x)", "VALUES 4");
 
         // reference lambda variable of the not-immediately-enclosing lambda
         assertQuery("SELECT apply(1, x -> apply(10, y -> x)) FROM (VALUES 1000) t(x)", "VALUES 1");
@@ -302,8 +316,8 @@ public abstract class AbstractTestQueries
     public void testRowFieldAccessor()
     {
         //Dereference only
-        assertQuery("SELECT a.col0 FROM (VALUES ROW (CAST(ROW(1, 2) AS ROW(col0 integer, col1 int)))) AS t (a)", "SELECT 1");
-        assertQuery("SELECT a.col0 FROM (VALUES ROW (CAST(ROW(1.0, 2.0) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1.0");
+        assertQuery("SELECT a.col0 FROM (VALUES ROW (CAST(ROW(1, 2) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1");
+        assertQuery("SELECT a.col0 FROM (VALUES ROW (CAST(ROW(1.0E0, 2.0E0) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1.0");
         assertQuery("SELECT a.col0 FROM (VALUES ROW (CAST(ROW(TRUE, FALSE) AS ROW(col0 boolean, col1 boolean)))) AS t (a)", "SELECT TRUE");
         assertQuery("SELECT a.col1 FROM (VALUES ROW (CAST(ROW(1.0, 'kittens') AS ROW(col0 varchar, col1 varchar)))) AS t (a)", "SELECT 'kittens'");
         assertQuery("SELECT a.col2.col1 FROM (VALUES ROW(CAST(ROW(1.0, ARRAY[2], row(3, 4.0)) AS ROW(col0 double, col1 array(int), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 4.0");
@@ -313,8 +327,8 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT Y.col1 FROM (SELECT cast(row(1, t.x) as row(col0 bigint, col1 bigint)) AS Y FROM (VALUES 1, 2, 3) t(x)) test_t", "SELECT * FROM (VALUES 1, 2, 3)");
 
         // Subscript + Dereference
-        assertQuery("SELECT a.col1[2] FROM (VALUES ROW(CAST(ROW(1.0, ARRAY[22, 33, 44, 55], row(3, 4.0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 33");
-        assertQuery("SELECT a.col1[2].col0, a.col1[2].col1 FROM (VALUES ROW(cast(row(1.0, ARRAY[row(31, 4.1), row(32, 4.2)], row(3, 4.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 32, 4.2");
+        assertQuery("SELECT a.col1[2] FROM (VALUES ROW(CAST(ROW(1.0, ARRAY[22, 33, 44, 55], row(3, 4.0E0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 33");
+        assertQuery("SELECT a.col1[2].col0, a.col1[2].col1 FROM (VALUES ROW(cast(row(1.0, ARRAY[row(31, 4.1E0), row(32, 4.2E0)], row(3, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 32, 4.2");
 
         assertQuery("SELECT cast(row(11, 12) as row(col0 bigint, col1 bigint)).col0", "SELECT 11");
     }
@@ -324,73 +338,73 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT a.col0, SUM(a.col1[2]), SUM(a.col2.col0), SUM(a.col2.col1) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(1.0, ARRAY[2, 13, 4], row(11, 4.1))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.0, ARRAY[2, 23, 4], row(12, 14.0))  AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(1.0, ARRAY[22, 33, 44], row(13, 5.0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a) " +
+                        "ROW(CAST(ROW(1.0, ARRAY[2, 13, 4], row(11, 4.1E0))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.0, ARRAY[2, 23, 4], row(12, 14.0E0))  AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(1.0, ARRAY[22, 33, 44], row(13, 5.0E0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a) " +
                         "GROUP BY a.col0",
                 "SELECT * FROM VALUES (1.0, 46, 24, 9.1), (2.0, 23, 12, 14.0)");
 
         assertQuery("SELECT a.col2.col0, SUM(a.col0), SUM(a.col1[2]), SUM(a.col2.col1) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(1.0, ARRAY[2, 13, 4], row(11, 4.1))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.0, ARRAY[2, 23, 4], row(11, 14.0))  AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(7.0, ARRAY[22, 33, 44], row(13, 5.0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a) " +
+                        "ROW(CAST(ROW(1.0, ARRAY[2, 13, 4], row(11, 4.1E0))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.0, ARRAY[2, 23, 4], row(11, 14.0E0))  AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(7.0, ARRAY[22, 33, 44], row(13, 5.0E0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a) " +
                         "GROUP BY a.col2.col0",
                 "SELECT * FROM VALUES (11, 3.0, 36, 18.1), (13, 7.0, 33, 5.0)");
 
         assertQuery("SELECT a.col1[1].col0, SUM(a.col0), SUM(a.col1[1].col1), SUM(a.col1[2].col0), SUM(a.col2.col1) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 4.5), row(12, 4.2)], row(3, 4.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 3.1), row(32, 4.2)], row(6, 6.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.2, ARRAY[row(31, 4.2), row(22, 4.2)], row(5, 4.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a) " +
+                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 4.5E0), row(12, 4.2E0)], row(3, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 3.1E0), row(32, 4.2E0)], row(6, 6.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.2, ARRAY[row(31, 4.2E0), row(22, 4.2E0)], row(5, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a) " +
                         "GROUP BY a.col1[1].col0",
                 "SELECT * FROM VALUES (31, 3.2, 8.7, 34, 8.0), (41, 3.1, 3.1, 32, 6.0)");
 
         assertQuery("SELECT a.col1[1].col0, SUM(a.col0), SUM(a.col1[1].col1), SUM(a.col1[2].col0), SUM(a.col2.col1) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(2.2, ARRAY[row(31, 4.2), row(22, 4.2)], row(5, 4.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 4.5), row(12, 4.2)], row(3, 4.1)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 3.1), row(32, 4.2)], row(6, 6.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(3.3, ARRAY[row(41, 3.1), row(32, 4.2)], row(6, 6.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))) " +
+                        "ROW(CAST(ROW(2.2, ARRAY[row(31, 4.2E0), row(22, 4.2E0)], row(5, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 4.5E0), row(12, 4.2E0)], row(3, 4.1E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 3.1E0), row(32, 4.2E0)], row(6, 6.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(3.3, ARRAY[row(41, 3.1E0), row(32, 4.2E0)], row(6, 6.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))) " +
                         ") t(a) " +
                         "GROUP BY a.col1[1]",
                 "SELECT * FROM VALUES (31, 2.2, 4.2, 22, 4.0), (31, 1.0, 4.5, 12, 4.1), (41, 6.4, 6.2, 64, 12.0)");
 
         assertQuery("SELECT a.col1[2], SUM(a.col0), SUM(a.col1[1]), SUM(a.col2.col1) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(1.0, ARRAY[2, 13, 4], row(11, 4.1))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.0, ARRAY[2, 13, 4], row(12, 14.0))  AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(7.0, ARRAY[22, 33, 44], row(13, 5.0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a) " +
+                        "ROW(CAST(ROW(1.0, ARRAY[2, 13, 4], row(11, 4.1E0))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.0, ARRAY[2, 13, 4], row(12, 14.0E0))  AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(7.0, ARRAY[22, 33, 44], row(13, 5.0E0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a) " +
                         "GROUP BY a.col1[2]",
                 "SELECT * FROM VALUES (13, 3.0, 4, 18.1), (33, 7.0, 22, 5.0)");
 
         assertQuery("SELECT a.col2.col0, SUM(a.col2.col1) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(2.2, ARRAY[row(31, 4.2), row(22, 4.2)], row(5, 4.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 4.5), row(12, 4.2)], row(3, 4.1)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 3.1), row(32, 4.2)], row(6, 6.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(3.3, ARRAY[row(41, 3.1), row(32, 4.2)], row(6, 6.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))) " +
+                        "ROW(CAST(ROW(2.2, ARRAY[row(31, 4.2E0), row(22, 4.2E0)], row(5, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 4.5E0), row(12, 4.2E0)], row(3, 4.1E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 3.1E0), row(32, 4.2E0)], row(6, 6.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(3.3, ARRAY[row(41, 3.1E0), row(32, 4.2E0)], row(6, 6.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))) " +
                         ") t(a) " +
                         "GROUP BY a.col2",
                 "SELECT * FROM VALUES (5, 4.0), (3, 4.1), (6, 12.0)");
 
         assertQuery("SELECT a.col2.col0, a.col0, SUM(a.col2.col1) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(1.0, ARRAY[2, 13, 4], row(11, 4.1))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.0, ARRAY[2, 23, 4], row(11, 14.0))  AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(1.5, ARRAY[2, 13, 4], row(11, 4.1))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(1.5, ARRAY[2, 13, 4], row(11, 4.1))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(7.0, ARRAY[22, 33, 44], row(13, 5.0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a) " +
+                        "ROW(CAST(ROW(1.0, ARRAY[2, 13, 4], row(11, 4.1E0))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.0, ARRAY[2, 23, 4], row(11, 14.0E0))  AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(1.5, ARRAY[2, 13, 4], row(11, 4.1E0))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(1.5, ARRAY[2, 13, 4], row(11, 4.1E0))   AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(7.0, ARRAY[22, 33, 44], row(13, 5.0E0)) AS ROW(col0 double, col1 array(integer), col2 row(col0 integer, col1 double))))) t(a) " +
                         "WHERE a.col1[2] < 30 " +
                         "GROUP BY 1, 2 ORDER BY 1",
                 "SELECT * FROM VALUES (11, 1.0, 4.1), (11, 1.5, 8.2), (11, 2.0, 14.0)");
 
         assertQuery("SELECT a[1].col0, COUNT(1) FROM " +
                         "(VALUES " +
-                        "(ROW(CAST(ARRAY[row(31, 4.2), row(22, 4.2)] AS ARRAY(ROW(col0 integer, col1 double))))), " +
-                        "(ROW(CAST(ARRAY[row(31, 4.5), row(12, 4.2)] AS ARRAY(ROW(col0 integer, col1 double))))), " +
-                        "(ROW(CAST(ARRAY[row(41, 3.1), row(32, 4.2)] AS ARRAY(ROW(col0 integer, col1 double))))), " +
-                        "(ROW(CAST(ARRAY[row(31, 3.1), row(32, 4.2)] AS ARRAY(ROW(col0 integer, col1 double))))) " +
+                        "(ROW(CAST(ARRAY[row(31, 4.2E0), row(22, 4.2E0)] AS ARRAY(ROW(col0 integer, col1 double))))), " +
+                        "(ROW(CAST(ARRAY[row(31, 4.5E0), row(12, 4.2E0)] AS ARRAY(ROW(col0 integer, col1 double))))), " +
+                        "(ROW(CAST(ARRAY[row(41, 3.1E0), row(32, 4.2E0)] AS ARRAY(ROW(col0 integer, col1 double))))), " +
+                        "(ROW(CAST(ARRAY[row(31, 3.1E0), row(32, 4.2E0)] AS ARRAY(ROW(col0 integer, col1 double))))) " +
                         ") t(a) " +
                         "GROUP BY 1 " +
                         "ORDER BY 2 DESC",
@@ -404,11 +418,11 @@ public abstract class AbstractTestQueries
                         "SUM(a.col1[1].col1) OVER(PARTITION BY a.col2.col0), " +
                         "SUM(a.col2.col1) OVER(PARTITION BY a.col2.col0) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 14.5), row(12, 4.2)], row(3, 4.0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.2, ARRAY[row(41, 13.1), row(32, 4.2)], row(6, 6.0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.2, ARRAY[row(41, 17.1), row(45, 4.2)], row(7, 16.0)) AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.2, ARRAY[row(41, 13.1), row(32, 4.2)], row(6, 6.0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 13.1), row(32, 4.2)], row(6, 6.0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a) ",
+                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 14.5E0), row(12, 4.2E0)], row(3, 4.0E0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.2, ARRAY[row(41, 13.1E0), row(32, 4.2E0)], row(6, 6.0E0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.2, ARRAY[row(41, 17.1E0), row(45, 4.2E0)], row(7, 16.0E0)) AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.2, ARRAY[row(41, 13.1E0), row(32, 4.2E0)], row(6, 6.0E0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 13.1E0), row(32, 4.2E0)], row(6, 6.0E0))  AS ROW(col0 double, col1 array(ROW(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a) ",
                 "SELECT * FROM VALUES (1.0, 14.5, 4.0), (2.2, 39.3, 18.0), (2.2, 39.3, 18.0), (2.2, 17.1, 16.0), (3.1, 39.3, 18.0)");
 
         assertQuery("SELECT a.col1[1].col0, " +
@@ -416,9 +430,9 @@ public abstract class AbstractTestQueries
                         "SUM(a.col1[1].col1) OVER(PARTITION BY a.col1[1].col0), " +
                         "SUM(a.col2.col1) OVER(PARTITION BY a.col1[1].col0) FROM " +
                         "(VALUES " +
-                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 14.5), row(12, 4.2)], row(3, 4.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 13.1), row(32, 4.2)], row(6, 6.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
-                        "ROW(CAST(ROW(2.2, ARRAY[row(31, 14.2), row(22, 5.2)], row(5, 4.0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a) " +
+                        "ROW(CAST(ROW(1.0, ARRAY[row(31, 14.5E0), row(12, 4.2E0)], row(3, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(3.1, ARRAY[row(41, 13.1E0), row(32, 4.2E0)], row(6, 6.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double)))), " +
+                        "ROW(CAST(ROW(2.2, ARRAY[row(31, 14.2E0), row(22, 5.2E0)], row(5, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a) " +
                         "WHERE a.col1[2].col1 > a.col2.col0",
                 "SELECT * FROM VALUES (31, 3.2, 28.7, 8.0), (31, 3.2, 28.7, 8.0)");
     }
@@ -690,7 +704,7 @@ public abstract class AbstractTestQueries
         Multimap<String, Long> orderKeyByStatus = ArrayListMultimap.create();
         Multimap<String, Double> totalPriceByStatus = ArrayListMultimap.create();
         for (MaterializedRow row : raw.getMaterializedRows()) {
-            orderKeyByStatus.put((String) row.getField(0), (Long) row.getField(1));
+            orderKeyByStatus.put((String) row.getField(0), ((Number) row.getField(1)).longValue());
             totalPriceByStatus.put((String) row.getField(0), (Double) row.getField(2));
         }
 
@@ -705,9 +719,9 @@ public abstract class AbstractTestQueries
 
         for (MaterializedRow row : actual.getMaterializedRows()) {
             String status = (String) row.getField(0);
-            Long orderKey = (Long) row.getField(1);
+            Long orderKey = ((Number) row.getField(1)).longValue();
             Double totalPrice = (Double) row.getField(2);
-            Long orderKeyWeighted = (Long) row.getField(3);
+            Long orderKeyWeighted = ((Number) row.getField(3)).longValue();
             Double totalPriceWeighted = (Double) row.getField(4);
 
             List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
@@ -731,21 +745,15 @@ public abstract class AbstractTestQueries
     @Test
     public void testComplexQuery()
     {
-        MaterializedResult actual = computeActual("SELECT sum(orderkey), row_number() OVER (ORDER BY orderkey)\n" +
-                "FROM orders\n" +
-                "WHERE orderkey <= 10\n" +
-                "GROUP BY orderkey\n" +
-                "HAVING sum(orderkey) >= 3\n" +
-                "ORDER BY orderkey DESC\n" +
-                "LIMIT 3");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(7L, 5L)
-                .row(6L, 4L)
-                .row(5L, 3L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT sum(orderkey), row_number() OVER (ORDER BY orderkey) " +
+                        "FROM orders " +
+                        "WHERE orderkey <= 10 " +
+                        "GROUP BY orderkey " +
+                        "HAVING sum(orderkey) >= 3 " +
+                        "ORDER BY orderkey DESC " +
+                        "LIMIT 3",
+                "VALUES (7, 5), (6, 4), (5, 3)");
     }
 
     @Test
@@ -766,7 +774,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testAggregationWithSomeArgumentCasts()
     {
-        assertQuery("SELECT APPROX_PERCENTILE(0.1, x), AVG(x), MIN(x) FROM (values 1, 1, 1) t(x)", "SELECT 0.1, 1.0, 1");
+        assertQuery("SELECT APPROX_PERCENTILE(0.1E0, x), AVG(x), MIN(x) FROM (values 1, 1, 1) t(x)", "SELECT 0.1, 1.0, 1");
     }
 
     @Test
@@ -1028,7 +1036,7 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT COUNT(DISTINCT custkey), " +
                         "SUM(DISTINCT custkey), " +
-                        "SUM(DISTINCT custkey + 1.0), " +
+                        "SUM(DISTINCT custkey + 1.0E0), " +
                         "AVG(DISTINCT custkey), " +
                         "VARIANCE(DISTINCT custkey) FROM orders",
                 "SELECT COUNT(*), " +
@@ -1932,11 +1940,6 @@ public abstract class AbstractTestQueries
                 groupingSet2);
 
         assertQuery(query, "VALUES (0), (822283861886), (995358664191)");
-
-        // GROUPING + implicit coercions (issue #8738)
-        assertQuery(
-                "SELECT GROUPING(k), SUM(v) + 1.0 FROM (VALUES (1, 1)) AS t(k,v) GROUP BY k",
-                "VALUES (0, 2.0)");
     }
 
     @Test
@@ -2409,7 +2412,7 @@ public abstract class AbstractTestQueries
         MaterializedRow actualRow = getOnlyElement(computeActual(
                 "SELECT count(*) FROM " +
                         "customer c1 JOIN customer c2 ON c1.nationkey=c2.nationkey " +
-                        "WHERE c1.custkey - RANDOM(c1.custkey) < c2.custkey").getMaterializedRows());
+                        "WHERE c1.custkey - RANDOM(CAST(c1.custkey AS BIGINT)) < c2.custkey").getMaterializedRows());
         assertEquals(actualRow.getFieldCount(), 1);
         long actualCount = (Long) actualRow.getField(0); // this should be around ~69000
 
@@ -2571,8 +2574,47 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinOnDecimalColumn()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1.0, 3.0)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1.0, 3.0)");
+
+        assertQuery(
+                "SELECT * FROM (VALUES (123456789123456789.123456, 2.0)) x (a, b) JOIN (VALUES (123456789123456789.123456, 3.0)) y (a, b) USING(a)",
+                "VALUES (123456789123456789.123456, 2.0, 123456789123456789.123456, 3.0)");
+    }
+
+    @Test
     public void testJoinCriteriaCoercion()
     {
+        // long, double
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DOUBLE '1.0', 3)) y (a, b) USING(a)",
+                "VALUES (1, 2.0, 1.0, 3)");
+
+        // double, long
+        assertQuery(
+                "SELECT * FROM (VALUES (1.0E0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // long decimal, bigint
+        assertQuery(
+                "SELECT * FROM (VALUES (DECIMAL '0000000000000000001', 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // bigint, long decimal
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (DECIMAL '0000000000000000001', 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // bigint, short decimal
+        assertQuery(
+                "SELECT * FROM (VALUES (1, 2.0)) x (a, b) JOIN (VALUES (1.0, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)");
+
+        // short decimal, bigint
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
                 "VALUES (1.0, 2.0, 1, 3)");
@@ -4118,14 +4160,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testWindowImplicitCoercion()
     {
-        MaterializedResult actual = computeActual("SELECT orderkey, 1.0 / row_number() OVER (ORDER BY orderkey) FROM orders LIMIT 2");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, DOUBLE)
-                .row(1L, 1.0)
-                .row(2L, 0.5)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, 1e0 / row_number() OVER (ORDER BY orderkey) FROM orders LIMIT 2",
+                "VALUES (1, 1.0), (2, 0.5)");
     }
 
     @Test
@@ -4214,27 +4251,24 @@ public abstract class AbstractTestQueries
     public void testWindowsConstantExpression()
             throws Exception
     {
-        MaterializedResult actual = computeActual("SELECT " +
-                "sum(size) OVER(PARTITION BY type ORDER BY brand)," +
-                "lag(partkey, 1) OVER(PARTITION BY type ORDER BY name)" +
-                "FROM part " +
-                "ORDER BY 1, 2 " +
-                "LIMIT 10");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 315L)
-                .row(1L, 881L)
-                .row(1L, 1009L)
-                .row(3L, 1087L)
-                .row(3L, 1187L)
-                .row(3L, 1529L)
-                .row(4L, 969L)
-                .row(5L, 151L)
-                .row(5L, 505L)
-                .row(5L, 872L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT " +
+                        "sum(size) OVER(PARTITION BY type ORDER BY brand)," +
+                        "lag(partkey, 1) OVER(PARTITION BY type ORDER BY name)" +
+                        "FROM part " +
+                        "ORDER BY 1, 2 " +
+                        "LIMIT 10",
+                "VALUES " +
+                        "(1, 315), " +
+                        "(1, 881), " +
+                        "(1, 1009), " +
+                        "(3, 1087), " +
+                        "(3, 1187), " +
+                        "(3, 1529), " +
+                        "(4, 969), " +
+                        "(5, 151), " +
+                        "(5, 505), " +
+                        "(5, 872)");
     }
 
     @Test
@@ -4363,22 +4397,18 @@ public abstract class AbstractTestQueries
     @Test
     public void testWindowFunctionsExpressions()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, orderstatus\n" +
-                ", row_number() OVER (ORDER BY orderkey * 2) *\n" +
-                "  row_number() OVER (ORDER BY orderkey DESC) + 100\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1L, "O", (1L * 10) + 100)
-                .row(2L, "O", (2L * 9) + 100)
-                .row(3L, "F", (3L * 8) + 100)
-                .row(4L, "O", (4L * 7) + 100)
-                .row(5L, "F", (5L * 6) + 100)
-                .build();
-
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQueryOrdered(
+                "SELECT orderkey, orderstatus " +
+                        ", row_number() OVER (ORDER BY orderkey * 2) * " +
+                        "  row_number() OVER (ORDER BY orderkey DESC) + 100 " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES " +
+                        "(1, 'O', 110), " +
+                        "(2, 'O', 118), " +
+                        "(3, 'F', 124), " +
+                        "(4, 'O', 128), " +
+                        "(5, 'F', 130)");
     }
 
     @Test
@@ -4412,28 +4442,23 @@ public abstract class AbstractTestQueries
     @Test
     public void testOrderByWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, row_number() OVER (ORDER BY orderkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 DESC\n" +
-                "LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(34L, 10L)
-                .row(33L, 9L)
-                .row(32L, 8L)
-                .row(7L, 7L)
-                .row(6L, 6L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, row_number() OVER (ORDER BY orderkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY 2 DESC " +
+                        "LIMIT 5",
+                "VALUES (34, 10), " +
+                        "(33, 9), " +
+                        "(32, 8), " +
+                        "(7, 7), " +
+                        "(6, 6)");
     }
 
     @Test
     public void testSameWindowFunctionsTwoCoerces()
     {
         MaterializedResult actual = computeActual("" +
-                "SELECT 12.0 * row_number() OVER ()/row_number() OVER(),\n" +
+                "SELECT 12.0E0 * row_number() OVER ()/row_number() OVER(),\n" +
                 "row_number() OVER()\n" +
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
                 "ORDER BY 2 DESC\n" +
@@ -4450,7 +4475,7 @@ public abstract class AbstractTestQueries
         assertEquals(actual, expected);
 
         actual = computeActual("" +
-                "SELECT (MAX(x.a) OVER () - x.a) * 100.0 / MAX(x.a) OVER ()\n" +
+                "SELECT (MAX(x.a) OVER () - x.a) * 100.0E0 / MAX(x.a) OVER ()\n" +
                 "FROM (VALUES 1, 2, 3, 4) x(a)");
 
         expected = resultBuilder(getSession(), DOUBLE)
@@ -4660,27 +4685,25 @@ public abstract class AbstractTestQueries
     @Test
     public void testRowNumberPropertyDerivation()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, orderstatus, SUM(rn) OVER (PARTITION BY orderstatus) c\n" +
-                "FROM (\n" +
-                "   SELECT orderkey, orderstatus, row_number() OVER (PARTITION BY orderstatus) rn\n" +
-                "   FROM (\n" +
-                "       SELECT * FROM orders ORDER BY orderkey LIMIT 10\n" +
-                "   )\n" +
-                ")");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1L, "O", 21L)
-                .row(2L, "O", 21L)
-                .row(3L, "F", 10L)
-                .row(4L, "O", 21L)
-                .row(5L, "F", 10L)
-                .row(6L, "F", 10L)
-                .row(7L, "O", 21L)
-                .row(32L, "O", 21L)
-                .row(33L, "F", 10L)
-                .row(34L, "O", 21L)
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT orderkey, orderstatus, SUM(rn) OVER (PARTITION BY orderstatus) c " +
+                        "FROM ( " +
+                        "   SELECT orderkey, orderstatus, row_number() OVER (PARTITION BY orderstatus) rn " +
+                        "   FROM ( " +
+                        "       SELECT * FROM orders ORDER BY orderkey LIMIT 10 " +
+                        "   ) " +
+                        ")",
+                "VALUES " +
+                        "(1, 'O', 21), " +
+                        "(2, 'O', 21), " +
+                        "(3, 'F', 10), " +
+                        "(4, 'O', 21), " +
+                        "(5, 'F', 10), " +
+                        "(6, 'F', 10), " +
+                        "(7, 'O', 21), " +
+                        "(32, 'O', 21), " +
+                        "(33, 'F', 10), " +
+                        "(34, 'O', 21)");
     }
 
     @Test
@@ -4702,31 +4725,29 @@ public abstract class AbstractTestQueries
     @Test
     public void testWindowPropertyDerivation()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderstatus, orderkey,\n" +
-                "SUM(s) OVER (PARTITION BY orderstatus),\n" +
-                "SUM(s) OVER (PARTITION BY orderstatus, orderkey),\n" +
-                "SUM(s) OVER (PARTITION BY orderstatus ORDER BY orderkey),\n" +
-                "SUM(s) OVER (ORDER BY orderstatus, orderkey)\n" +
-                "FROM (\n" +
-                "   SELECT orderkey, orderstatus, SUM(orderkey) OVER (ORDER BY orderstatus, orderkey) s\n" +
-                "   FROM (\n" +
-                "       SELECT * FROM orders ORDER BY orderkey LIMIT 10\n" +
-                "   )\n" +
-                ")");
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
-                .row("F", 3L, 72L, 3L, 3L, 3L)
-                .row("F", 5L, 72L, 8L, 11L, 11L)
-                .row("F", 6L, 72L, 14L, 25L, 25L)
-                .row("F", 33L, 72L, 47L, 72L, 72L)
-                .row("O", 1L, 433L, 48L, 48L, 120L)
-                .row("O", 2L, 433L, 50L, 98L, 170L)
-                .row("O", 4L, 433L, 54L, 152L, 224L)
-                .row("O", 7L, 433L, 61L, 213L, 285L)
-                .row("O", 32L, 433L, 93L, 306L, 378L)
-                .row("O", 34L, 433L, 127L, 433L, 505L)
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT orderstatus, orderkey, " +
+                        "SUM(s) OVER (PARTITION BY orderstatus), " +
+                        "SUM(s) OVER (PARTITION BY orderstatus, orderkey), " +
+                        "SUM(s) OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
+                        "SUM(s) OVER (ORDER BY orderstatus, orderkey) " +
+                        "FROM ( " +
+                        "   SELECT orderkey, orderstatus, SUM(orderkey) OVER (ORDER BY orderstatus, orderkey) s " +
+                        "   FROM ( " +
+                        "       SELECT * FROM orders ORDER BY orderkey LIMIT 10 " +
+                        "   ) " +
+                        ")",
+                "VALUES " +
+                        "('F', 3, 72, 3, 3, 3), " +
+                        "('F', 5, 72, 8, 11, 11), " +
+                        "('F', 6, 72, 14, 25, 25), " +
+                        "('F', 33, 72, 47, 72, 72), " +
+                        "('O', 1, 433, 48, 48, 120), " +
+                        "('O', 2, 433, 50, 98, 170), " +
+                        "('O', 4, 433, 54, 152, 224), " +
+                        "('O', 7, 433, 61, 213, 285), " +
+                        "('O', 32, 433, 93, 306, 378), " +
+                        "('O', 34, 433, 127, 433, 505)");
     }
 
     @Test
@@ -4758,124 +4779,101 @@ public abstract class AbstractTestQueries
     @Test
     public void testTopNPartitionedWindow()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn <= 2");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(1L, 1L, "O")
-                .row(2L, 2L, "O")
-                .row(1L, 3L, "F")
-                .row(2L, 5L, "F")
-                .row(1L, 65L, "P")
-                .row(2L, 197L, "P")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn <= 2",
+                "VALUES " +
+                        "(1, 1, 'O'), " +
+                        "(2, 2, 'O'), " +
+                        "(1, 3, 'F'), " +
+                        "(2, 5, 'F'), " +
+                        "(1, 65, 'P'), " +
+                        "(2, 197, 'P')");
 
         // Test for unreferenced outputs
-        actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
-                "   FROM orders\n" +
-                ") WHERE rn <= 2");
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 2L)
-                .row(1L, 3L)
-                .row(2L, 5L)
-                .row(1L, 65L)
-                .row(2L, 197L)
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey " +
+                        "   FROM orders " +
+                        ") WHERE rn <= 2",
+                "VALUES " +
+                        "(1, 1), " +
+                        "(2, 2), " +
+                        "(1, 3), " +
+                        "(2, 5), " +
+                        "(1, 65), " +
+                        "(2, 197)");
 
-        actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn <= 2");
-        expected = resultBuilder(getSession(), BIGINT, VARCHAR)
-                .row(1L, "O")
-                .row(2L, "O")
-                .row(1L, "F")
-                .row(2L, "F")
-                .row(1L, "P")
-                .row(2L, "P")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn <= 2",
+                "VALUES " +
+                        "(1, 'O'), " +
+                        "(2, 'O'), " +
+                        "(1, 'F'), " +
+                        "(2, 'F'), " +
+                        "(1, 'P'), " +
+                        "(2, 'P')");
     }
 
     @Test
     public void testTopNUnpartitionedWindowWithEqualityFilter()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 2");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(2L, 2L, "O")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 2",
+                "VALUES (2, 2, 'O')");
     }
 
     @Test
     public void testTopNUnpartitionedWindowWithCompositeFilter()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(1L, 1L, "O")
-                .row(3L, 3L, "F")
-                .row(4L, 4L, "O")
-                .row(6L, 6L, "F")
-                .row(7L, 7L, "O")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7",
+                "VALUES " +
+                        "(1, 1, 'O'), " +
+                        "(3, 3, 'F'), " +
+                        "(4, 4, 'O'), " +
+                        "(6, 6, 'F'), " +
+                        "(7, 7, 'O')");
     }
 
     @Test
     public void testTopNPartitionedWindowWithEqualityFilter()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 2");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(2L, 2L, "O")
-                .row(2L, 5L, "F")
-                .row(2L, 197L, "P")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 2",
+                "VALUES " +
+                        "(2, 2, 'O'), " +
+                        "(2, 5, 'F'), " +
+                        "(2, 197, 'P')");
 
         // Test for unreferenced outputs
-        actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 2");
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2L, 2L)
-                .row(2L, 5L)
-                .row(2L, 197L)
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey " +
+                        "   FROM orders " +
+                        ") WHERE rn = 2",
+                "VALUES (2, 2), (2, 5), (2, 197)");
 
-        actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 2");
-        expected = resultBuilder(getSession(), BIGINT, VARCHAR)
-                .row(2L, "O")
-                .row(2L, "F")
-                .row(2L, "P")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 2",
+                "VALUES (2, 'O'), (2, 'F'), (2, 'P')");
     }
 
     @Test
@@ -4896,188 +4894,134 @@ public abstract class AbstractTestQueries
     @Test
     public void testPartialPrePartitionedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey, custkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 1L)
-                .row(3L, 1L)
-                .row(4L, 1L)
-                .row(5L, 1L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered("" +
+                        "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey, custkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 1), " +
+                        "(2, 1), " +
+                        "(3, 1), " +
+                        "(4, 1), " +
+                        "(5, 1)");
     }
 
     @Test
     public void testFullPrePartitionedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 1L)
-                .row(3L, 1L)
-                .row(4L, 1L)
-                .row(5L, 1L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 1), (2, 1), (3, 1), (4, 1), (5, 1)");
     }
 
     @Test
     public void testPartialPreSortedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey, custkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 2L)
-                .row(3L, 3L)
-                .row(4L, 4L)
-                .row(5L, 5L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey, custkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 1), " +
+                        "(2, 2), " +
+                        "(3, 3), " +
+                        "(4, 4), " +
+                        "(5, 5)");
     }
 
     @Test
     public void testFullPreSortedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 2L)
-                .row(3L, 3L)
-                .row(4L, 4L)
-                .row(5L, 5L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 1), (2, 2), (3, 3), (4, 4), (5, 5)");
     }
 
     @Test
     public void testFullyPartitionedAndPartiallySortedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, custkey, orderPriority, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey, orderPriority)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR, BIGINT)
-                .row(1L, 370L, "5-LOW", 1L)
-                .row(2L, 781L, "1-URGENT", 1L)
-                .row(3L, 1234L, "5-LOW", 1L)
-                .row(4L, 1369L, "5-LOW", 1L)
-                .row(5L, 445L, "5-LOW", 1L)
-                .build();
-
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQueryOrdered(
+                "SELECT orderkey, custkey, orderPriority, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey, orderPriority) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 370, '5-LOW', 1), " +
+                        "(2, 781, '1-URGENT', 1), " +
+                        "(3, 1234, '5-LOW', 1), " +
+                        "(4, 1369, '5-LOW', 1), " +
+                        "(5, 445, '5-LOW', 1)");
     }
 
     @Test
     public void testFullyPartitionedAndFullySortedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, custkey, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, BIGINT)
-                .row(1L, 370L, 1L)
-                .row(2L, 781L, 1L)
-                .row(3L, 1234L, 1L)
-                .row(4L, 1369L, 1L)
-                .row(5L, 445L, 1L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, custkey, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 370, 1), " +
+                        "(2, 781, 1), " +
+                        "(3, 1234, 1), " +
+                        "(4, 1369, 1), " +
+                        "(5, 445, 1)");
     }
 
     @Test
     public void testOrderByWindowFunctionWithNulls()
     {
-        MaterializedResult actual;
-        MaterializedResult expected;
-
         // Nulls first
-        actual = computeActual("" +
-                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS FIRST)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 ASC\n" +
-                "LIMIT 5");
-
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(3L, 1L)
-                .row(1L, 2L)
-                .row(2L, 3L)
-                .row(4L, 4L)
-                .row(5L, 5L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS FIRST) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY 2 ASC " +
+                        "LIMIT 5",
+                "VALUES (3, 1), " +
+                        "(1, 2), " +
+                        "(2, 3), " +
+                        "(4, 4)," +
+                        "(5, 5)");
 
         // Nulls last
-        actual = computeActual("" +
-                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS LAST)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 DESC\n" +
-                "LIMIT 5");
-
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(3L, 10L)
-                .row(34L, 9L)
-                .row(33L, 8L)
-                .row(32L, 7L)
-                .row(7L, 6L)
-                .build();
-
-        assertEquals(actual, expected);
+        String nullsLastExpected = "VALUES (3, 10), " +
+                "(34, 9), " +
+                "(33, 8), " +
+                "(32, 7), " +
+                "(7, 6)";
+        assertQueryOrdered(
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS LAST) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY 2 DESC " +
+                        "LIMIT 5",
+                nullsLastExpected);
 
         // and nulls last should be the default
-        actual = computeActual("" +
-                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3))\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 DESC\n" +
-                "LIMIT 5");
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3)) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY 2 DESC " +
+                        "LIMIT 5",
+                nullsLastExpected);
     }
 
     @Test
     public void testValueWindowFunctions()
     {
-        MaterializedResult actual = computeActual("SELECT * FROM (\n" +
-                "  SELECT orderkey, orderstatus\n" +
-                "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) fvalue\n" +
-                "    , nth_value(orderkey + 1000, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey\n" +
-                "        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) nvalue\n" +
-                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "  ) x\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT, BIGINT)
-                .row(1L, "O", 1001L, 1002L)
-                .row(2L, "O", 1001L, 1002L)
-                .row(3L, "F", 1003L, 1005L)
-                .row(4L, "O", 1001L, 1002L)
-                .row(5L, "F", 1003L, 1005L)
-                .build();
-
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQueryOrdered(
+                "SELECT * FROM ( " +
+                        "  SELECT orderkey, orderstatus " +
+                        "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) fvalue " +
+                        "    , nth_value(orderkey + 1000, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) nvalue " +
+                        "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x " +
+                        "  ) x " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES " +
+                        "(1, 'O', 1001, 1002), " +
+                        "(2, 'O', 1001, 1002), " +
+                        "(3, 'F', 1003, 1005), " +
+                        "(4, 'O', 1001, 1002), " +
+                        "(5, 'F', 1003, 1005)");
     }
 
     @Test
@@ -5325,7 +5269,7 @@ public abstract class AbstractTestQueries
                         "SELECT * FROM b",
                 "SELECT 2");
         assertQueryFails(
-                        "WITH a AS (VALUES 1), " +
+                "WITH a AS (VALUES 1), " +
                         "     a AS (VALUES 2)" +
                         "SELECT * FROM a",
                 "line 1:28: WITH query name 'a' specified more than once");
@@ -5387,7 +5331,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)");
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1.5, 2.3)", "SELECT orderkey FROM orders LIMIT 0"); // H2 incorrectly matches rows
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2.0, 3)");
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2E0, 3)");
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
         assertQuery("SELECT x FROM (values 3, 100) t(x) WHERE x IN (2147483649)", "SELECT * WHERE false");
         assertQuery("SELECT x FROM (values 3, 100, 2147483648, 2147483649, 2147483650) t(x) WHERE x IN (2147483648, 2147483650)", "values 2147483648, 2147483650");
@@ -5404,7 +5348,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT x FROM (values DATE '1970-01-01', DATE '1970-01-03') t(x) WHERE x IN (DATE '1970-01-01')", "values DATE '1970-01-01'");
         assertQuery("SELECT x FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1970-01-01 00:01:00+08:00') t(x) WHERE x IN (TIMESTAMP '1970-01-01 00:01:00+00:00')", "values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00'");
         assertQuery("SELECT COUNT(*) FROM (values 1) t(x) WHERE x IN (null, 0)", "SELECT 0");
-        assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (DOUBLE '2.0')) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
+        assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (2.0E0)) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
     }
 
     @Test
@@ -5771,6 +5715,17 @@ public abstract class AbstractTestQueries
         }
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "line 1:1: Schema 'unknown' does not exist");
+        }
+
+        try {
+            computeActual("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA");
+            fail("Showing tables in an unknown catalog and unknown schema should fail with unknown catalog");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), MISSING_CATALOG);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:1: Catalog 'unknowncatalog' does not exist");
         }
     }
 
@@ -7278,7 +7233,7 @@ public abstract class AbstractTestQueries
                 "SELECT max(o.orderdate), o.orderkey, " +
                         "(SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) " +
                         "FROM orders o GROUP BY o.orderkey ORDER BY o.orderkey LIMIT 1",
-                "VALUES ('1996-01-02', 1, 40000.0)"); // h2 is slow
+                "VALUES ('1996-01-02', 1, 40000)"); // h2 is slow
         assertQuery(
                 "SELECT max(o.orderdate), o.orderkey " +
                         "FROM orders o " +
@@ -8397,7 +8352,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testValuesWithNonTrivialType()
     {
-        MaterializedResult actual = computeActual("VALUES (0.0/0.0, 1.0/0.0, -1.0/0.0)");
+        MaterializedResult actual = computeActual("VALUES (0E0/0E0, 1E0/0E0, -1E0/0E0)");
 
         List<MaterializedRow> rows = actual.getMaterializedRows();
         assertEquals(rows.size(), 1);
@@ -9079,5 +9034,122 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT count(*) FROM (VALUES 2) t(a) GROUP BY a", "VALUES 1");
         assertQuery("SELECT a, count(*) FROM (VALUES 2) t(a) GROUP BY a", "VALUES (2, 1)");
         assertQuery("SELECT count(*) FROM (VALUES 2) t(a) GROUP BY a+1", "VALUES 1");
+    }
+
+    @Test
+    public void testAggregationWithOrderBy()
+    {
+        assertQuery(
+                "SELECT sum(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES (8)");
+        assertQuery(
+                "SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES ((4, 1, 3))");
+
+        assertQuery(
+                "SELECT array_agg(x ORDER BY y DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES ((3, 1, 4))");
+
+        assertQuery(
+                "SELECT array_agg(x ORDER BY x DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES ((4, 3, 1))");
+
+        assertQuery(
+                "SELECT array_agg(x ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)",
+                "VALUES (('a', 'abcd', 'bcd'))");
+
+        assertQuery(
+                "SELECT array_agg(y ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)",
+                "VALUES ((2, 1, 5))");
+
+        assertQuery(
+                "SELECT array_agg(y ORDER BY x) FROM (VALUES ((1, 2), 2), ((3, 4), 5), ((1, 1), 1)) t(x, y)",
+                "VALUES ((1, 2, 5))");
+
+        assertQuery(
+                "SELECT array_agg(z ORDER BY x, y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (1, 1, 1)) t(x, y, z)",
+                "VALUES ((2, 1, 5, 3, 4))");
+
+        assertQuery(
+                "SELECT x, array_agg(z ORDER BY y + z DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
+                "VALUES (1, (2, 1)), (2, (5, 3)), (3, (4, 1))");
+
+        assertQuery(
+                "SELECT array_agg(y ORDER BY x.a DESC) FROM (VALUES (CAST(ROW(1) AS ROW(a BIGINT)), 1), (CAST(ROW(2) AS ROW(a BIGINT)), 2)) t(x, y)",
+                "VALUES ((2, 1))");
+
+        assertQuery(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS FIRST) FROM (VALUES (1, 2, NULL), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY x, y",
+                "VALUES (1, 2, (NULL, 2, 1)), (2, 1, (NULL, 4, 3))");
+
+        assertQuery(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
+                "VALUES (1, 2, (3, 2, 1)), (1, NULL, (3, 2, 1)), (2, 1, (4, 3, NULL)), (2, NULL, (4, 3, NULL))");
+
+        assertQuery(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
+                "VALUES (1, 2, (3, 2, 1)), (1, NULL, (3, 2, 1)), (2, 1, (4, 3, NULL)), (2, NULL, (4, 3, NULL))");
+
+        assertQuery(
+                "SELECT x, array_agg(distinct z + y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
+                "VALUES (1, (4, 2)), (2, (9, 5)), (3, (8, 3))");
+
+        assertQuery(
+                "SELECT x, sum(cast(x AS double))\n" +
+                        "FROM (VALUES '1.0') t(x)\n" +
+                        "GROUP BY x\n" +
+                        "ORDER BY sum(cast(t.x AS double) ORDER BY t.x)",
+                "VALUES ('1.0', 1.0)");
+
+        assertQuery(
+                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
+                "VALUES (1, NULL, (1, 3)), (2, NULL, (3, 4)), (1, 2, (1, 3)), (2, 1, (3, 4))");
+
+        assertQueryFails(
+                "SELECT x, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY ROLLUP (x)",
+                ".* ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set is not supported");
+
+        assertQueryFails(
+                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY CUBE (x, y)",
+                ".* ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set is not supported");
+
+        assertQueryFails(
+                "SELECT array_agg(z ORDER BY z) OVER (PARTITION BY x) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY x, z",
+                ".* Window function with ORDER BY is not supported");
+
+        assertQueryFails(
+                "SELECT array_agg(DISTINCT x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+
+        assertQueryFails(
+                "SELECT array_agg(DISTINCT x+y ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+
+        assertQueryFails(
+                "SELECT x, array_agg(distinct y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
+                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+    }
+
+    @Test
+    public void testDefaultDecimalLiteralSwitch()
+            throws Exception
+    {
+        Session decimalLiteral = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false")
+                .build();
+        MaterializedResult decimalColumnResult = computeActual(decimalLiteral, "SELECT 1.0");
+
+        assertEquals(decimalColumnResult.getRowCount(), 1);
+        assertEquals(decimalColumnResult.getTypes().get(0), createDecimalType(2, 1));
+        assertEquals(decimalColumnResult.getMaterializedRows().get(0).getField(0), new BigDecimal("1.0"));
+
+        Session doubleLiteral = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "true")
+                .build();
+        MaterializedResult doubleColumnResult = computeActual(doubleLiteral, "SELECT 1.0");
+
+        assertEquals(doubleColumnResult.getRowCount(), 1);
+        assertEquals(doubleColumnResult.getTypes().get(0), DOUBLE);
+        assertEquals(doubleColumnResult.getMaterializedRows().get(0).getField(0), 1.0);
     }
 }

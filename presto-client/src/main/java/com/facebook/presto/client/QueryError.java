@@ -16,9 +16,9 @@ package com.facebook.presto.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import javax.validation.constraints.NotNull;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -52,7 +52,7 @@ public class QueryError
         this.failureInfo = failureInfo;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public String getMessage()
     {
@@ -72,14 +72,14 @@ public class QueryError
         return errorCode;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public String getErrorName()
     {
         return errorName;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public String getErrorType()
     {

@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.jgrapht.DirectedGraph;
@@ -35,6 +34,7 @@ import javax.inject.Provider;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +69,7 @@ public class QueryQueueRuleFactory
                 managerSpec = mapper.readValue(file, ManagerSpec.class);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
             Map<String, QueryQueueDefinition> definitions = new HashMap<>();
             for (Map.Entry<String, QueueSpec> queue : managerSpec.getQueues().entrySet()) {

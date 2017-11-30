@@ -18,7 +18,10 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,6 +31,10 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static com.facebook.presto.spi.type.Chars.byteCountWithoutTrailingSpace;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Varchars.byteCount;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -90,5 +97,21 @@ public class SliceStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    public static int computeTruncatedLength(Slice slice, int offset, int length, Type type)
+    {
+        // calculate truncated length
+        int truncatedLength = length;
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            int codePointCount = varcharType.isUnbounded() ? length : varcharType.getLengthSafe();
+            truncatedLength = byteCount(slice, offset, length, codePointCount);
+        }
+        else if (isCharType(type)) {
+            // truncate the characters and then remove the trailing white spaces
+            truncatedLength = byteCountWithoutTrailingSpace(slice, offset, length, ((CharType) type).getLength());
+        }
+        return truncatedLength;
     }
 }

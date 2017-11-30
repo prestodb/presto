@@ -131,7 +131,7 @@ public abstract class AbstractMinMaxBy
                 stateFactory,
                 valueType);
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, valueType, true, factory);
+        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, valueType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)

@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -45,7 +47,9 @@ public final class RowLessThanOrEqualOperator
         Type type = boundVariables.getTypeVariable("T");
         return new ScalarFunctionImplementation(
                 false,
-                ImmutableList.of(false, false),
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionRegistry, LESS_THAN)),
                 isDeterministic());
     }

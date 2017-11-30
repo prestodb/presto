@@ -19,6 +19,8 @@ import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.UpdateMemory;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.Page;
@@ -28,6 +30,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -41,10 +44,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryHashAggregationBuilder
@@ -68,7 +74,8 @@ public class InMemoryHashAggregationBuilder
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             DataSize maxPartialMemory,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            boolean yieldForMemoryReservation)
     {
         this(accumulatorFactories,
                 step,
@@ -79,7 +86,8 @@ public class InMemoryHashAggregationBuilder
                 operatorContext,
                 maxPartialMemory,
                 Optional.empty(),
-                joinCompiler);
+                joinCompiler,
+                yieldForMemoryReservation);
     }
 
     public InMemoryHashAggregationBuilder(
@@ -92,9 +100,30 @@ public class InMemoryHashAggregationBuilder
             OperatorContext operatorContext,
             DataSize maxPartialMemory,
             Optional<Integer> overwriteIntermediateChannelOffset,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            boolean yieldForMemoryReservation)
     {
-        this.groupByHash = createGroupByHash(operatorContext.getSession(), groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups, joinCompiler);
+        UpdateMemory updateMemory;
+        if (yieldForMemoryReservation) {
+            updateMemory = this::updateMemoryWithYieldInfo;
+        }
+        else {
+            // Report memory usage but do not yield for memory.
+            // This is specially used for spillable hash aggregation operator.
+            // TODO: revisit this when spillable hash aggregation operator is turned on
+            updateMemory = () -> {
+                updateMemoryWithYieldInfo();
+                return true;
+            };
+        }
+        this.groupByHash = createGroupByHash(
+                groupByTypes,
+                Ints.toArray(groupByChannels),
+                hashChannel,
+                expectedGroups,
+                isDictionaryAggregationEnabled(operatorContext.getSession()),
+                joinCompiler,
+                updateMemory);
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.toBytes();
@@ -126,31 +155,28 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public void processPage(Page page)
+    public Work<?> processPage(Page page)
     {
         if (aggregators.isEmpty()) {
-            groupByHash.addPage(page);
+            return groupByHash.addPage(page);
         }
         else {
-            GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
-
-            for (Aggregator aggregator : aggregators) {
-                aggregator.processPage(groupIds, page);
-            }
+            return new TransformWork<>(
+                    groupByHash.getGroupIds(page),
+                    groupByIdBlock -> {
+                        for (Aggregator aggregator : aggregators) {
+                            aggregator.processPage(groupByIdBlock, page);
+                        }
+                        // we do not need any output from TransformWork for this case
+                        return null;
+                    });
         }
     }
 
     @Override
     public void updateMemory()
     {
-        long memorySize = getSizeInMemory();
-        if (partial) {
-            systemMemoryContext.setBytes(memorySize);
-            full = (memorySize > maxPartialMemory);
-        }
-        else {
-            operatorContext.setMemoryReservation(memorySize);
-        }
+        updateMemoryWithYieldInfo();
     }
 
     @Override
@@ -225,6 +251,9 @@ public class InMemoryHashAggregationBuilder
     @Override
     public Iterator<Page> buildResult()
     {
+        for (Aggregator aggregator : aggregators) {
+            aggregator.prepareFinal();
+        }
         return buildResult(consecutiveGroupIds());
     }
 
@@ -240,6 +269,12 @@ public class InMemoryHashAggregationBuilder
             types.add(aggregator.getIntermediateType());
         }
         return types;
+    }
+
+    @VisibleForTesting
+    public int getCapacity()
+    {
+        return groupByHash.getCapacity();
     }
 
     private Iterator<Page> buildResult(IntIterator groupIds)
@@ -282,6 +317,29 @@ public class InMemoryHashAggregationBuilder
             types.add(aggregator.getType());
         }
         return types;
+    }
+
+    /**
+     * Update memory usage with extra memory needed.
+     *
+     * @return true to if the reservation is within the limit
+     */
+    // TODO: update in the interface after the new memory tracking framework is landed
+    // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
+    // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
+    private boolean updateMemoryWithYieldInfo()
+    {
+        long memorySize = getSizeInMemory();
+        if (partial) {
+            systemMemoryContext.setBytes(memorySize);
+            full = (memorySize > maxPartialMemory);
+            return true;
+        }
+        // Operator/driver will be blocked on memory after we call setMemoryReservation.
+        // If memory is not available, once we return, this operator will be blocked until memory is available.
+        operatorContext.setMemoryReservation(memorySize);
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
     }
 
     private IntIterator consecutiveGroupIds()
@@ -368,6 +426,11 @@ public class InMemoryHashAggregationBuilder
             }
         }
 
+        public void prepareFinal()
+        {
+            aggregation.prepareFinal();
+        }
+
         public void evaluate(int groupId, BlockBuilder output)
         {
             if (step.isOutputPartial()) {
@@ -400,5 +463,40 @@ public class InMemoryHashAggregationBuilder
             types.add(new Aggregator(factory, step, Optional.empty()).getType());
         }
         return types.build();
+    }
+
+    private static class TransformWork<I, O>
+            implements Work<O>
+    {
+        private final Work<I> prerequisite;
+        private final Function<I, O> transform;
+
+        private boolean finished;
+        private O result;
+
+        public TransformWork(Work<I> prerequisite, Function<I, O> transform)
+        {
+            this.prerequisite = requireNonNull(prerequisite, "prerequisite is null");
+            this.transform = requireNonNull(transform, "transform is null");
+        }
+
+        @Override
+        public boolean process()
+        {
+            checkState(!finished);
+            finished = prerequisite.process();
+            if (!finished) {
+                return false;
+            }
+            result = transform.apply(prerequisite.getResult());
+            return true;
+        }
+
+        @Override
+        public O getResult()
+        {
+            checkState(finished, "process has not finished");
+            return result;
+        }
     }
 }

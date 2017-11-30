@@ -18,7 +18,6 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.RuleSet;
 import com.facebook.presto.sql.planner.optimizations.TableLayoutRewriter;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -36,21 +35,29 @@ import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
 public class PickTableLayout
-        implements RuleSet
 {
-    private final ImmutableSet<Rule<?>> rules;
+    private final Metadata metadata;
 
     public PickTableLayout(Metadata metadata)
     {
-        rules = ImmutableSet.of(
-                new PickTableLayoutForPredicate(metadata),
-                new PickTableLayoutWithoutPredicate(metadata));
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    @Override
     public Set<Rule<?>> rules()
     {
-        return rules;
+        return ImmutableSet.of(
+                pickTableLayoutForPredicate(),
+                pickTableLayoutWithoutPredicate());
+    }
+
+    public PickTableLayoutForPredicate pickTableLayoutForPredicate()
+    {
+        return new PickTableLayoutForPredicate(metadata);
+    }
+
+    public PickTableLayoutWithoutPredicate pickTableLayoutWithoutPredicate()
+    {
+        return new PickTableLayoutWithoutPredicate(metadata);
     }
 
     private static final class PickTableLayoutForPredicate
@@ -66,8 +73,8 @@ public class PickTableLayout
         private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
 
         private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
-                        tableScan().matching(PickTableLayoutForPredicate::shouldRewriteTableLayout)
-                                .capturedAs(TABLE_SCAN)));
+                tableScan().matching(PickTableLayoutForPredicate::shouldRewriteTableLayout)
+                        .capturedAs(TABLE_SCAN)));
 
         private static boolean shouldRewriteTableLayout(TableScanNode source)
         {

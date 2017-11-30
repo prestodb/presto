@@ -21,12 +21,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Types;
 
@@ -97,10 +97,10 @@ public class TestJdbcResultSet
     public void testObjectTypes()
             throws Exception
     {
-        String sql = "SELECT 123, 12300000000, REAL '123.45', 0.1, true, 'hello', 1.0 / 0.0, 0.0 / 0.0, ARRAY[1, 2], cast('foo' as char(5))";
+        String sql = "SELECT 123, 12300000000, REAL '123.45', 0.1, true, 'hello', 1.0E0 / 0.0E0, 0.0E0 / 0.0E0, ARRAY[1, 2], cast('foo' as char(5)), DECIMAL '0.1'";
         try (ResultSet rs = statement.executeQuery(sql)) {
             ResultSetMetaData metadata = rs.getMetaData();
-            assertEquals(metadata.getColumnCount(), 10);
+            assertEquals(metadata.getColumnCount(), 11);
             assertEquals(metadata.getColumnType(1), Types.INTEGER);
             assertEquals(metadata.getColumnType(2), Types.BIGINT);
             assertEquals(metadata.getColumnType(3), Types.REAL);
@@ -111,18 +111,20 @@ public class TestJdbcResultSet
             assertEquals(metadata.getColumnType(8), Types.DOUBLE);
             assertEquals(metadata.getColumnType(9), Types.ARRAY);
             assertEquals(metadata.getColumnType(10), Types.CHAR);
+            assertEquals(metadata.getColumnType(11), Types.DECIMAL);
 
             assertTrue(rs.next());
             assertEquals(rs.getObject(1), 123);
             assertEquals(rs.getObject(2), 12300000000L);
             assertEquals(rs.getObject(3), 123.45f);
-            assertEquals(rs.getObject(4), 0.1d);
+            assertEquals(rs.getObject(4), 0.1);
             assertEquals(rs.getObject(5), true);
             assertEquals(rs.getObject(6), "hello");
             assertEquals(rs.getObject(7), Double.POSITIVE_INFINITY);
             assertEquals(rs.getObject(8), Double.NaN);
             assertEquals(rs.getArray(9).getArray(), new int[] {1, 2});
             assertEquals(rs.getObject(10), "foo  ");
+            assertEquals(rs.getObject(11), new BigDecimal("0.1"));
         }
     }
 
@@ -228,20 +230,6 @@ public class TestJdbcResultSet
     {
         statement.setLargeMaxRows(Integer.MAX_VALUE * 10L);
         statement.getMaxRows();
-    }
-
-    @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
-    public void testSetSession()
-            throws Exception
-    {
-        statement.execute("SET SESSION hash_partition_count = 16");
-    }
-
-    @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
-    public void testResetSession()
-            throws Exception
-    {
-        statement.execute("RESET SESSION hash_partition_count");
     }
 
     private Connection createConnection()

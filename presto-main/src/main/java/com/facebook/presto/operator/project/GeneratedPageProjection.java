@@ -14,8 +14,10 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
@@ -32,16 +34,16 @@ public class GeneratedPageProjection
     private final RowExpression projection;
     private final boolean isDeterministic;
     private final InputChannels inputChannels;
-    private final MethodHandle pageProjectionOutputFactory;
+    private final MethodHandle pageProjectionWorkFactory;
 
     private BlockBuilder blockBuilder;
 
-    public GeneratedPageProjection(RowExpression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionOutputFactory)
+    public GeneratedPageProjection(RowExpression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.isDeterministic = isDeterministic;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
-        this.pageProjectionOutputFactory = requireNonNull(pageProjectionOutputFactory, "pageProjectionOutputFactory is null");
+        this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
         this.blockBuilder = projection.getType().createBlockBuilder(new BlockBuilderStatus(), 1);
     }
 
@@ -64,11 +66,11 @@ public class GeneratedPageProjection
     }
 
     @Override
-    public PageProjectionOutput project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
         try {
-            return (PageProjectionOutput) pageProjectionOutputFactory.invoke(blockBuilder, session, yieldSignal, page, selectedPositions);
+            return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, session, yieldSignal, page, selectedPositions);
         }
         catch (Throwable e) {
             throw new RuntimeException(e);

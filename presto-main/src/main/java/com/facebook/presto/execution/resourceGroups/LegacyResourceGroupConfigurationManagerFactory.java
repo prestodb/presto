@@ -37,13 +37,13 @@ public class LegacyResourceGroupConfigurationManagerFactory
     public static final String LEGACY_RESOURCE_GROUP_MANAGER = "legacy";
     private static final ResourceGroupId GLOBAL = new ResourceGroupId("global");
 
-    private final int maxRunning;
+    private final int hardConcurrencyLimit;
     private final int maxQueued;
 
     @Inject
     public LegacyResourceGroupConfigurationManagerFactory(QueryManagerConfig config)
     {
-        maxRunning = config.getMaxConcurrentQueries();
+        hardConcurrencyLimit = config.getMaxConcurrentQueries();
         maxQueued = config.getMaxQueuedQueries();
     }
 
@@ -67,7 +67,7 @@ public class LegacyResourceGroupConfigurationManagerFactory
         {
             checkArgument(group.getId().equals(GLOBAL), "Unexpected resource group: %s", group.getId());
             group.setMaxQueuedQueries(maxQueued);
-            group.setMaxRunningQueries(maxRunning);
+            group.setHardConcurrencyLimit(hardConcurrencyLimit);
         }
 
         @Override

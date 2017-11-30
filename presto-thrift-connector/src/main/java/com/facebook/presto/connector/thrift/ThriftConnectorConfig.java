@@ -15,11 +15,16 @@ package com.facebook.presto.connector.thrift;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -28,6 +33,12 @@ public class ThriftConnectorConfig
     private DataSize maxResponseSize = new DataSize(16, MEGABYTE);
     private int metadataRefreshThreads = 1;
     private int retryDriverThreads = 8;
+    private int lookupRequestsConcurrency = 1;
+    private int maxRetryAttempts = 5;
+    private double retryScaleFactor = 1.5;
+    private Duration minRetrySleepTime = new Duration(10, TimeUnit.MILLISECONDS);
+    private Duration maxRetrySleepTime = new Duration(100, TimeUnit.MILLISECONDS);
+    private Duration maxRetryDuration = new Duration(30, TimeUnit.SECONDS);
 
     @NotNull
     @MinDataSize("1MB")
@@ -67,6 +78,89 @@ public class ThriftConnectorConfig
     public ThriftConnectorConfig setRetryDriverThreads(int retryDriverThreads)
     {
         this.retryDriverThreads = retryDriverThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getLookupRequestsConcurrency()
+    {
+        return lookupRequestsConcurrency;
+    }
+
+    @Config("presto-thrift.lookup-requests-concurrency")
+    public ThriftConnectorConfig setLookupRequestsConcurrency(int lookupRequestsConcurrency)
+    {
+        this.lookupRequestsConcurrency = lookupRequestsConcurrency;
+        return this;
+    }
+
+    @Min(0)
+    @Max(100)
+    public int getMaxRetryAttempts()
+    {
+        return maxRetryAttempts;
+    }
+
+    @Config("presto-thrift.max-retry-attempts")
+    public ThriftConnectorConfig setMaxRetryAttempts(int maxRetryAttempts)
+    {
+        this.maxRetryAttempts = maxRetryAttempts;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getMinRetrySleepTime()
+    {
+        return minRetrySleepTime;
+    }
+
+    @Config("presto-thrift.min-retry-sleep-time")
+    public ThriftConnectorConfig setMinRetrySleepTime(Duration minRetrySleepTime)
+    {
+        this.minRetrySleepTime = minRetrySleepTime;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getMaxRetrySleepTime()
+    {
+        return maxRetrySleepTime;
+    }
+
+    @Config("presto-thrift.max-retry-sleep-time")
+    public ThriftConnectorConfig setMaxRetrySleepTime(Duration maxRetrySleepTime)
+    {
+        this.maxRetrySleepTime = maxRetrySleepTime;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getMaxRetryDuration()
+    {
+        return maxRetryDuration;
+    }
+
+    @Config("presto-thrift.max-retry-duration")
+    public ThriftConnectorConfig setMaxRetryDuration(Duration maxRetryDuration)
+    {
+        this.maxRetryDuration = maxRetryDuration;
+        return this;
+    }
+
+    @Min(1)
+    @Max(10)
+    public double getRetryScaleFactor()
+    {
+        return retryScaleFactor;
+    }
+
+    @Config("presto-thrift.retry-scale-factor")
+    public ThriftConnectorConfig setRetryScaleFactor(double scaleFactor)
+    {
+        this.retryScaleFactor = scaleFactor;
         return this;
     }
 }

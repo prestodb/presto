@@ -25,6 +25,7 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
+import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -205,16 +206,15 @@ public class TimestampColumnWriter
     }
 
     @Override
-    public List<Stream> writeDataStreams(SliceOutput outputStream)
-            throws IOException
+    public List<OutputDataStream> getOutputDataStreams()
     {
         checkState(closed);
 
-        ImmutableList.Builder<Stream> dataStreams = ImmutableList.builder();
-        presentStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        secondsStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        nanosStream.writeDataStreams(column, outputStream).ifPresent(dataStreams::add);
-        return dataStreams.build();
+        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> secondsStream.writeDataStreams(column, sliceOutput), secondsStream.getBufferedBytes()));
+        outputDataStreams.add(new OutputDataStream(sliceOutput -> nanosStream.writeDataStreams(column, sliceOutput), nanosStream.getBufferedBytes()));
+        return outputDataStreams.build();
     }
 
     @Override

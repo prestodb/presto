@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlock
@@ -296,7 +297,7 @@ public class DictionaryBlock
     public Block copyRegion(int position, int length)
     {
         if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
         }
         int[] newIds = Arrays.copyOfRange(ids, idsOffset + position, idsOffset + position + length);
         DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, newIds);
@@ -307,6 +308,28 @@ public class DictionaryBlock
     public boolean isNull(int position)
     {
         return dictionary.isNull(getId(position));
+    }
+
+    @Override
+    public Block getPositions(int[] positions)
+    {
+        int length = positions.length;
+        int[] newIds = new int[length];
+        boolean isCompact = isCompact() && length >= dictionary.getPositionCount();
+        boolean[] seen = null;
+        if (isCompact) {
+            seen = new boolean[dictionary.getPositionCount()];
+        }
+        for (int i = 0; i < length; i++) {
+            newIds[i] = getId(positions[i]);
+            if (isCompact) {
+                seen[newIds[i]] = true;
+            }
+        }
+        for (int i = 0; i < dictionary.getPositionCount() && isCompact; i++) {
+            isCompact &= seen[i];
+        }
+        return new DictionaryBlock(newIds.length, getDictionary(), newIds, isCompact, getDictionarySourceId());
     }
 
     @Override

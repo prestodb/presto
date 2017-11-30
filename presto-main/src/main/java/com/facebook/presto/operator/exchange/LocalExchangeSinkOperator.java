@@ -65,7 +65,7 @@ public class LocalExchangeSinkOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             if (!closed) {
                 closed = true;

@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupStateInfo;
 import com.facebook.presto.spi.PrestoException;
@@ -52,6 +53,7 @@ import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.FULL;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -84,14 +86,16 @@ public class InternalResourceGroup
     // Sub groups with queued queries, that have capacity to run them
     // That is, they must return true when internalStartNext() is called on them
     @GuardedBy("root")
-    private UpdateablePriorityQueue<InternalResourceGroup> eligibleSubGroups = new FifoQueue<>();
+    private Queue<InternalResourceGroup> eligibleSubGroups = new FifoQueue<>();
     // Sub groups whose memory usage may be out of date. Most likely because they have a running query.
     @GuardedBy("root")
     private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
     @GuardedBy("root")
     private long softMemoryLimitBytes;
     @GuardedBy("root")
-    private int maxRunningQueries;
+    private int softConcurrencyLimit;
+    @GuardedBy("root")
+    private int hardConcurrencyLimit;
     @GuardedBy("root")
     private int maxQueuedQueries;
     @GuardedBy("root")
@@ -152,7 +156,8 @@ public class InternalResourceGroup
             return new ResourceGroupInfo(
                     id,
                     DataSize.succinctBytes(softMemoryLimitBytes),
-                    maxRunningQueries,
+                    hardConcurrencyLimit,
+                    softConcurrencyLimit,
                     runningTimeLimit,
                     maxQueuedQueries,
                     queuedTimeLimit,
@@ -173,7 +178,8 @@ public class InternalResourceGroup
                     getState(),
                     DataSize.succinctBytes(softMemoryLimitBytes),
                     DataSize.succinctBytes(cachedMemoryUsageBytes),
-                    maxRunningQueries,
+                    softConcurrencyLimit,
+                    hardConcurrencyLimit,
                     maxQueuedQueries,
                     runningTimeLimit,
                     queuedTimeLimit,
@@ -183,7 +189,8 @@ public class InternalResourceGroup
                             .map(subGroup -> new ResourceGroupInfo(
                                     subGroup.getId(),
                                     DataSize.succinctBytes(subGroup.softMemoryLimitBytes),
-                                    subGroup.maxRunningQueries,
+                                    subGroup.softConcurrencyLimit,
+                                    subGroup.hardConcurrencyLimit,
                                     subGroup.runningTimeLimit,
                                     subGroup.maxQueuedQueries,
                                     subGroup.queuedTimeLimit,
@@ -262,7 +269,7 @@ public class InternalResourceGroup
             int waitingQueuedQueries = 0;
             for (InternalResourceGroup subGroup : subGroups.values()) {
                 if (subGroup.canRunMore()) {
-                    waitingQueuedQueries += min(subGroup.getQueuedQueries(), subGroup.getMaxRunningQueries() - subGroup.getRunningQueries());
+                    waitingQueuedQueries += min(subGroup.getQueuedQueries(), subGroup.getHardConcurrencyLimit() - subGroup.getRunningQueries());
                 }
             }
 
@@ -353,23 +360,44 @@ public class InternalResourceGroup
         }
     }
 
-    @Managed
     @Override
-    public int getMaxRunningQueries()
+    public int getSoftConcurrencyLimit()
     {
         synchronized (root) {
-            return maxRunningQueries;
+            return softConcurrencyLimit;
+        }
+    }
+
+    @Override
+    public void setSoftConcurrencyLimit(int softConcurrencyLimit)
+    {
+        checkArgument(softConcurrencyLimit >= 0, "softConcurrencyLimit is negative");
+        synchronized (root) {
+            boolean oldCanRun = canRunMore();
+            this.softConcurrencyLimit = softConcurrencyLimit;
+            if (canRunMore() != oldCanRun) {
+                updateEligiblility();
+            }
         }
     }
 
     @Managed
     @Override
-    public void setMaxRunningQueries(int maxRunningQueries)
+    public int getHardConcurrencyLimit()
     {
-        checkArgument(maxRunningQueries >= 0, "maxRunningQueries is negative");
+        synchronized (root) {
+            return hardConcurrencyLimit;
+        }
+    }
+
+    @Managed
+    @Override
+    public void setHardConcurrencyLimit(int hardConcurrencyLimit)
+    {
+        checkArgument(hardConcurrencyLimit >= 0, "hardConcurrencyLimit is negative");
         synchronized (root) {
             boolean oldCanRun = canRunMore();
-            this.maxRunningQueries = maxRunningQueries;
+            this.hardConcurrencyLimit = hardConcurrencyLimit;
             if (canRunMore() != oldCanRun) {
                 updateEligiblility();
             }
@@ -410,7 +438,7 @@ public class InternalResourceGroup
         synchronized (root) {
             this.schedulingWeight = weight;
             if (parent.isPresent() && parent.get().schedulingPolicy == WEIGHTED && parent.get().eligibleSubGroups.contains(this)) {
-                parent.get().eligibleSubGroups.addOrUpdate(this, weight);
+                parent.get().addOrUpdateSubGroup(this);
             }
         }
     }
@@ -436,7 +464,7 @@ public class InternalResourceGroup
             }
 
             // Switch to the appropriate queue implementation to implement the desired policy
-            UpdateablePriorityQueue<InternalResourceGroup> queue;
+            Queue<InternalResourceGroup> queue;
             UpdateablePriorityQueue<QueryExecution> queryQueue;
             switch (policy) {
                 case FAIR:
@@ -446,6 +474,10 @@ public class InternalResourceGroup
                 case WEIGHTED:
                     queue = new StochasticPriorityQueue<>();
                     queryQueue = new StochasticPriorityQueue<>();
+                    break;
+                case WEIGHTED_FAIR:
+                    queue = new WeightedFairQueue<>();
+                    queryQueue = new IndexedPriorityQueue<>();
                     break;
                 case QUERY_PRIORITY:
                     // Sub groups must use query priority to ensure ordering
@@ -460,7 +492,7 @@ public class InternalResourceGroup
             }
             while (!eligibleSubGroups.isEmpty()) {
                 InternalResourceGroup group = eligibleSubGroups.poll();
-                queue.addOrUpdate(group, getSubGroupSchedulingPriority(policy, group));
+                addOrUpdateSubGroup(group);
             }
             eligibleSubGroups = queue;
             while (!queuedQueries.isEmpty()) {
@@ -600,7 +632,7 @@ public class InternalResourceGroup
                 return;
             }
             if (isEligibleToStartNext()) {
-                parent.get().eligibleSubGroups.addOrUpdate(this, getSubGroupSchedulingPriority(parent.get().schedulingPolicy, this));
+                parent.get().addOrUpdateSubGroup(this);
             }
             else {
                 parent.get().eligibleSubGroups.remove(this);
@@ -741,7 +773,7 @@ public class InternalResourceGroup
             descendantQueuedQueries--;
             // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
             if (subGroup.isEligibleToStartNext()) {
-                eligibleSubGroups.addOrUpdate(subGroup, getSubGroupSchedulingPriority(schedulingPolicy, subGroup));
+                addOrUpdateSubGroup(subGroup);
             }
             return true;
         }
@@ -769,14 +801,33 @@ public class InternalResourceGroup
         }
     }
 
-    private static int getSubGroupSchedulingPriority(SchedulingPolicy policy, InternalResourceGroup group)
+    private void addOrUpdateSubGroup(InternalResourceGroup group)
+    {
+        if (schedulingPolicy == WEIGHTED_FAIR) {
+            ((WeightedFairQueue<InternalResourceGroup>) eligibleSubGroups).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getRunningQueries()));
+        }
+        else {
+            ((UpdateablePriorityQueue<InternalResourceGroup>) eligibleSubGroups).addOrUpdate(group, getSubGroupSchedulingPriority(schedulingPolicy, group));
+        }
+    }
+
+    private static long getSubGroupSchedulingPriority(SchedulingPolicy policy, InternalResourceGroup group)
     {
         if (policy == QUERY_PRIORITY) {
             return group.getHighestQueryPriority();
         }
         else {
-            return group.getSchedulingWeight();
+            return group.computeSchedulingWeight();
         }
+    }
+
+    private long computeSchedulingWeight()
+    {
+        if (runningQueries.size() + descendantRunningQueries >= softConcurrencyLimit) {
+            return schedulingWeight;
+        }
+
+        return (long) Integer.MAX_VALUE * schedulingWeight;
     }
 
     private boolean isDirty()
@@ -826,18 +877,19 @@ public class InternalResourceGroup
                 return false;
             }
 
-            int maxRunning = maxRunningQueries;
+            int hardConcurrencyLimit = this.hardConcurrencyLimit;
             if (cpuUsageMillis >= softCpuLimitMillis) {
+                // TODO: Consider whether cpu limit math should be performed on softConcurrency or hardConcurrency
                 // Linear penalty between soft and hard limit
                 double penalty = (cpuUsageMillis - softCpuLimitMillis) / (double) (hardCpuLimitMillis - softCpuLimitMillis);
-                maxRunning = (int) Math.floor(maxRunning * (1 - penalty));
+                hardConcurrencyLimit = (int) Math.floor(hardConcurrencyLimit * (1 - penalty));
                 // Always penalize by at least one
-                maxRunning = min(maxRunningQueries - 1, maxRunning);
+                hardConcurrencyLimit = min(this.hardConcurrencyLimit - 1, hardConcurrencyLimit);
                 // Always allow at least one running query
-                maxRunning = Math.max(1, maxRunning);
+                hardConcurrencyLimit = Math.max(1, hardConcurrencyLimit);
             }
-            return runningQueries.size() + descendantRunningQueries < maxRunning &&
-                    cachedMemoryUsageBytes < softMemoryLimitBytes;
+            return runningQueries.size() + descendantRunningQueries < hardConcurrencyLimit &&
+                    cachedMemoryUsageBytes <= softMemoryLimitBytes;
         }
     }
 

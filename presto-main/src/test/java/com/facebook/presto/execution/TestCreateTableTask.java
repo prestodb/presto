@@ -35,7 +35,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -94,7 +93,7 @@ public class TestCreateTableTask
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", Optional.empty())),
                 true,
-                ImmutableMap.of(),
+                ImmutableList.of(),
                 Optional.empty());
 
         getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
@@ -108,7 +107,7 @@ public class TestCreateTableTask
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", Optional.empty())),
                 false,
-                ImmutableMap.of(),
+                ImmutableList.of(),
                 Optional.empty());
 
         try {
@@ -143,10 +142,12 @@ public class TestCreateTableTask
         }
 
         @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
         {
             createTableCallCount.incrementAndGet();
-            throw new PrestoException(ALREADY_EXISTS, "Table already exists");
+            if (!ignoreExisting) {
+                throw new PrestoException(ALREADY_EXISTS, "Table already exists");
+            }
         }
 
         @Override

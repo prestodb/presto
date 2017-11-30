@@ -259,6 +259,10 @@ public class QueryStats
     @JsonProperty
     public Duration getQueuedTime()
     {
+        if (queuedTime == null) {
+            // counter-intuitively, this means that the query is still queued
+            return elapsedTime;
+        }
         return queuedTime;
     }
 

@@ -32,6 +32,7 @@ import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class RowNumberOperator
@@ -105,7 +106,7 @@ public class RowNumberOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -210,7 +211,11 @@ public class RowNumberOperator
         checkState(inputPage == null);
         inputPage = page;
         if (groupByHash.isPresent()) {
-            partitionIds = groupByHash.get().getGroupIds(inputPage);
+            Work<GroupByIdBlock> work = groupByHash.get().getGroupIds(inputPage);
+            boolean done = work.process();
+            // TODO: this class does not yield wrt memory limit; enable it
+            verify(done);
+            partitionIds = work.getResult();
             partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
         }
         operatorContext.setMemoryReservation(getEstimatedByteSize());

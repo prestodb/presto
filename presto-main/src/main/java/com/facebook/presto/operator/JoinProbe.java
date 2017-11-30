@@ -20,9 +20,11 @@ public interface JoinProbe
 {
     int getOutputChannelCount();
 
+    int[] getOutputChannels();
+
     boolean advanceNextPosition();
 
-    long getCurrentJoinPosition();
+    long getCurrentJoinPosition(LookupSource lookupSource);
 
     void appendTo(PageBuilder pageBuilder);
 

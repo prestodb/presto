@@ -180,6 +180,22 @@ public final class PlanMatchPattern
         return result;
     }
 
+    public static PlanMatchPattern aggregationWithOrderBy(
+            List<List<String>> groupingSets,
+            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<Symbol, Symbol> masks,
+            Optional<Symbol> groupId,
+            Map<String, List<String>> orderBys,
+            Map<String, List<SortOrder>> orderings,
+            Step step,
+            PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, masks, groupId, Optional.of(orderBys), Optional.of(orderings), step));
+        aggregations.entrySet().forEach(
+                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+        return result;
+    }
+
     public static PlanMatchPattern aggregation(
             List<List<String>> groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,

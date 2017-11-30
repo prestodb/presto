@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata.statistics;
 import com.google.common.primitives.Longs;
 import org.apache.hive.common.util.BloomFilter;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -49,7 +50,7 @@ public class HiveBloomFilter
         HiveBloomFilter that = (HiveBloomFilter) o;
         return Objects.equals(numBits, that.numBits) &&
                 Objects.equals(numHashFunctions, that.numHashFunctions) &&
-                Objects.equals(bitSet.getData(), that.bitSet.getData());
+                Arrays.equals(bitSet.getData(), that.bitSet.getData());
     }
 
     @Override

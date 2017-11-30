@@ -27,59 +27,67 @@ public class FunctionCall
     private final QualifiedName name;
     private final Optional<Window> window;
     private final Optional<Expression> filter;
+    private final Optional<OrderBy> orderBy;
     private final boolean distinct;
     private final boolean ignoreNulls;
     private final List<Expression> arguments;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.empty(), name, Optional.empty(), Optional.empty(), false, false, arguments);
+        this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), false, false, arguments);
     }
 
     public FunctionCall(NodeLocation location, QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.of(location), name, Optional.empty(), Optional.empty(), false, false, arguments);
+        this(Optional.of(location), name, Optional.empty(), Optional.empty(), Optional.empty(), false, false, arguments);
     }
 
     public FunctionCall(QualifiedName name, boolean distinct, List<Expression> arguments)
     {
-        this(Optional.empty(), name, Optional.empty(), Optional.empty(), distinct, false, arguments);
-    }
-
-    public FunctionCall(NodeLocation location, QualifiedName name, boolean distinct, List<Expression> arguments)
-    {
-        this(Optional.of(location), name, Optional.empty(), Optional.empty(), distinct, false, arguments);
+        this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), distinct, false, arguments);
     }
 
     public FunctionCall(QualifiedName name, Optional<Window> window, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
     {
-        this(Optional.empty(), name, window, Optional.empty(), distinct, ignoreNulls, arguments);
+        this(Optional.empty(), name, window, Optional.empty(), Optional.empty(), distinct, ignoreNulls, arguments);
     }
 
-    public FunctionCall(QualifiedName name, Optional<Window> window, Optional<Expression> filter, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
+    public FunctionCall(QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, List<Expression> arguments)
     {
-        this(Optional.empty(), name, window, filter, distinct, ignoreNulls, arguments);
+        this(Optional.empty(), name, window, filter, orderBy, distinct, false, arguments);
     }
 
-    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
+    public FunctionCall(QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
     {
-        this(Optional.of(location), name, window, filter, distinct, ignoreNulls, arguments);
+        this(Optional.empty(), name, window, filter, orderBy, distinct, ignoreNulls, arguments);
     }
 
-    private FunctionCall(Optional<NodeLocation> location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
+    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, List<Expression> arguments)
+    {
+        this(Optional.of(location), name, window, filter, orderBy, distinct, false, arguments);
+    }
+
+    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
+    {
+        this(Optional.of(location), name, window, filter, orderBy, distinct, ignoreNulls, arguments);
+    }
+
+    private FunctionCall(Optional<NodeLocation> location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
     {
         super(location);
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
         requireNonNull(filter, "filter is null");
+        requireNonNull(orderBy, "orderBy is null");
         requireNonNull(arguments, "arguments is null");
 
         this.name = name;
         this.window = window;
+        this.filter = filter;
+        this.orderBy = orderBy;
         this.distinct = distinct;
         this.ignoreNulls = ignoreNulls;
         this.arguments = arguments;
-        this.filter = filter;
     }
 
     public QualifiedName getName()
@@ -90,6 +98,11 @@ public class FunctionCall
     public Optional<Window> getWindow()
     {
         return window;
+    }
+
+    public Optional<OrderBy> getOrderBy()
+    {
+        return orderBy;
     }
 
     public boolean isDistinct()
@@ -124,6 +137,7 @@ public class FunctionCall
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
         window.ifPresent(nodes::add);
         filter.ifPresent(nodes::add);
+        orderBy.map(OrderBy::getSortItems).map(nodes::addAll);
         nodes.addAll(arguments);
         return nodes.build();
     }
@@ -141,6 +155,7 @@ public class FunctionCall
         return Objects.equals(name, o.name) &&
                 Objects.equals(window, o.window) &&
                 Objects.equals(filter, o.filter) &&
+                Objects.equals(orderBy, o.orderBy) &&
                 Objects.equals(distinct, o.distinct) &&
                 Objects.equals(arguments, o.arguments);
     }
@@ -148,6 +163,6 @@ public class FunctionCall
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, distinct, window, filter, arguments);
+        return Objects.hash(name, distinct, window, filter, orderBy, arguments);
     }
 }
