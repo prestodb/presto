@@ -156,7 +156,7 @@ public final class GeoFunctions
             return serialize(createFromEsriGeometry(new Point(), geometry.getEsriSpatialReference()));
         }
 
-        Point centroid = null;
+        Point centroid;
         switch (typeName) {
             case MULTI_POINT:
                 centroid = computePointsCentroid((MultiVertexGeometry) geometry.getEsriGeometry());
