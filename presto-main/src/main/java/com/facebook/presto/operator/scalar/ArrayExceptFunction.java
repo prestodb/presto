@@ -42,7 +42,7 @@ public final class ArrayExceptFunction
         if (leftPositionCount == 0) {
             return leftArray;
         }
-        TypedSet typedSet = new TypedSet(type, leftPositionCount + rightPositionCount);
+        TypedSet typedSet = new TypedSet(type, leftPositionCount + rightPositionCount, "array_except");
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), leftPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
             typedSet.add(rightArray, i);

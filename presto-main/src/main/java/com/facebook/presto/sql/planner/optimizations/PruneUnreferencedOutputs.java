@@ -755,7 +755,7 @@ public class PruneUnreferencedOutputs
                     .addAll(subqueryAssignmentsSymbols) // need to include those: e.g: "expr" from "expr IN (SELECT 1)"
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
-            return new ApplyNode(node.getId(), input, subquery, subqueryAssignments.build(), newCorrelation);
+            return new ApplyNode(node.getId(), input, subquery, subqueryAssignments.build(), newCorrelation, node.getOriginSubquery());
         }
 
         @Override
@@ -794,7 +794,7 @@ public class PruneUnreferencedOutputs
                 return subquery;
             }
 
-            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType());
+            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType(), node.getOriginSubquery());
         }
     }
 }

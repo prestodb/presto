@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -197,7 +198,12 @@ public class LogicalPlanner
 
         RelationPlan plan = createRelationPlan(analysis, query);
 
-        ConnectorTableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), analysis.getCreateTableProperties(), analysis.getParameters(), analysis.getCreateTableComment());
+        ConnectorTableMetadata tableMetadata = createTableMetadata(
+                destination,
+                getOutputTableColumns(plan, analysis.getColumnAliases()),
+                analysis.getCreateTableProperties(),
+                analysis.getParameters(),
+                analysis.getCreateTableComment());
         Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
 
         List<String> columnNames = tableMetadata.getColumns().stream()
@@ -386,11 +392,14 @@ public class LogicalPlanner
         return new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, comment);
     }
 
-    private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan)
+    private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        int aliasPosition = 0;
         for (Field field : plan.getDescriptor().getVisibleFields()) {
-            columns.add(new ColumnMetadata(field.getName().get(), field.getType()));
+            String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
+            columns.add(new ColumnMetadata(columnName, field.getType()));
+            aliasPosition++;
         }
         return columns.build();
     }

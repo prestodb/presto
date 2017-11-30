@@ -49,7 +49,7 @@ public class ParquetBinaryDictionary
             }
         }
         else {
-            checkArgument(length > 0, "Invalid byte array length: " + length);
+            checkArgument(length > 0, "Invalid byte array length: %s", length);
             for (int i = 0; i < content.length; i++) {
                 content[i] = Binary.fromByteArray(dictionaryBytes, offset, length);
                 offset += length;

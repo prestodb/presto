@@ -14,17 +14,23 @@
 package com.facebook.presto.orc.metadata.statistics;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class DecimalStatistics
         implements RangeStatistics<BigDecimal>
 {
+    // 1 byte to denote if null
+    public static final long DECIMAL_VALUE_BYTES_OVERHEAD = Byte.BYTES;
+
     private final BigDecimal minimum;
     private final BigDecimal maximum;
 
     public DecimalStatistics(BigDecimal minimum, BigDecimal maximum)
     {
+        checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
     }
@@ -39,6 +45,26 @@ public class DecimalStatistics
     public BigDecimal getMax()
     {
         return maximum;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DecimalStatistics that = (DecimalStatistics) o;
+        return Objects.equals(minimum, that.minimum) &&
+                Objects.equals(maximum, that.maximum);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(minimum, maximum);
     }
 
     @Override

@@ -136,4 +136,10 @@ public class TestCassandraDistributed
     {
         // this connector uses a non-canonical type for varchar columns in tpch
     }
+
+    @Override
+    public void testWrittenStats()
+    {
+        // Cassandra connector currently does not support create table nor insert
+    }
 }

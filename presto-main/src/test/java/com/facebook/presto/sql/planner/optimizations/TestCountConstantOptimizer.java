@@ -57,16 +57,16 @@ public class TestCountConstantOptimizer
         ValuesNode valuesNode = new ValuesNode(planNodeIdAllocator.getNextId(), ImmutableList.of(new Symbol("col")), ImmutableList.of(ImmutableList.of()));
 
         AggregationNode eligiblePlan = new AggregationNode(
+                planNodeIdAllocator.getNextId(),
+                new ProjectNode(
                         planNodeIdAllocator.getNextId(),
-                        new ProjectNode(
-                                planNodeIdAllocator.getNextId(),
-                                valuesNode,
-                                Assignments.of(new Symbol("expr"), new LongLiteral("42"))),
-                        aggregations,
-                        ImmutableList.of(ImmutableList.of()),
-                        AggregationNode.Step.INTERMEDIATE,
-                        Optional.empty(),
-                        Optional.empty());
+                        valuesNode,
+                        Assignments.of(new Symbol("expr"), new LongLiteral("42"))),
+                aggregations,
+                ImmutableList.of(ImmutableList.of()),
+                AggregationNode.Step.INTERMEDIATE,
+                Optional.empty(),
+                Optional.empty());
 
         assertTrue(((AggregationNode) optimizer.optimize(eligiblePlan, TEST_SESSION, ImmutableMap.of(), new SymbolAllocator(), new PlanNodeIdAllocator()))
                 .getAggregations()
@@ -76,16 +76,16 @@ public class TestCountConstantOptimizer
                 .isEmpty());
 
         AggregationNode ineligiblePlan = new AggregationNode(
+                planNodeIdAllocator.getNextId(),
+                new ProjectNode(
                         planNodeIdAllocator.getNextId(),
-                        new ProjectNode(
-                                planNodeIdAllocator.getNextId(),
-                                valuesNode,
-                                Assignments.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new Identifier("x"))))),
-                        aggregations,
-                        ImmutableList.of(ImmutableList.of()),
-                        AggregationNode.Step.INTERMEDIATE,
-                        Optional.empty(),
-                        Optional.empty());
+                        valuesNode,
+                        Assignments.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new Identifier("x"))))),
+                aggregations,
+                ImmutableList.of(ImmutableList.of()),
+                AggregationNode.Step.INTERMEDIATE,
+                Optional.empty(),
+                Optional.empty());
 
         assertFalse(((AggregationNode) optimizer.optimize(ineligiblePlan, TEST_SESSION, ImmutableMap.of(), new SymbolAllocator(), new PlanNodeIdAllocator()))
                 .getAggregations()

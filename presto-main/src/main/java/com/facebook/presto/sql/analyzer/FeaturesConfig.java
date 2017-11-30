@@ -21,6 +21,8 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 
 import java.nio.file.Path;
@@ -35,8 +37,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "resource-group-manager",
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
-        "optimizer.processing-optimization"
-})
+        "optimizer.processing-optimization"})
 public class FeaturesConfig
 {
     private boolean distributedIndexJoinsEnabled;
@@ -54,8 +55,8 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
-    private boolean newMapBlock = true;
     private boolean optimizeMixedDistinctAggregations;
+    private boolean forceSingleNodeOutput;
 
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
@@ -64,12 +65,14 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
-    private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean pushAggregationThroughJoin = true;
+    private double memoryRevokingTarget = 0.5;
+    private double memoryRevokingThreshold = 0.9;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -136,18 +139,6 @@ public class FeaturesConfig
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
-    }
-
-    @Config("deprecated.new-map-block")
-    public FeaturesConfig setNewMapBlock(boolean value)
-    {
-        this.newMapBlock = value;
-        return this;
-    }
-
-    public boolean isNewMapBlock()
-    {
-        return newMapBlock;
     }
 
     @Config("distributed-joins-enabled")
@@ -342,15 +333,15 @@ public class FeaturesConfig
         return this;
     }
 
-    public DataSize getOperatorMemoryLimitBeforeSpill()
+    public DataSize getAggregationOperatorUnspillMemoryLimit()
     {
-        return operatorMemoryLimitBeforeSpill;
+        return aggregationOperatorUnspillMemoryLimit;
     }
 
-    @Config("experimental.operator-memory-limit-before-spill")
-    public FeaturesConfig setOperatorMemoryLimitBeforeSpill(DataSize operatorMemoryLimitBeforeSpill)
+    @Config("experimental.aggregation-operator-unspill-memory-limit")
+    public FeaturesConfig setAggregationOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
     {
-        this.operatorMemoryLimitBeforeSpill = operatorMemoryLimitBeforeSpill;
+        this.aggregationOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
         return this;
     }
 
@@ -376,6 +367,36 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerThreads(int spillerThreads)
     {
         this.spillerThreads = spillerThreads;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingThreshold()
+    {
+        return memoryRevokingThreshold;
+    }
+
+    @Config("experimental.memory-revoking-threshold")
+    @ConfigDescription("Revoke memory when memory pool is filled over threshold")
+    public FeaturesConfig setMemoryRevokingThreshold(double memoryRevokingThreshold)
+    {
+        this.memoryRevokingThreshold = memoryRevokingThreshold;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMemoryRevokingTarget()
+    {
+        return memoryRevokingTarget;
+    }
+
+    @Config("experimental.memory-revoking-target")
+    @ConfigDescription("When revoking memory, try to revoke so much that pool is filled below target at the end")
+    public FeaturesConfig setMemoryRevokingTarget(double memoryRevokingTarget)
+    {
+        this.memoryRevokingTarget = memoryRevokingTarget;
         return this;
     }
 
@@ -436,6 +457,18 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationThroughJoin(boolean value)
     {
         this.pushAggregationThroughJoin = value;
+        return this;
+    }
+
+    public boolean isForceSingleNodeOutput()
+    {
+        return forceSingleNodeOutput;
+    }
+
+    @Config("optimizer.force-single-node-output")
+    public FeaturesConfig setForceSingleNodeOutput(boolean value)
+    {
+        this.forceSingleNodeOutput = value;
         return this;
     }
 }

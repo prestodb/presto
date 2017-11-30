@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
@@ -66,10 +68,10 @@ public class BenchmarkArrayJoin
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE)
-    public List<Page> benchmark(BenchmarkData data)
+    public List<Optional<Page>> benchmark(BenchmarkData data)
             throws Throwable
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -89,7 +91,8 @@ public class BenchmarkArrayJoin
                             field(0, new ArrayType(BIGINT)),
                             constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
 
-            pageProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager())
+            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
 

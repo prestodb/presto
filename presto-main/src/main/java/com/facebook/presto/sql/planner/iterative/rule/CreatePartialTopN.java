@@ -13,52 +13,41 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 
-import java.util.Optional;
-
+import static com.facebook.presto.sql.planner.plan.Patterns.TopN.step;
+import static com.facebook.presto.sql.planner.plan.Patterns.topN;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.SINGLE;
 
 public class CreatePartialTopN
-        implements Rule
+        implements Rule<TopNNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(TopNNode.class);
+    private static final Pattern<TopNNode> PATTERN = topN()
+            .with(step().equalTo(SINGLE));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<TopNNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(TopNNode single, Captures captures, Context context)
     {
-        if (!(node instanceof TopNNode)) {
-            return Optional.empty();
-        }
-
-        TopNNode single = (TopNNode) node;
-
-        if (!single.getStep().equals(SINGLE)) {
-            return Optional.empty();
-        }
-
-        PlanNode source = context.getLookup().resolve(single.getSource());
-
         TopNNode partial = new TopNNode(
                 context.getIdAllocator().getNextId(),
-                source,
+                single.getSource(),
                 single.getCount(),
                 single.getOrderBy(),
                 single.getOrderings(),
                 PARTIAL);
 
-        return Optional.of(new TopNNode(
+        return Result.ofPlanNode(new TopNNode(
                 context.getIdAllocator().getNextId(),
                 partial,
                 single.getCount(),

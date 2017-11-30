@@ -89,9 +89,7 @@ public class TestCassandraConnector
         createTestTables(EmbeddedCassandra.getSession(), keyspace, DATE);
 
         String connectorId = "cassandra-test";
-        CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(
-                connectorId
-        );
+        CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(connectorId);
 
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
                 "cassandra.contact-points", EmbeddedCassandra.getHost(),

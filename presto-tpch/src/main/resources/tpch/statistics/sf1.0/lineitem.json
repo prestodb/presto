@@ -1,0 +1,85 @@
+{
+  "rowCount" : 6001215,
+  "columns" : {
+    "l_orderkey" : {
+      "distinctValuesCount" : 1500000,
+      "min" : 1,
+      "max" : 6000000
+    },
+    "l_partkey" : {
+      "distinctValuesCount" : 200000,
+      "min" : 1,
+      "max" : 200000
+    },
+    "l_suppkey" : {
+      "distinctValuesCount" : 10000,
+      "min" : 1,
+      "max" : 10000
+    },
+    "l_linenumber" : {
+      "distinctValuesCount" : 7,
+      "min" : 1,
+      "max" : 7
+    },
+    "l_quantity" : {
+      "distinctValuesCount" : 50,
+      "min" : 1.0,
+      "max" : 50.0
+    },
+    "l_extendedprice" : {
+      "distinctValuesCount" : 933900,
+      "min" : 901.0,
+      "max" : 104949.5
+    },
+    "l_discount" : {
+      "distinctValuesCount" : 11,
+      "min" : 0.0,
+      "max" : 0.1
+    },
+    "l_tax" : {
+      "distinctValuesCount" : 9,
+      "min" : 0.0,
+      "max" : 0.08
+    },
+    "l_returnflag" : {
+      "distinctValuesCount" : 3,
+      "min" : "A",
+      "max" : "R"
+    },
+    "l_linestatus" : {
+      "distinctValuesCount" : 2,
+      "min" : "F",
+      "max" : "O"
+    },
+    "l_shipdate" : {
+      "distinctValuesCount" : 2526,
+      "min" : 8036,
+      "max" : 10561
+    },
+    "l_commitdate" : {
+      "distinctValuesCount" : 2466,
+      "min" : 8065,
+      "max" : 10530
+    },
+    "l_receiptdate" : {
+      "distinctValuesCount" : 2554,
+      "min" : 8038,
+      "max" : 10591
+    },
+    "l_shipinstruct" : {
+      "distinctValuesCount" : 4,
+      "min" : "COLLECT COD",
+      "max" : "TAKE BACK RETURN"
+    },
+    "l_shipmode" : {
+      "distinctValuesCount" : 7,
+      "min" : "AIR",
+      "max" : "TRUCK"
+    },
+    "l_comment" : {
+      "distinctValuesCount" : 4580667,
+      "min" : " Tiresias ",
+      "max" : "zzle? slyly final platelets sleep quickly. "
+    }
+  }
+}

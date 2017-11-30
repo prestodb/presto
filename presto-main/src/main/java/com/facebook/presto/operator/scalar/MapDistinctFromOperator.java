@@ -77,7 +77,6 @@ public final class MapDistinctFromOperator
                         rightValue = defaultValue(valueType.getJavaType());
                     }
                     return !(boolean) valueDistinctFromFunction.invoke(leftValue, leftNull, rightValue, rightNull);
-                }
-        );
+                });
     }
 }

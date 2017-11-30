@@ -53,7 +53,7 @@ public class SerializedPage
         return uncompressedSizeInBytes;
     }
 
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + slice.getRetainedSize() + PAGE_COMPRESSION_SIZE;
     }

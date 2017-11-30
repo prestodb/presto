@@ -19,36 +19,41 @@ import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class TestingOperatorContext
 {
     public static OperatorContext create()
     {
         Executor executor = MoreExecutors.directExecutor();
+        ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         TaskContext taskContext = TestingTaskContext.createTaskContext(
                 executor,
+                scheduledExecutor,
                 TestingSession.testSessionBuilder().build());
 
         PipelineContext pipelineContext = new PipelineContext(
                 1,
                 taskContext,
                 executor,
+                scheduledExecutor,
                 false,
-                false
-        );
+                false);
 
         DriverContext driverContext = new DriverContext(
                 pipelineContext,
                 executor,
-                false
-        );
+                scheduledExecutor,
+                false);
 
         OperatorContext operatorContext = driverContext.addOperatorContext(
                 1,
                 new PlanNodeId("test"),
-                "operator type"
-        );
+                "operator type");
 
         return operatorContext;
     }

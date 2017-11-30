@@ -96,6 +96,7 @@ public class TestExchangeOperator
     });
 
     private ScheduledExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
     private HttpClient httpClient;
     private ExchangeClientSupplier exchangeClientSupplier;
 
@@ -105,6 +106,7 @@ public class TestExchangeOperator
             throws Exception
     {
         executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
@@ -119,7 +121,7 @@ public class TestExchangeOperator
                 systemMemoryUsageListener);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
@@ -128,6 +130,9 @@ public class TestExchangeOperator
 
         executor.shutdownNow();
         executor = null;
+
+        scheduledExecutor.shutdownNow();
+        scheduledExecutor = null;
     }
 
     @BeforeMethod
@@ -268,7 +273,7 @@ public class TestExchangeOperator
     {
         ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY, TYPES);
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION)
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 

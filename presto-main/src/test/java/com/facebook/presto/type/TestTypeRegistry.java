@@ -138,6 +138,14 @@ public class TestTypeRegistry
         assertTrue(canCoerce("map(bigint,double)", "map(bigint,double)"));
         assertTrue(canCoerce("map(bigint,double)", "map(double,double)"));
         assertTrue(canCoerce("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)"));
+        assertTrue(canCoerce("row(varchar(2))", "row(varchar(5))"));
+        assertTrue(canCoerce("row(a integer)", "row(a bigint)"));
+        assertFalse(canCoerce("row(a integer)", "row(b bigint)"));
+        assertFalse(canCoerce("row(integer)", "row(b bigint)"));
+        assertTrue(canCoerce("row(a integer,b varchar(2))", "row(bigint,varchar(5))"));
+        assertTrue(canCoerce("row(a row(c integer),b varchar(2))", "row(row(c integer),varchar(5))"));
+        assertFalse(canCoerce("row(a integer)", "row(a integer,b varchar(2))"));
+        assertFalse(canCoerce("row(a integer)", "row(a varchar(2))"));
 
         assertTrue(canCoerce("varchar(42)", "varchar(42)"));
         assertTrue(canCoerce("varchar(42)", "varchar(44)"));
@@ -237,6 +245,11 @@ public class TestTypeRegistry
         assertCommonSuperType("smallint", "decimal(2,0)", "decimal(5,0)");
         assertCommonSuperType("smallint", "decimal(9,0)", "decimal(9,0)");
         assertCommonSuperType("smallint", "decimal(2,1)", "decimal(6,1)");
+
+        assertCommonSuperType("row(varchar(2))", "row(varchar(5))", "row(varchar(5))");
+        assertCommonSuperType("row(a integer)", "row(b bigint)", "row(bigint)");
+        assertCommonSuperType("row(a integer,b varchar(2))", "row(a bigint,c varchar(5))", "row(bigint,varchar(5))");
+        assertCommonSuperType("row(a row(c integer),b varchar(2))", "row(a row(c integer),d varchar(5))", "row(row(c integer),varchar(5))");
     }
 
     @Test

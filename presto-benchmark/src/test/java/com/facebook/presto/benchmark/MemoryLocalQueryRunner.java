@@ -35,7 +35,6 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -43,7 +42,6 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 public class MemoryLocalQueryRunner
 {
     protected final LocalQueryRunner localQueryRunner;
-    protected final Session session;
 
     public MemoryLocalQueryRunner()
     {
@@ -57,20 +55,18 @@ public class MemoryLocalQueryRunner
                 .setSchema("default");
         properties.forEach(sessionBuilder::setSystemProperty);
 
-        session = sessionBuilder.build();
-        localQueryRunner = createMemoryLocalQueryRunner(session);
+        localQueryRunner = createMemoryLocalQueryRunner(sessionBuilder.build());
     }
 
     public List<Page> execute(@Language("SQL") String query)
     {
-        ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(2, GIGABYTE));
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(2, GIGABYTE));
 
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(1, GIGABYTE), memoryPool, systemMemoryPool, executor, new DataSize(4, GIGABYTE), spillSpaceTracker)
-                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), executor),
-                        session,
+        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(1, GIGABYTE), memoryPool, systemMemoryPool, localQueryRunner.getExecutor(), localQueryRunner.getScheduler(), new DataSize(4, GIGABYTE), spillSpaceTracker)
+                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
+                        localQueryRunner.getDefaultSession(),
                         false,
                         false);
 

@@ -21,8 +21,8 @@ import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
@@ -141,14 +142,15 @@ public class TestReorderWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
                                         .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
-                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                .specification(windowA)
-                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                        anyTree(
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(windowB)
-                                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                        anyTree(LINEITEM_TABLESCAN_DOQPRSST))))));
+                                project(
+                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(windowA)
+                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                project(
+                                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(windowB)
+                                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                anyTree(LINEITEM_TABLESCAN_DOQPRSST)))))));
 
         assertPlan(sql, pattern);
     }
@@ -215,7 +217,7 @@ public class TestReorderWindows
     }
 
     @Test
-    public void testNotReorderAcrossNonWindowNodes()
+    public void testReorderAcrossProjectNodes()
     {
         @Language("SQL") String sql = "select " +
                 "avg(discount) over(PARTITION BY suppkey, tax ORDER BY receiptdate ASC NULLS LAST) avg_discount_A, " +
@@ -225,13 +227,41 @@ public class TestReorderWindows
         assertUnitPlan(sql,
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(windowA)
-                                        .addFunction(functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
-                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
-                                        window(windowMatcherBuilder -> windowMatcherBuilder
-                                                        .specification(windowApp)
-                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .specification(windowApp)
+                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
+                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
                                                 LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+    }
+
+    @Test
+    public void testNotReorderAcrossFilter()
+    {
+        @Language("SQL") String sql = "" +
+                "SELECT " +
+                "  avg_discount_APP, " +
+                "  AVG(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey ASC NULLS LAST) avg_quantity_A " +
+                "FROM ( " +
+                "   SELECT " +
+                "     *, " +
+                "     AVG(discount) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate ASC NULLS LAST) avg_discount_APP " +
+                "   FROM lineitem) " +
+                "WHERE receiptdate IS NOT NULL";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowA)
+                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                filter(
+                                        RECEIPTDATE_ALIAS + " IS NOT NULL",
+                                        project(
+                                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                .specification(windowApp)
+                                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
     @Test
@@ -280,7 +310,9 @@ public class TestReorderWindows
                 new IterativeOptimizer(new StatsRecorder(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new SwapAdjacentWindowsBySpecifications())),
+                                new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0),
+                                new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(1),
+                                new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);

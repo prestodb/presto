@@ -59,7 +59,7 @@ public class TestMongoPlugin
         connector.shutdown();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void destory()
     {
         server.shutdown();

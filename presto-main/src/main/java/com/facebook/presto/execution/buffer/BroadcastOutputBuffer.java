@@ -299,23 +299,28 @@ public class BroadcastOutputBuffer
         // NOTE: buffers are allowed to be created in the FINISHED state because destroy() can move to the finished state
         // without a clean "no-more-buffers" message from the scheduler.  This happens with limit queries and is ok because
         // the buffer will be immediately destroyed.
-        checkState(state.get().canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
+        BufferState state = this.state.get();
+        checkState(state.canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared
         buffer = new ClientBuffer(taskInstanceId, id);
 
-        // add initial pages
-        buffer.enqueuePages(initialPagesForNewBuffers);
+        // do not setup the new buffer if we are already failed
+        if (state != FAILED) {
+            // add initial pages
+            buffer.enqueuePages(initialPagesForNewBuffers);
 
-        // update state
-        if (!state.get().canAddPages()) {
-            buffer.setNoMorePages();
-        }
+            // update state
+            if (!state.canAddPages()) {
+                // BE CAREFUL: set no more pages only if not FAILED, because this allows clients to FINISH
+                buffer.setNoMorePages();
+            }
 
-        // buffer may have finished immediately before calling this method
-        if (state.get() == FINISHED) {
-            buffer.destroy();
+            // buffer may have finished immediately before calling this method
+            if (state == FINISHED) {
+                buffer.destroy();
+            }
         }
 
         buffers.put(id, buffer);

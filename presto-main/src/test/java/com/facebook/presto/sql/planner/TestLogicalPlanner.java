@@ -16,10 +16,13 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
+import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -28,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.tests.QueryTemplate;
+import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -38,12 +42,15 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -77,10 +84,70 @@ public class TestLogicalPlanner
                 anyTree(
                         node(DistinctLimitNode.class,
                                 anyTree(
-                                        join(INNER, ImmutableList.of(), Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
-                                                any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                        filter("O_ORDERKEY < L_ORDERKEY",
+                                                join(INNER, ImmutableList.of(), Optional.empty(),
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                                        .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
+
+        assertPlan("SELECT DISTINCT o.orderkey FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey LIMIT 1",
+                anyTree(
+                        node(DistinctLimitNode.class,
+                                anyTree(
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
+                                                Optional.of("O_ORDERKEY < L_ORDERKEY"),
+                                                any(tableScan("orders", ImmutableMap.of(
+                                                        "O_SHIPPRIORITY", "shippriority",
+                                                        "O_ORDERKEY", "orderkey"))),
+                                                anyTree(tableScan("lineitem", ImmutableMap.of(
+                                                        "L_LINENUMBER", "linenumber",
+                                                        "L_ORDERKEY", "orderkey"))))
                                                 .withExactOutputs(ImmutableList.of("O_ORDERKEY"))))));
+    }
+
+    @Test
+    public void testInnerInequalityJoinNoEquiJoinConjuncts()
+            throws Exception
+    {
+        assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
+                anyTree(
+                        filter("O_ORDERKEY < L_ORDERKEY",
+                                join(INNER, ImmutableList.of(), Optional.empty(),
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testInnerInequalityJoinWithEquiJoinConjuncts()
+            throws Exception
+    {
+        assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey",
+                anyTree(
+                        anyNot(FilterNode.class,
+                                join(INNER,
+                                        ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
+                                        Optional.of("O_ORDERKEY < L_ORDERKEY"),
+                                        any(tableScan("orders", ImmutableMap.of(
+                                                "O_SHIPPRIORITY", "shippriority",
+                                                "O_ORDERKEY", "orderkey"))),
+                                        anyTree(tableScan("lineitem", ImmutableMap.of(
+                                                "L_LINENUMBER", "linenumber",
+                                                "L_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testLeftConvertedToInnerInequalityJoinNoEquiJoinConjuncts()
+            throws Exception
+    {
+        assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey < l.orderkey WHERE l.orderkey IS NOT NULL",
+                anyTree(
+                        filter("O_ORDERKEY < L_ORDERKEY",
+                                join(INNER, ImmutableList.of(), Optional.empty(),
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                        any(
+                                                filter("NOT (L_ORDERKEY IS NULL)",
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
     }
 
     @Test
@@ -252,11 +319,9 @@ public class TestLogicalPlanner
                                 anyTree(
                                         tableScan("nation", ImmutableMap.of("REGIONKEY_LEFT", "regionkey", "NATIONKEY", "nationkey"))),
                                 anyTree(
-                                        tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey"))))
-                )
+                                        tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey")))))
                         .withNumberOfOutputColumns(1)
-                        .withOutputs(ImmutableList.of("NATIONKEY"))
-        );
+                        .withOutputs(ImmutableList.of("NATIONKEY")));
     }
 
     private void assertPlanContainsNoApplyOrAnyJoin(String sql)
@@ -281,9 +346,8 @@ public class TestLogicalPlanner
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         node(EnforceSingleRowNode.class,
                                                 project(
-                                                        node(ValuesNode.class)
-                                                ))))),
-                planOptimizer -> !(planOptimizer instanceof AddLocalExchanges));
+                                                        node(ValuesNode.class)))))),
+                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
     }
 
     /**
@@ -300,12 +364,7 @@ public class TestLogicalPlanner
                                 anyTree(tableScan("lineitem")),
                                 anyTree(
                                         filter("orderkey < BIGINT '7'", // pushed down
-                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))
-                                        )
-                                )
-                        )
-                )
-        );
+                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))))));
     }
 
     /**
@@ -323,10 +382,7 @@ public class TestLogicalPlanner
                                 anyTree(strictTableScan("lineitem", ImmutableMap.of(
                                         "orderkey", "orderkey",
                                         "comment", "comment"))),
-                                anyTree(tableScan("orders"))
-                        )
-                )
-        );
+                                anyTree(tableScan("orders")))));
     }
 
     @Test
@@ -350,9 +406,8 @@ public class TestLogicalPlanner
                                                         tableScan("lineitem", ImmutableMap.of("L", "orderkey")),
                                                         node(EnforceSingleRowNode.class,
                                                                 project(
-                                                                        node(ValuesNode.class)
-                                                                ))))))),
-                planOptimizer -> !(planOptimizer instanceof AddLocalExchanges));
+                                                                        node(ValuesNode.class)))))))),
+                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
     }
 
     @Test
@@ -380,13 +435,11 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT * FROM nation WHERE 1 = 1",
                 output(
-                        tableScan("nation"))
-        );
+                        tableScan("nation")));
         assertPlan(
                 "SELECT * FROM nation WHERE 1 = 0",
                 output(
-                        values("nationkey", "name", "regionkey", "comment"))
-        );
+                        values("nationkey", "name", "regionkey", "comment")));
     }
 
     @Test
@@ -404,5 +457,18 @@ public class TestLogicalPlanner
                 "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders GROUP BY custkey)",
                 anyTree(
                         tableScan("orders")));
+    }
+
+    @Test
+    public void testPickTableLayoutWithFilter()
+    {
+        Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
+                .put("orderkey", singleValue(BIGINT, 5L))
+                .build();
+        assertPlan(
+                "SELECT orderkey FROM orders WHERE orderkey=5",
+                output(
+                        filter("orderkey = BIGINT '5'",
+                                constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderkey", "orderkey")))));
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -88,7 +89,7 @@ public class HivePageSourceProvider
                 cursorProviders,
                 pageSourceFactories,
                 hiveSplit.getClientId(),
-                hdfsEnvironment.getConfiguration(path),
+                hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path),
                 session,
                 path,
                 hiveSplit.getBucketNumber(),
@@ -141,8 +142,7 @@ public class HivePageSourceProvider
                     schema,
                     extractRegularColumnHandles(regularColumnMappings, true),
                     effectivePredicate,
-                    hiveStorageTimeZone
-            );
+                    hiveStorageTimeZone);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(

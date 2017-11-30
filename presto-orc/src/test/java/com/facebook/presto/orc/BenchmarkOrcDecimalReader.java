@@ -47,12 +47,13 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.orc.OrcTester.Compression.NONE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumn;
+import static com.facebook.presto.orc.OrcTester.writeOrcColumnOld;
+import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.google.common.io.Files.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.UUID.randomUUID;
 
@@ -103,19 +104,20 @@ public class BenchmarkOrcDecimalReader
             temporary = createTempDir();
             dataPath = new File(temporary, randomUUID().toString());
 
-            writeOrcColumn(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
+            writeOrcColumnOld(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
         }
 
         @TearDown
         public void tearDown()
+                throws IOException
         {
-            deleteRecursively(temporary);
+            deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
         }
 
         private OrcRecordReader createRecordReader()
                 throws IOException
         {
-            OrcDataSource dataSource = new FileOrcDataSource(dataPath, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcDataSource dataSource = new FileOrcDataSource(dataPath, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
             MetadataReader metadataReader = new OrcMetadataReader();
             OrcReader orcReader = new OrcReader(dataSource, metadataReader, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
             return orcReader.createRecordReader(

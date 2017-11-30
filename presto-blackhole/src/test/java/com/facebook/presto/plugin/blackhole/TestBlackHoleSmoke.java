@@ -174,7 +174,7 @@ public class TestBlackHoleSmoke
 
         assertThatQueryReturnsValue(
                 format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1 ) AS " +
-                        "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation",
+                                "SELECT nationkey, name, regionkey, comment, 'abc' short_varchar FROM tpch.tiny.nation",
                         FIELD_LENGTH_PROPERTY,
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
@@ -240,6 +240,16 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(10), "****************".getBytes());
         assertEquals(row.getField(11), new BigDecimal("0.00"));
         assertEquals(row.getField(12), new BigDecimal("00000000000000000000.0000000000"));
+        dropBlackholeAllTypesTable();
+    }
+
+    @Test
+    public void testSelectWithUnenforcedConstraint()
+            throws Exception
+    {
+        createBlackholeAllTypesTable();
+        MaterializedResult rows = queryRunner.execute("SELECT * FROM blackhole_all_types where _bigint > 10");
+        assertEquals(rows.getRowCount(), 0);
         dropBlackholeAllTypesTable();
     }
 

@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.facebook.presto.matching.Pattern.empty;
+import static com.facebook.presto.sql.planner.plan.Patterns.Values.rows;
+import static com.facebook.presto.sql.planner.plan.Patterns.delete;
+import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableFinish;
+import static com.facebook.presto.sql.planner.plan.Patterns.values;
 
 /**
  * If the predicate for a delete is optimized to false, the target table scan
@@ -45,51 +47,30 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  *  - Values (0)
  * </pre>
  */
+// TODO split into multiple rules (https://github.com/prestodb/presto/issues/7292)
 public class RemoveEmptyDelete
-        implements Rule
+        implements Rule<TableFinishNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(TableFinishNode.class);
+    private static final Pattern<TableFinishNode> PATTERN = tableFinish()
+            .with(source().matching(exchange()
+                    .with(source().matching(delete()
+                            .with(source().matching(emptyValues()))))));
+
+    private static Pattern<ValuesNode> emptyValues()
+    {
+        return values().with(empty(rows()));
+    }
 
     @Override
-    public Pattern getPattern()
+    public Pattern<TableFinishNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(TableFinishNode node, Captures captures, Context context)
     {
-        // TODO split into multiple rules (https://github.com/prestodb/presto/issues/7292)
-
-        TableFinishNode finish = (TableFinishNode) node;
-
-        PlanNode finishSource = context.getLookup().resolve(finish.getSource());
-        if (!(finishSource instanceof ExchangeNode)) {
-            return Optional.empty();
-        }
-        ExchangeNode exchange = (ExchangeNode) finishSource;
-
-        if (exchange.getSources().size() != 1) {
-            return Optional.empty();
-        }
-
-        PlanNode exchangeSource = context.getLookup().resolve(getOnlyElement(exchange.getSources()));
-        if (!(exchangeSource instanceof DeleteNode)) {
-            return Optional.empty();
-        }
-        DeleteNode delete = (DeleteNode) exchangeSource;
-
-        PlanNode deleteSource = context.getLookup().resolve(delete.getSource());
-        if (!(deleteSource instanceof ValuesNode)) {
-            return Optional.empty();
-        }
-        ValuesNode values = (ValuesNode) deleteSource;
-
-        if (!values.getRows().isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(
+        return Result.ofPlanNode(
                 new ValuesNode(
                         node.getId(),
                         node.getOutputSymbols(),

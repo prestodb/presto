@@ -28,7 +28,7 @@ public interface LookupSource
 
     long getInMemorySizeInBytes();
 
-    int getJoinPositionCount();
+    long getJoinPositionCount();
 
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash);
 

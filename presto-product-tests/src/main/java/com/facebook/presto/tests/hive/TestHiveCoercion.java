@@ -212,10 +212,10 @@ public class TestHiveCoercion
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
         executeHiveQuery(format("INSERT INTO TABLE %s " +
-                "PARTITION (id=1) " +
-                "VALUES" +
-                "(-1, 2, -3, 100, -101, 2323, 12345, 0.5)," +
-                "(1, -2, null, -100, 101, -2323, -12345, -1.5)",
+                        "PARTITION (id=1) " +
+                        "VALUES" +
+                        "(-1, 2, -3, 100, -101, 2323, 12345, 0.5)," +
+                        "(1, -2, null, -100, 101, -2323, -12345, -1.5)",
                 tableName));
 
         alterTableColumnTypes(tableName);
@@ -257,8 +257,7 @@ public class TestHiveCoercion
                 row("int_to_bigint", "bigint"),
                 row("bigint_to_varchar", "varchar"),
                 row("float_to_double", "double"),
-                row("id", "bigint")
-        );
+                row("id", "bigint"));
     }
 
     private void assertColumnTypes(QueryResult queryResult)
@@ -274,8 +273,7 @@ public class TestHiveCoercion
                     BIGINT,
                     LONGNVARCHAR,
                     DOUBLE,
-                    BIGINT
-            );
+                    BIGINT);
         }
         else if (usingTeradataJdbcDriver(connection)) {
             assertThat(queryResult).hasColumns(
@@ -287,8 +285,7 @@ public class TestHiveCoercion
                     BIGINT,
                     VARBINARY,
                     DOUBLE,
-                    BIGINT
-            );
+                    BIGINT);
         }
         else {
             throw new IllegalStateException();

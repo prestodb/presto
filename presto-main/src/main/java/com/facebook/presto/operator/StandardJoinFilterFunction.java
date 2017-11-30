@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -33,13 +32,11 @@ public class StandardJoinFilterFunction
     private final InternalJoinFilterFunction filterFunction;
     private final LongArrayList addresses;
     private final List<Block[]> pages;
-    private final Optional<Integer> sortChannel;
 
-    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, LongArrayList addresses, List<List<Block>> channels, Optional<Integer> sortChannel)
+    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, LongArrayList addresses, List<List<Block>> channels)
     {
         this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null");
         this.addresses = requireNonNull(addresses, "addresses is null");
-        this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
 
         requireNonNull(channels, "channels can not be null");
         ImmutableList.Builder<Block[]> pagesBuilder = ImmutableList.builder();
@@ -64,12 +61,6 @@ public class StandardJoinFilterFunction
         int blockPosition = decodePosition(pageAddress);
 
         return filterFunction.filter(blockPosition, getLeftBlocks(blockIndex), rightPosition, rightPage.getBlocks());
-    }
-
-    @Override
-    public Optional<Integer> getSortChannel()
-    {
-        return sortChannel;
     }
 
     private Block[] getLeftBlocks(int leftBlockIndex)

@@ -25,27 +25,27 @@ import static java.util.Objects.requireNonNull;
 public class Execute
         extends Statement
 {
-    private final String name;
+    private final Identifier name;
     private final List<Expression> parameters;
 
-    public Execute(NodeLocation location, String name, List<Expression> parameters)
+    public Execute(NodeLocation location, Identifier name, List<Expression> parameters)
     {
         this(Optional.of(location), name, parameters);
     }
 
-    public Execute(String name, List<Expression> parameters)
+    public Execute(Identifier name, List<Expression> parameters)
     {
         this(Optional.empty(), name, parameters);
     }
 
-    private Execute(Optional<NodeLocation> location, String name, List<Expression> parameters)
+    private Execute(Optional<NodeLocation> location, Identifier name, List<Expression> parameters)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.parameters = requireNonNull(ImmutableList.copyOf(parameters), "parameters is null");
     }
 
-    public String getName()
+    public Identifier getName()
     {
         return name;
     }

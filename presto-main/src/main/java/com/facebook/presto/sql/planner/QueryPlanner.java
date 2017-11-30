@@ -595,7 +595,7 @@ class QueryPlanner
         // Add back the implicit casts that we removed in 2.a
         // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
         if (needPostProjectionCoercion) {
-            return explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
+            subPlan = explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
         }
 
         // 4. Project and re-write all grouping functions
@@ -693,10 +693,11 @@ class QueryPlanner
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
-            Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
             for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
-                orderings.put(symbol, toSortOrder(item));
+                // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
+                orderings.putIfAbsent(symbol, toSortOrder(item));
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs

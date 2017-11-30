@@ -75,46 +75,6 @@ public class TestHiveTableStatistics
     }
 
     @Test(groups = {HIVE_CONNECTOR})
-    @Requires(UnpartitionedNationTable.class)
-    public void testStatisticsForUnpartitionedTable()
-    {
-        String tableNameInDatabase = mutableTablesState().get(NATION.getName()).getNameInDatabase();
-
-        String showStatsWholeTable = "SHOW STATS FOR " + tableNameInDatabase;
-
-        // table not analyzed
-
-        assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, null, null),
-                row("n_name", null, null, null, null),
-                row("n_regionkey", null, null, null, null),
-                row("n_comment", null, null, null, null),
-                row(null, null, null, null, anyOf(null, 0.0))); // anyOf because of different behaviour on HDP (hive 1.2) and CDH (hive 1.1)
-
-        // basic analysis
-
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
-
-        assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, null, null, null),
-                row("n_name", null, null, null, null),
-                row("n_regionkey", null, null, null, null),
-                row("n_comment", null, null, null, null),
-                row(null, null, null, null, 25.0));
-
-        // column analysis
-
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
-
-        assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, 19.0, 0.0, null),
-                row("n_name", null, 24.0, 0.0, null),
-                row("n_regionkey", null, 5.0, 0.0, null),
-                row("n_comment", null, 31.0, 0.0, null),
-                row(null, null, null, null, 25.0));
-    }
-
-    @Test(groups = {HIVE_CONNECTOR})
     @Requires(PartitionedNationTable.class)
     public void testStatisticsForPartitionedTable()
     {
@@ -241,6 +201,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 5.0));
     }
 
+    // This covers also stats calculation for unpartitioned table
     @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypes()
@@ -265,24 +226,24 @@ public class TestHiveTableStatistics
                 row("c_boolean", null, null, null, null),
                 row("c_binary", null, null, null, null),
                 row(null, null, null, null, 1.0));
-
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
 
+        // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, 1.0, 0.0, null),
-                row("c_smallint", null, 1.0, 0.0, null),
-                row("c_int", null, 2.0, 0.0, null),
-                row("c_bigint", null, 1.0, 0.0, null),
-                row("c_float", null, 1.0, 0.0, null),
-                row("c_double", null, 1.0, 0.0, null),
-                row("c_decimal", null, 1.0, 0.0, null),
-                row("c_decimal_w_params", null, 1.0, 0.0, null),
-                row("c_timestamp", null, 1.0, 0.0, null),
-                row("c_date", null, 2.0, 0.0, null),
-                row("c_string", null, 1.0, 0.0, null),
-                row("c_varchar", null, 1.0, 0.0, null),
-                row("c_char", null, 1.0, 0.0, null),
-                row("c_boolean", null, 1.0, 0.0, null),
+                row("c_tinyint", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_smallint", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_int", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_bigint", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_float", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_double", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_decimal", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_decimal_w_params", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_timestamp", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_date", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_string", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_varchar", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_char", null, anyOf(1.0, 2.0), 0.0, null),
+                row("c_boolean", null, anyOf(1.0, 2.0), 0.0, null),
                 row("c_binary", null, null, 0.0, null),
                 row(null, null, null, null, 1.0));
     }

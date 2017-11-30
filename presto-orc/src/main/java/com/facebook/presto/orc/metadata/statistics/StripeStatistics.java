@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata.statistics;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,5 +32,24 @@ public class StripeStatistics
     public List<ColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        StripeStatistics that = (StripeStatistics) o;
+        return Objects.equals(columnStatistics, that.columnStatistics);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(columnStatistics);
     }
 }

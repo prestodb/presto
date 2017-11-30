@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -118,6 +117,12 @@ public class InMemoryHashAggregationBuilder
     @Override
     public void close()
     {
+        if (partial) {
+            systemMemoryContext.setBytes(0);
+        }
+        else {
+            operatorContext.setMemoryReservation(0);
+        }
     }
 
     @Override
@@ -171,9 +176,15 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<?> startMemoryRevoke()
     {
-        return NOT_BLOCKED;
+        throw new UnsupportedOperationException("startMemoryRevoke not supported for InMemoryHashAggregationBuilder");
+    }
+
+    @Override
+    public void finishMemoryRevoke()
+    {
+        throw new UnsupportedOperationException("finishMemoryRevoke not supported for InMemoryHashAggregationBuilder");
     }
 
     public long getSizeInMemory()
@@ -289,7 +300,8 @@ public class InMemoryHashAggregationBuilder
         groupIds.sort(0, groupByHash.getGroupCount(), (leftGroupId, rightGroupId) ->
                 Long.compare(groupByHash.getRawHash(leftGroupId), groupByHash.getRawHash(rightGroupId)));
 
-        return new AbstractIntIterator() {
+        return new AbstractIntIterator()
+        {
             private final int totalPositions = groupByHash.getGroupCount();
             private int position = 0;
 

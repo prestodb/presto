@@ -91,7 +91,7 @@ final class DescribeOutputRewrite
         @Override
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
-            String sqlString = session.getPreparedStatement(node.getName());
+            String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString);
 
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);

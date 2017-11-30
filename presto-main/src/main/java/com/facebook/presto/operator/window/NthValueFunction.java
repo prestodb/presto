@@ -29,11 +29,13 @@ public class NthValueFunction
 {
     private final int valueChannel;
     private final int offsetChannel;
+    private final boolean ignoreNulls;
 
-    public NthValueFunction(List<Integer> argumentChannels)
+    public NthValueFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = argumentChannels.get(1);
+        this.ignoreNulls = ignoreNulls;
     }
 
     @Override

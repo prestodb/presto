@@ -302,6 +302,7 @@ class StatementAnalyzer
             List<String> insertColumns;
             if (insert.getColumns().isPresent()) {
                 insertColumns = insert.getColumns().get().stream()
+                        .map(Identifier::getValue)
                         .map(String::toLowerCase)
                         .collect(toImmutableList());
 
@@ -405,12 +406,10 @@ class StatementAnalyzer
                 throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
 
-            for (Expression expression : node.getProperties().values()) {
-                // analyze table property value expressions which must be constant
-                createConstantAnalyzer(metadata, session, analysis.getParameters(), analysis.isDescribe())
-                        .analyze(expression, createScope(scope));
-            }
+            validateProperties(node.getProperties(), scope);
             analysis.setCreateTableProperties(node.getProperties());
+
+            node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
             analysis.setCreateTableComment(node.getComment());
 
             accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
@@ -420,7 +419,19 @@ class StatementAnalyzer
             // analyze the query that creates the table
             Scope queryScope = process(node.getQuery(), scope);
 
-            validateColumns(node, queryScope.getRelationType());
+            if (node.getColumnAliases().isPresent()) {
+                validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
+
+                // analzie only column types in subquery if column alias exists
+                for (Field field : queryScope.getRelationType().getVisibleFields()) {
+                    if (field.getType().equals(UNKNOWN)) {
+                        throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
+                    }
+                }
+            }
+            else {
+                validateColumns(node, queryScope.getRelationType());
+            }
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -470,6 +481,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateSchema(CreateSchema node, Optional<Scope> scope)
         {
+            validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
 
@@ -488,6 +500,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
+            validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
 
@@ -575,6 +588,15 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope);
         }
 
+        private void validateProperties(Map<String, Expression> properties, Optional<Scope> scope)
+        {
+            for (Expression expression : properties.values()) {
+                // analyze property value expressions which must be constant
+                createConstantAnalyzer(metadata, session, analysis.getParameters(), analysis.isDescribe())
+                        .analyze(expression, createScope(scope));
+            }
+        }
+
         private void validateColumns(Statement node, RelationType descriptor)
         {
             // verify that all column names are specified and unique
@@ -591,6 +613,25 @@ class StatementAnalyzer
                 if (field.getType().equals(UNKNOWN)) {
                     throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown: %s", fieldName.get());
                 }
+            }
+        }
+
+        private void validateColumnAliases(List<Identifier> columnAliases, int sourceColumnSize)
+        {
+            if (columnAliases.size() != sourceColumnSize) {
+                throw new SemanticException(
+                        MISMATCHED_COLUMN_ALIASES,
+                        columnAliases.get(0),
+                        "Column alias list has %s entries but subquery has %s columns",
+                        columnAliases.size(),
+                        sourceColumnSize);
+            }
+            Set<String> names = new HashSet<>();
+            for (Identifier identifier : columnAliases) {
+                if (names.contains(identifier.getValue().toLowerCase(ENGLISH))) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
+                }
+                names.add(identifier.getValue().toLowerCase(ENGLISH));
             }
         }
 
@@ -678,17 +719,17 @@ class StatementAnalyzer
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
 
                     List<Field> fields;
-                    Optional<List<String>> columnNames = withQuery.get().getColumnNames();
+                    Optional<List<Identifier>> columnNames = withQuery.get().getColumnNames();
                     if (columnNames.isPresent()) {
                         // if columns are explicitly aliased -> WITH cte(alias1, alias2 ...)
                         ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
 
                         int field = 0;
-                        for (String columnName : columnNames.get()) {
+                        for (Identifier columnName : columnNames.get()) {
                             Field inputField = queryDescriptor.getFieldByIndex(field);
                             fieldBuilder.add(Field.newQualified(
                                     QualifiedName.of(name),
-                                    Optional.of(columnName),
+                                    Optional.of(columnName.getValue()),
                                     inputField.getType(),
                                     false,
                                     inputField.getOriginTable(),
@@ -813,7 +854,15 @@ class StatementAnalyzer
                 }
             }
 
-            RelationType descriptor = relationType.withAlias(relation.getAlias(), relation.getColumnNames());
+            List<String> aliases = null;
+            if (relation.getColumnNames() != null) {
+                aliases = relation.getColumnNames().stream()
+                        .map(Identifier::getValue)
+                        .collect(Collectors.toList());
+            }
+
+            RelationType descriptor = relationType.withAlias(relation.getAlias().getValue(), aliases);
+
             return createAndAssignScope(relation, scope, descriptor);
         }
 
@@ -1057,12 +1106,12 @@ class StatementAnalyzer
 
             if (criteria instanceof JoinUsing) {
                 // TODO: implement proper "using" semantics with respect to output columns
-                List<String> columns = ((JoinUsing) criteria).getColumns();
+                List<Identifier> columns = ((JoinUsing) criteria).getColumns();
 
                 List<Expression> expressions = new ArrayList<>();
-                for (String column : columns) {
-                    Expression leftExpression = new Identifier(column);
-                    Expression rightExpression = new Identifier(column);
+                for (Identifier column : columns) {
+                    Expression leftExpression = new Identifier(column.getValue());
+                    Expression rightExpression = new Identifier(column.getValue());
 
                     ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left);
                     ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right);
@@ -1243,8 +1292,9 @@ class StatementAnalyzer
 
                 if (windowFunction.isIgnoreNulls()) {
                     String functionName = windowFunction.getName().toString();
-                    if (!functionName.equalsIgnoreCase("lag") && !functionName.equalsIgnoreCase("lead")) {
-                        throw new SemanticException(NOT_SUPPORTED, node,  "IGNORE NULLS clause not valid for this window function: %s", windowFunction);
+                    if (!functionName.equalsIgnoreCase("lag") && !functionName.equalsIgnoreCase("lead") &&
+                            !functionName.equalsIgnoreCase("first_value") && !functionName.equalsIgnoreCase("last_value")) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "IGNORE NULLS clause not valid for this window function: %s", windowFunction);
                     }
                 }
 
@@ -1323,9 +1373,9 @@ class StatementAnalyzer
                 ImmutableMultimap.Builder<QualifiedName, Expression> byAliasBuilder = ImmutableMultimap.builder();
                 for (SelectItem item : node.getSelect().getSelectItems()) {
                     if (item instanceof SingleColumn) {
-                        Optional<String> alias = ((SingleColumn) item).getAlias();
+                        Optional<Identifier> alias = ((SingleColumn) item).getAlias();
                         if (alias.isPresent()) {
-                            byAliasBuilder.put(QualifiedName.of(alias.get()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
+                            byAliasBuilder.put(QualifiedName.of(alias.get().getValue()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
                         }
                     }
                 }
@@ -1338,7 +1388,7 @@ class StatementAnalyzer
                     if (expression instanceof Identifier) {
                         // if this is a simple name reference, try to resolve against output columns
 
-                        QualifiedName name = QualifiedName.of(((Identifier) expression).getName());
+                        QualifiedName name = QualifiedName.of(((Identifier) expression).getValue());
                         Collection<Expression> expressions = byAlias.get(name);
                         if (expressions.size() > 1) {
                             throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
@@ -1398,12 +1448,12 @@ class StatementAnalyzer
             for (SelectItem item : node.getSelectItems()) {
                 if (item instanceof SingleColumn) {
                     SingleColumn column = (SingleColumn) item;
-                    Optional<String> alias = column.getAlias();
+                    Optional<Identifier> alias = column.getAlias();
                     if (alias.isPresent()) {
-                        assignments.put(QualifiedName.of(alias.get()), column.getExpression()); // TODO: need to know if alias was quoted
+                        assignments.put(QualifiedName.of(alias.get().getValue()), column.getExpression()); // TODO: need to know if alias was quoted
                     }
                     else if (column.getExpression() instanceof Identifier) {
-                        assignments.put(QualifiedName.of(((Identifier) column.getExpression()).getName()), column.getExpression());
+                        assignments.put(QualifiedName.of(((Identifier) column.getExpression()).getValue()), column.getExpression());
                     }
                 }
             }
@@ -1425,7 +1475,7 @@ class StatementAnalyzer
             public Expression rewriteIdentifier(Identifier reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 // if this is a simple name reference, try to resolve against output columns
-                QualifiedName name = QualifiedName.of(reference.getName());
+                QualifiedName name = QualifiedName.of(reference.getValue());
                 Set<Expression> expressions = assignments.get(name)
                         .stream()
                         .collect(Collectors.toSet());
@@ -1550,13 +1600,13 @@ class StatementAnalyzer
                     SingleColumn column = (SingleColumn) item;
 
                     Expression expression = column.getExpression();
-                    Optional<String> fieldName = column.getAlias();
+                    Optional<Identifier> field = column.getAlias();
 
                     Optional<QualifiedObjectName> originTable = Optional.empty();
                     QualifiedName name = null;
 
                     if (expression instanceof Identifier) {
-                        name = QualifiedName.of(((Identifier) expression).getName());
+                        name = QualifiedName.of(((Identifier) expression).getValue());
                     }
                     else if (expression instanceof DereferenceExpression) {
                         name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
@@ -1569,13 +1619,13 @@ class StatementAnalyzer
                         }
                     }
 
-                    if (!fieldName.isPresent()) {
+                    if (!field.isPresent()) {
                         if (name != null) {
-                            fieldName = Optional.of(getLast(name.getOriginalParts()));
+                            field = Optional.of(new Identifier(getLast(name.getOriginalParts())));
                         }
                     }
 
-                    outputFields.add(Field.newUnqualified(fieldName, analysis.getType(expression), originTable, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
@@ -1900,14 +1950,14 @@ class StatementAnalyzer
                 Query query = withQuery.getQuery();
                 process(query, withScopeBuilder.build());
 
-                String name = withQuery.getName();
+                String name = withQuery.getName().getValue().toLowerCase(ENGLISH);
                 if (withScopeBuilder.containsNamedQuery(name)) {
                     throw new SemanticException(DUPLICATE_RELATION, withQuery, "WITH query name '%s' specified more than once", name);
                 }
 
                 // check if all or none of the columns are explicitly alias
                 if (withQuery.getColumnNames().isPresent()) {
-                    List<String> columnNames = withQuery.getColumnNames().get();
+                    List<Identifier> columnNames = withQuery.getColumnNames().get();
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
                     if (columnNames.size() != queryDescriptor.getVisibleFieldCount()) {
                         throw new SemanticException(MISMATCHED_COLUMN_ALIASES, withQuery, "WITH column alias list has %s entries but WITH query(%s) has %s columns", columnNames.size(), name, queryDescriptor.getVisibleFieldCount());

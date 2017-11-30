@@ -20,7 +20,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Objects.requireNonNull;
 
 class OrcSnappyDecompressor
-    implements OrcDecompressor
+        implements OrcDecompressor
 {
     private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;

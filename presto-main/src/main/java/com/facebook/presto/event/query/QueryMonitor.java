@@ -153,7 +153,7 @@ public class QueryMonitor
                         input.getSchema(),
                         input.getTable(),
                         input.getColumns().stream()
-                                .map(Column::toString).collect(Collectors.toList()),
+                                .map(Column::getName).collect(Collectors.toList()),
                         input.getConnectorInfo()));
             }
 
@@ -199,6 +199,10 @@ public class QueryMonitor
                                     queryStats.getPeakMemoryReservation().toBytes(),
                                     queryStats.getRawInputDataSize().toBytes(),
                                     queryStats.getRawInputPositions(),
+                                    queryStats.getOutputDataSize().toBytes(),
+                                    queryStats.getOutputPositions(),
+                                    queryStats.getWrittenDataSize().toBytes(),
+                                    queryStats.getWrittenPositions(),
                                     queryStats.getCumulativeMemory(),
                                     queryStats.getCompletedDrivers(),
                                     queryInfo.isCompleteInfo(),

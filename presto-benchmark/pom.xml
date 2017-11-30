@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.181-SNAPSHOT</version>
+        <version>0.186-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchmark</artifactId>
@@ -38,7 +38,8 @@
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
-            <artifactId>annotations</artifactId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

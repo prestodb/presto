@@ -26,7 +26,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
@@ -34,11 +34,11 @@ import com.facebook.presto.spi.type.RowType.RowField;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -84,15 +84,12 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Defaults;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -107,6 +104,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -119,10 +117,10 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.gen.TryCodeGenerator.tryExpressionExceptionHandler;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
+import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -131,8 +129,6 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.any;
-import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
@@ -142,6 +138,7 @@ public class ExpressionInterpreter
     private final ConnectorSession session;
     private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
+    private final FunctionInvoker functionInvoker;
 
     private final Visitor visitor;
 
@@ -221,11 +218,11 @@ public class ExpressionInterpreter
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
-        rewrite = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(analyzer.getExpressionTypes()), rewrite);
+        rewrite = DesugarAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes());
 
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
-        Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(rewrite);
+        Expression canonicalized = canonicalizeExpression(rewrite);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
@@ -251,6 +248,7 @@ public class ExpressionInterpreter
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
+        this.functionInvoker = new FunctionInvoker(metadata.getFunctionRegistry());
 
         this.visitor = new Visitor();
     }
@@ -404,7 +402,7 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(base)) {
-                return new DereferenceExpression(toExpression(base, type), node.getFieldName());
+                return new DereferenceExpression(toExpression(base, type), node.getField());
             }
 
             RowType rowType = (RowType) type;
@@ -414,12 +412,12 @@ public class ExpressionInterpreter
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 RowField field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getFieldName())) {
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(node.getField().getValue())) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }
             }
-            checkState(index >= 0, "could not find field name: %s", node.getFieldName());
+            checkState(index >= 0, "could not find field name: %s", node.getField());
             if (row.isNull(index)) {
                 return null;
             }
@@ -533,8 +531,7 @@ public class ExpressionInterpreter
                 return new IfExpression(
                         toExpression(condition, type(node.getCondition())),
                         toExpression(trueValue, type(node.getTrueValue())),
-                        falseValueExpression
-                );
+                        falseValueExpression);
             }
             else if (Boolean.TRUE.equals(condition)) {
                 return trueValue;
@@ -618,7 +615,7 @@ public class ExpressionInterpreter
             Type type = type(node);
             List<Object> values = node.getOperands().stream()
                     .map(value -> processWithExceptionHandling(value, context))
-                    .filter(value -> value != null)
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 
             if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
@@ -868,16 +865,14 @@ public class ExpressionInterpreter
 
             Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
             Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
-            ScalarFunctionImplementation firstCastFunction = metadata.getFunctionRegistry().getScalarFunctionImplementation(firstCast);
-            ScalarFunctionImplementation secondCastFunction = metadata.getFunctionRegistry().getScalarFunctionImplementation(secondCast);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = (Boolean) invokeOperator(
                     OperatorType.EQUAL,
                     ImmutableList.of(commonType, commonType),
                     ImmutableList.of(
-                            invoke(session, firstCastFunction, ImmutableList.of(first)),
-                            invoke(session, secondCastFunction, ImmutableList.of(second))));
+                            functionInvoker.invoke(firstCast, session, ImmutableList.of(first)),
+                            functionInvoker.invoke(secondCast, session, ImmutableList.of(second))));
 
             if (equal) {
                 return null;
@@ -969,10 +964,10 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
+            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
             }
-            return invoke(session, function, argumentValues);
+            return functionInvoker.invoke(functionSignature, session, argumentValues);
         }
 
         @Override
@@ -987,6 +982,7 @@ public class ExpressionInterpreter
             Expression body = node.getBody();
             List<String> argumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
+                    .map(Identifier::getValue)
                     .collect(toImmutableList());
             FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node));
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
@@ -1121,23 +1117,6 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitTryExpression(TryExpression node, Object context)
-        {
-            try {
-                Object innerExpression = process(node.getInnerExpression(), context);
-                if (innerExpression instanceof Expression) {
-                    return new TryExpression((Expression) innerExpression);
-                }
-
-                return innerExpression;
-            }
-            catch (PrestoException e) {
-                tryExpressionExceptionHandler(e);
-            }
-            return null;
-        }
-
-        @Override
         public Object visitCast(Cast node, Object context)
         {
             Object value = process(node.getExpression(), context);
@@ -1168,7 +1147,7 @@ public class ExpressionInterpreter
             Signature operator = metadata.getFunctionRegistry().getCoercion(type(node.getExpression()), type);
 
             try {
-                return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operator), ImmutableList.of(value));
+                return functionInvoker.invoke(operator, session, ImmutableList.of(value));
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -1211,11 +1190,13 @@ public class ExpressionInterpreter
                 return new Row(toExpressions(values, parameterTypes));
             }
             else {
-                BlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), cardinality);
+                BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1);
+                BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < cardinality; ++i) {
-                    writeNativeValue(parameterTypes.get(i), blockBuilder, values.get(i));
+                    writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
                 }
-                return blockBuilder.build();
+                blockBuilder.closeEntry();
+                return rowType.getObject(blockBuilder, 0);
             }
         }
 
@@ -1277,21 +1258,21 @@ public class ExpressionInterpreter
 
         private boolean hasUnresolvedValue(List<Object> values)
         {
-            return any(values, instanceOf(Expression.class));
+            return values.stream().anyMatch(instanceOf(Expression.class)::apply);
         }
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             Signature operatorSignature = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
-            return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorSignature), argumentValues);
+            return functionInvoker.invoke(operatorSignature, session, argumentValues);
         }
     }
 
     private interface PagePositionContext
     {
-        public Block getBlock(int channel);
+        Block getBlock(int channel);
 
-        public int getPosition(int channel);
+        int getPosition(int channel);
     }
 
     private static class SinglePagePositionContext
@@ -1355,53 +1336,6 @@ public class ExpressionInterpreter
             else {
                 return rightPosition;
             }
-        }
-    }
-
-    public static Object invoke(ConnectorSession session, ScalarFunctionImplementation function, List<Object> argumentValues)
-    {
-        MethodHandle handle = function.getMethodHandle();
-        if (function.getInstanceFactory().isPresent()) {
-            try {
-                handle = handle.bindTo(function.getInstanceFactory().get().invoke());
-            }
-            catch (Throwable throwable) {
-                if (throwable instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
-                throw Throwables.propagate(throwable);
-            }
-        }
-        if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
-            handle = handle.bindTo(session);
-        }
-        try {
-            List<Object> actualArguments = new ArrayList<>();
-            Class<?>[] parameterArray = handle.type().parameterArray();
-            for (int i = 0; i < argumentValues.size(); i++) {
-                Object argument = argumentValues.get(i);
-                if (function.getLambdaInterface().get(i).isPresent() && !MethodHandle.class.equals(function.getLambdaInterface().get(i).get())) {
-                    argument = asInterfaceInstance(function.getLambdaInterface().get(i).get(), (MethodHandle) argument);
-                }
-                if (function.getNullFlags().get(i)) {
-                    boolean isNull = argument == null;
-                    if (isNull) {
-                        argument = Defaults.defaultValue(parameterArray[actualArguments.size()]);
-                    }
-                    actualArguments.add(argument);
-                    actualArguments.add(isNull);
-                }
-                else {
-                    actualArguments.add(argument);
-                }
-            }
-            return handle.invokeWithArguments(actualArguments);
-        }
-        catch (Throwable throwable) {
-            if (throwable instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(throwable);
         }
     }
 

@@ -16,17 +16,17 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
@@ -74,10 +74,10 @@ public class BenchmarkMapConcat
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public List<Page> mapConcat(BenchmarkData data)
+    public List<Optional<Page>> mapConcat(BenchmarkData data)
             throws Throwable
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -96,7 +96,7 @@ public class BenchmarkMapConcat
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata);
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
             List<String> leftKeys;
             List<String> rightKeys;
@@ -125,11 +125,11 @@ public class BenchmarkMapConcat
 
             Block leftKeyBlock = createKeyBlock(POSITIONS, leftKeys);
             Block leftValueBlock = createValueBlock(POSITIONS, leftKeys.size());
-            Block leftBlock = createMapBlock(POSITIONS, leftKeyBlock, leftValueBlock);
+            Block leftBlock = createMapBlock(mapType, POSITIONS, leftKeyBlock, leftValueBlock);
 
             Block rightKeyBlock = createKeyBlock(POSITIONS, rightKeys);
             Block rightValueBlock = createValueBlock(POSITIONS, rightKeys.size());
-            Block rightBlock = createMapBlock(POSITIONS, rightKeyBlock, rightValueBlock);
+            Block rightBlock = createMapBlock(mapType, POSITIONS, rightKeyBlock, rightValueBlock);
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
@@ -159,15 +159,14 @@ public class BenchmarkMapConcat
             return page;
         }
 
-        private static Block createMapBlock(int positionCount, Block keyBlock, Block valueBlock)
+        private static Block createMapBlock(MapType mapType, int positionCount, Block keyBlock, Block valueBlock)
         {
-            InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[] {keyBlock, valueBlock});
             int[] offsets = new int[positionCount + 1];
             int mapSize = keyBlock.getPositionCount() / positionCount;
             for (int i = 0; i < offsets.length; i++) {
-                offsets[i] = mapSize * 2 * i;
+                offsets[i] = mapSize * i;
             }
-            return new ArrayBlock(positionCount, new boolean[positionCount], offsets, interleavedBlock);
+            return mapType.createBlockFromKeyValue(new boolean[positionCount], offsets, keyBlock, valueBlock);
         }
 
         private static Block createKeyBlock(int positionCount, List<String> keys)

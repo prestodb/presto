@@ -215,7 +215,7 @@ public class SpnegoFilter
     }
 
     private static void sendChallenge(HttpServletRequest request, HttpServletResponse response, boolean includeRealm, String invalidSpnegoToken)
-        throws IOException
+            throws IOException
     {
         // If we send the challenge without consuming the body of the request,
         // the Jetty server will close the connection after sending the response.

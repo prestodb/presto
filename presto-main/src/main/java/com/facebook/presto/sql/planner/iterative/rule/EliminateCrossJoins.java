@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -38,6 +40,7 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -45,39 +48,37 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class EliminateCrossJoins
-        implements Rule
+        implements Rule<JoinNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(JoinNode.class);
+    private static final Pattern<JoinNode> PATTERN = join();
 
     @Override
-    public Pattern getPattern()
+    public Pattern<JoinNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public boolean isEnabled(Session session)
     {
-        if (!(node instanceof JoinNode)) {
-            return Optional.empty();
-        }
+        return SystemSessionProperties.isJoinReorderingEnabled(session);
+    }
 
-        if (!SystemSessionProperties.isJoinReorderingEnabled(context.getSession())) {
-            return Optional.empty();
-        }
-
+    @Override
+    public Result apply(JoinNode node, Captures captures, Context context)
+    {
         JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup());
         if (joinGraph.size() < 3) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         List<Integer> joinOrder = getJoinOrder(joinGraph);
         if (isOriginalOrder(joinOrder)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         PlanNode replacement = buildJoinTree(node.getOutputSymbols(), joinGraph, joinOrder, context.getIdAllocator());
-        return Optional.of(replacement);
+        return Result.ofPlanNode(replacement);
     }
 
     public static boolean isOriginalOrder(List<Integer> joinOrder)

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.181-SNAPSHOT</version>
+        <version>0.186-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -114,6 +114,15 @@
                                     <fileMode>0755</fileMode>
                                     <includes>
                                         <include>*</include>
+                                    </includes>
+                                </rule>
+
+                                <rule>
+                                    <destination>/usr/lib/presto/bin</destination>
+                                    <base>${server.tar.package}/bin</base>
+                                    <!-- copy sub folders -->
+                                    <includes>
+                                        <include>*/**</include>
                                     </includes>
                                 </rule>
 

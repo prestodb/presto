@@ -13,66 +13,43 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
+import static com.google.common.base.Predicates.not;
 
 /**
  * Non-cross joins support output symbol selection, so absorb any project-off into the node.
  */
 public class PruneJoinColumns
-        implements Rule
+        extends ProjectOffPushDownRule<JoinNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
-
-    @Override
-    public Pattern getPattern()
+    public PruneJoinColumns()
     {
-        return PATTERN;
+        super(join().matching(not(JoinNode::isCrossJoin)));
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
     {
-        ProjectNode parent = (ProjectNode) node;
-
-        PlanNode child = context.getLookup().resolve(parent.getSource());
-        if (!(child instanceof JoinNode)) {
-            return Optional.empty();
-        }
-
-        JoinNode joinNode = (JoinNode) child;
-        if (joinNode.isCrossJoin()) {
-            return Optional.empty();
-        }
-
-        Optional<Set<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
-        if (!dependencies.isPresent()) {
-            return Optional.empty();
-        }
-
         return Optional.of(
-                parent.replaceChildren(ImmutableList.of(
-                        new JoinNode(
-                                joinNode.getId(),
-                                joinNode.getType(),
-                                joinNode.getLeft(),
-                                joinNode.getRight(),
-                                joinNode.getCriteria(),
-                                filteredCopy(joinNode.getOutputSymbols(), dependencies.get()::contains),
-                                joinNode.getFilter(),
-                                joinNode.getLeftHashSymbol(),
-                                joinNode.getRightHashSymbol(),
-                                joinNode.getDistributionType()))));
+                new JoinNode(
+                        joinNode.getId(),
+                        joinNode.getType(),
+                        joinNode.getLeft(),
+                        joinNode.getRight(),
+                        joinNode.getCriteria(),
+                        filteredCopy(joinNode.getOutputSymbols(), referencedOutputs::contains),
+                        joinNode.getFilter(),
+                        joinNode.getLeftHashSymbol(),
+                        joinNode.getRightHashSymbol(),
+                        joinNode.getDistributionType()));
     }
 }

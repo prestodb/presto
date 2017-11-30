@@ -17,13 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Map;
+
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 
 public final class VerifyNoFilteredAggregations
         implements PlanSanityChecker.Checker
@@ -31,24 +31,14 @@ public final class VerifyNoFilteredAggregations
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
     {
-        plan.accept(new Visitor(), null);
-    }
-
-    private static class Visitor
-        extends SimplePlanVisitor<Void>
-    {
-        @Override
-        public Void visitAggregation(AggregationNode node, Void context)
-        {
-            super.visitAggregation(node, context);
-
-            for (Aggregation aggregation : node.getAggregations().values()) {
-                if (aggregation.getCall().getFilter().isPresent()) {
+        searchFrom(plan)
+                .where(AggregationNode.class::isInstance)
+                .<AggregationNode>findAll()
+                .stream()
+                .flatMap(node -> node.getAggregations().values().stream())
+                .filter(aggregation -> aggregation.getCall().getFilter().isPresent())
+                .forEach(ignored -> {
                     throw new IllegalStateException("Generated plan contains unimplemented filtered aggregations");
-                }
-            }
-
-            return null;
-        }
+                });
     }
 }

@@ -42,14 +42,14 @@ public class TestLocalBinarySpilledQueries
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
-                .setSystemProperty(SystemSessionProperties.OPERATOR_MEMORY_LIMIT_BEFORE_SPILL, "1B") //spill constantly
+                .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "1B") //spill constantly
                 .build();
 
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
         featuresConfig.setOptimizeMixedDistinctAggregations(true);
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, featuresConfig);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, featuresConfig, false, true); //revoke memory constantly
 
         // add the tpch catalog
         // local queries run directly against the generator

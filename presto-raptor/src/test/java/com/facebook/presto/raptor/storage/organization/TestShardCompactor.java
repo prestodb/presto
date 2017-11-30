@@ -59,8 +59,9 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -71,7 +72,7 @@ public class TestShardCompactor
 {
     private static final int MAX_SHARD_ROWS = 1000;
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory());
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
     private OrcStorageManager storageManager;
     private ShardCompactor compactor;
@@ -96,7 +97,7 @@ public class TestShardCompactor
         if (dummyHandle != null) {
             dummyHandle.close();
         }
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @Test
@@ -311,7 +312,7 @@ public class TestShardCompactor
         int pageCount = 10;
 
         // some random values to start off the blocks
-        int[][] initialValues = { { 17, 15, 16, 18, 14 }, { 59, 55, 54, 53, 58 } };
+        int[][] initialValues = {{17, 15, 16, 18, 14}, {59, 55, 54, 53, 58}};
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         for (int i = 0; i < pageCount; i++) {

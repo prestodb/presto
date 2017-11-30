@@ -18,10 +18,10 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -33,13 +33,15 @@ import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class StructuralTestUtil
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
     static {
         // associate TYPE_MANAGER with a function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
@@ -120,11 +122,14 @@ public final class StructuralTestUtil
 
     public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
     {
-        InterleavedBlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1024);
+        RowType rowType = new RowType(parameterTypes, Optional.empty());
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < values.length; i++) {
-            appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
+            appendToBlockBuilder(parameterTypes.get(i), values[i], singleRowBlockWriter);
         }
-        return blockBuilder.build();
+        blockBuilder.closeEntry();
+        return rowType.getObject(blockBuilder, 0);
     }
 
     public static Block decimalArrayBlockOf(DecimalType type, BigDecimal decimal)

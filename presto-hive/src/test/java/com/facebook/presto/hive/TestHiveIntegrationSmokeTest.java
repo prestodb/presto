@@ -73,7 +73,8 @@ import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -236,12 +237,14 @@ public class TestHiveIntegrationSmokeTest
                 ", _partition_smallint SMALLINT" +
                 ", _partition_integer INTEGER" +
                 ", _partition_bigint BIGINT" +
+                ", _partition_boolean BOOLEAN" +
                 ", _partition_decimal_short DECIMAL(3,2)" +
                 ", _partition_decimal_long DECIMAL(30,10)" +
+                ", _partition_date DATE" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
+                "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_boolean', '_partition_decimal_short', '_partition_decimal_long', '_partition_date']" +
                 ") ";
 
         if (storageFormat == HiveStorageFormat.AVRO) {
@@ -254,7 +257,18 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("_partition_string", "_partition_varchar", "_partition_char", "_partition_tinyint", "_partition_smallint", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
+        List<String> partitionedBy = ImmutableList.of(
+                "_partition_string",
+                "_partition_varchar",
+                "_partition_char",
+                "_partition_tinyint",
+                "_partition_smallint",
+                "_partition_integer",
+                "_partition_bigint",
+                "_partition_boolean",
+                "_partition_decimal_short",
+                "_partition_decimal_long",
+                "_partition_date");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
@@ -291,8 +305,10 @@ public class TestHiveIntegrationSmokeTest
                 ", CAST(1 AS SMALLINT) _partition_smallint" +
                 ", 1 _partition_integer" +
                 ", CAST (1 AS BIGINT) _partition_bigint" +
+                ", true _partition_boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
-                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long";
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long" +
+                ", CAST('2017-05-01' AS DATE) _partition_date";
 
         if (storageFormat == HiveStorageFormat.AVRO) {
             select = select.replace(" CAST (3 AS SMALLINT) _smallint,", " 3 _smallint,");
@@ -301,6 +317,20 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
         assertQuery(session, "SELECT * from test_partitioned_table", select);
+        assertQuery(session,
+                "SELECT * from test_partitioned_table WHERE" +
+                        " 'foo' = _partition_string" +
+                        " AND 'bar' = _partition_varchar" +
+                        " AND CAST('boo' AS CHAR(10)) = _partition_char" +
+                        " AND CAST(1 AS TINYINT) = _partition_tinyint" +
+                        " AND CAST(1 AS SMALLINT) = _partition_smallint" +
+                        " AND 1 = _partition_integer" +
+                        " AND CAST(1 AS BIGINT) = _partition_bigint" +
+                        " AND true = _partition_boolean" +
+                        " AND CAST('3.14' AS DECIMAL(3,2)) = _partition_decimal_short" +
+                        " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _partition_decimal_long" +
+                        " AND CAST('2017-05-01' AS DATE) = _partition_date",
+                select);
 
         assertUpdate(session, "DROP TABLE test_partitioned_table");
 
@@ -1506,7 +1536,7 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +
-                "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
+                        "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
                 1);
 
         assertQuery(
@@ -1579,6 +1609,8 @@ public class TestHiveIntegrationSmokeTest
                         "COMMENT 'test'\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
+                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                        "   orc_bloom_filter_fpp = 0.7,\n" +
                         "   partitioned_by = ARRAY['c4','c5']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -1621,7 +1653,7 @@ public class TestHiveIntegrationSmokeTest
         // file should still exist after drop
         assertFile(dataFile);
 
-        deleteRecursively(tempDir);
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 
     @Test
@@ -1856,6 +1888,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTable, "SELECT count(*) FROM orders");
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN orderkey TO new_orderkey");
         assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN \"$path\" TO test", ".* Cannot rename hidden column");
         assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN orderstatus TO new_orderstatus", "Renaming partition columns is not supported");
         assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
         assertUpdate("DROP TABLE test_rename_column");
@@ -1876,9 +1909,10 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTable, "SELECT count(*) FROM orders");
         assertQuery("SELECT orderkey, orderstatus FROM test_drop_column", "SELECT orderkey, orderstatus FROM orders");
 
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN \"$path\"", ".* Cannot drop hidden column");
         assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN orderstatus", "Cannot drop partition columns");
         assertUpdate("ALTER TABLE test_drop_column DROP COLUMN orderkey");
-        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN custkey", "Cannot drop the only column in a table");
+        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN custkey", "Cannot drop the only non-partition column in a table");
         assertQuery("SELECT * FROM test_drop_column", "SELECT custkey, orderstatus FROM orders");
 
         assertUpdate("DROP TABLE test_drop_column");
@@ -1952,7 +1986,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     private static class RollbackException
-        extends RuntimeException
+            extends RuntimeException
     {
     }
 
@@ -1963,6 +1997,12 @@ public class TestHiveIntegrationSmokeTest
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
         }
+        formats.add(new TestingHiveStorageFormat(
+                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
+                HiveStorageFormat.ORC));
+        formats.add(new TestingHiveStorageFormat(
+                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
+                HiveStorageFormat.DWRF));
         formats.add(new TestingHiveStorageFormat(
                 Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "parquet_optimized_reader_enabled", "true").build(),
                 HiveStorageFormat.PARQUET));

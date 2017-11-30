@@ -126,8 +126,7 @@ public class SqlTaskExecution
                 planner,
                 taskExecutor,
                 queryMonitor,
-                notificationExecutor
-        );
+                notificationExecutor);
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             task.start();
@@ -160,7 +159,7 @@ public class SqlTaskExecution
             List<DriverFactory> driverFactories;
             try {
                 LocalExecutionPlan localExecutionPlan = planner.plan(
-                        taskContext.getSession(),
+                        taskContext,
                         fragment.getRoot(),
                         fragment.getSymbols(),
                         fragment.getPartitioningScheme(),

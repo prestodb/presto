@@ -98,8 +98,9 @@ final class JoinMatcher
     public String toString()
     {
         return toStringHelper(this)
+                .omitNullValues()
                 .add("equiCriteria", equiCriteria)
-                .add("filter", filter)
+                .add("filter", filter.orElse(null))
                 .toString();
     }
 }

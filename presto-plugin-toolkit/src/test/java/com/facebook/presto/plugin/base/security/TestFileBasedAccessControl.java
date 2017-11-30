@@ -28,7 +28,7 @@ import static org.testng.Assert.fail;
 
 public class TestFileBasedAccessControl
 {
-    public static final ConnectorTransactionHandle TRANSACTION_HANDLE = new ConnectorTransactionHandle() { };
+    public static final ConnectorTransactionHandle TRANSACTION_HANDLE = new ConnectorTransactionHandle() {};
 
     @Test
     public void testSchemaRules()

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -26,18 +27,50 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
+import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Scalar aggregation is aggregation with GROUP BY 'a constant' (or empty GROUP BY).
+ * It always returns single row.
+ * <p>
+ * This optimizer rewrites correlated scalar aggregation subquery to left outer join in a way described here:
+ * https://github.com/prestodb/presto/wiki/Correlated-subqueries
+ * <p>
+ * From:
+ * <pre>
+ * - LateralJoin (with correlation list: [C])
+ *   - (input) plan which produces symbols: [A, B, C]
+ *   - (subquery) Aggregation(GROUP BY (); functions: [sum(F), count(), ...]
+ *     - Filter(D = C AND E > 5)
+ *       - plan which produces symbols: [D, E, F]
+ * </pre>
+ * to:
+ * <pre>
+ * - Aggregation(GROUP BY A, B, C, U; functions: [sum(F), count(non_null), ...]
+ *   - Join(LEFT_OUTER, D = C)
+ *     - AssignUniqueId(adds symbol U)
+ *       - (input) plan which produces symbols: [A, B, C]
+ *     - Filter(E > 5)
+ *       - projection which adds non null symbol used for count() function
+ *         - plan which produces symbols: [D, E, F]
+ * </pre>
+ * <p>
+ * Note that only conjunction predicates in FilterNode are supported
+ */
 public class TransformCorrelatedScalarAggregationToJoin
-        implements Rule
+        implements Rule<LateralJoinNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(LateralJoinNode.class);
+    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
+            .with(nonEmpty(correlation()));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<LateralJoinNode> getPattern()
     {
         return PATTERN;
     }
@@ -50,22 +83,17 @@ public class TransformCorrelatedScalarAggregationToJoin
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
     {
-        if (!(node instanceof LateralJoinNode)) {
-            return Optional.empty();
-        }
+        PlanNode subquery = lateralJoinNode.getSubquery();
 
-        LateralJoinNode lateralJoinNode = (LateralJoinNode) node;
-        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
-
-        if (lateralJoinNode.getCorrelation().isEmpty() || !(isScalar(subquery, context.getLookup()))) {
-            return Optional.empty();
+        if (!isScalar(subquery, context.getLookup())) {
+            return Result.empty();
         }
 
         Optional<AggregationNode> aggregation = findAggregation(subquery, context.getLookup());
         if (!(aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty())) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionRegistry, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
@@ -73,17 +101,17 @@ public class TransformCorrelatedScalarAggregationToJoin
         PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
 
         if (rewrittenNode instanceof LateralJoinNode) {
-            return Optional.empty();
+            return Result.empty();
         }
 
-        return Optional.of(rewrittenNode);
+        return Result.ofPlanNode(rewrittenNode);
     }
 
     private static Optional<AggregationNode> findAggregation(PlanNode rootNode, Lookup lookup)
     {
         return searchFrom(rootNode, lookup)
                 .where(AggregationNode.class::isInstance)
-                .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
+                .recurseOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
                 .findFirst();
     }
 }

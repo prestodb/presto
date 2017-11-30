@@ -27,20 +27,12 @@ public class ConcatPageSource
     private final Iterator<ConnectorPageSource> iterator;
 
     private ConnectorPageSource current;
-    private long totalBytes;
     private long completedBytes;
     private long readTimeNanos;
 
     public ConcatPageSource(Iterator<ConnectorPageSource> iterator)
     {
         this.iterator = requireNonNull(iterator, "iterator is null");
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        setup();
-        return totalBytes + ((current != null) ? current.getTotalBytes() : 0);
     }
 
     @Override
@@ -77,7 +69,6 @@ public class ConcatPageSource
                 return current.getNextPage();
             }
 
-            totalBytes += current.getTotalBytes();
             completedBytes += current.getCompletedBytes();
             readTimeNanos += current.getReadTimeNanos();
             current = null;

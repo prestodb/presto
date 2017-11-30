@@ -18,6 +18,7 @@ import com.facebook.presto.rcfile.RcFileWriteValidation.RcFileWriteValidationBui
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.rcfile.PageSplitterUtil.splitPage;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeLengthPrefixedString;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
 import static com.facebook.presto.rcfile.RcFileReader.validateFile;
@@ -58,6 +60,7 @@ public class RcFileWriter
 
     static final String PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_RCFILE_WRITER_VERSION;
+
     static {
         String version = RcFileWriter.class.getPackage().getImplementationVersion();
         PRESTO_RCFILE_WRITER_VERSION = version == null ? "UNKNOWN" : version;
@@ -188,15 +191,13 @@ public class RcFileWriter
     public void close()
             throws IOException
     {
-        try {
-            writeRowGroup();
-            output.close();
-        }
-        finally {
-            keySectionOutput.destroy();
+        try (Closer closer = Closer.create()) {
+            closer.register(output);
+            closer.register(keySectionOutput::destroy);
             for (ColumnEncoder columnEncoder : columnEncoders) {
-                columnEncoder.destroy();
+                closer.register(columnEncoder::destroy);
             }
+            writeRowGroup();
         }
     }
 
@@ -236,18 +237,10 @@ public class RcFileWriter
         if (page.getPositionCount() == 0) {
             return;
         }
-
-        long pageSize = page.getSizeInBytes();
-        if (pageSize <= targetMaxRowGroupSize || page.getPositionCount() == 1) {
-            bufferPage(page);
-            return;
+        List<Page> pages = splitPage(page, targetMaxRowGroupSize);
+        for (Page splitPage : pages) {
+            bufferPage(splitPage);
         }
-
-        // recursively split page until it is less than the max row group size
-        int positionCount = page.getPositionCount();
-        int half = positionCount / 2;
-        write(page.getRegion(0, half));
-        write(page.getRegion(half, positionCount - half));
     }
 
     private void bufferPage(Page page)
@@ -289,21 +282,24 @@ public class RcFileWriter
         }
 
         // build key section
-        keySectionOutput = keySectionOutput.createRecycledCompressedSliceOutput();
-        writeVInt(keySectionOutput, bufferedRows);
-        recordValidation(validation -> validation.addRowGroup(bufferedRows));
-
         int valueLength = 0;
-        for (ColumnEncoder columnEncoder : columnEncoders) {
-            valueLength += columnEncoder.getCompressedSize();
-            writeVInt(keySectionOutput, columnEncoder.getCompressedSize());
-            writeVInt(keySectionOutput, columnEncoder.getUncompressedSize());
+        keySectionOutput = keySectionOutput.createRecycledCompressedSliceOutput();
+        try {
+            writeVInt(keySectionOutput, bufferedRows);
+            recordValidation(validation -> validation.addRowGroup(bufferedRows));
+            for (ColumnEncoder columnEncoder : columnEncoders) {
+                valueLength += columnEncoder.getCompressedSize();
+                writeVInt(keySectionOutput, columnEncoder.getCompressedSize());
+                writeVInt(keySectionOutput, columnEncoder.getUncompressedSize());
 
-            Slice lengthData = columnEncoder.getLengthData();
-            writeVInt(keySectionOutput, lengthData.length());
-            keySectionOutput.writeBytes(lengthData);
+                Slice lengthData = columnEncoder.getLengthData();
+                writeVInt(keySectionOutput, lengthData.length());
+                keySectionOutput.writeBytes(lengthData);
+            }
         }
-        keySectionOutput.close();
+        finally {
+            keySectionOutput.close();
+        }
 
         // write the sum of the uncompressed key length and compressed value length
         // this number is useless to the reader
@@ -410,6 +406,7 @@ public class RcFileWriter
         }
 
         public void destroy()
+                throws IOException
         {
             output.destroy();
         }

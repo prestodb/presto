@@ -98,9 +98,7 @@ public class KerberosAuthentication
                         new AppConfigurationEntry(
                                 KERBEROS_LOGIN_MODULE,
                                 AppConfigurationEntry.LoginModuleControlFlag.REQUIRED,
-                                options
-                        )
-                };
+                                options)};
             }
         };
     }

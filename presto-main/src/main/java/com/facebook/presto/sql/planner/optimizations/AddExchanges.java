@@ -99,6 +99,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
@@ -223,7 +224,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.undistributed()));
 
-            if (!child.getProperties().isSingleNode()) {
+            if (!child.getProperties().isSingleNode() && isForceSingleNodeOutput(session)) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
@@ -558,8 +559,7 @@ public class AddExchanges
                                 REMOTE,
                                 source.getNode(),
                                 partitioningScheme.get()),
-                        source.getProperties()
-                );
+                        source.getProperties());
             }
             return rebaseAndDeriveProperties(node, source);
         }
@@ -1214,31 +1214,13 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitApply(ApplyNode node, Context context)
         {
-            PlanWithProperties input = node.getInput().accept(this, context);
-            PlanWithProperties subquery = node.getSubquery().accept(this, context.withCorrelations(node.getCorrelation()));
-
-            ApplyNode rewritten = new ApplyNode(
-                    node.getId(),
-                    input.getNode(),
-                    subquery.getNode(),
-                    node.getSubqueryAssignments(),
-                    node.getCorrelation());
-            return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
+            throw new IllegalStateException("Unexpected node: " + node.getClass().getName());
         }
 
         @Override
         public PlanWithProperties visitLateralJoin(LateralJoinNode node, Context context)
         {
-            PlanWithProperties input = node.getInput().accept(this, context);
-            PlanWithProperties subquery = node.getSubquery().accept(this, context.withCorrelations(node.getCorrelation()));
-
-            LateralJoinNode rewritten = new LateralJoinNode(
-                    node.getId(),
-                    input.getNode(),
-                    subquery.getNode(),
-                    node.getCorrelation(),
-                    node.getType());
-            return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
+            throw new IllegalStateException("Unexpected node: " + node.getClass().getName());
         }
 
         private PlanWithProperties planChild(PlanNode node, Context context)

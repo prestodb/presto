@@ -78,6 +78,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -437,7 +438,7 @@ public class UnaliasSymbolReferences
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
 
-            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation);
+            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation, node.getOriginSubquery());
         }
 
         @Override
@@ -447,7 +448,7 @@ public class UnaliasSymbolReferences
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<Symbol> canonicalCorrelation = canonicalizeAndDistinct(node.getCorrelation());
 
-            return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType());
+            return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType(), node.getOriginSubquery());
         }
 
         @Override
@@ -671,15 +672,16 @@ public class UnaliasSymbolReferences
 
         private WindowNode.Specification canonicalizeAndDistinct(WindowNode.Specification specification)
         {
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
             for (Map.Entry<Symbol, SortOrder> entry : specification.getOrderings().entrySet()) {
-                orderings.put(canonicalize(entry.getKey()), entry.getValue());
+                // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
+                orderings.putIfAbsent(canonicalize(entry.getKey()), entry.getValue());
             }
 
             return new WindowNode.Specification(
                     canonicalizeAndDistinct(specification.getPartitionBy()),
-                    canonicalizeAndDistinct(specification.getOrderBy()),
-                    orderings.build());
+                    ImmutableList.copyOf(orderings.keySet()),
+                    ImmutableMap.copyOf(orderings));
         }
 
         private Set<Symbol> canonicalize(Set<Symbol> symbols)

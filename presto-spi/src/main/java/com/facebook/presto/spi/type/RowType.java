@@ -16,11 +16,10 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.block.RowBlockBuilder;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -73,19 +72,13 @@ public class RowType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new ArrayBlockBuilder(
-                new InterleavedBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries * getTypeParameters().size(), expectedBytesPerEntry),
-                blockBuilderStatus,
-                expectedEntries);
+        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
     }
 
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        return new ArrayBlockBuilder(
-                new InterleavedBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries * getTypeParameters().size()),
-                blockBuilderStatus,
-                expectedEntries);
+        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
     }
 
     @Override

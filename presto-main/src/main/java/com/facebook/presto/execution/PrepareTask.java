@@ -69,7 +69,7 @@ public class PrepareTask
         }
 
         String sql = getFormattedSql(statement, sqlParser, Optional.empty());
-        stateMachine.addPreparedStatement(prepare.getName(), sql);
+        stateMachine.addPreparedStatement(prepare.getName().getValue(), sql);
         return immediateFuture(null);
     }
 }

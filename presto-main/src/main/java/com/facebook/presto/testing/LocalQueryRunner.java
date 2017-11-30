@@ -97,6 +97,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
+import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.split.PageSinkManager;
@@ -111,6 +112,7 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -184,7 +186,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
-import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -195,14 +196,14 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class LocalQueryRunner
         implements QueryRunner
 {
     private final Session defaultSession;
-    private final ExecutorService executor;
-    private final ScheduledExecutorService transactionCheckExecutor;
+    private final ExecutorService notificationExecutor;
+    private final ScheduledExecutorService yieldExecutor;
     private final FinalizerService finalizerService;
 
     private final SqlParser sqlParser;
@@ -220,13 +221,17 @@ public class LocalQueryRunner
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
+    private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
 
+    private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final ConnectorManager connectorManager;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
+    private final boolean alwaysRevokeMemory;
+    private final NodeSpillConfig nodeSpillConfig;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -238,21 +243,39 @@ public class LocalQueryRunner
                 new FeaturesConfig()
                         .setOptimizeMixedDistinctAggregations(true)
                         .setIterativeOptimizerEnabled(true),
+                false,
                 false);
+    }
+
+    public LocalQueryRunner(Session defaultSession, boolean alwaysRevokeMemory)
+    {
+        this(defaultSession,
+                new FeaturesConfig()
+                        .setOptimizeMixedDistinctAggregations(true)
+                        .setIterativeOptimizerEnabled(true),
+                false,
+                alwaysRevokeMemory);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
     {
-        this(defaultSession, featuresConfig, false);
+        this(defaultSession, featuresConfig, false, false);
     }
 
-    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction)
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
+    {
+        this(defaultSession, featuresConfig, new NodeSpillConfig(), withInitialTransaction, alwaysRevokeMemory);
+    }
+
+    public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
 
-        this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
-        this.transactionCheckExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
+        this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
+        this.alwaysRevokeMemory = alwaysRevokeMemory;
+        this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
+        this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
@@ -271,9 +294,9 @@ public class LocalQueryRunner
         CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = TransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
-                transactionCheckExecutor,
+                yieldExecutor,
                 catalogManager,
-                executor);
+                notificationExecutor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
         this.splitManager = new SplitManager(new QueryManagerConfig());
@@ -290,7 +313,8 @@ public class LocalQueryRunner
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
-        this.expressionCompiler = new ExpressionCompiler(metadata);
+        this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
+        this.expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         this.connectorManager = new ConnectorManager(
@@ -338,6 +362,7 @@ public class LocalQueryRunner
                 defaultSession.getRemoteUserAddress(),
                 defaultSession.getUserAgent(),
                 defaultSession.getClientInfo(),
+                defaultSession.getClientTags(),
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),
@@ -362,22 +387,24 @@ public class LocalQueryRunner
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();
-        this.spillerFactory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
+        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
+        this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), true);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), true, false);
     }
 
     @Override
     public void close()
     {
-        executor.shutdownNow();
-        transactionCheckExecutor.shutdownNow();
+        notificationExecutor.shutdownNow();
+        yieldExecutor.shutdownNow();
         connectorManager.stop();
         finalizerService.destroy();
+        singleStreamSpillerFactory.destroy();
     }
 
     @Override
@@ -417,7 +444,12 @@ public class LocalQueryRunner
 
     public ExecutorService getExecutor()
     {
-        return executor;
+        return notificationExecutor;
+    }
+
+    public ScheduledExecutorService getScheduler()
+    {
+        return yieldExecutor;
     }
 
     @Override
@@ -522,7 +554,10 @@ public class LocalQueryRunner
                 return builder.get()::page;
             });
 
-            TaskContext taskContext = createTaskContext(executor, session);
+            TaskContext taskContext = TestingTaskContext.builder(notificationExecutor, yieldExecutor, session)
+                    .setMaxSpillSize(nodeSpillConfig.getMaxSpillPerNode())
+                    .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
+                    .build();
 
             List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
             drivers.forEach(closer::register);
@@ -531,6 +566,12 @@ public class LocalQueryRunner
             while (!done) {
                 boolean processed = false;
                 for (Driver driver : drivers) {
+                    if (alwaysRevokeMemory) {
+                        driver.getDriverContext().getOperatorContexts().stream()
+                                .filter(operatorContext -> operatorContext.getOperatorStats().getRevocableMemoryReservation().getValue() > 0)
+                                .forEach(OperatorContext::requestMemoryRevoking);
+                    }
+
                     if (!driver.isFinished()) {
                         driver.process();
                         processed = true;
@@ -569,7 +610,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session));
         }
 
-        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan);
+        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan, true);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -585,6 +626,7 @@ public class LocalQueryRunner
                 pageSinkManager,
                 null,
                 expressionCompiler,
+                pageFunctionCompiler,
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
@@ -597,7 +639,7 @@ public class LocalQueryRunner
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
-                session,
+                taskContext,
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),

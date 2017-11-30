@@ -39,7 +39,7 @@ public class TestAtopSecurity
         queryRunner = createQueryRunner(ImmutableMap.of("atop.security", "file", "security.config-file", path), TestingAtopFactory.class);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();

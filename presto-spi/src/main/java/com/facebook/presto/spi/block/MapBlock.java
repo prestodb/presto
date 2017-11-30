@@ -41,7 +41,7 @@ public class MapBlock
     private final Block valueBlock;
     private final int[] hashTables; // hash to location in map;
 
-    private long sizeInBytes;
+    private volatile long sizeInBytes;
     private final long retainedSizeInBytes;
 
     /**
@@ -125,7 +125,6 @@ public class MapBlock
     @Override
     public long getSizeInBytes()
     {
-        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
         if (sizeInBytes < 0) {
             calculateSize();
         }
@@ -170,7 +169,6 @@ public class MapBlock
     }
 
     public static MapBlock fromKeyValueBlock(
-            boolean useNewMapBlock,
             boolean[] mapIsNull,
             int[] offsets,
             Block keyBlock,
@@ -199,7 +197,7 @@ public class MapBlock
             if (keyCount < 0) {
                 throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
             }
-            buildHashTable(useNewMapBlock, keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
+            buildHashTable(keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
         }
 
         return new MapBlock(

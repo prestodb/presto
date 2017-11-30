@@ -53,6 +53,7 @@ import org.openjdk.jmh.util.Statistics;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -67,12 +68,13 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.airlift.testing.FileUtils.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.stream.Collectors.toList;
 
 @State(Scope.Thread)
@@ -109,15 +111,13 @@ public class HiveFileFormatBenchmark
             "LARGE_MAP_VARCHAR_DOUBLE",
             "MAP_INT_DOUBLE",
             "LARGE_MAP_INT_DOUBLE",
-            "LARGE_ARRAY_VARCHAR",
-    })
+            "LARGE_ARRAY_VARCHAR"})
     private DataSet dataSet;
 
     @Param({
             "NONE",
             "SNAPPY",
-            "GZIP",
-    })
+            "GZIP"})
     private HiveCompressionCodec compression;
 
     @Param({
@@ -130,8 +130,7 @@ public class HiveFileFormatBenchmark
             "HIVE_RCTEXT",
             "HIVE_ORC",
             "HIVE_DWRF",
-            "HIVE_PARQUET",
-    })
+            "HIVE_PARQUET"})
     private FileFormat fileFormat;
 
     private TestData data;
@@ -163,8 +162,9 @@ public class HiveFileFormatBenchmark
 
     @TearDown
     public void tearDown()
+            throws IOException
     {
-        deleteRecursively(targetDir);
+        deleteRecursively(targetDir.toPath(), ALLOW_INSECURE);
     }
 
     @SuppressWarnings("PublicField")
@@ -627,5 +627,16 @@ public class HiveFileFormatBenchmark
     private static int nextRandomBetween(Random random, int min, int max)
     {
         return min + random.nextInt(max - min);
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private static File createTempDir(String prefix)
+    {
+        try {
+            return createTempDirectory(prefix).toFile();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

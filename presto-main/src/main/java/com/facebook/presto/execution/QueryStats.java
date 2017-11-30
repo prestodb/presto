@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.TableWriterOperator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -29,6 +30,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -439,6 +441,25 @@ public class QueryStats
     }
 
     @JsonProperty
+    public long getWrittenPositions()
+    {
+        return operatorSummaries.stream()
+                .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                .mapToLong(stats -> stats.getInputPositions())
+                .sum();
+    }
+
+    @JsonProperty
+    public DataSize getWrittenDataSize()
+    {
+        return succinctBytes(
+                operatorSummaries.stream()
+                        .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                        .mapToLong(stats -> stats.getInputDataSize().toBytes())
+                        .sum());
+    }
+
+    @JsonProperty
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
@@ -448,7 +469,7 @@ public class QueryStats
     public OptionalDouble getProgressPercentage()
     {
         if (!scheduled || totalDrivers == 0) {
-             return OptionalDouble.empty();
+            return OptionalDouble.empty();
         }
         return OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
     }

@@ -85,7 +85,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         Type intermediateType = stateSerializer.getSerializedType();
         ArrayType outputType = new ArrayType(type);
 
-        List<ParameterMetadata> inputParameterMetadata =  ImmutableList.of(
+        List<ParameterMetadata> inputParameterMetadata = ImmutableList.of(
                 new ParameterMetadata(STATE),
                 new ParameterMetadata(BLOCK_INPUT_CHANNEL, type),
                 new ParameterMetadata(INPUT_CHANNEL, BIGINT),

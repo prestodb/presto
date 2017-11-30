@@ -86,6 +86,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/geospatial">
+        <artifact id="${project.groupId}:presto-geospatial:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/mysql">
         <artifact id="${project.groupId}:presto-mysql:zip:${project.version}">
             <unpack />
@@ -118,6 +124,12 @@
 
     <artifactSet to="plugin/tpch">
         <artifact id="${project.groupId}:presto-tpch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/tpcds">
+        <artifact id="${project.groupId}:presto-tpcds:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

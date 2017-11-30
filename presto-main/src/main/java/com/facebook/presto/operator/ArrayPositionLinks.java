@@ -26,7 +26,8 @@ public final class ArrayPositionLinks
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayPositionLinks.class).instanceSize();
 
-    public static class FactoryBuilder implements PositionLinks.FactoryBuilder
+    public static class FactoryBuilder
+            implements PositionLinks.FactoryBuilder
     {
         private final int[] positionLinks;
         private int size;
@@ -48,7 +49,7 @@ public final class ArrayPositionLinks
         @Override
         public Factory build()
         {
-            return filterFunction -> new ArrayPositionLinks(positionLinks);
+            return searchFunctions -> new ArrayPositionLinks(positionLinks);
         }
 
         @Override

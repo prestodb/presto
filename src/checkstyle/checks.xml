@@ -24,12 +24,24 @@
         <property name="message" value="Blank line before closing brace" />
     </module>
     <module name="RegexpMultiline">
+        <property name="format" value="[^;]\s\)+\s*[\{;,]?\s*\n" />
+        <property name="message" value="Whitespace character before closing brace" />
+    </module>
+    <module name="RegexpMultiline">
         <property name="format" value="\n\n\n" />
         <property name="message" value="Multiple consecutive blank lines" />
     </module>
     <module name="RegexpMultiline">
         <property name="format" value="\n\n\Z" />
         <property name="message" value="Blank line before end of file" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="->\s*\{\s+\}" />
+        <property name="message" value="Whitespace inside empty lambda body" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="(class|interface) ([a-zA-Z0-9_])+(&lt;.*&gt;)? (extends|implements)" />
+        <property name="message" value="No new line before extends/implements" />
     </module>
     <module name="RegexpSingleline">
         <property name="format" value="Preconditions\.checkNotNull" />
@@ -48,8 +60,8 @@
         <property name="message" value="Math.toIntExact should only be used with static imports" />
     </module>
     <module name="RegexpSingleline">
-        <property name="format" value="^import static .*\.of;$" />
-        <property name="message" value="Methods named &quot;of&quot; should never be statically imported" />
+        <property name="format" value="^import static .*\.(of|copyOf|valueOf);$" />
+        <property name="message" value="The following methods may not be statically imported: of, copyOf, valueOf" />
     </module>
     <module name="RegexpMultiline">
         <property name="format" value="^[ \t]*import com.google.common.base.MoreObjects;$" />
@@ -66,6 +78,10 @@
     <module name="RegexpMultiline">
         <property name="format" value="^[ \t]*import org.jetbrains.annotations.Nullable;$" />
         <property name="message" value="Use javax.annotation.Nullable instead of org.jetbrains.annotations.Nullable" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import static org.testng.AssertJUnit\." />
+        <property name="message" value="Use org.testng.Assert instead of org.testng.AssertJUnit" />
     </module>
 
     <module name="SuppressWarningsFilter" />
@@ -104,7 +120,13 @@
         </module>
         <module name="GenericWhitespace" />
         <module name="WhitespaceAfter" />
+        <module name="NoWhitespaceAfter" />
         <module name="NoWhitespaceBefore" />
+        <module name="SingleSpaceSeparator" />
+        <module name="Indentation">
+            <property name="throwsIndent" value="8" />
+            <property name="lineWrappingIndentation" value="8" />
+        </module>
 
         <module name="UpperEll" />
         <module name="DefaultComesLast" />
@@ -146,6 +168,7 @@
         <module name="WhitespaceAround">
             <property name="allowEmptyConstructors" value="true" />
             <property name="allowEmptyMethods" value="true" />
+            <property name="allowEmptyLambdas" value="true" />
             <property name="ignoreEnhancedForColon" value="false" />
             <property name="tokens" value="
                 ASSIGN, BAND, BAND_ASSIGN, BOR, BOR_ASSIGN, BSR, BSR_ASSIGN,
@@ -156,6 +179,11 @@
                 LOR, LT, MINUS, MINUS_ASSIGN, MOD, MOD_ASSIGN, NOT_EQUAL,
                 PLUS, PLUS_ASSIGN, QUESTION, SL, SLIST, SL_ASSIGN, SR, SR_ASSIGN,
                 STAR, STAR_ASSIGN, TYPE_EXTENSION_AND" />
+        </module>
+
+        <module name="NoWhitespaceAfter">
+            <property name="tokens" value="DOT" />
+            <property name="allowLineBreaks" value="false" />
         </module>
 
         <module name="IllegalToken">

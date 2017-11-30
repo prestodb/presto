@@ -48,8 +48,7 @@ public final class ZipFunction
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(ZipFunction.class, "zip", List.class, Block[].class);
 
-    static
-    {
+    static {
         ZIP_FUNCTIONS = new ZipFunction[MAX_ARITY - MIN_ARITY + 1];
         for (int arity = MIN_ARITY; arity <= MAX_ARITY; arity++) {
             ZIP_FUNCTIONS[arity - MIN_ARITY] = new ZipFunction(arity);

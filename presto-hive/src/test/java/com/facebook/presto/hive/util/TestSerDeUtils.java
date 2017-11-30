@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +51,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
@@ -200,16 +200,16 @@ public class TestSerDeUtils
         holder.map.put("twelve", new InnerStruct(13, 14L));
         holder.map.put("fifteen", new InnerStruct(16, 17L));
 
-        com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
-        com.facebook.presto.spi.type.Type mapOfVarcharRowType = new RowType(ImmutableList.of(mapType(createUnboundedVarcharType(), rowType)), Optional.empty());
-        Block actual = toBinaryBlock(mapOfVarcharRowType, holder, getInspector(MapHolder.class));
+        RowType rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
+        RowType rowOfMapOfVarcharRowType = new RowType(ImmutableList.of(mapType(VARCHAR, rowType)), Optional.empty());
+        Block actual = toBinaryBlock(rowOfMapOfVarcharRowType, holder, getInspector(MapHolder.class));
 
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(createUnboundedVarcharType(), rowType), new BlockBuilderStatus(), 1024);
-        createUnboundedVarcharType().writeString(blockBuilder, "fifteen");
-        rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 16, 17L));
-        createUnboundedVarcharType().writeString(blockBuilder, "twelve");
-        rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 13, 14L));
-        Block expected = rowBlockOf(ImmutableList.of(mapType(createUnboundedVarcharType(), rowType)), blockBuilder);
+        Block mapBlock = mapBlockOf(
+                VARCHAR,
+                rowType,
+                new Object[] {utf8Slice("fifteen"), utf8Slice("twelve")},
+                new Object[] {rowBlockOf(rowType.getTypeParameters(), 16, 17L), rowBlockOf(rowType.getTypeParameters(), 13, 14L)});
+        Block expected = rowBlockOf(ImmutableList.of(mapType(VARCHAR, rowType)), mapBlock);
 
         assertBlockEquals(actual, expected);
     }
@@ -263,13 +263,12 @@ public class TestSerDeUtils
         outerRowValues.add(6.001d);
         outerRowValues.add("seven");
         outerRowValues.add(new byte[] {'2'});
-        outerRowValues.add(arrayBlockOf(innerRowType, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 2, -5L), rowBlockOf(ImmutableList.of(INTEGER, BIGINT), -10, 0L)));
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(createUnboundedVarcharType(), innerRowType), new BlockBuilderStatus(), 1024);
-        createUnboundedVarcharType().writeString(blockBuilder, "fifteen");
-        innerRowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), -5, -10L));
-        createUnboundedVarcharType().writeString(blockBuilder, "twelve");
-        innerRowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 0, 5L));
-        outerRowValues.add(blockBuilder.build());
+        outerRowValues.add(arrayBlockOf(innerRowType, rowBlockOf(innerRowType.getTypeParameters(), 2, -5L), rowBlockOf(ImmutableList.of(INTEGER, BIGINT), -10, 0L)));
+        outerRowValues.add(mapBlockOf(
+                VARCHAR,
+                innerRowType,
+                new Object[] {utf8Slice("fifteen"), utf8Slice("twelve")},
+                new Object[] {rowBlockOf(innerRowType.getTypeParameters(), -5, -10L), rowBlockOf(innerRowType.getTypeParameters(), 0, 5L)}));
         outerRowValues.add(rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 18, 19L));
 
         assertBlockEquals(actual, rowBlockOf(outerRowParameterTypes, outerRowValues.build().toArray()));

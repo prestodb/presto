@@ -210,16 +210,14 @@ public class TestJsonFunctions
         assertFunction(
                 "JSON_ARRAY_GET('[true, false, false, true, true, false]', 5)",
                 JSON,
-                utf8Slice(String.valueOf(false))
-        );
+                utf8Slice(String.valueOf(false)));
         assertFunction("JSON_ARRAY_GET(JSON '[true]', 0)", JSON, utf8Slice(String.valueOf(true)));
         assertFunction("JSON_ARRAY_GET(JSON '[true, null]', 1)", JSON, null);
         assertFunction("JSON_ARRAY_GET(JSON '[false, false, true]', 1)", JSON, utf8Slice(String.valueOf(false)));
         assertFunction(
                 "JSON_ARRAY_GET(JSON '[true, false, false, true, true, false]', 5)",
                 JSON,
-                utf8Slice(String.valueOf(false))
-        );
+                utf8Slice(String.valueOf(false)));
         assertFunction("JSON_ARRAY_GET('[true]', -1)", JSON, utf8Slice(String.valueOf(true)));
     }
 
@@ -254,13 +252,6 @@ public class TestJsonFunctions
     {
         assertInvalidFunction("JSON 'INVALID'", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("JSON_PARSE('INVALID')", INVALID_FUNCTION_ARGUMENT);
-    }
-
-    @Test
-    public void testTryInvalidJsonParse()
-    {
-        assertFunction("TRY (JSON 'INVALID')", JSON, null);
-        assertFunction("TRY (JSON_PARSE('INVALID'))", JSON, null);
     }
 
     @Test

@@ -37,8 +37,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 @DefunctConfig({
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
-        "hive.optimized-reader.enabled"
-})
+        "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -93,10 +92,13 @@ public class HiveClientConfig
 
     private boolean useOrcColumnNames;
     private boolean orcBloomFiltersEnabled;
+    private double orcDefaultBloomFilterFpp = 0.05;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
+    private boolean orcLazyReadSmallRanges = true;
+    private boolean orcOptimizedWriterEnabled;
 
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
@@ -113,6 +115,7 @@ public class HiveClientConfig
     private int fileSystemMaxCacheSize = 1000;
 
     private boolean writesToNonManagedTablesEnabled;
+    private boolean tableStatisticsEnabled = true;
 
     public int getMaxInitialSplits()
     {
@@ -664,6 +667,22 @@ public class HiveClientConfig
         return this;
     }
 
+    @Deprecated
+    public boolean isOrcLazyReadSmallRanges()
+    {
+        return orcLazyReadSmallRanges;
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    @Config("hive.orc.lazy-read-small-ranges")
+    @ConfigDescription("ORC read small disk ranges lazily")
+    public HiveClientConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
+    {
+        this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
+        return this;
+    }
+
     public boolean isOrcBloomFiltersEnabled()
     {
         return orcBloomFiltersEnabled;
@@ -673,6 +692,33 @@ public class HiveClientConfig
     public HiveClientConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
     {
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+        return this;
+    }
+
+    public double getOrcDefaultBloomFilterFpp()
+    {
+        return orcDefaultBloomFilterFpp;
+    }
+
+    @Config("hive.orc.default-bloom-filter-fpp")
+    @ConfigDescription("ORC Bloom filter false positive probability")
+    public HiveClientConfig setOrcDefaultBloomFilterFpp(double orcDefaultBloomFilterFpp)
+    {
+        this.orcDefaultBloomFilterFpp = orcDefaultBloomFilterFpp;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcOptimizedWriterEnabled()
+    {
+        return orcOptimizedWriterEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.orc.optimized-writer.enabled")
+    public HiveClientConfig setOrcOptimizedWriterEnabled(boolean orcOptimizedWriterEnabled)
+    {
+        this.orcOptimizedWriterEnabled = orcOptimizedWriterEnabled;
         return this;
     }
 
@@ -844,5 +890,18 @@ public class HiveClientConfig
     public boolean getWritesToNonManagedTablesEnabled()
     {
         return writesToNonManagedTablesEnabled;
+    }
+
+    @Config("hive.table-statistics-enabled")
+    @ConfigDescription("Enable use of table statistics")
+    public HiveClientConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
+    {
+        this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
     }
 }

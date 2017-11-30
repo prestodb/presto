@@ -16,8 +16,10 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.CursorProcessor;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.index.PageRecordSet;
+import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -81,6 +83,7 @@ public class PageProcessorBenchmark
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final int POSITIONS = 1024;
 
+    private final DriverYieldSignal yieldSignal = new DriverYieldSignal();
     private final Map<Symbol, Type> symbolTypes = new HashMap<>();
     private final Map<Symbol, Integer> sourceLayout = new HashMap<>();
 
@@ -90,13 +93,13 @@ public class PageProcessorBenchmark
     private RecordSet recordSet;
     private List<Type> types;
 
-    @Param({ "2", "4", "8", "16", "32" })
+    @Param({"2", "4", "8", "16", "32"})
     int columnCount;
 
-    @Param({ "varchar", "bigint" })
+    @Param({"varchar", "bigint"})
     String type;
 
-    @Param({ "false", "true" })
+    @Param({"false", "true"})
     boolean dictionaryBlocks;
 
     @Setup
@@ -113,25 +116,28 @@ public class PageProcessorBenchmark
         List<RowExpression> projections = getProjections(type);
         types = projections.stream().map(RowExpression::getType).collect(toList());
 
+        MetadataManager metadata = createTestMetadataManager();
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
+
         inputPage = createPage(types, dictionaryBlocks);
-        pageProcessor = new ExpressionCompiler(createTestMetadataManager()).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+        pageProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
 
         recordSet = new PageRecordSet(types, inputPage);
-        cursorProcessor = new ExpressionCompiler(createTestMetadataManager()).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+        cursorProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
     }
 
     @Benchmark
     public Page rowOriented()
     {
         PageBuilder pageBuilder = new PageBuilder(types);
-        cursorProcessor.process(null, recordSet.cursor(), inputPage.getPositionCount(), pageBuilder);
+        cursorProcessor.process(null, yieldSignal, recordSet.cursor(), pageBuilder);
         return pageBuilder.build();
     }
 
     @Benchmark
-    public List<Page> columnOriented()
+    public List<Optional<Page>> columnOriented()
     {
-        return ImmutableList.copyOf(pageProcessor.process(null, inputPage));
+        return ImmutableList.copyOf(pageProcessor.process(null, new DriverYieldSignal(), inputPage));
     }
 
     private RowExpression getFilter(Type type)

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hadoop.HadoopFileStatus;
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
@@ -66,6 +67,9 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.RangeColumnStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
@@ -129,7 +133,6 @@ import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
-import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -178,6 +181,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.newArrayList;
@@ -225,8 +229,7 @@ public abstract class AbstractTestHiveClient
             ImmutableList.of(
                     TypeSignatureParameter.of(new NamedTypeSignature("f_string", createUnboundedVarcharType().getTypeSignature())),
                     TypeSignatureParameter.of(new NamedTypeSignature("f_bigint", BIGINT.getTypeSignature())),
-                    TypeSignatureParameter.of(new NamedTypeSignature("f_boolean", BOOLEAN.getTypeSignature())))
-    );
+                    TypeSignatureParameter.of(new NamedTypeSignature("f_boolean", BOOLEAN.getTypeSignature()))));
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BIGINT))
@@ -367,7 +370,7 @@ public abstract class AbstractTestHiveClient
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
@@ -474,8 +477,7 @@ public abstract class AbstractTestHiveClient
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("rcbinary"))), false),
-                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))
-                ))),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.all(), ImmutableList.of()));
         unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(clientId, ImmutableList.of(), unpartitionedPartitions, TupleDomain.all(), Optional.empty()));
@@ -509,7 +511,7 @@ public abstract class AbstractTestHiveClient
         setupHive(connectorId.toString(), databaseName, hiveClientConfig.getTimeZone());
 
         metastoreClient = hiveMetastore;
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig, new HiveS3Config()));
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
@@ -547,8 +549,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                false
-        );
+                false);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveClientConfig),
                 hdfsEnvironment,
@@ -854,13 +855,13 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
-                            ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                                    .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
-                                    .build(),
-                            ImmutableMultimap.of());
+                    ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                            .build(),
+                    ImmutableMultimap.of());
             Table oldTable = transaction.getMetastore(schemaName).getTable(schemaName, tableName).get();
             HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
@@ -1054,6 +1055,73 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             assertNull(metadata.getTableHandle(newSession(), invalidTable));
+        }
+    }
+
+    @Test
+    public void testGetTableStatsBucketedStringInt()
+            throws Exception
+    {
+        assertTableStatsComputed(
+                tableBucketedStringInt,
+                ImmutableSet.of(
+                        "t_bigint",
+                        "t_boolean",
+                        "t_double",
+                        "t_float",
+                        "t_int",
+                        "t_smallint",
+                        "t_string",
+                        "t_tinyint",
+                        "ds"));
+    }
+
+    @Test
+    public void testGetTableStatsUnpartitioned()
+            throws Exception
+    {
+        assertTableStatsComputed(
+                tableUnpartitioned,
+                ImmutableSet.of("t_string", "t_tinyint"));
+    }
+
+    private void assertTableStatsComputed(
+            SchemaTableName tableName,
+            Set<String> expectedColumnStatsColumns)
+            throws Exception
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, Constraint.alwaysTrue());
+
+            assertFalse(tableStatistics.getRowCount().isValueUnknown(), "row count is unknown");
+
+            Map<String, ColumnStatistics> columnsStatistics = tableStatistics
+                    .getColumnStatistics()
+                    .entrySet()
+                    .stream()
+                    .collect(
+                            toImmutableMap(
+                                    entry -> ((HiveColumnHandle) entry.getKey()).getName(),
+                                    Map.Entry::getValue));
+
+            assertEquals(columnsStatistics.keySet(), expectedColumnStatsColumns, "columns with statistics");
+
+            columnsStatistics.forEach((columnName, columnStatistics) -> {
+                assertFalse(
+                        columnStatistics.getNullsFraction().isValueUnknown(),
+                        "unknown nulls fraction for " + columnName);
+
+                RangeColumnStatistics rangeColumnStatistics = columnStatistics.getOnlyRangeColumnStatistics();
+                assertFalse(
+                        rangeColumnStatistics.getDistinctValuesCount().isValueUnknown(),
+                        "unknown range distinct values count for " + columnName);
+                assertFalse(
+                        rangeColumnStatistics.getFraction().isValueUnknown(),
+                        "unknown range non-null fraction for " + columnName);
+            });
         }
     }
 
@@ -1428,7 +1496,6 @@ public abstract class AbstractTestHiveClient
                     assertPageSourceType(pageSource, TEXTFILE);
                     MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
 
-                    assertEquals(pageSource.getTotalBytes(), hiveSplit.getLength());
                     for (MaterializedRow row : result) {
                         rowNumber++;
 
@@ -1545,13 +1612,6 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testTypesDwrf()
-            throws Exception
-    {
-        assertGetRecordsOptional("presto_test_types_dwrf", DWRF);
-    }
-
-    @Test
     public void testHiveViewsAreNotSupported()
             throws Exception
     {
@@ -1645,14 +1705,16 @@ public abstract class AbstractTestHiveClient
 
                 // verify we have data files
                 stagingPathRoot = getStagingPathRoot(outputHandle);
-                assertFalse(listAllDataFiles(stagingPathRoot).isEmpty());
+                HdfsContext context = new HdfsContext(session, temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+                assertFalse(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
                 // rollback the table
                 transaction.rollback();
             }
 
             // verify all files have been deleted
-            assertTrue(listAllDataFiles(stagingPathRoot).isEmpty());
+            HdfsContext context = new HdfsContext(newSession(), temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+            assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
             // verify table is not in the metastore
             try (Transaction transaction = newTransaction()) {
@@ -1888,7 +1950,8 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // verify all new files start with the unique prefix
-            for (String filePath : listAllDataFiles(getStagingPathRoot(outputHandle))) {
+            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            for (String filePath : listAllDataFiles(context, getStagingPathRoot(outputHandle))) {
                 assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(outputHandle)));
             }
 
@@ -2029,7 +2092,8 @@ public abstract class AbstractTestHiveClient
 
             // verify all temp files start with the unique prefix
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            Set<String> tempFiles = listAllDataFiles(stagingPathRoot);
+            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
                 assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
@@ -2040,7 +2104,8 @@ public abstract class AbstractTestHiveClient
         }
 
         // verify temp directory is empty
-        assertTrue(listAllDataFiles(stagingPathRoot).isEmpty());
+        HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+        assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
         // verify the data is unchanged
         try (Transaction transaction = newTransaction()) {
@@ -2089,9 +2154,10 @@ public abstract class AbstractTestHiveClient
     protected Set<String> listAllDataFiles(Transaction transaction, String schemaName, String tableName)
             throws IOException
     {
+        HdfsContext context = new HdfsContext(newSession(), schemaName, tableName);
         Set<String> existingFiles = new HashSet<>();
         for (String location : listAllDataPaths(transaction.getMetastore(schemaName), schemaName, tableName)) {
-            existingFiles.addAll(listAllDataFiles(new Path(location)));
+            existingFiles.addAll(listAllDataFiles(context, new Path(location)));
         }
         return existingFiles;
     }
@@ -2119,11 +2185,11 @@ public abstract class AbstractTestHiveClient
         return locations.build();
     }
 
-    protected Set<String> listAllDataFiles(Path path)
+    protected Set<String> listAllDataFiles(HdfsContext context, Path path)
             throws IOException
     {
         Set<String> result = new HashSet<>();
-        FileSystem fileSystem = hdfsEnvironment.getFileSystem("user", path);
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
         if (fileSystem.exists(path)) {
             for (FileStatus fileStatus : fileSystem.listStatus(path)) {
                 if (fileStatus.getPath().getName().startsWith(".presto")) {
@@ -2133,7 +2199,7 @@ public abstract class AbstractTestHiveClient
                     result.add(fileStatus.getPath().toString());
                 }
                 else if (HadoopFileStatus.isDirectory(fileStatus)) {
-                    result.addAll(listAllDataFiles(fileStatus.getPath()));
+                    result.addAll(listAllDataFiles(context, fileStatus.getPath()));
                 }
             }
         }
@@ -2199,7 +2265,8 @@ public abstract class AbstractTestHiveClient
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
             // verify all temp files start with the unique prefix
-            Set<String> tempFiles = listAllDataFiles(getStagingPathRoot(insertTableHandle));
+            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
                 assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
@@ -2223,7 +2290,8 @@ public abstract class AbstractTestHiveClient
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
             // verify temp directory is empty
-            assertTrue(listAllDataFiles(stagingPathRoot).isEmpty());
+            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
         }
     }
 
@@ -2310,7 +2378,8 @@ public abstract class AbstractTestHiveClient
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
             // verify all temp files start with the unique prefix
-            Set<String> tempFiles = listAllDataFiles(getStagingPathRoot(insertTableHandle));
+            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
                 assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
@@ -2334,7 +2403,8 @@ public abstract class AbstractTestHiveClient
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
             // verify temp directory is empty
-            assertTrue(listAllDataFiles(stagingPathRoot).isEmpty());
+            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
         }
     }
 
@@ -2369,7 +2439,8 @@ public abstract class AbstractTestHiveClient
 
         // check that temporary files are removed
         if (!writePath.equals(targetPath)) {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem("user", writePath);
+            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, writePath);
             assertFalse(fileSystem.exists(writePath));
         }
 
@@ -3019,7 +3090,7 @@ public abstract class AbstractTestHiveClient
             String tableName = schemaTableName.getTableName();
 
             LocationService locationService = getLocationService(schemaName);
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session.getUser(), session.getQueryId(), schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName);
             targetPath = locationService.targetPathRoot(locationHandle);
 
             Table.Builder tableBuilder = Table.builder()
@@ -3051,15 +3122,15 @@ public abstract class AbstractTestHiveClient
             transaction.commit();
         }
 
-        ConnectorSession session = newSession();
-        List<String> targetDirectoryList = listDirectory(session.getUser(), targetPath);
+        HdfsContext context = new HdfsContext(newSession(), schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        List<String> targetDirectoryList = listDirectory(context, targetPath);
         assertEquals(targetDirectoryList, ImmutableList.of());
     }
 
-    private List<String> listDirectory(String user, Path path)
+    private List<String> listDirectory(HdfsContext context, Path path)
             throws IOException
     {
-        FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path);
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
         return Arrays.stream(fileSystem.listStatus(path))
                 .map(FileStatus::getPath)
                 .map(Path::getName)
@@ -3243,7 +3314,8 @@ public abstract class AbstractTestHiveClient
 
         // check that temporary files are removed
         if (writePath != null && !writePath.equals(targetPath)) {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem("user", writePath);
+            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, writePath);
             assertFalse(fileSystem.exists(writePath));
         }
 
@@ -3408,7 +3480,7 @@ public abstract class AbstractTestHiveClient
     protected class DirectoryRenameFailure
             implements ConflictTrigger
     {
-        private String user;
+        private HdfsContext context;
         private Path path;
 
         @Override
@@ -3421,23 +3493,23 @@ public abstract class AbstractTestHiveClient
                 throw new TestingRollbackException();
             }
             path = new Path(targetPath + "/pk1=b/pk2=add2");
-            user = session.getUser();
-            createDirectory(user, hdfsEnvironment, path);
+            context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            createDirectory(context, hdfsEnvironment, path);
         }
 
         @Override
         public void verifyAndCleanup(SchemaTableName tableName)
                 throws IOException
         {
-            assertEquals(listDirectory(user, path), ImmutableList.of());
-            hdfsEnvironment.getFileSystem(user, path).delete(path, false);
+            assertEquals(listDirectory(context, path), ImmutableList.of());
+            hdfsEnvironment.getFileSystem(context, path).delete(path, false);
         }
     }
 
     protected class FileRenameFailure
             implements ConflictTrigger
     {
-        private String user;
+        private HdfsContext context;
         private Path path;
 
         @Override
@@ -3452,8 +3524,8 @@ public abstract class AbstractTestHiveClient
             }
             assertNotNull(path);
 
-            user = session.getUser();
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path);
+            context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
             fileSystem.createNewFile(path);
         }
 
@@ -3463,7 +3535,7 @@ public abstract class AbstractTestHiveClient
         {
             // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
             // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
-            assertEquals(hdfsEnvironment.getFileSystem(user, path).exists(path), false);
+            assertEquals(hdfsEnvironment.getFileSystem(context, path).exists(path), false);
         }
     }
 }

@@ -40,7 +40,8 @@ import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.creat
 import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -86,7 +87,7 @@ public class TestShardRecovery
         if (dummyHandle != null) {
             dummyHandle.close();
         }
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @SuppressWarnings("EmptyTryBlock")

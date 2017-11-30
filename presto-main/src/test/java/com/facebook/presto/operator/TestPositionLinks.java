@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
@@ -43,7 +42,7 @@ public class TestPositionLinks
         assertEquals(factoryBuilder.link(11, 10), 11);
         assertEquals(factoryBuilder.link(12, 11), 12);
 
-        PositionLinks positionLinks = factoryBuilder.build().create(Optional.empty());
+        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of());
 
         assertEquals(positionLinks.start(3, 0, TEST_PAGE), 3);
         assertEquals(positionLinks.next(3, 0, TEST_PAGE), 2);
@@ -61,54 +60,177 @@ public class TestPositionLinks
     @Test
     public void testSortedPositionLinks()
     {
-        JoinFilterFunction filterFunction = new JoinFilterFunction()
-        {
-            @Override
-            public boolean filter(int leftAddress, int rightPosition, Page rightPage)
-            {
-                return BIGINT.getLong(rightPage.getBlock(0), leftAddress) > 4;
-            }
-
-            @Override
-            public Optional<Integer> getSortChannel()
-            {
-                throw new UnsupportedOperationException();
-            }
-        };
+        JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
+                BIGINT.getLong(TEST_PAGE.getBlock(0), leftAddress) > 4;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
-        PositionLinks positionLinks = factoryBuilder.build().create(Optional.of(filterFunction));
+        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
 
         assertEquals(positionLinks.start(0, 0, TEST_PAGE), 5);
         assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
         assertEquals(positionLinks.next(6, 0, TEST_PAGE), -1);
 
+        assertEquals(positionLinks.start(7, 0, TEST_PAGE), 7);
+        assertEquals(positionLinks.next(7, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(8, 0, TEST_PAGE), 8);
+        assertEquals(positionLinks.next(8, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(9, 0, TEST_PAGE), 9);
+        assertEquals(positionLinks.next(9, 0, TEST_PAGE), -1);
+
         assertEquals(positionLinks.start(10, 0, TEST_PAGE), 10);
         assertEquals(positionLinks.next(10, 0, TEST_PAGE), 11);
         assertEquals(positionLinks.next(11, 0, TEST_PAGE), 12);
         assertEquals(positionLinks.next(12, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(13, 0, TEST_PAGE), 13);
+        assertEquals(positionLinks.next(13, 0, TEST_PAGE), -1);
+    }
+
+    @Test
+    public void testSortedPositionLinksAllMatch()
+    {
+        JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
+                BIGINT.getLong(rightPage.getBlock(0), leftAddress) >= 0;
+
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
+
+        assertEquals(positionLinks.start(0, 0, TEST_PAGE), 0);
+        assertEquals(positionLinks.next(0, 0, TEST_PAGE), 1);
+        assertEquals(positionLinks.next(1, 0, TEST_PAGE), 2);
+        assertEquals(positionLinks.next(2, 0, TEST_PAGE), 3);
+        assertEquals(positionLinks.next(3, 0, TEST_PAGE), 4);
+        assertEquals(positionLinks.next(4, 0, TEST_PAGE), 5);
+        assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
+        assertEquals(positionLinks.next(6, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(7, 0, TEST_PAGE), 7);
+        assertEquals(positionLinks.next(7, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(8, 0, TEST_PAGE), 8);
+        assertEquals(positionLinks.next(8, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(9, 0, TEST_PAGE), 9);
+        assertEquals(positionLinks.next(9, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(10, 0, TEST_PAGE), 10);
+        assertEquals(positionLinks.next(10, 0, TEST_PAGE), 11);
+        assertEquals(positionLinks.next(11, 0, TEST_PAGE), 12);
+        assertEquals(positionLinks.next(12, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(13, 0, TEST_PAGE), 13);
+        assertEquals(positionLinks.next(13, 0, TEST_PAGE), -1);
+    }
+
+    @Test
+    public void testSortedPositionLinksForRangePredicates()
+    {
+        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(TEST_PAGE.getBlock(0), leftAddress) > 4;
+
+        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(TEST_PAGE.getBlock(0), leftAddress) <= 11;
+
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunctionOne, filterFunctionTwo));
+
+        assertEquals(positionLinks.start(0, 0, TEST_PAGE), 5);
+        assertEquals(positionLinks.next(4, 0, TEST_PAGE), 5);
+        assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
+        assertEquals(positionLinks.next(6, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(7, 0, TEST_PAGE), 7);
+        assertEquals(positionLinks.next(7, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(8, 0, TEST_PAGE), 8);
+        assertEquals(positionLinks.next(8, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(9, 0, TEST_PAGE), 9);
+        assertEquals(positionLinks.next(9, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(10, 0, TEST_PAGE), 10);
+        assertEquals(positionLinks.next(10, 0, TEST_PAGE), 11);
+        assertEquals(positionLinks.next(11, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(13, 0, TEST_PAGE), -1);
+    }
+
+    @Test
+    public void testSortedPositionLinksForRangePredicatesPrefixMatch()
+    {
+        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), leftAddress) >= 0;
+
+        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), leftAddress) <= 11;
+
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunctionOne, filterFunctionTwo));
+
+        assertEquals(positionLinks.start(0, 0, TEST_PAGE), 0);
+        assertEquals(positionLinks.next(0, 0, TEST_PAGE), 1);
+        assertEquals(positionLinks.next(1, 0, TEST_PAGE), 2);
+        assertEquals(positionLinks.next(2, 0, TEST_PAGE), 3);
+        assertEquals(positionLinks.next(3, 0, TEST_PAGE), 4);
+        assertEquals(positionLinks.next(4, 0, TEST_PAGE), 5);
+        assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
+        assertEquals(positionLinks.next(6, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(7, 0, TEST_PAGE), 7);
+        assertEquals(positionLinks.next(7, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(8, 0, TEST_PAGE), 8);
+        assertEquals(positionLinks.next(8, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(9, 0, TEST_PAGE), 9);
+        assertEquals(positionLinks.next(9, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(10, 0, TEST_PAGE), 10);
+        assertEquals(positionLinks.next(10, 0, TEST_PAGE), 11);
+        assertEquals(positionLinks.next(11, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(13, 0, TEST_PAGE), -1);
+    }
+
+    @Test
+    public void testSortedPositionLinksForRangePredicatesSuffixMatch()
+    {
+        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), leftAddress) > 4;
+
+        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), leftAddress) < 100;
+
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunctionOne, filterFunctionTwo));
+
+        assertEquals(positionLinks.start(0, 0, TEST_PAGE), 5);
+        assertEquals(positionLinks.next(4, 0, TEST_PAGE), 5);
+        assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
+        assertEquals(positionLinks.next(6, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(7, 0, TEST_PAGE), 7);
+        assertEquals(positionLinks.next(7, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(8, 0, TEST_PAGE), 8);
+        assertEquals(positionLinks.next(8, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(9, 0, TEST_PAGE), 9);
+        assertEquals(positionLinks.next(9, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(10, 0, TEST_PAGE), 10);
+        assertEquals(positionLinks.next(10, 0, TEST_PAGE), 11);
+        assertEquals(positionLinks.next(11, 0, TEST_PAGE), 12);
+        assertEquals(positionLinks.next(12, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(13, 0, TEST_PAGE), 13);
+        assertEquals(positionLinks.next(13, 0, TEST_PAGE), -1);
     }
 
     @Test
     public void testReverseSortedPositionLinks()
     {
-        JoinFilterFunction filterFunction = new JoinFilterFunction()
-        {
-            @Override
-            public boolean filter(int leftAddress, int rightPosition, Page rightPage)
-            {
-                return BIGINT.getLong(rightPage.getBlock(0), leftAddress) < 4;
-            }
-
-            @Override
-            public Optional<Integer> getSortChannel()
-            {
-                throw new UnsupportedOperationException();
-            }
-        };
+        JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
+                BIGINT.getLong(TEST_PAGE.getBlock(0), leftAddress) < 4;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
-        PositionLinks positionLinks = factoryBuilder.build().create(Optional.of(filterFunction));
+        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
 
         assertEquals(positionLinks.start(0, 0, TEST_PAGE), 0);
         assertEquals(positionLinks.next(0, 0, TEST_PAGE), 1);
@@ -119,12 +241,54 @@ public class TestPositionLinks
         assertEquals(positionLinks.start(10, 0, TEST_PAGE), -1);
     }
 
+    @Test
+    public void testReverseSortedPositionLinksAllMatch()
+    {
+        JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
+                BIGINT.getLong(rightPage.getBlock(0), leftAddress) < 13;
+
+        PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
+        PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
+
+        assertEquals(positionLinks.start(0, 0, TEST_PAGE), 0);
+        assertEquals(positionLinks.next(0, 0, TEST_PAGE), 1);
+        assertEquals(positionLinks.next(1, 0, TEST_PAGE), 2);
+        assertEquals(positionLinks.next(2, 0, TEST_PAGE), 3);
+        assertEquals(positionLinks.next(3, 0, TEST_PAGE), 4);
+        assertEquals(positionLinks.next(4, 0, TEST_PAGE), 5);
+        assertEquals(positionLinks.next(5, 0, TEST_PAGE), 6);
+        assertEquals(positionLinks.next(6, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(7, 0, TEST_PAGE), 7);
+        assertEquals(positionLinks.next(7, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(8, 0, TEST_PAGE), 8);
+        assertEquals(positionLinks.next(8, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(9, 0, TEST_PAGE), 9);
+        assertEquals(positionLinks.next(9, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(10, 0, TEST_PAGE), 10);
+        assertEquals(positionLinks.next(10, 0, TEST_PAGE), 11);
+        assertEquals(positionLinks.next(11, 0, TEST_PAGE), 12);
+        assertEquals(positionLinks.next(12, 0, TEST_PAGE), -1);
+
+        assertEquals(positionLinks.start(13, 0, TEST_PAGE), -1);
+    }
+
     private static PositionLinks.FactoryBuilder buildSortedPositionLinks()
     {
         SortedPositionLinks.FactoryBuilder builder = SortedPositionLinks.builder(
                 1000,
                 pagesHashStrategy(),
                 addresses());
+
+        /*
+         * Built sorted positions links
+         *
+         * [0] -> [1,2,3,4,5,6]
+         * [10] -> [11,12]
+         */
 
         assertEquals(builder.link(4, 5), 4);
         assertEquals(builder.link(6, 4), 4);
@@ -147,7 +311,7 @@ public class TestPositionLinks
                 ImmutableList.of(ImmutableList.of(TEST_PAGE.getBlock(0))),
                 ImmutableList.of(),
                 Optional.empty(),
-                Optional.of(new SortExpression(0)));
+                Optional.of(0));
     }
 
     private static LongArrayList addresses()

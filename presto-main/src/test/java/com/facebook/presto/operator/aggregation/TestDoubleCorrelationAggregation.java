@@ -72,6 +72,12 @@ public class TestDoubleCorrelationAggregation
         testNonTrivialAggregation(new double[] {1, 2, 3, 4, 5}, new double[] {1, 4, 9, 16, 25});
     }
 
+    @Test
+    public void testInverseCorrelation()
+    {
+        testNonTrivialAggregation(new double[] {1, 2, 3, 4, 5}, new double[] {5, 4, 3, 2, 1});
+    }
+
     private void testNonTrivialAggregation(double[] y, double[] x)
     {
         PearsonsCorrelation corr = new PearsonsCorrelation();

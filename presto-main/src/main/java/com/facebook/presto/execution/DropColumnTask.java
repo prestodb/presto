@@ -26,8 +26,6 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
@@ -50,23 +48,28 @@ public class DropColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+                .orElseThrow(() -> new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName));
 
-        String column = statement.getColumn().toLowerCase(ENGLISH);
+        String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
 
-        if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
-        }
         accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
-        if (!columnHandles.containsKey(column)) {
+        ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
+        if (columnHandle == null) {
             throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", column);
         }
-        if (columnHandles.size() == 1) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop column from a table with only one column");
+
+        if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
+            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop hidden column");
         }
-        metadata.dropColumn(session, tableHandle.get(), columnHandles.get(column));
+
+        if (metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+                .filter(info -> !info.isHidden()).count() <= 1) {
+            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop the only column in a table");
+        }
+
+        metadata.dropColumn(session, tableHandle, columnHandle);
 
         return immediateFuture(null);
     }

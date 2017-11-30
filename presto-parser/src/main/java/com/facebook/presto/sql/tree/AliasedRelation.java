@@ -26,20 +26,20 @@ public class AliasedRelation
         extends Relation
 {
     private final Relation relation;
-    private final String alias;
-    private final List<String> columnNames;
+    private final Identifier alias;
+    private final List<Identifier> columnNames;
 
-    public AliasedRelation(Relation relation, String alias, List<String> columnNames)
+    public AliasedRelation(Relation relation, Identifier alias, List<Identifier> columnNames)
     {
         this(Optional.empty(), relation, alias, columnNames);
     }
 
-    public AliasedRelation(NodeLocation location, Relation relation, String alias, List<String> columnNames)
+    public AliasedRelation(NodeLocation location, Relation relation, Identifier alias, List<Identifier> columnNames)
     {
         this(Optional.of(location), relation, alias, columnNames);
     }
 
-    private AliasedRelation(Optional<NodeLocation> location, Relation relation, String alias, List<String> columnNames)
+    private AliasedRelation(Optional<NodeLocation> location, Relation relation, Identifier alias, List<Identifier> columnNames)
     {
         super(location);
         requireNonNull(relation, "relation is null");
@@ -55,12 +55,12 @@ public class AliasedRelation
         return relation;
     }
 
-    public String getAlias()
+    public Identifier getAlias()
     {
         return alias;
     }
 
-    public List<String> getColumnNames()
+    public List<Identifier> getColumnNames()
     {
         return columnNames;
     }

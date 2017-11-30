@@ -75,6 +75,7 @@ public class ValuesMatcher
     public String toString()
     {
         return toStringHelper(this)
+                .omitNullValues()
                 .add("outputSymbolAliases", outputSymbolAliases)
                 .add("expectedOutputSymbolCount", expectedOutputSymbolCount)
                 .add("expectedRows", expectedRows)

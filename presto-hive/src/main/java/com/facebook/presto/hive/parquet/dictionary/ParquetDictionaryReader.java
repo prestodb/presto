@@ -25,7 +25,7 @@ import java.io.IOException;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class ParquetDictionaryReader
-    extends ValuesReader
+        extends ValuesReader
 {
     private final ParquetDictionary dictionary;
     private RunLengthBitPackingHybridDecoder decoder;
@@ -37,7 +37,7 @@ public class ParquetDictionaryReader
 
     @Override
     public void initFromPage(int valueCount, byte[] page, int offset)
-        throws IOException
+            throws IOException
     {
         checkArgument(page.length > offset, "Attempt to read offset not in the Parquet page");
         ByteArrayInputStream in = new ByteArrayInputStream(page, offset, page.length - offset);

@@ -31,6 +31,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -38,11 +39,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -74,9 +77,14 @@ public class CreateTableTask
     @Override
     public ListenableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
+        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters);
+    }
+
+    @VisibleForTesting
+    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
-        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {
@@ -92,14 +100,15 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
+                String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type = metadata.getType(parseTypeSignature(column.getType()));
                 if ((type == null) || type.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, column, "Unknown type for column '%s' ", column.getName());
                 }
-                if (columns.containsKey(column.getName().toLowerCase())) {
+                if (columns.containsKey(name)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
                 }
-                columns.put(column.getName().toLowerCase(), new ColumnMetadata(column.getName(), type, column.getComment().orElse(null), false));
+                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), false));
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
@@ -155,7 +164,14 @@ public class CreateTableTask
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
 
-        metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
+        try {
+            metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
+        }
+        catch (PrestoException e) {
+            if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || !statement.isNotExists()) {
+                throw e;
+            }
+        }
 
         return immediateFuture(null);
     }

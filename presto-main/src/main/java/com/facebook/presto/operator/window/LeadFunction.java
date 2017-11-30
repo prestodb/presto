@@ -15,7 +15,6 @@ package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.ValueWindowFunction;
-import com.facebook.presto.spi.function.WindowFunctionOptions;
 import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import java.util.List;
@@ -28,7 +27,6 @@ import static java.lang.Math.toIntExact;
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"bigint", "T", "boolean"})
-@WindowFunctionOptions(canIgnoreNulls = true)
 public class LeadFunction
         extends ValueWindowFunction
 {

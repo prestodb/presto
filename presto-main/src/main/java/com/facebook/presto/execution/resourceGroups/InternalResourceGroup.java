@@ -30,6 +30,7 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -150,14 +151,14 @@ public class InternalResourceGroup
 
             return new ResourceGroupInfo(
                     id,
-                    new DataSize(softMemoryLimitBytes, BYTE),
+                    DataSize.succinctBytes(softMemoryLimitBytes),
                     maxRunningQueries,
                     runningTimeLimit,
                     maxQueuedQueries,
                     queuedTimeLimit,
                     getState(),
                     eligibleSubGroups.size(),
-                    new DataSize(cachedMemoryUsageBytes, BYTE),
+                    DataSize.succinctBytes(cachedMemoryUsageBytes),
                     runningQueries.size() + descendantRunningQueries,
                     queuedQueries.size() + descendantQueuedQueries,
                     infos);
@@ -177,7 +178,21 @@ public class InternalResourceGroup
                     runningTimeLimit,
                     queuedTimeLimit,
                     getAggregatedRunningQueriesInfo(),
-                    queuedQueries.size() + descendantQueuedQueries);
+                    queuedQueries.size() + descendantQueuedQueries,
+                    subGroups.values().stream()
+                            .map(subGroup -> new ResourceGroupInfo(
+                                    subGroup.getId(),
+                                    DataSize.succinctBytes(subGroup.softMemoryLimitBytes),
+                                    subGroup.maxRunningQueries,
+                                    subGroup.runningTimeLimit,
+                                    subGroup.maxQueuedQueries,
+                                    subGroup.queuedTimeLimit,
+                                    subGroup.getState(),
+                                    subGroup.eligibleSubGroups.size(),
+                                    DataSize.succinctBytes(subGroup.cachedMemoryUsageBytes),
+                                    subGroup.runningQueries.size() + subGroup.descendantRunningQueries,
+                                    subGroup.queuedQueries.size() + subGroup.descendantQueuedQueries))
+                            .collect(toImmutableList()));
         }
     }
 
@@ -823,6 +838,13 @@ public class InternalResourceGroup
             }
             return runningQueries.size() + descendantRunningQueries < maxRunning &&
                     cachedMemoryUsageBytes < softMemoryLimitBytes;
+        }
+    }
+
+    public Collection<InternalResourceGroup> subGroups()
+    {
+        synchronized (root) {
+            return subGroups.values();
         }
     }
 

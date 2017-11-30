@@ -138,7 +138,7 @@ public class TestHttpRemoteTask
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
-                new NodeTaskMap.PartitionedSplitCountTracker(i -> { }),
+                new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 true);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
@@ -212,11 +212,11 @@ public class TestHttpRemoteTask
                                 taskUpdateRequestCodec,
                                 new RemoteTaskStats());
                     }
-                }
-        );
+                });
         Injector injector = app
                 .strictConfig()
                 .doNotInitializeLogging()
+                .quiet()
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
         handleResolver.addConnectorName("test", new TestingHandleResolver());
@@ -372,7 +372,7 @@ public class TestHttpRemoteTask
         private TaskStatus buildTaskStatus()
         {
             statusFetchCounter++;
-                // Change the task instance id after 10th fetch to simulate worker restart
+            // Change the task instance id after 10th fetch to simulate worker restart
             switch (testCase) {
                 case TASK_MISMATCH:
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
@@ -396,6 +396,7 @@ public class TestHttpRemoteTask
                     ++version,
                     taskState,
                     initialTaskStatus.getSelf(),
+                    "fake",
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),

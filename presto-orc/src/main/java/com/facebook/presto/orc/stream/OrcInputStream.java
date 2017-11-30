@@ -255,7 +255,8 @@ public final class OrcInputStream
             current = chunk.getInput();
         }
         else {
-            OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer() {
+            OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
+            {
                 @Override
                 public byte[] initialize(int size)
                 {

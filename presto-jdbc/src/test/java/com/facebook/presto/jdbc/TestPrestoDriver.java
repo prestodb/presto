@@ -834,9 +834,9 @@ public class TestPrestoDriver
                             "c_char_345 char(345), " +
                             "c_varbinary varbinary, " +
                             "c_time time, " +
-                            "c_time_with_time_zone \"time with time zone\", " +
+                            "c_time_with_time_zone time with time zone, " +
                             "c_timestamp timestamp, " +
-                            "c_timestamp_with_time_zone \"timestamp with time zone\", " +
+                            "c_timestamp_with_time_zone timestamp with time zone, " +
                             "c_date date, " +
                             "c_decimal_8_2 decimal(8,2), " +
                             "c_decimal_38_0 decimal(38,0), " +
@@ -1497,7 +1497,7 @@ public class TestPrestoDriver
         });
 
         // make sure the query timed out
-        assertTrue(queryFinished.await(2, SECONDS));
+        queryFinished.await();
         assertNotNull(queryFailure.get());
         assertContains(queryFailure.get().getMessage(), "Query exceeded maximum time limit of 1.00s");
 

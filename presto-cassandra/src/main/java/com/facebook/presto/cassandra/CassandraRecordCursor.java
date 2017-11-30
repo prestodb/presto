@@ -31,7 +31,6 @@ public class CassandraRecordCursor
     private final List<FullCassandraType> fullCassandraTypes;
     private final ResultSet rs;
     private Row currentRow;
-    private long atLeastCount;
     private long count;
 
     public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
@@ -39,7 +38,6 @@ public class CassandraRecordCursor
         this.fullCassandraTypes = fullCassandraTypes;
         rs = cassandraSession.execute(cql);
         currentRow = null;
-        atLeastCount = rs.getAvailableWithoutFetching();
     }
 
     @Override
@@ -48,7 +46,6 @@ public class CassandraRecordCursor
         if (!rs.isExhausted()) {
             currentRow = rs.one();
             count++;
-            atLeastCount = count + rs.getAvailableWithoutFetching();
             return true;
         }
         return false;
@@ -129,12 +126,6 @@ public class CassandraRecordCursor
     public Object getObject(int field)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return atLeastCount;
     }
 
     @Override

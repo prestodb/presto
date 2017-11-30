@@ -36,8 +36,6 @@ import static java.util.Objects.requireNonNull;
 public class MapType
         extends AbstractType
 {
-    private final boolean useNewMapBlock;
-
     private final Type keyType;
     private final Type valueType;
     private static final String MAP_NULL_ELEMENT_MSG = "MAP comparison not supported for null value elements";
@@ -47,34 +45,20 @@ public class MapType
     private final MethodHandle keyBlockHashCode;
     private final MethodHandle keyBlockNativeEquals;
 
-    public MapType(boolean useNewMapBlock, Type keyType, Type valueType, MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode, MethodHandle keyBlockHashCode)
+    public MapType(Type keyType, Type valueType, MethodHandle keyBlockNativeEquals, MethodHandle keyNativeHashCode, MethodHandle keyBlockHashCode)
     {
         super(new TypeSignature(StandardTypes.MAP,
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature())),
+                        TypeSignatureParameter.of(keyType.getTypeSignature()),
+                        TypeSignatureParameter.of(valueType.getTypeSignature())),
                 Block.class);
         if (!keyType.isComparable()) {
             throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
         }
-        this.useNewMapBlock = useNewMapBlock;
         this.keyType = keyType;
         this.valueType = valueType;
-        if (useNewMapBlock) {
-            requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
-            requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
-            requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
-        }
-        else {
-            if (keyBlockNativeEquals != null) {
-                throw new IllegalArgumentException("When useNewMapBlock is false, keyBlockNativeEquals should be null.");
-            }
-            if (keyNativeHashCode != null) {
-                throw new IllegalArgumentException("When useNewMapBlock is false, keyNativeHashCode should be null.");
-            }
-            if (keyBlockHashCode != null) {
-                throw new IllegalArgumentException("When useNewMapBlock is false, keyBlockHashCode should be null.");
-            }
-        }
+        requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
+        requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
+        requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
         this.keyBlockNativeEquals = keyBlockNativeEquals;
         this.keyNativeHashCode = keyNativeHashCode;
         this.keyBlockHashCode = keyBlockHashCode;
@@ -83,7 +67,7 @@ public class MapType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new MapBlockBuilder(useNewMapBlock, keyType, valueType, keyBlockNativeEquals, keyNativeHashCode, keyBlockHashCode, blockBuilderStatus, expectedEntries);
+        return new MapBlockBuilder(keyType, valueType, keyBlockNativeEquals, keyNativeHashCode, keyBlockHashCode, blockBuilderStatus, expectedEntries);
     }
 
     @Override
@@ -115,8 +99,7 @@ public class MapType
         long result = 0;
 
         for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            result += hashPosition(keyType, mapBlock, i);
-            result += hashPosition(valueType, mapBlock, i + 1);
+            result += hashPosition(keyType, mapBlock, i) ^ hashPosition(valueType, mapBlock, i + 1);
         }
         return result;
     }
@@ -233,6 +216,9 @@ public class MapType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
+        if (!(value instanceof SingleMapBlock)) {
+            throw new IllegalArgumentException("Maps must be represented with SingleMapBlock");
+        }
         blockBuilder.writeObject(value).closeEntry();
     }
 
@@ -251,7 +237,6 @@ public class MapType
     public MapBlock createBlockFromKeyValue(boolean[] mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
     {
         return MapBlock.fromKeyValueBlock(
-                useNewMapBlock,
                 mapIsNull,
                 offsets,
                 keyBlock,

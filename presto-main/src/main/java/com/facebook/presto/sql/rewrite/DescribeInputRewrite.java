@@ -95,7 +95,7 @@ final class DescribeInputRewrite
         protected Node visitDescribeInput(DescribeInput node, Void context)
                 throws SemanticException
         {
-            String sqlString = session.getPreparedStatement(node.getName());
+            String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString);
 
             // create  analysis for the query we are describing.
@@ -123,8 +123,7 @@ final class DescribeInputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.of(ordering(ascending("Position"))),
-                    limit
-            );
+                    limit);
         }
 
         private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)

@@ -52,9 +52,10 @@ import static com.facebook.presto.tests.StructuralTestUtil.arrayBlocksEqual;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlocksEqual;
 import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
@@ -79,7 +80,7 @@ public class TestOrcFileRewriter
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @Test
@@ -183,8 +184,7 @@ public class TestOrcFileRewriter
                     .put(9L, arrayType.getTypeSignature())
                     .put(10L, mapType.getTypeSignature())
                     .put(11L, arrayOfArrayType.getTypeSignature())
-                    .build()
-            ));
+                    .build()));
         }
 
         BitSet rowsToDelete = new BitSet(5);
@@ -255,8 +255,7 @@ public class TestOrcFileRewriter
                     .put(9L, arrayType.getTypeSignature())
                     .put(10L, mapType.getTypeSignature())
                     .put(11L, arrayOfArrayType.getTypeSignature())
-                    .build()
-            ));
+                    .build()));
         }
     }
 

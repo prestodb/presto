@@ -87,11 +87,12 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.hash.Hashing.md5;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.hash;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
@@ -117,7 +118,7 @@ public class TestOrcStorageManager
     private static final int MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
     private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
     private final NodeManager nodeManager = new TestingNodeManager();
     private Handle dummyHandle;
@@ -160,7 +161,7 @@ public class TestOrcStorageManager
         if (dummyHandle != null) {
             dummyHandle.close();
         }
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
     @Test
@@ -258,7 +259,7 @@ public class TestOrcStorageManager
                 {885L, "max", null, null, null, Double.MAX_VALUE},
                 {886L, "pzero", null, null, null, 0.0},
                 {887L, "nzero", null, null, null, -0.0},
-                };
+        };
 
         List<Page> pages = rowPagesBuilder(columnTypes)
                 .row(123L, "hello", wrappedBuffer(bytes1), sqlDate(2001, 8, 22).getDays(), true, 123.45)

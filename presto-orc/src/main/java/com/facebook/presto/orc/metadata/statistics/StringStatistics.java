@@ -15,18 +15,31 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
 
+import javax.annotation.Nullable;
+
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class StringStatistics
         implements RangeStatistics<Slice>
 {
-    private final Slice minimum;
-    private final Slice maximum;
+    // 1 byte to denote if null + 4 bytes to denote offset
+    public static final long STRING_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
 
-    public StringStatistics(Slice minimum, Slice maximum)
+    @Nullable
+    private final Slice minimum;
+    @Nullable
+    private final Slice maximum;
+    private final long sum;
+
+    public StringStatistics(Slice minimum, Slice maximum, long sum)
     {
+        checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
+        this.sum = sum;
     }
 
     @Override
@@ -41,12 +54,38 @@ public class StringStatistics
         return maximum;
     }
 
+    public long getSum()
+    {
+        return sum;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        StringStatistics that = (StringStatistics) o;
+        return Objects.equals(minimum, that.minimum) &&
+                Objects.equals(maximum, that.maximum);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(minimum, maximum);
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("min", minimum)
-                .add("max", maximum)
+                .add("min", minimum == null ? "<null>" : minimum.toStringUtf8())
+                .add("max", maximum == null ? "<null>" : maximum.toStringUtf8())
+                .add("sum", sum)
                 .toString();
     }
 }

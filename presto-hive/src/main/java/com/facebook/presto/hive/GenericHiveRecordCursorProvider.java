@@ -62,7 +62,7 @@ public class GenericHiveRecordCursorProvider
     {
         // make sure the FileSystem is created with the proper Configuration object
         try {
-            this.hdfsEnvironment.getFileSystem(session.getUser(), path);
+            this.hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);

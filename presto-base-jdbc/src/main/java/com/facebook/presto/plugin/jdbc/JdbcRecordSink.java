@@ -193,7 +193,7 @@ public class JdbcRecordSink
     {
         // rollback and close
         try (Connection connection = this.connection;
-             PreparedStatement statement = this.statement) {
+                PreparedStatement statement = this.statement) {
             connection.rollback();
         }
         catch (SQLException e) {

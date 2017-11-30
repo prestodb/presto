@@ -35,7 +35,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
 import static com.google.common.io.Files.createTempDir;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -76,7 +77,7 @@ public class TestBackupManager
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(temporary);
+        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
         backupManager.shutdown();
     }
 

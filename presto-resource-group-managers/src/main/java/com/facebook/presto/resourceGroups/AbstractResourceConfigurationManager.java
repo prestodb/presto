@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
+import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
         implements ResourceGroupConfigurationManager
@@ -50,6 +51,7 @@ public abstract class AbstractResourceConfigurationManager
     private long generalPoolBytes;
 
     protected abstract Optional<Duration> getCpuQuotaPeriod();
+
     protected abstract List<ResourceGroupSpec> getRootGroups();
 
     protected void validateRootGroups(ManagerSpec managerSpec)
@@ -190,24 +192,15 @@ public abstract class AbstractResourceConfigurationManager
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setMaxRunningQueries(match.getMaxRunning());
-        if (match.getQueuedTimeLimit().isPresent()) {
-            group.setQueuedTimeLimit(match.getQueuedTimeLimit().get());
-        }
-        if (match.getRunningTimeLimit().isPresent()) {
-            group.setRunningTimeLimit(match.getRunningTimeLimit().get());
-        }
-        if (match.getSchedulingPolicy().isPresent()) {
-            group.setSchedulingPolicy(match.getSchedulingPolicy().get());
-        }
-        if (match.getSchedulingWeight().isPresent()) {
-            group.setSchedulingWeight(match.getSchedulingWeight().get());
-        }
-        // if the new and current values do not differ an exception is thrown
-        if (match.getJmxExport().isPresent() && match.getJmxExport().get() != group.getJmxExport()) {
-            group.setJmxExport(match.getJmxExport().get());
-        }
+        match.getQueuedTimeLimit().ifPresent(group::setQueuedTimeLimit);
+        match.getRunningTimeLimit().ifPresent(group::setRunningTimeLimit);
+        match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
+        match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
+        match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
+        match.getSoftCpuLimit().ifPresent(group::setSoftCpuLimit);
+        match.getHardCpuLimit().ifPresent(group::setHardCpuLimit);
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
-            // This will never throw an exception if the validateManagerSpec method succeeds
+            // This will never throw an exception if the validateRootGroups method succeeds
             checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");
             Duration limit;
             if (match.getHardCpuLimit().isPresent()) {
@@ -219,12 +212,6 @@ public abstract class AbstractResourceConfigurationManager
             long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
-        }
-        if (match.getSoftCpuLimit().isPresent()) {
-            group.setSoftCpuLimit(match.getSoftCpuLimit().get());
-        }
-        if (match.getHardCpuLimit().isPresent()) {
-            group.setHardCpuLimit(match.getHardCpuLimit().get());
         }
     }
 }

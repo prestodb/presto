@@ -17,15 +17,16 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
@@ -48,6 +49,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -78,10 +80,10 @@ public class BenchmarkTransformKey
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * NUM_TYPES)
-    public Object benchmark(BenchmarkData data)
+    public List<Optional<Page>> benchmark(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().process(SESSION, data.getPage());
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -99,7 +101,7 @@ public class BenchmarkTransformKey
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata);
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
             Object increment;
@@ -140,8 +142,8 @@ public class BenchmarkTransformKey
 
         private static Block createChannel(int positionCount, MapType mapType, Type elementType)
         {
-            BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
-            BlockBuilder mapBuilder = new InterleavedBlockBuilder(ImmutableList.of(mapType.getKeyType(), mapType.getValueType()), new BlockBuilderStatus(), positionCount * 2);
+            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
             Object value;
             for (int position = 0; position < positionCount; position++) {
                 if (elementType.equals(BIGINT)) {
@@ -154,11 +156,11 @@ public class BenchmarkTransformKey
                     throw new UnsupportedOperationException();
                 }
                 // Use position as the key to avoid collision
-                writeNativeValue(elementType, mapBuilder, position);
-                writeNativeValue(elementType, mapBuilder, value);
+                writeNativeValue(elementType, singleMapBlockWriter, position);
+                writeNativeValue(elementType, singleMapBlockWriter, value);
             }
-            mapType.writeObject(mapArrayBuilder, mapBuilder.build());
-            return mapArrayBuilder.build();
+            mapBlockBuilder.closeEntry();
+            return mapBlockBuilder.build();
         }
 
         public PageProcessor getPageProcessor()

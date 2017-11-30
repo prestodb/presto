@@ -31,17 +31,17 @@ statement
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
-        (WITH tableProperties)?                                        #createSchema
+        (WITH properties)?                                             #createSchema
     | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
-    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
+    | CREATE TABLE (IF NOT EXISTS)? qualifiedName columnAliases?
         (COMMENT string)?
-        (WITH tableProperties)? AS (query | '('query')')
+        (WITH properties)? AS (query | '('query')')
         (WITH (NO)? DATA)?                                             #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'
          (COMMENT string)?
-         (WITH tableProperties)?                                       #createTable
+         (WITH properties)?                                            #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
@@ -116,11 +116,11 @@ likeClause
     : LIKE qualifiedName (optionType=(INCLUDING | EXCLUDING) PROPERTIES)?
     ;
 
-tableProperties
-    : '(' tableProperty (',' tableProperty)* ')'
+properties
+    : '(' property (',' property)* ')'
     ;
 
-tableProperty
+property
     : identifier EQ expression
     ;
 
@@ -294,7 +294,7 @@ primaryExpression
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')'
         nullTreatment? filter? over?                                                      #functionCall
     | identifier '->' expression                                                          #lambda
-    | '(' identifier (',' identifier)* ')' '->' expression                                #lambda
+    | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists
@@ -439,14 +439,10 @@ qualifiedName
 
 identifier
     : IDENTIFIER             #unquotedIdentifier
-    | quotedIdentifier       #quotedIdentifierAlternative
+    | QUOTED_IDENTIFIER      #quotedIdentifier
     | nonReserved            #unquotedIdentifier
     | BACKQUOTED_IDENTIFIER  #backQuotedIdentifier
     | DIGIT_IDENTIFIER       #digitIdentifier
-    ;
-
-quotedIdentifier
-    : QUOTED_IDENTIFIER
     ;
 
 number

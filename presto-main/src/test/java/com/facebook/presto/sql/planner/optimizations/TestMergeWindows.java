@@ -21,9 +21,9 @@ import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
-import com.facebook.presto.sql.planner.iterative.rule.MergeAdjacentWindows;
+import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsBySpecifications;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FrameBound;
@@ -117,7 +117,7 @@ public class TestMergeWindows
     /**
      * There are two types of tests in here, and they answer two different
      * questions about MergeWindows (MW):
-     *
+     * <p>
      * 1) Is MW working as it's supposed to be? The tests running the minimal
      * set of optimizers can tell us this.
      * 2) Has some other optimizer changed the plan in such a way that MW no
@@ -125,7 +125,7 @@ public class TestMergeWindows
      * that MW sees cannot be optimized by MW? The test running the full set
      * of optimizers answers this, though it isn't actually meaningful unless
      * we know the answer to question 1 is "yes".
-     *
+     * <p>
      * The tests that use only the minimal set of optimizers are closer to true
      * "unit" tests in that they verify the behavior of MW with as few
      * external dependencies as possible. Those dependencies to include the
@@ -135,7 +135,7 @@ public class TestMergeWindows
      * 1) The tests are more self-maintaining.
      * 2) They're a lot easier to read.
      * 3) It's a lot less typing.
-     *
+     * <p>
      * The test that runs with all of the optimzers acts as an integration test
      * and ensures that MW is effective when run with the complete set of
      * optimizers.
@@ -199,15 +199,46 @@ public class TestMergeWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
                                                 .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
                                         project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(specificationA)
-                                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                                        LINEITEM_TABLESCAN_DOQSS))))));
+                                                LINEITEM_TABLESCAN_DOQSS)))));
+    }
+
+    @Test
+    public void testIdenticalWindowSpecificationsABfilterA()
+    {
+        // This test makes sure that we don't merge window nodes across filter nodes, which obviously would affect
+        // the result of the window function by removing some input values.
+        @Language("SQL") String sql = "" +
+                "SELECT" +
+                "  sum_discount_A, " +
+                "  SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "  SUM(quantity) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B " +
+                "FROM (" +
+                "  SELECT" +
+                "    *, " +
+                "    SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "  FROM lineitem)" +
+                "WHERE shipdate IS NOT NULL";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specificationA)
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(specificationB)
+                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                        filter(SHIPDATE_ALIAS + " IS NOT NULL",
+                                                project(
+                                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(specificationA)
+                                                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                LINEITEM_TABLESCAN_DOQSS)))))));
     }
 
     @Test
@@ -224,12 +255,39 @@ public class TestMergeWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
-                                        .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
+                                        .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")))
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                 project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
-                                        window(windowMatcherBuilder -> windowMatcherBuilder
-                                                        .specification(specificationA)
-                                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                                LINEITEM_TABLESCAN_DOQS)))));
+                                        LINEITEM_TABLESCAN_DOQS))));
+    }
+
+    @Test
+    public void testIdenticalWindowSpecificationsAAfilterA()
+    {
+        @Language("SQL") String sql = "" +
+                "SELECT" +
+                "  sum_discount_A, " +
+                "  SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "  AVG(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) avg_quantity_A " +
+                "FROM (" +
+                "  SELECT" +
+                "    *, " +
+                "    SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "  FROM lineitem)" +
+                "WHERE shipdate IS NOT NULL";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specificationA)
+                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)))
+                                        .addFunction(functionCall("avg", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                filter(SHIPDATE_ALIAS + " IS NOT NULL",
+                                        project(
+                                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                .specification(specificationA)
+                                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        LINEITEM_TABLESCAN_DOQSS))))));
     }
 
     @Test
@@ -500,10 +558,12 @@ public class TestMergeWindows
         LocalQueryRunner queryRunner = getQueryRunner();
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(
-                        new RemoveRedundantIdentityProjections(),
-                        new SwapAdjacentWindowsBySpecifications(),
-                        new MergeAdjacentWindows())),
+                new IterativeOptimizer(
+                        new StatsRecorder(),
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new RemoveRedundantIdentityProjections())
+                                .addAll(new GatherAndMergeWindows().rules())
+                                .build()),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);

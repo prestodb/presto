@@ -15,6 +15,7 @@ package com.facebook.presto.operator.window;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ValueWindowFunction;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
@@ -34,15 +35,15 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     private final Constructor<T> constructor;
     private final boolean canIgnoreNulls;
 
-    public ReflectionWindowFunctionSupplier(String name, Type returnType, boolean canIgnoreNulls, List<? extends Type> argumentTypes, Class<T> type)
+    public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
-        this(new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), canIgnoreNulls, type);
+        this(new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
     }
 
-    public ReflectionWindowFunctionSupplier(Signature signature, boolean canIgnoreNulls, Class<T> type)
+    public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
     {
         super(signature, getDescription(requireNonNull(type, "type is null")));
-        this.canIgnoreNulls = canIgnoreNulls;
+        this.canIgnoreNulls = ValueWindowFunction.class.isAssignableFrom(type);
         try {
             if (signature.getArgumentTypes().isEmpty()) {
                 constructor = type.getConstructor();

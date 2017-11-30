@@ -13,18 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -34,44 +27,23 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.latera
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestTransformExistsApplyToScalarLateralJoin
+        extends BaseRuleTest
 {
-    private RuleTester tester;
-    private Rule transformExistsApplyToScalarApply;
-
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new RuleTester();
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        transformExistsApplyToScalarApply = new TransformExistsApplyToLateralNode(registry);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(tester);
-        tester = null;
-        transformExistsApplyToScalarApply = null;
-    }
-
     @Test
     public void testDoesNotFire()
     {
-        tester.assertThat(transformExistsApplyToScalarApply)
+        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionRegistry()))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
 
-        tester.assertThat(transformExistsApplyToScalarApply)
+        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionRegistry()))
                 .on(p ->
                         p.lateral(
                                 ImmutableList.of(p.symbol("a")),
                                 p.values(p.symbol("a")),
-                                p.values(p.symbol("a")))
-                )
+                                p.values(p.symbol("a"))))
                 .doesNotFire();
     }
 
@@ -79,14 +51,13 @@ public class TestTransformExistsApplyToScalarLateralJoin
     public void testRewrite()
             throws Exception
     {
-        tester.assertThat(transformExistsApplyToScalarApply)
+        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionRegistry()))
                 .on(p ->
                         p.apply(
                                 Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT \"a\")")),
                                 ImmutableList.of(),
                                 p.values(),
-                                p.values(p.symbol("a")))
-                )
+                                p.values(p.symbol("a"))))
                 .matches(lateral(
                         ImmutableList.of(),
                         values(ImmutableMap.of()),

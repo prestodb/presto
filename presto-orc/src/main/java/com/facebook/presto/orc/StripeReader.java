@@ -65,6 +65,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.facebook.presto.orc.stream.CheckpointInputStreamSource.createCheckpointStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -78,6 +79,7 @@ public class StripeReader
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
+    private final Optional<OrcWriteValidation> writeValidation;
 
     public StripeReader(OrcDataSource orcDataSource,
             Optional<OrcDecompressor> decompressor,
@@ -86,7 +88,8 @@ public class StripeReader
             int rowsInRowGroup,
             OrcPredicate predicate,
             HiveWriterVersion hiveWriterVersion,
-            MetadataReader metadataReader)
+            MetadataReader metadataReader,
+            Optional<OrcWriteValidation> writeValidation)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
@@ -96,6 +99,7 @@ public class StripeReader
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
+        this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
     }
 
     public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
@@ -120,6 +124,7 @@ public class StripeReader
         }
 
         // handle stripes with more than one row group or a dictionary
+        boolean invalidCheckPoint = false;
         if ((stripe.getNumberOfRows() > rowsInRowGroup) || hasRowGroupDictionary) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
@@ -133,6 +138,9 @@ public class StripeReader
 
             // read the row index for each column
             Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData, bloomFilterIndexes);
+            if (writeValidation.isPresent()) {
+                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), stripe.getOffset(), columnIndexes);
+            }
 
             // select the row groups matching the tuple domain
             Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
@@ -169,6 +177,7 @@ public class StripeReader
                 if (hasRowGroupDictionary) {
                     throw new OrcCorruptionException(e, orcDataSource.getId(), "Checkpoints are corrupt");
                 }
+                invalidCheckPoint = true;
             }
         }
 
@@ -176,7 +185,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
         for (Entry<StreamId, DiskRange> entry : getDiskRanges(stripeFooter.getStreams()).entrySet()) {
             StreamId streamId = entry.getKey();
-            if (streamId.getStreamKind() != ROW_INDEX && streams.keySet().contains(streamId)) {
+            if (streams.keySet().contains(streamId)) {
                 diskRangesBuilder.put(entry);
             }
         }
@@ -184,6 +193,26 @@ public class StripeReader
 
         // read the file regions
         Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
+
+        long minAverageRowBytes = 0;
+        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
+            if (entry.getKey().getStreamKind() == ROW_INDEX) {
+                List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(hiveWriterVersion, streamsData.get(entry.getKey()));
+                checkState(rowGroupIndexes.size() == 1 || invalidCheckPoint, "expect a single row group or an invalid check point");
+                long totalBytes = 0;
+                long totalRows = 0;
+                for (RowGroupIndex rowGroupIndex : rowGroupIndexes) {
+                    ColumnStatistics columnStatistics = rowGroupIndex.getColumnStatistics();
+                    if (columnStatistics.hasMinAverageValueSizeInBytes()) {
+                        totalBytes += columnStatistics.getMinAverageValueSizeInBytes() * columnStatistics.getNumberOfValues();
+                        totalRows += columnStatistics.getNumberOfValues();
+                    }
+                }
+                if (totalRows > 0) {
+                    minAverageRowBytes += totalBytes / totalRows;
+                }
+            }
+        }
 
         // value streams
         Map<StreamId, ValueInputStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
@@ -196,7 +225,7 @@ public class StripeReader
         for (Entry<StreamId, ValueInputStream<?>> entry : valueStreams.entrySet()) {
             builder.put(entry.getKey(), new ValueInputStreamSource<>(entry.getValue()));
         }
-        RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), new InputStreamSources(builder.build()));
+        RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), minAverageRowBytes, new InputStreamSources(builder.build()));
 
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
@@ -292,13 +321,21 @@ public class StripeReader
             Map<StreamId, StreamCheckpoint> checkpoints = getStreamCheckpoints(includedOrcColumns, types, decompressor.isPresent(), rowGroupId, encodings, streams, columnIndexes);
             int rowOffset = rowGroupId * rowsInRowGroup;
             int rowsInGroup = Math.min(rowsInStripe - rowOffset, rowsInRowGroup);
-            rowGroupBuilder.add(createRowGroup(rowGroupId, rowOffset, rowsInGroup, valueStreams, checkpoints));
+            long minAverageRowBytes = columnIndexes
+                    .entrySet()
+                    .stream()
+                    .mapToLong(e -> e.getValue()
+                            .get(rowGroupId)
+                            .getColumnStatistics()
+                            .getMinAverageValueSizeInBytes())
+                    .sum();
+            rowGroupBuilder.add(createRowGroup(rowGroupId, rowOffset, rowsInGroup, minAverageRowBytes, valueStreams, checkpoints));
         }
 
         return rowGroupBuilder.build();
     }
 
-    public static RowGroup createRowGroup(int groupId, int rowOffset, int rowCount, Map<StreamId, ValueInputStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
+    public static RowGroup createRowGroup(int groupId, int rowOffset, int rowCount, long minAverageRowBytes, Map<StreamId, ValueInputStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
     {
         ImmutableMap.Builder<StreamId, InputStreamSource<?>> builder = ImmutableMap.builder();
         for (Entry<StreamId, StreamCheckpoint> entry : checkpoints.entrySet()) {
@@ -314,7 +351,7 @@ public class StripeReader
             builder.put(streamId, createCheckpointStreamSource(valueStream, checkpoint));
         }
         InputStreamSources rowGroupStreams = new InputStreamSources(builder.build());
-        return new RowGroup(groupId, rowOffset, rowCount, rowGroupStreams);
+        return new RowGroup(groupId, rowOffset, rowCount, minAverageRowBytes, rowGroupStreams);
     }
 
     public StripeFooter readStripeFooter(StripeInformation stripe, AbstractAggregatedMemoryContext systemMemoryUsage)
@@ -327,7 +364,7 @@ public class StripeReader
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
         try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage)) {
-            return metadataReader.readStripeFooter(hiveWriterVersion, types, inputStream);
+            return metadataReader.readStripeFooter(types, inputStream);
         }
     }
 
@@ -371,7 +408,7 @@ public class StripeReader
         return columnIndexes.build();
     }
 
-    private Set<Integer> selectRowGroups(StripeInformation stripe,  Map<Integer, List<RowGroupIndex>> columnIndexes)
+    private Set<Integer> selectRowGroups(StripeInformation stripe, Map<Integer, List<RowGroupIndex>> columnIndexes)
             throws IOException
     {
         int rowsInStripe = toIntExact(stripe.getNumberOfRows());
@@ -423,7 +460,10 @@ public class StripeReader
         long stripeOffset = 0;
         for (Stream stream : streams) {
             int streamLength = toIntExact(stream.getLength());
-            streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));
+            // ignore zero byte streams
+            if (streamLength > 0) {
+                streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));
+            }
             stripeOffset += streamLength;
         }
         return streamDiskRanges.build();

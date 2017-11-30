@@ -43,7 +43,9 @@ import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregatio
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthSumAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.operator.aggregation.MaxAggregationFunction;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
+import com.facebook.presto.operator.aggregation.MinAggregationFunction;
 import com.facebook.presto.operator.aggregation.RealAverageAggregation;
 import com.facebook.presto.operator.aggregation.RealCorrelationAggregation;
 import com.facebook.presto.operator.aggregation.RealCovarianceAggregation;
@@ -94,7 +96,9 @@ import com.facebook.presto.operator.scalar.JsonOperators;
 import com.facebook.presto.operator.scalar.ListLiteralCast;
 import com.facebook.presto.operator.scalar.MapCardinalityFunction;
 import com.facebook.presto.operator.scalar.MapDistinctFromOperator;
+import com.facebook.presto.operator.scalar.MapEntriesFunction;
 import com.facebook.presto.operator.scalar.MapEqualOperator;
+import com.facebook.presto.operator.scalar.MapFromEntriesFunction;
 import com.facebook.presto.operator.scalar.MapKeys;
 import com.facebook.presto.operator.scalar.MapNotEqualOperator;
 import com.facebook.presto.operator.scalar.MapSubscriptOperator;
@@ -105,7 +109,9 @@ import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.RepeatFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.SequenceFunction;
+import com.facebook.presto.operator.scalar.SplitToMapFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
+import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.operator.scalar.TypeOfFunction;
 import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
@@ -145,6 +151,7 @@ import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
+import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.RealOperators;
 import com.facebook.presto.type.SmallintOperators;
@@ -200,12 +207,10 @@ import static com.facebook.presto.operator.aggregation.DecimalSumAggregation.DEC
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
-import static com.facebook.presto.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
+import static com.facebook.presto.operator.aggregation.MaxByAggregationFunction.MAX_BY;
 import static com.facebook.presto.operator.aggregation.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxNAggregationFunction.MAX_N_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
+import static com.facebook.presto.operator.aggregation.MinByAggregationFunction.MIN_BY;
 import static com.facebook.presto.operator.aggregation.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinNAggregationFunction.MIN_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MultimapAggregationFunction.MULTIMAP_AGG;
@@ -226,8 +231,12 @@ import static com.facebook.presto.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
+import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
+import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP;
+import static com.facebook.presto.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW;
 import static com.facebook.presto.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static com.facebook.presto.operator.scalar.JsonToMapCast.JSON_TO_MAP;
+import static com.facebook.presto.operator.scalar.JsonToRowCast.JSON_TO_ROW;
 import static com.facebook.presto.operator.scalar.Least.LEAST;
 import static com.facebook.presto.operator.scalar.MapConcatFunction.MAP_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
@@ -407,45 +416,48 @@ public class FunctionRegistry
                 .window(NthValueFunction.class)
                 .window(LagFunction.class)
                 .window(LeadFunction.class)
-                .aggregate(CountAggregation.class)
-                .aggregate(VarianceAggregation.class)
-                .aggregate(CentralMomentsAggregation.class)
-                .aggregate(ApproximateLongPercentileAggregations.class)
-                .aggregate(ApproximateLongPercentileArrayAggregations.class)
-                .aggregate(ApproximateDoublePercentileAggregations.class)
-                .aggregate(ApproximateDoublePercentileArrayAggregations.class)
-                .aggregate(ApproximateRealPercentileAggregations.class)
-                .aggregate(ApproximateRealPercentileArrayAggregations.class)
-                .aggregate(CountIfAggregation.class)
-                .aggregate(BooleanAndAggregation.class)
-                .aggregate(BooleanOrAggregation.class)
-                .aggregate(DoubleSumAggregation.class)
-                .aggregate(RealSumAggregation.class)
-                .aggregate(LongSumAggregation.class)
-                .aggregate(IntervalDayToSecondSumAggregation.class)
-                .aggregate(IntervalYearToMonthSumAggregation.class)
-                .aggregate(AverageAggregations.class)
-                .aggregate(RealAverageAggregation.class)
-                .aggregate(IntervalDayToSecondAverageAggregation.class)
-                .aggregate(IntervalYearToMonthAverageAggregation.class)
-                .aggregate(GeometricMeanAggregations.class)
-                .aggregate(RealGeometricMeanAggregations.class)
-                .aggregate(ApproximateCountDistinctAggregations.class)
-                .aggregate(MergeHyperLogLogAggregation.class)
-                .aggregate(ApproximateSetAggregation.class)
-                .aggregate(DoubleHistogramAggregation.class)
-                .aggregate(RealHistogramAggregation.class)
-                .aggregate(DoubleCovarianceAggregation.class)
-                .aggregate(RealCovarianceAggregation.class)
-                .aggregate(DoubleRegressionAggregation.class)
-                .aggregate(RealRegressionAggregation.class)
-                .aggregate(DoubleCorrelationAggregation.class)
-                .aggregate(RealCorrelationAggregation.class)
-                .aggregate(BitwiseOrAggregation.class)
-                .aggregate(BitwiseAndAggregation.class)
+                .aggregates(CountAggregation.class)
+                .aggregates(VarianceAggregation.class)
+                .aggregates(CentralMomentsAggregation.class)
+                .aggregates(ApproximateLongPercentileAggregations.class)
+                .aggregates(ApproximateLongPercentileArrayAggregations.class)
+                .aggregates(ApproximateDoublePercentileAggregations.class)
+                .aggregates(ApproximateDoublePercentileArrayAggregations.class)
+                .aggregates(ApproximateRealPercentileAggregations.class)
+                .aggregates(ApproximateRealPercentileArrayAggregations.class)
+                .aggregates(CountIfAggregation.class)
+                .aggregates(BooleanAndAggregation.class)
+                .aggregates(BooleanOrAggregation.class)
+                .aggregates(DoubleSumAggregation.class)
+                .aggregates(RealSumAggregation.class)
+                .aggregates(LongSumAggregation.class)
+                .aggregates(IntervalDayToSecondSumAggregation.class)
+                .aggregates(IntervalYearToMonthSumAggregation.class)
+                .aggregates(AverageAggregations.class)
+                .aggregates(RealAverageAggregation.class)
+                .aggregates(IntervalDayToSecondAverageAggregation.class)
+                .aggregates(IntervalYearToMonthAverageAggregation.class)
+                .aggregates(GeometricMeanAggregations.class)
+                .aggregates(RealGeometricMeanAggregations.class)
+                .aggregates(ApproximateCountDistinctAggregations.class)
+                .aggregates(MergeHyperLogLogAggregation.class)
+                .aggregates(ApproximateSetAggregation.class)
+                .aggregates(DoubleHistogramAggregation.class)
+                .aggregates(RealHistogramAggregation.class)
+                .aggregates(DoubleCovarianceAggregation.class)
+                .aggregates(RealCovarianceAggregation.class)
+                .aggregates(DoubleRegressionAggregation.class)
+                .aggregates(RealRegressionAggregation.class)
+                .aggregates(DoubleCorrelationAggregation.class)
+                .aggregates(RealCorrelationAggregation.class)
+                .aggregates(BitwiseOrAggregation.class)
+                .aggregates(BitwiseAndAggregation.class)
+                .aggregate(MinAggregationFunction.class)
+                .aggregate(MaxAggregationFunction.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(StringFunctions.class)
+                .scalars(SplitToMapFunction.class)
                 .scalars(VarbinaryFunctions.class)
                 .scalars(UrlFunctions.class)
                 .scalars(MathFunctions.class)
@@ -482,6 +494,7 @@ public class FunctionRegistry
                 .scalars(TimestampWithTimeZoneOperators.class)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
+                .scalars(IpAddressOperators.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalar(ArrayCardinalityFunction.class)
@@ -520,6 +533,8 @@ public class FunctionRegistry
                 .scalar(ArraySliceFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
+                .scalar(MapEntriesFunction.class)
+                .scalar(MapFromEntriesFunction.class)
                 .scalar(MapNotEqualOperator.class)
                 .scalar(MapKeys.class)
                 .scalar(MapValues.class)
@@ -529,6 +544,7 @@ public class FunctionRegistry
                 .scalar(TypeOfFunction.class)
                 .scalars(ListLiteralCast.class)
                 .scalars(GroupingOperationFunction.class)
+                .scalar(TryFunction.class)
                 .function(ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
@@ -539,9 +555,9 @@ public class FunctionRegistry
                 .function(MAP_CONCAT_FUNCTION)
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .function(ARRAY_CONCAT_FUNCTION)
-                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY)
-                .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript(), featuresConfig.isNewMapBlock()))
-                .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP)
+                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
+                .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))
+                .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MULTIMAP_AGG, MAP_UNION)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
@@ -563,9 +579,9 @@ public class FunctionRegistry
                 .function(ARBITRARY_AGGREGATION)
                 .functions(GREATEST, LEAST)
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
-                .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
+                .functions(MAX_N_AGGREGATION, MIN_N_AGGREGATION)
                 .function(COUNT_COLUMN)
-                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
+                .functions(ROW_HASH_CODE, ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))

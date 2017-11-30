@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.AggregationCompiler;
+import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -31,9 +31,14 @@ public abstract class SqlAggregationFunction
 {
     private final Signature signature;
 
-    public static List<SqlAggregationFunction> createByAnnotations(Class<?> aggregationDefinition)
+    public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
     {
-        return AggregationCompiler.generateBindableAggregationFunctions(aggregationDefinition)
+        return ImmutableList.of(AggregationFromAnnotationsParser.parseFunctionDefinition(aggregationDefinition));
+    }
+
+    public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition)
+    {
+        return AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition)
                 .stream()
                 .map(x -> (SqlAggregationFunction) x)
                 .collect(toImmutableList());

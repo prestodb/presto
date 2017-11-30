@@ -14,26 +14,30 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
+import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import io.airlift.testing.FileUtils;
+import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 @Test(singleThreaded = true)
 public class TestQuerySpillLimits
 {
     private static final Session SESSION = testSessionBuilder()
             .setCatalog("tpch")
-            .setSchema("tiny")
+            .setSchema("sf1")
             .build();
 
     private File spillPath;
@@ -49,22 +53,15 @@ public class TestQuerySpillLimits
     public void tearDown()
             throws Exception
     {
-        FileUtils.deleteRecursively(spillPath);
+        deleteRecursively(spillPath.toPath(), ALLOW_INSECURE);
     }
 
     @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local spill limit of 10B")
     public void testMaxSpillPerNodeLimit()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.operator-memory-limit-before-spill", "1B")
-                .put("experimental.max-spill-per-node", "10B")
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .build();
-        try (QueryRunner queryRunner = createDistributedQueryRunner(SESSION, properties)) {
-            queryRunner.execute(SESSION, "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
+        try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setMaxSpillPerNode(DataSize.succinctBytes(10)))) {
+            queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
         }
     }
 
@@ -72,31 +69,28 @@ public class TestQuerySpillLimits
     public void testQueryMaxSpillPerNodeLimit()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
-                .put("experimental.spill-enabled", "true")
-                .put("experimental.operator-memory-limit-before-spill", "1B")
-                .put("experimental.query-max-spill-per-node", "10B")
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .build();
-        try (QueryRunner queryRunner = createDistributedQueryRunner(SESSION, properties)) {
-            queryRunner.execute(SESSION, "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
+        try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setQueryMaxSpillPerNode(DataSize.succinctBytes(10)))) {
+            queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
         }
     }
 
-    private static DistributedQueryRunner createDistributedQueryRunner(Session session, Map<String, String> properties)
+    private LocalQueryRunner createLocalQueryRunner(NodeSpillConfig nodeSpillConfig)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 1, properties);
+        LocalQueryRunner queryRunner = new LocalQueryRunner(
+                SESSION,
+                new FeaturesConfig()
+                        .setSpillerSpillPaths(spillPath.getAbsolutePath())
+                        .setSpillEnabled(true),
+                nodeSpillConfig,
+                false,
+                true);
 
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
+        queryRunner.createCatalog(
+                SESSION.getCatalog().get(),
+                new TpchConnectorFactory(1),
+                ImmutableMap.of());
+
+        return queryRunner;
     }
 }

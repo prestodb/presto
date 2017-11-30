@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>64</version>
+        <version>69</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.181-SNAPSHOT</version>
+    <version>0.186-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -36,7 +36,7 @@
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
-        <air.check.skip-findbugs>true</air.check.skip-findbugs>
+        <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
 
@@ -47,12 +47,12 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.6</dep.antlr.version>
-        <dep.airlift.version>0.148</dep.airlift.version>
+        <dep.airlift.version>0.150</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.29</dep.slice.version>
-        <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
+        <dep.slice.version>0.31</dep.slice.version>
+        <dep.aws-sdk.version>1.11.165</dep.aws-sdk.version>
         <dep.okhttp.version>3.8.1</dep.okhttp.version>
-        <dep.tempto.version>1.31</dep.tempto.version>
+        <dep.tempto.version>1.36</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.nifty.version>0.15.1</dep.nifty.version>
         <dep.swift.version>0.15.2</dep.swift.version>
@@ -86,6 +86,7 @@
         <module>presto-example-http</module>
         <module>presto-local-file</module>
         <module>presto-tpch</module>
+        <module>presto-tpcds</module>
         <module>presto-raptor</module>
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
@@ -97,6 +98,7 @@
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-ml</module>
+        <module>presto-geospatial</module>
         <module>presto-benchmark</module>
         <module>presto-tests</module>
         <module>presto-product-tests</module>
@@ -114,6 +116,7 @@
         <module>presto-thrift-connector-api</module>
         <module>presto-thrift-testing-server</module>
         <module>presto-thrift-connector</module>
+        <module>presto-matching</module>
     </modules>
 
     <dependencyManagement>
@@ -238,6 +241,12 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-geospatial</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-raptor</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -284,6 +293,12 @@
                 <artifactId>presto-main</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-matching</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -343,7 +358,7 @@
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>3</version>
+                <version>5</version>
             </dependency>
 
             <dependency>
@@ -381,7 +396,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.7</version>
+                <version>0.9</version>
             </dependency>
 
             <dependency>
@@ -517,9 +532,21 @@
             </dependency>
 
             <dependency>
+                <groupId>com.teradata.tpcds</groupId>
+                <artifactId>tpcds</artifactId>
+                <version>1.2</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-all</artifactId>
-                <version>5.0.4</version>
+                <version>5.2</version>
             </dependency>
 
             <dependency>
@@ -543,7 +570,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>airline</artifactId>
-                <version>0.7</version>
+                <version>0.8</version>
             </dependency>
 
             <dependency>
@@ -579,13 +606,13 @@
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
-                <version>5.1.41</version>
+                <version>5.1.44</version>
             </dependency>
 
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.0.0</version>
+                <version>42.1.4</version>
             </dependency>
 
             <dependency>
@@ -654,12 +681,24 @@
                 <groupId>com.facebook.swift</groupId>
                 <artifactId>swift-codec</artifactId>
                 <version>${dep.swift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.swift</groupId>
                 <artifactId>swift-service</artifactId>
                 <version>${dep.swift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -672,12 +711,24 @@
                 <groupId>com.facebook.nifty</groupId>
                 <artifactId>nifty-core</artifactId>
                 <version>${dep.nifty.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.nifty</groupId>
                 <artifactId>nifty-client</artifactId>
                 <version>${dep.nifty.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -728,6 +779,12 @@
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
                 <version>1.28</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -757,13 +814,13 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-mysql-server</artifactId>
-                <version>5.5.9-1</version>
+                <version>5.7.19-3</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-postgresql-server</artifactId>
-                <version>9.6.3-1</version>
+                <version>9.6.3-3</version>
             </dependency>
 
             <dependency>
@@ -843,12 +900,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.assertj</groupId>
-                <artifactId>assertj-core</artifactId>
-                <version>3.0.0</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
@@ -856,6 +907,10 @@
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -875,7 +930,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
-                <version>0.13.1-3</version>
+                <version>0.13.1-5</version>
             </dependency>
 
             <dependency>
@@ -895,7 +950,7 @@
                     </exclusion>
                     <exclusion>
                         <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>jsr305</artifactId>
+                        <artifactId>annotations</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>commons-logging</groupId>
@@ -953,6 +1008,12 @@
                     <groupId>org.skife.maven</groupId>
                     <artifactId>really-executable-jar-maven-plugin</artifactId>
                     <version>1.0.5</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>1.8</version>
                 </plugin>
 
                 <plugin>
@@ -1152,9 +1213,9 @@
             </plugin>
 
             <plugin>
-                <groupId>io.takari.maven.plugins</groupId>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.1.12</version>
+                <version>0.3</version>
                 <extensions>true</extensions>
             </plugin>
 

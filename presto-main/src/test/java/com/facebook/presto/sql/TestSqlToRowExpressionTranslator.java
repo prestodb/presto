@@ -43,7 +43,7 @@ public class TestSqlToRowExpressionTranslator
         ImmutableMap.Builder<NodeRef<Expression>, Type> types = ImmutableMap.builder();
         types.put(NodeRef.of(expression), BIGINT);
         for (int i = 0; i < 100; i++) {
-            expression = new CoalesceExpression(expression);
+            expression = new CoalesceExpression(expression, new LongLiteral("2"));
             types.put(NodeRef.of(expression), BIGINT);
         }
         SqlToRowExpressionTranslator.translate(expression, SCALAR, types.build(), functionRegistry, typeManager, TEST_SESSION, true);

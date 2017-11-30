@@ -35,7 +35,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
-import static java.lang.String.valueOf;
 import static java.util.Objects.requireNonNull;
 
 public class HiveCoercionRecordCursor
@@ -67,12 +66,6 @@ public class HiveCoercionRecordCursor
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
         }
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return delegate.getTotalBytes();
     }
 
     @Override
@@ -314,7 +307,7 @@ public class HiveCoercionRecordCursor
         @Override
         public void coerce(RecordCursor delegate, int field)
         {
-            setSlice(utf8Slice(valueOf(delegate.getLong(field))));
+            setSlice(utf8Slice(String.valueOf(delegate.getLong(field))));
         }
     }
 

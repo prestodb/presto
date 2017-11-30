@@ -177,8 +177,7 @@ public class TestRaptorIntegrationSmokeTest
                         "WHERE orderdate < date '1992-02-08'",
                 "SELECT count(*) " +
                         "FROM orders " +
-                        "WHERE orderdate < date '1992-02-08'"
-        );
+                        "WHERE orderdate < date '1992-02-08'");
 
         MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date");
 
@@ -211,8 +210,7 @@ public class TestRaptorIntegrationSmokeTest
                         "WHERE orderdate < date '1992-02-08'",
                 "SELECT count(*) " +
                         "FROM orders " +
-                        "WHERE orderdate < date '1992-02-08'"
-        );
+                        "WHERE orderdate < date '1992-02-08'");
 
         MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date_bucketed");
 
@@ -326,6 +324,79 @@ public class TestRaptorIntegrationSmokeTest
                         "SELECT 'tpch', 'orders', (SELECT count(*) FROM orders)\n" +
                         "UNION ALL\n" +
                         "SELECT 'tpch', 'lineitem', (SELECT count(*) FROM lineitem)");
+    }
+
+    @Test
+    public void testShardsSystemTableWithTemporalColumn()
+            throws Exception
+    {
+        // Make sure we have rows in the selected range
+        assertEquals(computeActual("SELECT count(*) >= 1 FROM orders WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08'").getOnlyValue(), true);
+
+        // Create a table that has DATE type temporal column
+        assertUpdate("CREATE TABLE test_shards_system_table_date_temporal\n" +
+                        "WITH (temporal_column = 'orderdate') AS\n" +
+                        "SELECT orderdate, orderkey\n" +
+                        "FROM orders\n" +
+                        "WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08'",
+                "SELECT count(*)\n" +
+                        "FROM orders\n" +
+                        "WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08'");
+
+        // Create a table that has TIMESTAMP type temporal column
+        assertUpdate("CREATE TABLE test_shards_system_table_timestamp_temporal\n" +
+                        "WITH (temporal_column = 'ordertimestamp') AS\n" +
+                        "SELECT CAST (orderdate AS TIMESTAMP) AS ordertimestamp, orderkey\n" +
+                        "FROM test_shards_system_table_date_temporal",
+                "SELECT count(*)\n" +
+                        "FROM orders\n" +
+                        "WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08'");
+
+        // For table with DATE type temporal column, min/max_timestamp columns must be null while min/max_date columns must not be null
+        assertEquals(computeActual("" +
+                "SELECT count(*)\n" +
+                "FROM system.shards\n" +
+                "WHERE table_schema = 'tpch'\n" +
+                "AND table_name = 'test_shards_system_table_date_temporal'\n" +
+                "AND NOT \n" +
+                "(min_timestamp IS NULL AND max_timestamp IS NULL\n" +
+                "AND min_date IS NOT NULL AND max_date IS NOT NULL)").getOnlyValue(), 0L);
+
+        // For table with TIMESTAMP type temporal column, min/max_date columns must be null while min/max_timestamp columns must not be null
+        assertEquals(computeActual("" +
+                "SELECT count(*)\n" +
+                "FROM system.shards\n" +
+                "WHERE table_schema = 'tpch'\n" +
+                "AND table_name = 'test_shards_system_table_timestamp_temporal'\n" +
+                "AND NOT\n" +
+                "(min_date IS NULL AND max_date IS NULL\n" +
+                "AND min_timestamp IS NOT NULL AND max_timestamp IS NOT NULL)").getOnlyValue(), 0L);
+
+        // Test date predicates in table with DATE temporal column
+        assertQuery("" +
+                        "SELECT table_schema, table_name, sum(row_count)\n" +
+                        "FROM system.shards \n" +
+                        "WHERE table_schema = 'tpch'\n" +
+                        "AND table_name = 'test_shards_system_table_date_temporal'\n" +
+                        "AND min_date >= date '1992-01-01'\n" +
+                        "AND max_date <= date '1992-02-08'\n" +
+                        "GROUP BY 1, 2",
+                "" +
+                        "SELECT 'tpch', 'test_shards_system_table_date_temporal',\n" +
+                        "(SELECT count(*) FROM orders WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08')");
+
+        // Test timestamp predicates in table with TIMESTAMP temporal column
+        assertQuery("" +
+                        "SELECT table_schema, table_name, sum(row_count)\n" +
+                        "FROM system.shards \n" +
+                        "WHERE table_schema = 'tpch'\n" +
+                        "AND table_name = 'test_shards_system_table_timestamp_temporal'\n" +
+                        "AND min_timestamp >= timestamp '1992-01-01'\n" +
+                        "AND max_timestamp <= timestamp '1992-02-08'\n" +
+                        "GROUP BY 1, 2",
+                "" +
+                        "SELECT 'tpch', 'test_shards_system_table_timestamp_temporal',\n" +
+                        "(SELECT count(*) FROM orders WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08')");
     }
 
     @Test

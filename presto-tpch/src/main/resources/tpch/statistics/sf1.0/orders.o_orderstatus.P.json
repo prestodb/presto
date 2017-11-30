@@ -1,0 +1,50 @@
+{
+  "rowCount" : 38543,
+  "columns" : {
+    "o_orderkey" : {
+      "distinctValuesCount" : 38543,
+      "min" : 65,
+      "max" : 5999875
+    },
+    "o_custkey" : {
+      "distinctValuesCount" : 31310,
+      "min" : 2,
+      "max" : 149998
+    },
+    "o_orderstatus" : {
+      "distinctValuesCount" : 1,
+      "min" : "P",
+      "max" : "P"
+    },
+    "o_totalprice" : {
+      "distinctValuesCount" : 38515,
+      "min" : 2933.43,
+      "max" : 491549.57
+    },
+    "o_orderdate" : {
+      "distinctValuesCount" : 120,
+      "min" : 9178,
+      "max" : 9297
+    },
+    "o_orderpriority" : {
+      "distinctValuesCount" : 5,
+      "min" : "1-URGENT",
+      "max" : "5-LOW"
+    },
+    "o_clerk" : {
+      "distinctValuesCount" : 1000,
+      "min" : "Clerk#000000001",
+      "max" : "Clerk#000001000"
+    },
+    "o_shippriority" : {
+      "distinctValuesCount" : 1,
+      "min" : 0,
+      "max" : 0
+    },
+    "o_comment" : {
+      "distinctValuesCount" : 38531,
+      "min" : " Tiresias haggle slyly bli",
+      "max" : "zzle furiously. bold packa"
+    }
+  }
+}

@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,6 +34,8 @@ public class ResourceGroupStateInfo
     private final DataSize softMemoryLimit;
     private final DataSize memoryUsage;
 
+    private final List<ResourceGroupInfo> subGroups;
+
     private final int maxRunningQueries;
     private final int maxQueuedQueries;
     private final Duration runningTimeLimit;
@@ -51,7 +54,8 @@ public class ResourceGroupStateInfo
             @JsonProperty("runningTimeLimit") Duration runningTimeLimit,
             @JsonProperty("queuedTimeLimit") Duration queuedTimeLimit,
             @JsonProperty("runningQueries") List<QueryStateInfo> runningQueries,
-            @JsonProperty("numQueuedQueries") int numQueuedQueries)
+            @JsonProperty("numQueuedQueries") int numQueuedQueries,
+            @JsonProperty("subGroups") List<ResourceGroupInfo> subGroups)
     {
         this.id = requireNonNull(id, "id is null");
         this.state = requireNonNull(state, "state is null");
@@ -67,6 +71,8 @@ public class ResourceGroupStateInfo
 
         this.runningQueries = ImmutableList.copyOf(requireNonNull(runningQueries, "runningQueries is null"));
         this.numQueuedQueries = numQueuedQueries;
+
+        this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null"));
     }
 
     @JsonProperty
@@ -127,5 +133,11 @@ public class ResourceGroupStateInfo
     public int getNumQueuedQueries()
     {
         return numQueuedQueries;
+    }
+
+    @JsonProperty
+    public List<ResourceGroupInfo> getSubGroups()
+    {
+        return subGroups;
     }
 }

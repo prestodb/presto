@@ -496,11 +496,12 @@ public final class DateTimeFunctions
     public static long parseDatetime(ConnectorSession session, @SqlType("varchar(x)") Slice datetime, @SqlType("varchar(y)") Slice formatString)
     {
         try {
-            return packDateTimeWithZone(parseDateTimeHelper(DateTimeFormat.forPattern(formatString.toStringUtf8())
-                                                .withChronology(getChronology(session.getTimeZoneKey()))
-                                                .withOffsetParsed()
-                                                .withLocale(session.getLocale()),
-                                                datetime.toStringUtf8()));
+            return packDateTimeWithZone(parseDateTimeHelper(
+                    DateTimeFormat.forPattern(formatString.toStringUtf8())
+                            .withChronology(getChronology(session.getTimeZoneKey()))
+                            .withOffsetParsed()
+                            .withLocale(session.getLocale()),
+                    datetime.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -542,9 +543,9 @@ public final class DateTimeFunctions
     {
         try {
             return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8())
-                                .withChronology(chronology)
-                                .withLocale(locale)
-                                .print(timestamp));
+                    .withChronology(chronology)
+                    .withLocale(locale)
+                    .print(timestamp));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -1089,5 +1090,12 @@ public final class DateTimeFunctions
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+    }
+
+    @ScalarFunction("to_milliseconds")
+    @SqlType(StandardTypes.BIGINT)
+    public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    {
+        return value;
     }
 }

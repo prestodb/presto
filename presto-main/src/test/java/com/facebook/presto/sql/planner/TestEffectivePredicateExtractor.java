@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -101,15 +100,6 @@ public class TestEffectivePredicateExtractor
     private static final Expression FE = F.toSymbolReference();
     private static final Expression GE = G.toSymbolReference();
 
-    private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
-            .put(A, BIGINT)
-            .put(B, BIGINT)
-            .put(C, BIGINT)
-            .put(D, BIGINT)
-            .put(E, BIGINT)
-            .put(F, BIGINT)
-            .build();
-
     private Map<Symbol, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;
     private ExpressionIdentityNormalizer expressionNormalizer;
@@ -135,8 +125,7 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
     }
@@ -155,14 +144,14 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, DE),
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
-                ImmutableMap.of(C, new Aggregation(fakeFunction("test"), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
-                                D, new Aggregation(fakeFunction("test"), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
+                ImmutableMap.of(C, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
+                        D, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
                 ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Rewrite in terms of group by symbols
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -186,7 +175,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         assertEquals(effectivePredicate, TRUE_LITERAL);
     }
@@ -200,7 +189,7 @@ public class TestEffectivePredicateExtractor
                         greaterThan(AE, new FunctionCall(QualifiedName.of("rand"), ImmutableList.of())),
                         lessThan(BE, bigintLiteral(10))));
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Non-deterministic functions should be purged
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -219,7 +208,7 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, bigintLiteral(10)))),
                 Assignments.of(D, AE, E, CE));
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Rewrite in terms of project output symbols
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -240,7 +229,7 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, bigintLiteral(10)))),
                 1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), TopNNode.Step.PARTIAL);
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Pass through
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -263,7 +252,7 @@ public class TestEffectivePredicateExtractor
                 1,
                 false);
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Pass through
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -285,7 +274,7 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, bigintLiteral(10)))),
                 ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST));
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Pass through
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -314,7 +303,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableSet.of(),
                 0);
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Pass through
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -338,7 +327,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 TupleDomain.all(),
                 null);
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
 
         node = new TableScanNode(
@@ -349,7 +338,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 TupleDomain.none(),
                 null);
-        effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        effectivePredicate = EffectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, FALSE_LITERAL);
 
         node = new TableScanNode(
@@ -360,7 +349,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))),
                 null);
-        effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        effectivePredicate = EffectivePredicateExtractor.extract(node);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AE)));
 
         node = new TableScanNode(
@@ -373,7 +362,7 @@ public class TestEffectivePredicateExtractor
                         scanAssignments.get(A), Domain.singleValue(BIGINT, 1L),
                         scanAssignments.get(B), Domain.singleValue(BIGINT, 2L))),
                 null);
-        effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        effectivePredicate = EffectivePredicateExtractor.extract(node);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
 
         node = new TableScanNode(
@@ -384,7 +373,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 TupleDomain.all(),
                 null);
-        effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        effectivePredicate = EffectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
     }
 
@@ -397,12 +386,11 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(
                         filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
-                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))
-                ),
+                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))),
                 symbolMapping,
                 ImmutableList.copyOf(symbolMapping.keySet()));
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Only the common conjuncts can be inferred through a Union
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -426,8 +414,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -437,8 +424,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan,
                 and(
@@ -464,7 +450,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // All predicates having output symbol should be carried through
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -493,8 +479,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -504,8 +489,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan,
                 and(
@@ -530,7 +514,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // All right side symbols having output symbols should be checked against NULL
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -556,8 +540,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -567,8 +550,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan,
                 and(
@@ -590,7 +572,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // False literal on the right side should be ignored
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -616,8 +598,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -627,8 +608,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan,
                 and(
@@ -653,7 +633,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // All left side symbols should be checked against NULL
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -679,8 +659,7 @@ public class TestEffectivePredicateExtractor
                 leftAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = new TableScanNode(
@@ -690,8 +669,7 @@ public class TestEffectivePredicateExtractor
                 rightAssignments,
                 Optional.empty(),
                 TupleDomain.all(),
-                null
-        );
+                null);
 
         FilterNode left = filter(leftScan, FALSE_LITERAL);
         FilterNode right = filter(rightScan,
@@ -712,7 +690,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // False literal on the left side should be ignored
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -733,7 +711,7 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
         // Currently, only pull predicates through the source plan
         assertEquals(normalizeConjuncts(effectivePredicate),
@@ -778,7 +756,7 @@ public class TestEffectivePredicateExtractor
         return new IsNullPredicate(expression);
     }
 
-    private static FunctionCall fakeFunction(String name)
+    private static FunctionCall fakeFunction()
     {
         return new FunctionCall(QualifiedName.of("test"), ImmutableList.of());
     }

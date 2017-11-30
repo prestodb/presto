@@ -42,8 +42,7 @@ public class TestMongoSession
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 COL1, Domain.create(ValueSet.ofRanges(range(BIGINT, 100L, false, 200L, true)), false),
-                COL2, Domain.singleValue(createUnboundedVarcharType(), utf8Slice("a value"))
-        ));
+                COL2, Domain.singleValue(createUnboundedVarcharType(), utf8Slice("a value"))));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
@@ -56,8 +55,7 @@ public class TestMongoSession
     public void testBuildQueryIn()
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                COL2, Domain.create(ValueSet.ofRanges(equal(createUnboundedVarcharType(), utf8Slice("hello")), equal(createUnboundedVarcharType(), utf8Slice("world"))), false)
-        ));
+                COL2, Domain.create(ValueSet.ofRanges(equal(createUnboundedVarcharType(), utf8Slice("hello")), equal(createUnboundedVarcharType(), utf8Slice("world"))), false)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document(COL2.getName(), new Document("$in", ImmutableList.of("hello", "world")));
@@ -68,14 +66,12 @@ public class TestMongoSession
     public void testBuildQueryOr()
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                COL1, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 100L), greaterThan(BIGINT, 200L)), false)
-        ));
+                COL1, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 100L), greaterThan(BIGINT, 200L)), false)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document("$or", asList(
                 new Document(COL1.getName(), new Document("$lt", 100L)),
-                new Document(COL1.getName(), new Document("$gt", 200L))
-        ));
+                new Document(COL1.getName(), new Document("$gt", 200L))));
         assertEquals(query, expected);
     }
 
@@ -83,14 +79,12 @@ public class TestMongoSession
     public void testBuildQueryNull()
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                COL1, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 200L)), true)
-        ));
+                COL1, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 200L)), true)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document("$or", asList(
                 new Document(COL1.getName(), new Document("$gt", 200L)),
-                new Document(COL1.getName(), new Document("$exists", true).append("$eq", null))
-        ));
+                new Document(COL1.getName(), new Document("$exists", true).append("$eq", null))));
         assertEquals(query, expected);
     }
 }

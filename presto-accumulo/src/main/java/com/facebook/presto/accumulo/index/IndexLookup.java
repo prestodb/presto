@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.apache.accumulo.core.client.AccumuloException;
@@ -36,17 +37,25 @@ import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.hadoop.io.Text;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.accumulo.AccumuloClient.getRangesFromDomain;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getIndexCardinalityCachePollingDuration;
 import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getIndexSmallCardThreshold;
 import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getIndexThreshold;
@@ -57,13 +66,13 @@ import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.isOpti
 import static com.facebook.presto.accumulo.index.Indexer.CARDINALITY_CQ_AS_TEXT;
 import static com.facebook.presto.accumulo.index.Indexer.METRICS_TABLE_ROWID_AS_TEXT;
 import static com.facebook.presto.accumulo.index.Indexer.METRICS_TABLE_ROWS_CF_AS_TEXT;
-import static com.facebook.presto.accumulo.index.Indexer.getIndexColumnFamily;
 import static com.facebook.presto.accumulo.index.Indexer.getIndexTableName;
 import static com.facebook.presto.accumulo.index.Indexer.getMetricsTableName;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 /**
  * Class to assist the Presto connector, and maybe external applications,
@@ -77,12 +86,24 @@ public class IndexLookup
     private static final Range METRICS_TABLE_ROWID_RANGE = new Range(METRICS_TABLE_ROWID_AS_TEXT);
     private final ColumnCardinalityCache cardinalityCache;
     private final Connector connector;
+    private final ExecutorService coreExecutor;
+    private final BoundedExecutor executorService;
 
     @Inject
     public IndexLookup(Connector connector, ColumnCardinalityCache cardinalityCache)
     {
         this.connector = requireNonNull(connector, "connector is null");
         this.cardinalityCache = requireNonNull(cardinalityCache, "cardinalityCache is null");
+
+        // Create a bounded executor with a pool size at 4x number of processors
+        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("cardinality-lookup-%s"));
+        this.executorService = new BoundedExecutor(coreExecutor, 4 * Runtime.getRuntime().availableProcessors());
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        coreExecutor.shutdownNow();
     }
 
     /**
@@ -222,7 +243,7 @@ public class IndexLookup
             if (cardinalities.size() == 1) {
                 long numEntries = lowestCardinality.getKey();
                 double ratio = ((double) numEntries / (double) numRows);
-                LOG.debug("Use of index would scan %d of %d rows, ratio %s. Threshold %2f, Using for table? %b", numEntries, numRows, ratio, threshold, ratio < threshold);
+                LOG.debug("Use of index would scan %s of %s rows, ratio %s. Threshold %2f, Using for index table? %s", numEntries, numRows, ratio, threshold, ratio < threshold);
                 if (ratio >= threshold) {
                     return false;
                 }
@@ -297,55 +318,59 @@ public class IndexLookup
     }
 
     private List<Range> getIndexRanges(String indexTable, Multimap<AccumuloColumnConstraint, Range> constraintRanges, Collection<Range> rowIDRanges, Authorizations auths)
-            throws TableNotFoundException
+            throws TableNotFoundException, InterruptedException
     {
-        Set<Range> finalRanges = null;
-        // For each column/constraint pair
+        Set<Range> finalRanges = new HashSet<>();
+        // For each column/constraint pair we submit a task to scan the index ranges
+        List<Future<Set<Range>>> tasks = new ArrayList<>();
+        CompletionService<Set<Range>> executor = new ExecutorCompletionService<>(executorService);
         for (Entry<AccumuloColumnConstraint, Collection<Range>> constraintEntry : constraintRanges.asMap().entrySet()) {
-            // Create a batch scanner against the index table, setting the ranges
-            BatchScanner scanner = connector.createBatchScanner(indexTable, auths, 10);
-            scanner.setRanges(constraintEntry.getValue());
+            tasks.add(executor.submit(() -> {
+                // Create a batch scanner against the index table, setting the ranges
+                BatchScanner scan = connector.createBatchScanner(indexTable, auths, 10);
+                scan.setRanges(constraintEntry.getValue());
 
-            // Fetch the column family for this specific column
-            Text family = new Text(getIndexColumnFamily(constraintEntry.getKey().getFamily().getBytes(UTF_8), constraintEntry.getKey().getQualifier().getBytes(UTF_8)).array());
-            scanner.fetchColumnFamily(family);
+                // Fetch the column family for this specific column
+                scan.fetchColumnFamily(new Text(Indexer.getIndexColumnFamily(constraintEntry.getKey().getFamily().getBytes(), constraintEntry.getKey().getQualifier().getBytes()).array()));
 
-            // For each entry in the scanner
-            Text tmpQualifier = new Text();
-            Set<Range> columnRanges = new HashSet<>();
-            for (Entry<Key, Value> entry : scanner) {
-                entry.getKey().getColumnQualifier(tmpQualifier);
+                // For each entry in the scanner
+                Text tmpQualifier = new Text();
+                Set<Range> columnRanges = new HashSet<>();
+                for (Entry<Key, Value> entry : scan) {
+                    entry.getKey().getColumnQualifier(tmpQualifier);
 
-                // Add to our column ranges if it is in one of the row ID ranges
-                if (inRange(tmpQualifier, rowIDRanges)) {
-                    columnRanges.add(new Range(tmpQualifier));
+                    // Add to our column ranges if it is in one of the row ID ranges
+                    if (inRange(tmpQualifier, rowIDRanges)) {
+                        columnRanges.add(new Range(tmpQualifier));
+                    }
+                }
+
+                LOG.debug("Retrieved %d ranges for index column %s", columnRanges.size(), constraintEntry.getKey().getName());
+                scan.close();
+                return columnRanges;
+            }));
+        }
+        tasks.forEach(future ->
+        {
+            try {
+                // If finalRanges is null, we have not yet added any column ranges
+                if (finalRanges.isEmpty()) {
+                    finalRanges.addAll(future.get());
+                }
+                else {
+                    // Retain only the row IDs for this column that have already been added
+                    // This is your set intersection operation!
+                    finalRanges.retainAll(future.get());
                 }
             }
-
-            LOG.debug("Retrieved %d ranges for column %s", columnRanges.size(), constraintEntry.getKey().getName());
-
-            // If finalRanges is null, we have not yet added any column ranges
-            if (finalRanges == null) {
-                finalRanges = new HashSet<>();
-                finalRanges.addAll(columnRanges);
+            catch (ExecutionException | InterruptedException e) {
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Exception when getting index ranges", e.getCause());
             }
-            else {
-                // Retain only the row IDs for this column that have already been added
-                // This is your set intersection operation!
-                finalRanges.retainAll(columnRanges);
-            }
-
-            // Close the scanner
-            scanner.close();
-        }
-
-        // Return the final ranges for all constraint pairs
-        if (finalRanges != null) {
-            return ImmutableList.copyOf(finalRanges);
-        }
-        else {
-            return ImmutableList.of();
-        }
+        });
+        return ImmutableList.copyOf(finalRanges);
     }
 
     private static void binRanges(int numRangesPerBin, List<Range> splitRanges, List<TabletSplitMetadata> prestoSplits)

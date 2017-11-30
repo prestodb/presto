@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
@@ -23,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -39,6 +39,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -53,9 +54,10 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  */
 public class TransformExistsApplyToLateralNode
-        implements Rule
+        implements Rule<ApplyNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ApplyNode.class);
+    private static final Pattern<ApplyNode> PATTERN = applyNode();
+
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
     private final Signature countSignature;
@@ -67,31 +69,29 @@ public class TransformExistsApplyToLateralNode
     }
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ApplyNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(ApplyNode parent, Captures captures, Context context)
     {
-        ApplyNode parent = (ApplyNode) node;
-
         if (parent.getSubqueryAssignments().size() != 1) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         Expression expression = getOnlyElement(parent.getSubqueryAssignments().getExpressions());
         if (!(expression instanceof ExistsPredicate)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new LateralJoinNode(
-                        node.getId(),
+                        parent.getId(),
                         parent.getInput(),
                         new ProjectNode(
                                 context.getIdAllocator().getNextId(),
@@ -105,6 +105,7 @@ public class TransformExistsApplyToLateralNode
                                         Optional.empty()),
                                 Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
                         parent.getCorrelation(),
-                        INNER));
+                        INNER,
+                        parent.getOriginSubquery()));
     }
 }

@@ -46,6 +46,8 @@ public class HashBuilderOperator
         private final List<Integer> hashChannels;
         private final Optional<Integer> preComputedHashChannel;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
+        private final Optional<Integer> sortChannel;
+        private final List<JoinFilterFunctionFactory> searchFunctionFactories;
         private final PagesIndex.Factory pagesIndexFactory;
 
         private final int expectedPositions;
@@ -63,13 +65,17 @@ public class HashBuilderOperator
                 Optional<Integer> preComputedHashChannel,
                 boolean outer,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+                Optional<Integer> sortChannel,
+                List<JoinFilterFunctionFactory> searchFunctionFactories,
                 int expectedPositions,
                 int partitionCount,
                 PagesIndex.Factory pagesIndexFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-
+            requireNonNull(sortChannel, "sortChannel can not be null");
+            requireNonNull(searchFunctionFactories, "searchFunctionFactories is null");
+            checkArgument(sortChannel.isPresent() != searchFunctionFactories.isEmpty(), "both or none sortChannel and searchFunctionFactories must be set");
             checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
             lookupSourceFactory = new PartitionedLookupSourceFactory(
                     types,
@@ -85,6 +91,8 @@ public class HashBuilderOperator
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
             this.preComputedHashChannel = requireNonNull(preComputedHashChannel, "preComputedHashChannel is null");
             this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
+            this.sortChannel = sortChannel;
+            this.searchFunctionFactories = ImmutableList.copyOf(searchFunctionFactories);
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
             this.expectedPositions = expectedPositions;
@@ -114,6 +122,8 @@ public class HashBuilderOperator
                     hashChannels,
                     preComputedHashChannel,
                     filterFunctionFactory,
+                    sortChannel,
+                    searchFunctionFactories,
                     expectedPositions,
                     pagesIndexFactory);
 
@@ -142,6 +152,8 @@ public class HashBuilderOperator
     private final List<Integer> hashChannels;
     private final Optional<Integer> preComputedHashChannel;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
+    private final Optional<Integer> sortChannel;
+    private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
     private final PagesIndex index;
 
@@ -156,6 +168,8 @@ public class HashBuilderOperator
             List<Integer> hashChannels,
             Optional<Integer> preComputedHashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            Optional<Integer> sortChannel,
+            List<JoinFilterFunctionFactory> searchFunctionFactories,
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory)
     {
@@ -164,6 +178,8 @@ public class HashBuilderOperator
         this.operatorContext = operatorContext;
         this.partitionIndex = partitionIndex;
         this.filterFunctionFactory = filterFunctionFactory;
+        this.sortChannel = sortChannel;
+        this.searchFunctionFactories = searchFunctionFactories;
 
         this.index = pagesIndexFactory.newPagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
         this.lookupSourceFactory = lookupSourceFactory;
@@ -196,7 +212,7 @@ public class HashBuilderOperator
         }
         finishing = true;
 
-        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, Optional.of(outputChannels));
+        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
         lookupSourceFactory.setPartitionLookupSourceSupplier(partitionIndex, partition);
 
         operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:
@@ -51,30 +52,28 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
  * </pre>
  */
 public class ImplementFilteredAggregations
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .matching(aggregation -> hasFilters(aggregation));
+
+    private static boolean hasFilters(AggregationNode aggregation)
+    {
+        return aggregation.getAggregations()
+                .values().stream()
+                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
+                        !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
+    }
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        AggregationNode aggregation = (AggregationNode) node;
-
-        boolean hasFilters = aggregation.getAggregations()
-                .values().stream()
-                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
-                        !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
-
-        if (!hasFilters) {
-            return Optional.empty();
-        }
-
         Assignments.Builder newAssignments = Assignments.builder();
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
 
@@ -100,7 +99,7 @@ public class ImplementFilteredAggregations
         // identity projection for all existing inputs
         newAssignments.putIdentities(aggregation.getSource().getOutputSymbols());
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new AggregationNode(
                         context.getIdAllocator().getNextId(),
                         new ProjectNode(

@@ -300,17 +300,17 @@ public final class BytecodeExpressions
     // Invoke static method
     //
 
-    public static BytecodeExpression invokeStatic(MethodDefinition method,  BytecodeExpression... parameters)
+    public static BytecodeExpression invokeStatic(MethodDefinition method, BytecodeExpression... parameters)
     {
         return invokeStatic(method.getDeclaringClass().getType(), method.getName(), method.getReturnType(), ImmutableList.copyOf(parameters));
     }
 
-    public static BytecodeExpression invokeStatic(Method method,  BytecodeExpression... parameters)
+    public static BytecodeExpression invokeStatic(Method method, BytecodeExpression... parameters)
     {
         return invokeStatic(method, ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
-    public static BytecodeExpression invokeStatic(Method method,  Iterable<? extends BytecodeExpression> parameters)
+    public static BytecodeExpression invokeStatic(Method method, Iterable<? extends BytecodeExpression> parameters)
     {
         return invokeStatic(method.getDeclaringClass(), method.getName(), method.getReturnType(), parameters);
     }
@@ -346,6 +346,7 @@ public final class BytecodeExpressions
                 ImmutableList.copyOf(transform(parameters, BytecodeExpression::getType)),
                 parameters);
     }
+
     public static BytecodeExpression invokeStatic(
             Class<?> methodTargetType,
             String methodName,

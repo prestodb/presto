@@ -67,6 +67,8 @@ public class HashJoinBenchmark
                     Optional.empty(),
                     false,
                     Optional.empty(),
+                    Optional.empty(),
+                    ImmutableList.of(),
                     1_500_000,
                     1,
                     new PagesIndex.TestingFactory());

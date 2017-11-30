@@ -30,6 +30,24 @@ public class TestSliceArrayBlock
     }
 
     @Test
+    public void testNonDistinctSlices()
+    {
+        int positionCount = 5;
+        Slice[] baseSlices = createExpectedUniqueValues(positionCount);
+        Slice[] baseSlicesCopy = createExpectedUniqueValues(positionCount);
+        Slice[] testSlices = new Slice[positionCount * 3];
+        // the first and second five slices point to baseSlices, and the third five slices point to baseSlicesCopy
+        for (int i = 0; i < positionCount; i++) {
+            testSlices[i] = baseSlices[i];
+            testSlices[positionCount + i] = baseSlices[i];
+            testSlices[positionCount * 2 + i] = baseSlicesCopy[i];
+        }
+
+        SliceArrayBlock block = new SliceArrayBlock(testSlices.length, testSlices, false);
+        assertBlock(block, testSlices);
+    }
+
+    @Test
     public void testDistinctSlices()
     {
         Slice[] expectedValues = createExpectedUniqueValues(100);

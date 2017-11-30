@@ -100,6 +100,9 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonParse(@SqlType("varchar(x)") Slice slice)
     {
+        // cast(json_parse(x) AS t)` will be optimized into `$internal$json_string_to_array/map/row_cast` in ExpressionOptimizer
+        // If you make changes to this function (e.g. use parse JSON string into some internal representation),
+        // make sure `$internal$json_string_to_array/map/row_cast` is changed accordingly.
         try {
             byte[] in = slice.getBytes();
             SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);

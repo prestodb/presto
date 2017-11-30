@@ -28,7 +28,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
-import io.airlift.testing.FileUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -43,6 +42,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.Double.doubleToLongBits;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -55,6 +56,7 @@ public class TestBinaryFileSpiller
     private BlockEncodingSerde blockEncodingSerde;
     private File spillPath = Files.createTempDir();
     private SpillerStats spillerStats;
+    private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private SpillerFactory factory;
     private PagesSerde pagesSerde;
     private AggregatedMemoryContext memoryContext;
@@ -68,7 +70,8 @@ public class TestBinaryFileSpiller
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
-        factory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
+        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
+        factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
         pagesSerde = pagesSerdeFactory.createPagesSerde();
         memoryContext = new AggregatedMemoryContext();
@@ -78,14 +81,15 @@ public class TestBinaryFileSpiller
     public void tearDown()
             throws Exception
     {
-        FileUtils.deleteRecursively(spillPath);
+        singleStreamSpillerFactory.destroy();
+        deleteRecursively(spillPath.toPath(), ALLOW_INSECURE);
     }
 
     @Test
     public void testFileSpiller()
             throws Exception
     {
-        try (Spiller spiller = factory.create(TYPES, bytes -> { }, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, bytes -> {}, memoryContext)) {
             testSimpleSpiller(spiller);
         }
     }
@@ -106,7 +110,7 @@ public class TestBinaryFileSpiller
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
-        try (Spiller spiller = factory.create(TYPES, bytes -> { }, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, bytes -> {}, memoryContext)) {
             testSpiller(types, spiller, ImmutableList.of(page));
         }
     }

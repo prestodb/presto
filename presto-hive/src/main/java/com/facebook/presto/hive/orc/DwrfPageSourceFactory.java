@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
@@ -90,6 +91,7 @@ public class DwrfPageSourceFactory
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
                 getOrcMaxReadBlockSize(session),
+                getOrcLazyReadSmallRanges(session),
                 false,
                 stats));
     }

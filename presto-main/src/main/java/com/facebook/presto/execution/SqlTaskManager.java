@@ -82,7 +82,7 @@ public class SqlTaskManager
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
     private final ScheduledExecutorService taskManagementExecutor;
-    private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
+    private final ScheduledExecutorService driverYieldExecutor;
 
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
@@ -107,6 +107,7 @@ public class SqlTaskManager
             QueryMonitor queryMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
+            TaskManagementExecutor taskManagementExecutor,
             TaskManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
@@ -122,8 +123,8 @@ public class SqlTaskManager
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
-        taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%s"));
-        taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
+        this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor();
+        this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
@@ -144,6 +145,7 @@ public class SqlTaskManager
                         localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL),
                         localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL),
                         taskNotificationExecutor,
+                        driverYieldExecutor,
                         maxQuerySpillPerNode,
                         localSpillManager.getSpillSpaceTracker());
             }
@@ -158,12 +160,13 @@ public class SqlTaskManager
                 return new SqlTask(
                         taskId,
                         locationFactory.createLocalTaskLocation(taskId),
+                        nodeInfo.getNodeId(),
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
                         sqlTask -> {
-                                finishedTaskStats.merge(sqlTask.getIoStats());
-                                return null;
+                            finishedTaskStats.merge(sqlTask.getIoStats());
+                            return null;
                         },
                         maxBufferSize);
             }
@@ -236,7 +239,6 @@ public class SqlTaskManager
             }
         }
         taskNotificationExecutor.shutdownNow();
-        taskManagementExecutor.shutdownNow();
     }
 
     @Managed
@@ -253,11 +255,9 @@ public class SqlTaskManager
         return taskNotificationExecutorMBean;
     }
 
-    @Managed(description = "Task garbage collector executor")
-    @Nested
-    public ThreadPoolExecutorMBean getTaskManagementExecutor()
+    public List<SqlTask> getAllTasks()
     {
-        return taskManagementExecutorMBean;
+        return ImmutableList.copyOf(tasks.asMap().values());
     }
 
     @Override

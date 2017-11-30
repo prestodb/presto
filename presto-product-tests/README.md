@@ -145,6 +145,11 @@ where profile is one of either:
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. For multinode the default configuration is
  1 coordinator and 1 worker.
+- **multinode-tls** - psuedo-distributed Hadoop installation running on a
+ single Docker container and a distributed Presto installation running on
+ multiple Docker containers. Presto is configured to only accept connections
+ on the HTTPS port (7878), and both coordinator and worker traffic is encrypted.
+ For multinode-tls, the default configuration is 1 coordinator and 2 workers.
 - **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
@@ -365,7 +370,7 @@ with the following parameters:
     - Use classpath of module: `presto-main`
     - Main class: `com.facebook.presto.server.PrestoServer`
     - Working directory: `presto-product-tests/conf/presto`
-    - VM options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -DHADOOP_USER_NAME=hive -Duser.timezone=UTC`
+    - VM options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -DHADOOP_USER_NAME=hive -Duser.timezone=Asia/Kathmandu`
 
 5. MAKE SURE PRESTO CONFIGURATION IS ALIGNED WITH THE ONE IN `presto-product-tests/conf/presto`!
 

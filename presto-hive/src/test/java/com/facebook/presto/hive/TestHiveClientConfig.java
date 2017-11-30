@@ -76,12 +76,15 @@ public class TestHiveClientConfig
                 .setParquetOptimizedReaderEnabled(false)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcBloomFiltersEnabled(false)
+                .setOrcDefaultBloomFilterFpp(0.05)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setOrcMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
+                .setOrcLazyReadSmallRanges(true)
                 .setRcfileOptimizedWriterEnabled(true)
                 .setRcfileWriterValidate(false)
+                .setOrcOptimizedWriterEnabled(false)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
@@ -89,6 +92,7 @@ public class TestHiveClientConfig
                 .setBucketExecutionEnabled(true)
                 .setBucketWritingEnabled(true)
                 .setFileSystemMaxCacheSize(1000)
+                .setTableStatisticsEnabled(true)
                 .setWritesToNonManagedTablesEnabled(false));
     }
 
@@ -136,12 +140,15 @@ public class TestHiveClientConfig
                 .put("hive.parquet-predicate-pushdown.enabled", "true")
                 .put("hive.parquet-optimized-reader.enabled", "true")
                 .put("hive.orc.bloom-filters.enabled", "true")
+                .put("hive.orc.default-bloom-filter-fpp", "0.96")
                 .put("hive.orc.max-merge-distance", "22kB")
                 .put("hive.orc.max-buffer-size", "44kB")
                 .put("hive.orc.stream-buffer-size", "55kB")
                 .put("hive.orc.max-read-block-size", "66kB")
+                .put("hive.orc.lazy-read-small-ranges", "false")
                 .put("hive.rcfile-optimized-writer.enabled", "false")
                 .put("hive.rcfile.writer.validate", "true")
+                .put("hive.orc.optimized-writer.enabled", "true")
                 .put("hive.metastore.authentication.type", "KERBEROS")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
@@ -149,6 +156,7 @@ public class TestHiveClientConfig
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
                 .put("hive.fs.cache.max-size", "1010")
+                .put("hive.table-statistics-enabled", "false")
                 .put("hive.non-managed-table-writes-enabled", "true")
                 .build();
 
@@ -193,12 +201,15 @@ public class TestHiveClientConfig
                 .setParquetOptimizedReaderEnabled(true)
                 .setAssumeCanonicalPartitionKeys(true)
                 .setOrcBloomFiltersEnabled(true)
+                .setOrcDefaultBloomFilterFpp(0.96)
                 .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
                 .setOrcMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
+                .setOrcLazyReadSmallRanges(false)
                 .setRcfileOptimizedWriterEnabled(false)
                 .setRcfileWriterValidate(true)
+                .setOrcOptimizedWriterEnabled(true)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
@@ -206,6 +217,7 @@ public class TestHiveClientConfig
                 .setBucketExecutionEnabled(false)
                 .setBucketWritingEnabled(false)
                 .setFileSystemMaxCacheSize(1010)
+                .setTableStatisticsEnabled(false)
                 .setWritesToNonManagedTablesEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GroupBy;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
@@ -76,8 +77,8 @@ import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -259,7 +260,7 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().orElseGet(() -> session.getCatalog().get());
+            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
             accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
@@ -397,7 +398,7 @@ final class ShowQueriesRewrite
                 Expression value = caseWhen(key, identifier("partition_value"));
                 value = new Cast(value, column.getType().getTypeSignature().toString());
                 Expression function = functionCall("max", value);
-                selectList.add(new SingleColumn(function, column.getName()));
+                selectList.add(new SingleColumn(function, new Identifier(column.getName())));
                 wrappedList.add(unaliasedName(column.getName()));
             }
 
@@ -458,12 +459,12 @@ final class ShowQueriesRewrite
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
-                        .map(column -> new ColumnDefinition(column.getName(), column.getType().getDisplayName(), Optional.ofNullable(column.getComment())))
+                        .map(column -> new ColumnDefinition(new Identifier(column.getName()), column.getType().getDisplayName(), Optional.ofNullable(column.getComment())))
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                Map<String, Expression> sqlProperties = new HashMap<>();
+                ImmutableSortedMap.Builder<String, Expression> sqlProperties = ImmutableSortedMap.naturalOrder();
 
                 for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {
                     String propertyName = propertyEntry.getKey();
@@ -490,7 +491,7 @@ final class ShowQueriesRewrite
                         QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
                         columns,
                         false,
-                        sqlProperties,
+                        sqlProperties.build(),
                         connectorTableMetadata.getComment());
                 return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
             }

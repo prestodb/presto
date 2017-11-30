@@ -35,7 +35,8 @@ import static java.util.Objects.requireNonNull;
 public class TopNNode
         extends PlanNode
 {
-    public enum Step {
+    public enum Step
+    {
         SINGLE,
         PARTIAL,
         FINAL

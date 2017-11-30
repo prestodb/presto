@@ -1,0 +1,45 @@
+{
+  "rowCount" : 1500,
+  "columns" : {
+    "c_custkey" : {
+      "distinctValuesCount" : 1500,
+      "min" : 1,
+      "max" : 1500
+    },
+    "c_name" : {
+      "distinctValuesCount" : 1500,
+      "min" : "Customer#000000001",
+      "max" : "Customer#000001500"
+    },
+    "c_address" : {
+      "distinctValuesCount" : 1500,
+      "min" : " ,cIZ,06Kg",
+      "max" : "zyWvi,SGc,tXTls"
+    },
+    "c_nationkey" : {
+      "distinctValuesCount" : 25,
+      "min" : 0,
+      "max" : 24
+    },
+    "c_phone" : {
+      "distinctValuesCount" : 1500,
+      "min" : "10-109-430-5638",
+      "max" : "34-992-529-2023"
+    },
+    "c_acctbal" : {
+      "distinctValuesCount" : 1499,
+      "min" : -994.79,
+      "max" : 9987.71
+    },
+    "c_mktsegment" : {
+      "distinctValuesCount" : 5,
+      "min" : "AUTOMOBILE",
+      "max" : "MACHINERY"
+    },
+    "c_comment" : {
+      "distinctValuesCount" : 1500,
+      "min" : " about the carefully ironic pinto beans. accoun",
+      "max" : "ymptotes. ironic, unusual notornis wake after the ironic, special deposits. blithely fina"
+    }
+  }
+}

@@ -26,7 +26,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AliasMatcher
-    implements Matcher
+        implements Matcher
 {
     private final Optional<String> alias;
     private final RvalueMatcher matcher;
@@ -64,6 +64,9 @@ public class AliasMatcher
     @Override
     public String toString()
     {
-        return format("bind %s -> %s", alias, matcher);
+        if (alias.isPresent()) {
+            return format("bind %s -> %s", alias.get(), matcher);
+        }
+        return format("bind %s", matcher);
     }
 }

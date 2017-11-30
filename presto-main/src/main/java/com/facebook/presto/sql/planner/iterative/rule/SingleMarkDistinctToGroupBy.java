@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,50 +34,52 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.markDistinct;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * Converts Single Distinct Aggregation into GroupBy
- *
+ * <p>
  * Rewrite if and only if
- *  1 all aggregation functions have a single common distinct mask symbol
- *  2 all aggregation functions have mask
- *
+ * <ol>
+ * <li>all aggregation functions have a single common distinct mask symbol
+ * <li>all aggregation functions have mask
+ * </ol>
  * Rewrite MarkDistinctNode into AggregationNode(use DistinctSymbols as GroupBy)
+ * <p>
  * Remove Distincts in the original AggregationNode
  */
 public class SingleMarkDistinctToGroupBy
-        implements Rule
+        implements Rule<AggregationNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(AggregationNode.class);
+    private static final Capture<MarkDistinctNode> CHILD = newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .matching(aggregation -> hasFilters(aggregation))
+            .with(source().matching(markDistinct().capturedAs(CHILD)));
+
+    private static boolean hasFilters(AggregationNode aggregationNode)
+    {
+        return aggregationNode.getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getFilter)
+                .anyMatch(Optional::isPresent);
+    }
 
     @Override
-    public Pattern getPattern()
+    public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(AggregationNode parent, Captures captures, Context context)
     {
-        AggregationNode parent = (AggregationNode) node;
-
-        PlanNode source = context.getLookup().resolve(parent.getSource());
-        if (!(source instanceof MarkDistinctNode)) {
-            return Optional.empty();
-        }
-
-        MarkDistinctNode child = (MarkDistinctNode) source;
-
-        boolean hasFilters = parent.getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getFilter)
-                .anyMatch(Optional::isPresent);
-
-        if (hasFilters) {
-            return Optional.empty();
-        }
+        MarkDistinctNode child = captures.get(CHILD);
 
         // optimize if and only if
         // all aggregation functions have a single common distinct mask symbol
@@ -92,16 +95,16 @@ public class SingleMarkDistinctToGroupBy
         Set<Symbol> uniqueMasks = ImmutableSet.copyOf(masks);
 
         if (uniqueMasks.size() != 1 || masks.size() != aggregations.size()) {
-            return Optional.empty();
+            return Result.empty();
         }
 
         Symbol mask = Iterables.getOnlyElement(uniqueMasks);
 
         if (!child.getMarkerSymbol().equals(mask)) {
-            return Optional.empty();
+            return Result.empty();
         }
 
-        return Optional.of(
+        return Result.ofPlanNode(
                 new AggregationNode(
                         context.getIdAllocator().getNextId(),
                         new AggregationNode(

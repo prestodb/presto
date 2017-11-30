@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraOutputTableHandle
-         implements ConnectorOutputTableHandle
+        implements ConnectorOutputTableHandle
 {
     private final String connectorId;
     private final String schemaName;

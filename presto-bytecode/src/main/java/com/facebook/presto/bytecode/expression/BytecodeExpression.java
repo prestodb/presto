@@ -39,9 +39,9 @@ import static java.util.Objects.requireNonNull;
  * by zero or more invocations, field dereferences, array element fetches, or casts.
  * The expression can optionally be terminated by a set expression, and in this
  * case no value is pushed on the stack.
- *
+ * <p>
  * A BytecodeExpression is a BytecodeNode so it works with tools like tree dump.
- *
+ * <p>
  * This abstraction makes it easy to write generic byte code generators that can
  * work with data that may come from a parameter, field or the result of a method
  * invocation.

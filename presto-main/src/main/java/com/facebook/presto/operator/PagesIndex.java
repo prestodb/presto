@@ -24,7 +24,6 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -89,6 +88,8 @@ public class PagesIndex
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new Block[1024], 0);
         }
+
+        estimatedSize = calculateEstimatedSize();
     }
 
     public interface Factory
@@ -371,7 +372,7 @@ public class PagesIndex
 
     public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 
     public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
@@ -403,9 +404,11 @@ public class PagesIndex
             Session session,
             List<Integer> joinChannels,
             Optional<Integer> hashChannel,
-            Optional<JoinFilterFunctionFactory> filterFunctionFactory)
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            Optional<Integer> sortChannel,
+            List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
-        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty());
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -413,6 +416,8 @@ public class PagesIndex
             List<Integer> joinChannels,
             Optional<Integer> hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            Optional<Integer> sortChannel,
+            List<JoinFilterFunctionFactory> searchFunctionFactories,
             Optional<List<Integer>> outputChannels)
     {
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
@@ -422,17 +427,15 @@ public class PagesIndex
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
             try {
-                Optional<SortExpression> sortChannel = Optional.empty();
-                if (filterFunctionFactory.isPresent()) {
-                    sortChannel = filterFunctionFactory.get().getSortChannel();
-                }
                 LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
                 return lookupSourceFactory.createLookupSourceSupplier(
                         session,
                         valueAddresses,
                         channels,
                         hashChannel,
-                        filterFunctionFactory);
+                        filterFunctionFactory,
+                        sortChannel,
+                        searchFunctionFactories);
             }
             catch (Exception e) {
                 log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -446,14 +449,16 @@ public class PagesIndex
                 channels,
                 joinChannels,
                 hashChannel,
-                filterFunctionFactory.map(JoinFilterFunctionFactory::getSortChannel).orElse(Optional.empty()));
+                sortChannel);
 
         return new JoinHashSupplier(
                 session,
                 hashStrategy,
                 valueAddresses,
                 channels,
-                filterFunctionFactory);
+                filterFunctionFactory,
+                sortChannel,
+                searchFunctionFactories);
     }
 
     private List<Integer> rangeList(int endExclusive)

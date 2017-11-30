@@ -133,7 +133,7 @@ public class ScalarAggregationToJoinRewriter
 
         Optional<ProjectNode> subqueryProjection = searchFrom(lateralJoinNode.getSubquery(), lookup)
                 .where(ProjectNode.class::isInstance)
-                .skipOnlyWhen(EnforceSingleRowNode.class::isInstance)
+                .recurseOnlyWhen(EnforceSingleRowNode.class::isInstance)
                 .findFirst();
 
         List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(lateralJoinNode, aggregationNode.get());
@@ -179,8 +179,8 @@ public class ScalarAggregationToJoinRewriter
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                 aggregations.put(symbol, new Aggregation(
                         new FunctionCall(
-                            COUNT,
-                            ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
+                                COUNT,
+                                ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
                         functionRegistry.resolveFunction(
                                 COUNT,
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),

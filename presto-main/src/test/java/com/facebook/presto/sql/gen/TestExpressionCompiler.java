@@ -104,7 +104,7 @@ public class TestExpressionCompiler
     private static final Integer[] intRights = {3, -3, 101510823, null};
     private static final Integer[] intMiddle = {9, -3, 88, null};
     private static final Double[] doubleLefts = {9.0, 10.0, 11.0, -9.0, -10.0, -11.0, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1,
-                                                 Double.MIN_VALUE, Double.MAX_VALUE, Double.MIN_NORMAL, null};
+            Double.MIN_VALUE, Double.MAX_VALUE, Double.MIN_NORMAL, null};
     private static final Double[] doubleRights = {3.0, -3.0, 3.1, -3.1, null};
     private static final Double[] doubleMiddle = {9.0, -3.1, 88.0, null};
     private static final String[] stringLefts = {"hello", "foo", "mellow", "fellow", "", null};
@@ -112,9 +112,9 @@ public class TestExpressionCompiler
     private static final Long[] longLefts = {9L, 10L, 11L, -9L, -10L, -11L, null};
     private static final Long[] longRights = {3L, -3L, 10151082135029369L, null};
     private static final BigDecimal[] decimalLefts = {new BigDecimal("9.0"), new BigDecimal("10.0"), new BigDecimal("11.0"), new BigDecimal("-9.0"),
-                                                      new BigDecimal("-10.0"), new BigDecimal("-11.0"), new BigDecimal("9.1"), new BigDecimal("10.1"),
-                                                      new BigDecimal("11.1"), new BigDecimal("-9.1"), new BigDecimal("-10.1"), new BigDecimal("-11.1"),
-                                                      new BigDecimal("9223372036.5477"), new BigDecimal("-9223372036.5477"), null};
+            new BigDecimal("-10.0"), new BigDecimal("-11.0"), new BigDecimal("9.1"), new BigDecimal("10.1"),
+            new BigDecimal("11.1"), new BigDecimal("-9.1"), new BigDecimal("-10.1"), new BigDecimal("-11.1"),
+            new BigDecimal("9223372036.5477"), new BigDecimal("-9223372036.5477"), null};
     private static final BigDecimal[] decimalRights = {new BigDecimal("3.0"), new BigDecimal("-3.0"), new BigDecimal("3.1"), new BigDecimal("-3.1"), null};
 
     private static final DateTime[] dateTimeValues = {
@@ -758,26 +758,6 @@ public class TestExpressionCompiler
         for (String value : stringLefts) {
             assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : value);
         }
-
-        Futures.allAsList(futures).get();
-    }
-
-    @Test
-    public void testTry()
-            throws Exception
-    {
-        assertExecute("try(cast(null as bigint))", BIGINT, null);
-        assertExecute("try(cast('123' as bigint))", BIGINT, 123L);
-        assertExecute("try(cast('foo' as bigint))", BIGINT, null);
-        assertExecute("try(cast('foo' as bigint)) + try(cast('123' as bigint))", BIGINT, null);
-        assertExecute("try(cast (cast (123 AS VARCHAR) AS BIGINT))", BIGINT, 123L);
-        assertExecute("coalesce(cast (CONCAT('123', CAST (123 AS VARCHAR)) AS BIGINT), 0)", BIGINT, 123123L);
-        assertExecute("try(cast (CONCAT(bound_string, CAST (123 AS VARCHAR)) AS BIGINT))", BIGINT, null);
-        assertExecute("coalesce(try(cast (concat('a', cast (123 AS VARCHAR)) AS INTEGER)), 0)", INTEGER, 0);
-        assertExecute("coalesce(try(cast (concat('a', cast (123 AS VARCHAR)) AS BIGINT)), 0)", BIGINT, 0L);
-        assertExecute("123 + TRY(ABS(-9223372036854775807 - 1))", BIGINT, null);
-        assertExecute("JSON_FORMAT(TRY(JSON '[]')) || '123'", VARCHAR, "[]123");
-        assertExecute("JSON_FORMAT(TRY(JSON 'INVALID')) || '123'", VARCHAR, null);
 
         Futures.allAsList(futures).get();
     }

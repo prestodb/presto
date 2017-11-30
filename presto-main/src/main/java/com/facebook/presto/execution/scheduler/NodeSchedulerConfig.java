@@ -28,7 +28,7 @@ public class NodeSchedulerConfig
         public static final String LEGACY = "legacy";
         public static final String FLAT = "flat";
         public static final String BENCHMARK = "benchmark";
-    };
+    }
 
     private int minCandidates = 10;
     private boolean includeCoordinator = true;

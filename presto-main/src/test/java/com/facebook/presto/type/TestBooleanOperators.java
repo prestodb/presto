@@ -136,6 +136,7 @@ public class TestBooleanOperators
         assertFunction("cast('true' as boolean)", BOOLEAN, true);
         assertFunction("cast('false' as boolean)", BOOLEAN, false);
     }
+
     @Test
     public void testIsDistinctFrom()
             throws Exception

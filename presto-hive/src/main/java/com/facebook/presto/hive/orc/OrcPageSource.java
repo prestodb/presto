@@ -110,12 +110,6 @@ public class OrcPageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return recordReader.getSplitLength();
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return orcDataSource.getReadBytes();
@@ -151,7 +145,7 @@ public class OrcPageSource
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
-                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId], type, stats));
+                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId], type));
                 }
             }
             return new Page(batchSize, blocks);
@@ -219,14 +213,12 @@ public class OrcPageSource
         private final int expectedBatchId = batchId;
         private final int columnIndex;
         private final Type type;
-        private final FileFormatDataSourceStats stats;
         private boolean loaded;
 
-        public OrcBlockLoader(int columnIndex, Type type, FileFormatDataSourceStats stats)
+        public OrcBlockLoader(int columnIndex, Type type)
         {
             this.columnIndex = columnIndex;
             this.type = requireNonNull(type, "type is null");
-            this.stats = requireNonNull(stats, "stats is null");
         }
 
         @Override
@@ -248,8 +240,6 @@ public class OrcPageSource
                 }
                 throw new PrestoException(HIVE_CURSOR_ERROR, e);
             }
-
-            stats.addLoadedBlockSize(lazyBlock.getSizeInBytes());
 
             loaded = true;
         }

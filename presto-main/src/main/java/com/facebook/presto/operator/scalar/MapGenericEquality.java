@@ -29,7 +29,8 @@ public final class MapGenericEquality
 
     public interface EqualityPredicate
     {
-        Boolean equals(int leftMapIndex, int rightMapIndex) throws Throwable;
+        Boolean equals(int leftMapIndex, int rightMapIndex)
+                throws Throwable;
     }
 
     public static Boolean genericEqual(

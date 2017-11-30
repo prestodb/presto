@@ -105,7 +105,7 @@ public class SymbolAllocator
     {
         String nameHint = "expr";
         if (expression instanceof Identifier) {
-            nameHint = ((Identifier) expression).getName();
+            nameHint = ((Identifier) expression).getValue();
         }
         else if (expression instanceof FunctionCall) {
             nameHint = ((FunctionCall) expression).getName().getSuffix();

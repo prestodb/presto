@@ -37,6 +37,7 @@ public final class BenchmarkQueryRunner
     {
         return createLocalQueryRunner(false);
     }
+
     public static LocalQueryRunner createLocalQueryRunner(boolean hashingEnabled)
     {
         SessionBuilder sessionBuilder = testSessionBuilder()

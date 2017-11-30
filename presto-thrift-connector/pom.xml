@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.181-SNAPSHOT</version>
+        <version>0.186-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-thrift-connector</artifactId>
@@ -29,7 +29,8 @@
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
-            <artifactId>annotations</artifactId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

@@ -20,7 +20,7 @@ import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.memory.LocalMemoryContext;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.InterleavedBlock;
+import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
@@ -231,14 +231,13 @@ public class ParquetReader
             blocks[i] = readBlock(name, fieldType, path, new IntArrayList());
         }
 
-        InterleavedBlock interleavedBlock = new InterleavedBlock(blocks);
         int blockSize = blocks[0].getPositionCount();
         int[] offsets = new int[blockSize + 1];
         for (int i = 1; i < offsets.length; i++) {
             elementOffsets.add(parameters.size());
-            offsets[i] = i * parameters.size();
+            offsets[i] = i;
         }
-        return new ArrayBlock(blockSize, new boolean[blockSize], offsets, interleavedBlock);
+        return new RowBlock(0, blockSize, new boolean[blockSize], offsets, blocks);
     }
 
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)

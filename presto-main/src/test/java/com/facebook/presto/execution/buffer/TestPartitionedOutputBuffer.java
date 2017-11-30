@@ -76,7 +76,7 @@ public class TestPartitionedOutputBuffer
         stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
@@ -816,7 +816,7 @@ public class TestPartitionedOutputBuffer
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 buffers,
                 dataSize,
-                ignored -> { },
+                ignored -> {},
                 stateNotificationExecutor);
     }
 

@@ -31,7 +31,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnReference
-    implements RvalueMatcher
+        implements RvalueMatcher
 {
     private final String tableName;
     private final String columnName;

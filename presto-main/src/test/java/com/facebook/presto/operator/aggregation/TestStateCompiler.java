@@ -28,7 +28,6 @@ import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -55,6 +54,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
@@ -219,12 +219,7 @@ public class TestStateCompiler
         singleState.setYetAnotherSlice(null);
         Block array = createLongsBlock(45);
         singleState.setBlock(array);
-
-        BlockBuilder mapBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(BIGINT, VARCHAR), new BlockBuilderStatus(), 1);
-        BIGINT.writeLong(mapBlockBuilder, 123L);
-        VARCHAR.writeSlice(mapBlockBuilder, utf8Slice("testBlock"));
-        Block map = mapBlockBuilder.build();
-        singleState.setAnotherBlock(map);
+        singleState.setAnotherBlock(mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
 
         BlockBuilder builder = new RowType(ImmutableList.of(BOOLEAN, TINYINT, DOUBLE, BIGINT, mapType, VARBINARY, arrayType, VARBINARY, VARBINARY), Optional.empty())
                 .createBlockBuilder(new BlockBuilderStatus(), 1);
@@ -330,9 +325,11 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            BlockBuilder mapBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(BIGINT, VARCHAR), new BlockBuilderStatus(), 1);
-            BIGINT.writeLong(mapBlockBuilder, 123L);
-            VARCHAR.writeSlice(mapBlockBuilder, utf8Slice("testBlock"));
+            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
+            BIGINT.writeLong(singleMapBlockWriter, 123L);
+            VARCHAR.writeSlice(singleMapBlockWriter, utf8Slice("testBlock"));
+            mapBlockBuilder.closeEntry();
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
@@ -356,9 +353,11 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            BlockBuilder mapBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(BIGINT, VARCHAR), new BlockBuilderStatus(), 1);
-            BIGINT.writeLong(mapBlockBuilder, 123L);
-            VARCHAR.writeSlice(mapBlockBuilder, utf8Slice("testBlock"));
+            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
+            BIGINT.writeLong(singleMapBlockWriter, 123L);
+            VARCHAR.writeSlice(singleMapBlockWriter, utf8Slice("testBlock"));
+            mapBlockBuilder.closeEntry();
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);

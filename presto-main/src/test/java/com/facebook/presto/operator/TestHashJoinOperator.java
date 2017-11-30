@@ -42,6 +42,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -56,6 +58,12 @@ import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestHashJoinOperator
@@ -64,17 +72,20 @@ public class TestHashJoinOperator
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
 
     private ExecutorService executor;
+    private ScheduledExecutorService scheduledExecutor;
 
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @DataProvider(name = "hashEnabledValues")
@@ -114,8 +125,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
@@ -132,6 +142,70 @@ public class TestHashJoinOperator
                 .build();
 
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+    }
+
+    @Test
+    public void testYield()
+            throws Exception
+    {
+        // create a filter function that yields for every probe match
+        // verify we will yield #match times totally
+
+        TaskContext taskContext = createTaskContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+
+        // force a yield for every match
+        AtomicInteger filterFunctionCalls = new AtomicInteger();
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+                (leftPosition, leftBlocks, rightPosition, rightBlocks) -> {
+                    filterFunctionCalls.incrementAndGet();
+                    driverContext.getYieldSignal().forceYieldForTesting();
+                    return true;
+                }));
+
+        // build with 40 entries
+        int entries = 40;
+        RowPagesBuilder buildPages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(BIGINT))
+                .addSequencePage(entries, 42);
+        LookupSourceFactory lookupSourceFactory = buildHash(true, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction));
+
+        // probe matching the above 40 entries
+        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT));
+        List<Page> probeInput = probePages.addSequencePage(100, 0).build();
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceFactory,
+                probePages.getTypes(),
+                Ints.asList(0),
+                probePages.getHashChannel(),
+                Optional.empty());
+
+        Operator operator = joinOperatorFactory.createOperator(driverContext);
+        assertTrue(operator.needsInput());
+        operator.addInput(probeInput.get(0));
+        operator.finish();
+
+        // we will yield 40 times due to filterFunction
+        for (int i = 0; i < entries; i++) {
+            driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
+            filterFunctionCalls.set(0);
+            assertNull(operator.getOutput());
+            assertEquals(filterFunctionCalls.get(), 1, "Expected join to stop processing (yield) after calling filter function once");
+            driverContext.getYieldSignal().reset();
+        }
+        // delayed yield is not going to prevent operator from producing a page now (yield won't be forced because filter function won't be called anymore)
+        driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
+        // expect output page to be produced within few calls to getOutput(), e.g. to facilitate spill
+        Page output = null;
+        for (int i = 0; output == null && i < 5; i++) {
+            output = operator.getOutput();
+        }
+        assertNotNull(output);
+        driverContext.getYieldSignal().reset();
+
+        // make sure we have all 4 entries
+        assertEquals(output.getPositionCount(), entries);
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -165,8 +239,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
@@ -209,8 +282,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -254,8 +326,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 probePages.getHashChannel(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -652,7 +723,7 @@ public class TestHashJoinOperator
     public void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE));
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE));
 
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
@@ -671,7 +742,7 @@ public class TestHashJoinOperator
 
     private TaskContext createTaskContext()
     {
-        return TestingTaskContext.createTaskContext(executor, TEST_SESSION);
+        return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION);
     }
 
     private static List<Integer> getHashChannels(RowPagesBuilder probe, RowPagesBuilder build)
@@ -689,7 +760,7 @@ public class TestHashJoinOperator
     private static LookupSourceFactory buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<InternalJoinFilterFunction> filterFunction)
     {
         Optional<JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
-                .map(function -> (session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels, Optional.empty()));
+                .map(function -> (session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         LocalExchange localExchange = new LocalExchange(FIXED_HASH_DISTRIBUTION, partitionCount, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
@@ -722,6 +793,8 @@ public class TestHashJoinOperator
                 buildPages.getHashChannel(),
                 false,
                 filterFunctionFactory,
+                Optional.empty(),
+                ImmutableList.of(),
                 100,
                 partitionCount,
                 new PagesIndex.TestingFactory());

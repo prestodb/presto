@@ -30,6 +30,10 @@ public class QueryStatistics
     private final long peakMemoryBytes;
     private final long totalBytes;
     private final long totalRows;
+    private final long outputBytes;
+    private final long outputRows;
+    private final long writtenBytes;
+    private final long writtenRows;
 
     private final double cumulativeMemory;
 
@@ -49,6 +53,10 @@ public class QueryStatistics
             long peakMemoryBytes,
             long totalBytes,
             long totalRows,
+            long outputBytes,
+            long outputRows,
+            long writtenBytes,
+            long writtenRows,
             double cumulativeMemory,
             int completedSplits,
             boolean complete,
@@ -60,11 +68,15 @@ public class QueryStatistics
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
-        this.peakMemoryBytes = requireNonNull(peakMemoryBytes, "peakMemoryBytes is null");
-        this.totalBytes = requireNonNull(totalBytes, "totalBytes is null");
-        this.totalRows = requireNonNull(totalRows, "totalRows is null");
+        this.peakMemoryBytes = peakMemoryBytes;
+        this.totalBytes = totalBytes;
+        this.totalRows = totalRows;
+        this.outputBytes = outputBytes;
+        this.outputRows = outputRows;
+        this.writtenBytes = writtenBytes;
+        this.writtenRows = writtenRows;
         this.cumulativeMemory = cumulativeMemory;
-        this.completedSplits = requireNonNull(completedSplits, "completedSplits is null");
+        this.completedSplits = completedSplits;
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
@@ -108,6 +120,26 @@ public class QueryStatistics
     public long getTotalRows()
     {
         return totalRows;
+    }
+
+    public long getOutputBytes()
+    {
+        return outputBytes;
+    }
+
+    public long getOutputRows()
+    {
+        return outputRows;
+    }
+
+    public long getWrittenBytes()
+    {
+        return writtenBytes;
+    }
+
+    public long getWrittenRows()
+    {
+        return writtenRows;
     }
 
     public double getCumulativeMemory()

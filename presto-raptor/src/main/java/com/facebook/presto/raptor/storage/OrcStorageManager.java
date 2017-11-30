@@ -99,9 +99,11 @@ import static com.facebook.presto.raptor.storage.OrcPageSource.SHARD_UUID_COLUMN
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -362,7 +364,7 @@ public class OrcStorageManager
     private static FileOrcDataSource fileOrcDataSource(ReaderAttributes readerAttributes, File file)
             throws FileNotFoundException
     {
-        return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize());
+        return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize(), readerAttributes.isLazyReadSmallRanges());
     }
 
     private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, File file, Set<String> nodes, long rowCount, long uncompressedSize)
@@ -498,6 +500,10 @@ public class OrcStorageManager
                 return DOUBLE;
             case STRING:
                 return createUnboundedVarcharType();
+            case VARCHAR:
+                return createVarcharType(type.getLength().get());
+            case CHAR:
+                return createCharType(type.getLength().get());
             case BINARY:
                 return VARBINARY;
             case DECIMAL:

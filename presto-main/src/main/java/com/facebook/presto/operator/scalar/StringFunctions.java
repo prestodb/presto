@@ -36,12 +36,11 @@ import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 
 import java.text.Normalizer;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
+import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -56,7 +55,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 
 /**
  * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
@@ -311,7 +309,7 @@ public final class StringFunctions
     @SqlType("char(x)")
     public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
-        return substr(utf8, start, length);
+        return trimTrailingSpaces(substr(utf8, start, length));
     }
 
     @ScalarFunction
@@ -409,66 +407,6 @@ public final class StringFunctions
         return null;
     }
 
-    @Description("creates a map using entryDelimiter and keyValueDelimiter")
-    @ScalarFunction
-    @SqlType("map<varchar,varchar>")
-    public static Block splitToMap(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
-    {
-        checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
-        checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");
-        checkCondition(!entryDelimiter.equals(keyValueDelimiter), INVALID_FUNCTION_ARGUMENT, "entryDelimiter and keyValueDelimiter must not be the same");
-
-        Map<Slice, Slice> map = new HashMap<>();
-        int entryStart = 0;
-        while (entryStart < string.length()) {
-            // Extract key-value pair based on current index
-            // then add the pair if it can be split by keyValueDelimiter
-            Slice keyValuePair;
-            int entryEnd = string.indexOf(entryDelimiter, entryStart);
-            if (entryEnd >= 0) {
-                keyValuePair = string.slice(entryStart, entryEnd - entryStart);
-            }
-            else {
-                // The rest of the string is the last possible pair.
-                keyValuePair = string.slice(entryStart, string.length() - entryStart);
-            }
-
-            int keyEnd = keyValuePair.indexOf(keyValueDelimiter);
-            if (keyEnd >= 0) {
-                int valueStart = keyEnd + keyValueDelimiter.length();
-                Slice key = keyValuePair.slice(0, keyEnd);
-                Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
-
-                if (value.indexOf(keyValueDelimiter) >= 0) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
-                }
-                if (map.containsKey(key)) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
-                }
-
-                map.put(key, value);
-            }
-            else {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
-            }
-
-            if (entryEnd < 0) {
-                // No more pairs to add
-                break;
-            }
-            // Next possible pair is placed next to the current entryDelimiter
-            entryStart = entryEnd + entryDelimiter.length();
-        }
-
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), map.size());
-        for (Map.Entry<Slice, Slice> entry : map.entrySet()) {
-            VARCHAR.writeSlice(builder, entry.getKey());
-            VARCHAR.writeSlice(builder, entry.getValue());
-        }
-
-        return builder.build();
-    }
-
     @Description("removes whitespace from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
@@ -556,7 +494,7 @@ public final class StringFunctions
     @SqlType("char(x)")
     public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return rightTrim(slice, codePointsToTrim);
+        return trimTrailingSpaces(rightTrim(slice, codePointsToTrim));
     }
 
     @Description("remove the longest string containing only given characters from the beginning and end of a string")
@@ -574,7 +512,7 @@ public final class StringFunctions
     @SqlType("char(x)")
     public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return trim(slice, codePointsToTrim);
+        return trimTrailingSpaces(trim(slice, codePointsToTrim));
     }
 
     @ScalarOperator(OperatorType.CAST)
@@ -659,8 +597,7 @@ public final class StringFunctions
         checkCondition(
                 0 <= targetLength && targetLength <= Integer.MAX_VALUE,
                 INVALID_FUNCTION_ARGUMENT,
-                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
-        );
+                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
         checkCondition(padString.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding string must not be empty");
 
         int textLength = countCodePoints(text);
@@ -776,6 +713,37 @@ public final class StringFunctions
         }
 
         return distances[rightCodePoints.length - 1];
+    }
+
+    @Description("computes Hamming distance between two strings")
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long hammingDistance(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    {
+        int distance = 0;
+        int leftPosition = 0;
+        int rightPosition = 0;
+        while (leftPosition < left.length() && rightPosition < right.length()) {
+            int codePointLeft = tryGetCodePointAt(left, leftPosition);
+            int codePointRight = tryGetCodePointAt(right, rightPosition);
+
+            // if both code points are invalid, we do not care if they are equal
+            // the following code treats them as equal if they happen to be of the same length
+            if (codePointLeft != codePointRight) {
+                distance++;
+            }
+
+            leftPosition += codePointLeft > 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
+            rightPosition += codePointRight > 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
+        }
+
+        checkCondition(
+                leftPosition == left.length() && rightPosition == right.length(),
+                INVALID_FUNCTION_ARGUMENT,
+                "The input strings to hamming_distance function must have the same length");
+
+        return distance;
     }
 
     @Description("transforms the string to normalized form")

@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
@@ -85,10 +86,12 @@ public class MockRemoteTaskFactory
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
     private final Executor executor;
+    private final ScheduledExecutorService scheduledExecutor;
 
-    public MockRemoteTaskFactory(Executor executor)
+    public MockRemoteTaskFactory(Executor executor, ScheduledExecutorService scheduledExecutor)
     {
         this.executor = executor;
+        this.scheduledExecutor = scheduledExecutor;
     }
 
     public MockRemoteTask createTableScanTask(TaskId taskId, Node newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
@@ -128,7 +131,7 @@ public class MockRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo)
     {
-        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, initialSplits, partitionedSplitCountTracker);
+        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, partitionedSplitCountTracker);
     }
 
     public static final class MockRemoteTask
@@ -162,6 +165,7 @@ public class MockRemoteTaskFactory
                 PlanFragment fragment,
                 String nodeId,
                 Executor executor,
+                ScheduledExecutorService scheduledExecutor,
                 Multimap<PlanNodeId, Split> initialSplits,
                 PartitionedSplitCountTracker partitionedSplitCountTracker)
         {
@@ -170,7 +174,7 @@ public class MockRemoteTaskFactory
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
             MemoryPool memorySystemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor, new DataSize(1, MEGABYTE), spillSpaceTracker);
+            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor, scheduledExecutor, new DataSize(1, MEGABYTE), spillSpaceTracker);
             this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true);
 
             this.location = URI.create("fake://task/" + taskId);
@@ -211,7 +215,7 @@ public class MockRemoteTaskFactory
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }
 
-            return new TaskInfo(new TaskStatus(taskStateMachine.getTaskId(), TASK_INSTANCE_ID, nextTaskInfoVersion.getAndIncrement(), state, location, failures, 0, 0, new DataSize(0, BYTE)),
+            return new TaskInfo(new TaskStatus(taskStateMachine.getTaskId(), TASK_INSTANCE_ID, nextTaskInfoVersion.getAndIncrement(), state, location, nodeId, failures, 0, 0, new DataSize(0, BYTE)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -229,6 +233,7 @@ public class MockRemoteTaskFactory
                     nextTaskInfoVersion.get(),
                     taskStateMachine.getState(),
                     location,
+                    nodeId,
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),

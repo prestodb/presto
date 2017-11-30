@@ -1,0 +1,59 @@
+{
+  "rowCount" : 11718,
+  "columns" : {
+    "cp_catalog_page_sk" : {
+      "distinctValuesCount" : 11718,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 11718
+    },
+    "cp_catalog_page_id" : {
+      "distinctValuesCount" : 11718,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAAAABAAAA",
+      "max" : "AAAAAAAAPPPBAAAA"
+    },
+    "cp_start_date_sk" : {
+      "distinctValuesCount" : 91,
+      "nullsCount" : 101,
+      "min" : 2450815,
+      "max" : 2453005
+    },
+    "cp_end_date_sk" : {
+      "distinctValuesCount" : 97,
+      "nullsCount" : 108,
+      "min" : 2450844,
+      "max" : 2453186
+    },
+    "cp_department" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 120,
+      "min" : "DEPARTMENT",
+      "max" : "DEPARTMENT"
+    },
+    "cp_catalog_number" : {
+      "distinctValuesCount" : 109,
+      "nullsCount" : 104,
+      "min" : 1,
+      "max" : 109
+    },
+    "cp_catalog_page_number" : {
+      "distinctValuesCount" : 108,
+      "nullsCount" : 116,
+      "min" : 1,
+      "max" : 108
+    },
+    "cp_description" : {
+      "distinctValuesCount" : 11609,
+      "nullsCount" : 109,
+      "min" : "A bit asleep rooms cannot feel short dry secondary leads. Ab",
+      "max" : "Youngsters should get very. Bad, necessary years must pick telecommunications. Co"
+    },
+    "cp_type" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 110,
+      "min" : "bi-annual",
+      "max" : "quarterly"
+    }
+  }
+}

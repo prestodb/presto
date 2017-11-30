@@ -31,7 +31,7 @@ public class TestCodeCacheGcConfig
     {
         assertRecordedDefaults(recordDefaults(CodeCacheGcConfig.class)
                 .setCodeCacheCheckInterval(new Duration(20, TimeUnit.SECONDS))
-                .setCodeCacheCollectionThreshold(40));
+                .setCodeCacheCollectionThreshold(70));
     }
 
     @Test

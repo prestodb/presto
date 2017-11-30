@@ -231,6 +231,7 @@ public enum OpCode
     JSR_W(201);
 
     private static final Map<Integer, OpCode> OP_CODE_INDEX;
+
     static {
         ImmutableMap.Builder<Integer, OpCode> builder = ImmutableMap.builder();
         for (OpCode opCode : OpCode.values()) {

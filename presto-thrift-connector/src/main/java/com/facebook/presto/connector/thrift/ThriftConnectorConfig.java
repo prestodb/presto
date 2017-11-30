@@ -27,6 +27,7 @@ public class ThriftConnectorConfig
 {
     private DataSize maxResponseSize = new DataSize(16, MEGABYTE);
     private int metadataRefreshThreads = 1;
+    private int retryDriverThreads = 8;
 
     @NotNull
     @MinDataSize("1MB")
@@ -53,6 +54,19 @@ public class ThriftConnectorConfig
     public ThriftConnectorConfig setMetadataRefreshThreads(int metadataRefreshThreads)
     {
         this.metadataRefreshThreads = metadataRefreshThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getRetryDriverThreads()
+    {
+        return retryDriverThreads;
+    }
+
+    @Config("presto-thrift.retry-driver-threads")
+    public ThriftConnectorConfig setRetryDriverThreads(int retryDriverThreads)
+    {
+        this.retryDriverThreads = retryDriverThreads;
         return this;
     }
 }

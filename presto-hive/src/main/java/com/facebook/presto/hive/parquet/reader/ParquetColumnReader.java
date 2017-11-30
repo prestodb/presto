@@ -162,7 +162,7 @@ public abstract class ParquetColumnReader
             valueCount += numValues;
             updatePosition(numValues);
         }
-        checkArgument(valueCount == nextBatchSize, "valueCount " + valueCount + " not equals to batchSize " + nextBatchSize);
+        checkArgument(valueCount == nextBatchSize, "valueCount %s not equals to batchSize %s", valueCount, nextBatchSize);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -194,7 +194,8 @@ public abstract class ParquetColumnReader
                     positions.add(valueCount);
                     return;
                 }
-            } while (repetitionLevel != 0);
+            }
+            while (repetitionLevel != 0);
         }
     }
 
@@ -216,7 +217,8 @@ public abstract class ParquetColumnReader
                     // Reading past repetition stream, RunLengthBitPackingHybridDecoder throws IllegalArgumentException
                     return;
                 }
-            } while (repetitionLevel != 0);
+            }
+            while (repetitionLevel != 0);
         }
     }
 
@@ -237,7 +239,7 @@ public abstract class ParquetColumnReader
             valuePosition = valuePosition + offset;
             updatePosition(offset);
         }
-        checkArgument(valuePosition == readOffset, "valuePosition " + valuePosition + " must be equal to readOffset " + readOffset);
+        checkArgument(valuePosition == readOffset, "valuePosition %s must be equal to readOffset %s", valuePosition, readOffset);
     }
 
     private void readNextPage()

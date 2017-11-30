@@ -26,22 +26,32 @@ public final class PageSplitterUtil
 
     public static List<Page> splitPage(Page page, long maxPageSizeInBytes)
     {
+        return splitPage(page, maxPageSizeInBytes, Long.MAX_VALUE);
+    }
+
+    private static List<Page> splitPage(Page page, long maxPageSizeInBytes, long previousPageSize)
+    {
         checkArgument(page.getPositionCount() > 0, "page is empty");
         checkArgument(maxPageSizeInBytes > 0, "maxPageSizeInBytes must be > 0");
 
-        if (page.getSizeInBytes() <= maxPageSizeInBytes || page.getPositionCount() == 1) {
+        // for Pages with certain types of Blocks (e.g., RLE blocks) the size in bytes may remain constant
+        // through the recursive calls, which causes the recursion to only terminate when page.getPositionCount() == 1
+        // and create potentially a large number of Page's of size 1. So we check here that
+        // if the size of the page doesn't improve from the previous call we terminate the recursion.
+        if (page.getSizeInBytes() == previousPageSize || page.getSizeInBytes() <= maxPageSizeInBytes || page.getPositionCount() == 1) {
             return ImmutableList.of(page);
         }
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
+        long previousSize = page.getSizeInBytes();
         int positionCount = page.getPositionCount();
         int half = positionCount / 2;
 
-        Page splitPage1 = page.getRegion(0, half);
-        outputPages.addAll(splitPage(splitPage1, maxPageSizeInBytes));
+        Page leftHalf = page.getRegion(0, half);
+        outputPages.addAll(splitPage(leftHalf, maxPageSizeInBytes, previousSize));
 
-        Page splitPage2 = page.getRegion(half, positionCount - half);
-        outputPages.addAll(splitPage(splitPage2, maxPageSizeInBytes));
+        Page rightHalf = page.getRegion(half, positionCount - half);
+        outputPages.addAll(splitPage(rightHalf, maxPageSizeInBytes, previousSize));
 
         return outputPages.build();
     }

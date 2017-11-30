@@ -34,6 +34,12 @@ public class TestMapFilterFunction
         extends AbstractTestFunctions
 {
     @Test
+    public void testRetainedSizeBounded()
+    {
+        assertCachedInstanceHasBoundedRetainedSize("map_filter(map(ARRAY ['a', 'b', 'c', 'd'], ARRAY [1, 2, NULL, 4]), (k, v) -> v IS NOT NULL)");
+    }
+
+    @Test
     public void testEmpty()
             throws Exception
     {

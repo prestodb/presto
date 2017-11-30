@@ -136,7 +136,7 @@ public abstract class AbstractTestOrcReader
     public void testLongPatchedBase()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), ImmutableList.of(30_000, 20_000))), 30_000));
+        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000))), 30_000));
     }
 
     @Test
@@ -327,8 +327,7 @@ public abstract class AbstractTestOrcReader
                         .map(Object::toString)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)
-                        .collect(toList())
-        );
+                        .collect(toList()));
     }
 
     @Test
@@ -340,8 +339,7 @@ public abstract class AbstractTestOrcReader
                         .map(Object::toString)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)
-                        .collect(toList())
-        );
+                        .collect(toList()));
     }
 
     @Test
@@ -363,14 +361,13 @@ public abstract class AbstractTestOrcReader
                         nCopies(1_000_000, null))),
                 200_000));
 
-        tester.assertRoundTrip(INTEGER, values);
+        tester.assertRoundTrip(INTEGER, values, false);
 
         tester.assertRoundTrip(
                 VARCHAR,
                 newArrayList(values).stream()
                         .map(value -> value == null ? null : String.valueOf(value))
-                        .collect(toList())
-        );
+                        .collect(toList()));
     }
 
     @Test
@@ -381,8 +378,7 @@ public abstract class AbstractTestOrcReader
                 VARCHAR,
                 newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 200_000)).stream()
                         .map(Object::toString)
-                        .collect(toList())
-        );
+                        .collect(toList()));
     }
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)

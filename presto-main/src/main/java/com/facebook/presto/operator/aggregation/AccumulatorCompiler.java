@@ -334,7 +334,8 @@ public class AccumulatorCompiler
                     expressions.add(scope.getThis().getField(stateField));
                     break;
                 case BLOCK_INDEX:
-                    expressions.add(constantInt(0)); // index.getSingleValueBlock(channel, position) generates always a page with only one position
+                    // index.getSingleValueBlock(channel, position) generates always a page with only one position
+                    expressions.add(constantInt(0));
                     break;
                 case BLOCK_INPUT_CHANNEL:
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
@@ -359,7 +360,9 @@ public class AccumulatorCompiler
                         expressions.add(index.invoke("getSlice", Slice.class, getChannel, position));
                     }
                     else if (parameterType == Block.class) {
-                        expressions.add(index.invoke("getObject", Block.class, getChannel, position));
+                        // Even though the method signature requires a Block parameter, we can pass an Object here.
+                        // A runtime check will assert that the Object passed as a parameter is actually of type Block.
+                        expressions.add(index.invoke("getObject", Object.class, getChannel, position));
                     }
                     else {
                         throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));

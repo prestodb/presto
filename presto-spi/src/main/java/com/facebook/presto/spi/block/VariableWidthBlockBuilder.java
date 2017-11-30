@@ -127,7 +127,7 @@ public class VariableWidthBlockBuilder
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        consumer.accept(sliceOutput, (long) sliceOutput.getRetainedSize());
+        consumer.accept(sliceOutput, sliceOutput.getRetainedSize());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
         consumer.accept(this, (long) INSTANCE_SIZE);

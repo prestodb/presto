@@ -18,7 +18,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.block.RowBlockBuilder;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Throwables;
@@ -37,9 +38,10 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 
@@ -67,6 +69,7 @@ public final class OperatorAssertion
             if (handledBlocked(operator)) {
                 continue;
             }
+            handleMemoryRevoking(operator);
 
             if (input.hasNext() && operator.needsInput()) {
                 operator.addInput(input.next());
@@ -91,6 +94,7 @@ public final class OperatorAssertion
             if (handledBlocked(operator)) {
                 continue;
             }
+            handleMemoryRevoking(operator);
             operator.finish();
             Page outputPage = operator.getOutput();
             if (outputPage != null && outputPage.getPositionCount() != 0) {
@@ -114,6 +118,14 @@ public final class OperatorAssertion
             return true;
         }
         return false;
+    }
+
+    private static void handleMemoryRevoking(Operator operator)
+    {
+        if (operator.getOperatorContext().getReservedRevocableBytes() > 0) {
+            getFutureValue(operator.startMemoryRevoke());
+            operator.finishMemoryRevoke();
+        }
     }
 
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input)
@@ -145,11 +157,14 @@ public final class OperatorAssertion
     {
         checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");
 
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), parameterTypes.size());
+        RowType rowType = new RowType(parameterTypes, Optional.empty());
+        BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1);
+        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < values.length; i++) {
-            appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
+            appendToBlockBuilder(parameterTypes.get(i), values[i], singleRowBlockWriter);
         }
-        return blockBuilder.build();
+        blockBuilder.closeEntry();
+        return rowType.getObject(blockBuilder, 0);
     }
 
     public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, List<Page> expected)

@@ -89,8 +89,7 @@ public class BridgingHiveMetastore
                         statistics.entrySet().stream()
                                 .collect(Collectors.toMap(
                                         Map.Entry::getKey,
-                                        entry -> groupStatisticsByColumn(entry.getValue())
-                                ))));
+                                        entry -> groupStatisticsByColumn(entry.getValue())))));
     }
 
     private Map<String, HiveColumnStatistics> groupStatisticsByColumn(Set<ColumnStatisticsObj> statistics)

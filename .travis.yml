@@ -23,7 +23,7 @@ env:
 
 sudo: required
 dist: trusty
-group: deprecated-2017Q2
+group: deprecated-2017Q3
 addons:
   apt:
     packages:
@@ -161,5 +161,5 @@ after_script:
       . /tmp/job_artifacts/
     wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/job_artifacts/log.txt
 
-    aws s3 sync /tmp/job_artifacts ${JOB_ARTIFACTS_URL_PREFIX}_$((JOB_RUN_ATTEMPTS + 1))-${JOB_STATUS}
+    aws s3 sync /tmp/job_artifacts ${JOB_ARTIFACTS_URL_PREFIX}_$((JOB_RUN_ATTEMPTS + 1))-${JOB_STATUS} --quiet
   fi

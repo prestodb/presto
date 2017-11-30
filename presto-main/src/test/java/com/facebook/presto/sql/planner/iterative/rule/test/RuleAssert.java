@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.PlanNodeCost;
+import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
+import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -34,8 +36,8 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -48,7 +50,7 @@ public class RuleAssert
     private final Metadata metadata;
     private final CostCalculator costCalculator;
     private Session session;
-    private final Rule rule;
+    private final Rule<?> rule;
 
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
@@ -114,7 +116,7 @@ public class RuleAssert
                     formatPlan(plan, types)));
         }
 
-        PlanNode actual = ruleApplication.getResult();
+        PlanNode actual = ruleApplication.getTransformedPlan();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
             fail(String.format(
@@ -144,15 +146,27 @@ public class RuleAssert
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(memo::resolve);
+        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
-        if (!rule.getPattern().matches(plan)) {
-            return new RuleApplication(lookup, symbolAllocator.getTypes(), Optional.empty());
+        PlanNode memoRoot = memo.getNode(memo.getRootGroup());
+
+        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(symbolAllocator, lookup, session)));
+    }
+
+    private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
+    {
+        PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
+        Match<T> match = matcher.match(rule.getPattern(), planNode);
+
+        Rule.Result result;
+        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
+            result = Rule.Result.empty();
+        }
+        else {
+            result = rule.apply(match.value(), match.captures(), context);
         }
 
-        Optional<PlanNode> result = inTransaction(session -> rule.apply(memo.getNode(memo.getRootGroup()), ruleContext(symbolAllocator, lookup, session)));
-
-        return new RuleApplication(lookup, symbolAllocator.getTypes(), result);
+        return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);
     }
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
@@ -205,9 +219,9 @@ public class RuleAssert
     {
         private final Lookup lookup;
         private final Map<Symbol, Type> types;
-        private final Optional<PlanNode> result;
+        private final Rule.Result result;
 
-        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Optional<PlanNode> result)
+        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.types = requireNonNull(types, "types is null");
@@ -216,12 +230,12 @@ public class RuleAssert
 
         private boolean wasRuleApplied()
         {
-            return result.isPresent();
+            return !result.isEmpty();
         }
 
-        public PlanNode getResult()
+        public PlanNode getTransformedPlan()
         {
-            return result.orElseThrow(() -> new IllegalStateException("Rule was not applied"));
+            return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
         }
     }
 }

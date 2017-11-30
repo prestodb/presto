@@ -39,7 +39,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -109,7 +108,7 @@ public class JoinCompiler
                 }
             });
 
-    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<SortExpression> sortChannel)
+    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
         return compileLookupSourceFactory(types, joinChannels, sortChannel, Optional.empty());
     }
@@ -128,7 +127,7 @@ public class JoinCompiler
         return new CacheStatsMBean(hashStrategies);
     }
 
-    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<SortExpression> sortChannel, Optional<List<Integer>> outputChannels)
+    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel, Optional<List<Integer>> outputChannels)
     {
         try {
             return lookupSourceFactories.get(new CacheKey(
@@ -172,7 +171,7 @@ public class JoinCompiler
                 .collect(toImmutableList());
     }
 
-    private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpression> sortChannel)
+    private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
         Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, outputChannels, joinChannels, sortChannel);
 
@@ -201,7 +200,7 @@ public class JoinCompiler
         return instanceSize;
     }
 
-    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpression> sortChannel)
+    private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -400,8 +399,7 @@ public class JoinCompiler
             ifStatement.condition(block.invoke(
                     "isNull",
                     boolean.class,
-                    blockPosition
-            ));
+                    blockPosition));
             ifStatement.ifTrue(constantTrue().ret());
             isPositionNullMethod.getBody().append(ifStatement);
         }
@@ -434,8 +432,7 @@ public class JoinCompiler
                         long.class,
                         hashChannel.invoke("get", Object.class, blockIndex).cast(Block.class),
                         blockPosition)
-                        .ret()
-        );
+                        .ret());
 
         hashPositionMethod
                 .getBody()
@@ -714,7 +711,7 @@ public class JoinCompiler
             CallSiteBinder callSiteBinder,
             List<Type> types,
             List<FieldDefinition> channelFields,
-            Optional<SortExpression> sortChannel)
+            Optional<Integer> sortChannel)
     {
         Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
         Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
@@ -738,7 +735,7 @@ public class JoinCompiler
 
         Variable thisVariable = compareMethod.getThis();
 
-        int index = sortChannel.get().getChannel();
+        int index = sortChannel.get();
         BytecodeExpression type = constantType(callSiteBinder, types.get(index));
 
         BytecodeExpression leftBlock = thisVariable
@@ -761,7 +758,7 @@ public class JoinCompiler
     private static void generateIsSortChannelPositionNull(
             ClassDefinition classDefinition,
             List<FieldDefinition> channelFields,
-            Optional<SortExpression> sortChannel)
+            Optional<Integer> sortChannel)
     {
         Parameter blockIndex = arg("blockIndex", int.class);
         Parameter blockPosition = arg("blockPosition", int.class);
@@ -781,7 +778,7 @@ public class JoinCompiler
 
         Variable thisVariable = isSortChannelPositionNullMethod.getThis();
 
-        int index = sortChannel.get().getChannel();
+        int index = sortChannel.get();
 
         BytecodeExpression block = thisVariable
                 .getField(channelFields.get(index))
@@ -837,7 +834,7 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class);
+                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -849,11 +846,13 @@ public class JoinCompiler
                 LongArrayList addresses,
                 List<List<Block>> channels,
                 Optional<Integer> hashChannel,
-                Optional<JoinFilterFunctionFactory> filterFunctionFactory)
+                Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+                Optional<Integer> sortChannel,
+                List<JoinFilterFunctionFactory> searchFunctionFactories)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
@@ -891,9 +890,9 @@ public class JoinCompiler
         private final List<Type> types;
         private final List<Integer> outputChannels;
         private final List<Integer> joinChannels;
-        private final Optional<SortExpression> sortChannel;
+        private final Optional<Integer> sortChannel;
 
-        private CacheKey(List<? extends Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<SortExpression> sortChannel)
+        private CacheKey(List<? extends Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<Integer> sortChannel)
         {
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
@@ -916,7 +915,7 @@ public class JoinCompiler
             return joinChannels;
         }
 
-        public Optional<SortExpression> getSortChannel()
+        private Optional<Integer> getSortChannel()
         {
             return sortChannel;
         }

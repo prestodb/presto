@@ -33,13 +33,13 @@ public final class GroupingOperationFunction
     /**
      * The grouping function is used in conjunction with GROUPING SETS, ROLLUP and CUBE to
      * indicate which columns are present in that grouping.
-     *
-     * <p>The grouping function must be invoked with arguments that exactly match the columns
+     * <p>
+     * The grouping function must be invoked with arguments that exactly match the columns
      * referenced in the corresponding GROUPING SET, ROLLUP or CUBE clause at the associated
      * query level. Those column arguments are not evaluated and instead the function is
      * re-written with the arguments below.
-     *
-     * <p>To compute the resulting bit set for a particular row, bits are assigned to the
+     * <p>
+     * To compute the resulting bit set for a particular row, bits are assigned to the
      * argument columns with the rightmost column being the most significant bit. For a
      * given grouping, a bit is set to 0 if the corresponding column is included in the
      * grouping and 1 otherwise. For an example, see the SQL documentation for the

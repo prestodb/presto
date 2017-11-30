@@ -15,7 +15,8 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.matching.MatchingEngine;
+import com.facebook.presto.matching.Match;
+import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -30,8 +31,8 @@ import io.airlift.units.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,18 +43,18 @@ public class IterativeOptimizer
         implements PlanOptimizer
 {
     private final List<PlanOptimizer> legacyRules;
-    private final MatchingEngine<Rule> ruleStore;
+    private final RuleIndex ruleIndex;
     private final StatsRecorder stats;
 
-    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
+    public IterativeOptimizer(StatsRecorder stats, Set<Rule<?>> rules)
     {
         this(stats, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
+    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
-        this.ruleStore = MatchingEngine.<Rule>builder()
+        this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
                 .build();
 
@@ -75,26 +76,28 @@ public class IterativeOptimizer
         }
 
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(memo::resolve);
+        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        exploreGroup(memo.getRootGroup(), new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session));
+        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session);
+        exploreGroup(memo.getRootGroup(), context, matcher);
 
         return memo.extract();
     }
 
-    private boolean exploreGroup(int group, Context context)
+    private boolean exploreGroup(int group, Context context, Matcher matcher)
     {
         // tracks whether this group or any children groups change as
         // this method executes
-        boolean progress = exploreNode(group, context);
+        boolean progress = exploreNode(group, context, matcher);
 
-        while (exploreChildren(group, context)) {
+        while (exploreChildren(group, context, matcher)) {
             progress = true;
 
             // if children changed, try current group again
             // in case we can match additional rules
-            if (!exploreNode(group, context)) {
+            if (!exploreNode(group, context, matcher)) {
                 // no additional matches, so bail out
                 break;
             }
@@ -103,7 +106,7 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private boolean exploreNode(int group, Context context)
+    private boolean exploreNode(int group, Context context, Matcher matcher)
     {
         PlanNode node = context.getMemo().getNode(group);
 
@@ -116,29 +119,18 @@ public class IterativeOptimizer
             }
 
             done = true;
-            Iterator<Rule> possiblyMatchingRules = ruleStore.getCandidates(node).iterator();
+            Iterator<Rule<?>> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
             while (possiblyMatchingRules.hasNext()) {
-                Rule rule = possiblyMatchingRules.next();
-                Optional<PlanNode> transformed;
+                Rule<?> rule = possiblyMatchingRules.next();
 
-                if (!rule.getPattern().matches(node)) {
+                if (!rule.isEnabled(context.session)) {
                     continue;
                 }
 
-                long duration;
-                try {
-                    long start = System.nanoTime();
-                    transformed = rule.apply(node, context);
-                    duration = System.nanoTime() - start;
-                }
-                catch (RuntimeException e) {
-                    stats.recordFailure(rule);
-                    throw e;
-                }
-                stats.record(rule, duration, transformed.isPresent());
+                Rule.Result result = transform(node, rule, matcher, context);
 
-                if (transformed.isPresent()) {
-                    node = context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
+                if (result.getTransformedPlan().isPresent()) {
+                    node = context.getMemo().replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
 
                     done = false;
                     progress = true;
@@ -149,12 +141,37 @@ public class IterativeOptimizer
         return progress;
     }
 
+    private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
+    {
+        Rule.Result result;
+
+        Match<T> match = matcher.match(rule.getPattern(), node);
+
+        if (match.isEmpty()) {
+            return Rule.Result.empty();
+        }
+
+        long duration;
+        try {
+            long start = System.nanoTime();
+            result = rule.apply(match.value(), match.captures(), context);
+            duration = System.nanoTime() - start;
+        }
+        catch (RuntimeException e) {
+            stats.recordFailure(rule);
+            throw e;
+        }
+        stats.record(rule, duration, !result.isEmpty());
+
+        return result;
+    }
+
     private boolean isTimeLimitExhausted(Context context)
     {
         return ((System.nanoTime() - context.getStartTimeInNanos()) / 1_000_000) >= context.getTimeoutInMilliseconds();
     }
 
-    private boolean exploreChildren(int group, Context context)
+    private boolean exploreChildren(int group, Context context, Matcher matcher)
     {
         boolean progress = false;
 
@@ -162,7 +179,7 @@ public class IterativeOptimizer
         for (PlanNode child : expression.getSources()) {
             checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
 
-            if (exploreGroup(((GroupReference) child).getGroupId(), context)) {
+            if (exploreGroup(((GroupReference) child).getGroupId(), context, matcher)) {
                 progress = true;
             }
         }
@@ -170,7 +187,8 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private static class Context implements Rule.Context
+    private static class Context
+            implements Rule.Context
     {
         private final Memo memo;
         private final Lookup lookup;

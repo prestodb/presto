@@ -62,7 +62,7 @@ public class TestMinimalFunctionality
         embeddedRedis.start();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void stopRedis()
             throws Exception
     {

@@ -57,13 +57,7 @@ public class TestPredicatePushdown
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINE_ORDER_KEY", "orderkey",
                                                         "LINE_NUMBER", "linenumber",
-                                                        "LINE_QUANTITY", "quantity")
-                                                )
-                                        )
-                                ),
-                                anyTree(tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))
-                        )
-                )
-        );
+                                                        "LINE_QUANTITY", "quantity")))),
+                                anyTree(tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
     }
 }

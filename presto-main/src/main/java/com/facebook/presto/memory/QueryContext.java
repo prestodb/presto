@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
@@ -27,16 +28,20 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class QueryContext
@@ -44,10 +49,11 @@ public class QueryContext
     private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryId queryId;
-    private final Executor executor;
+    private final Executor notificationExecutor;
+    private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
-    private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
+    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
     private final MemoryPool systemMemoryPool;
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
@@ -58,6 +64,9 @@ public class QueryContext
     private long reserved;
 
     @GuardedBy("this")
+    private long revocableReserved;
+
+    @GuardedBy("this")
     private MemoryPool memoryPool;
 
     @GuardedBy("this")
@@ -66,13 +75,14 @@ public class QueryContext
     @GuardedBy("this")
     private long spillUsed;
 
-    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor, DataSize maxSpill, SpillSpaceTracker spillSpaceTracker)
+    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, DataSize maxSpill, SpillSpaceTracker spillSpaceTracker)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
     }
@@ -98,6 +108,14 @@ public class QueryContext
         if (reserved < GUARANTEED_MEMORY) {
             return NOT_BLOCKED;
         }
+        return future;
+    }
+
+    public synchronized ListenableFuture<?> reserveRevocableMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        ListenableFuture<?> future = memoryPool.reserveRevocable(queryId, bytes);
+        revocableReserved += bytes;
         return future;
     }
 
@@ -142,6 +160,14 @@ public class QueryContext
         memoryPool.free(queryId, bytes);
     }
 
+    public synchronized void freeRevocableMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(revocableReserved - bytes >= 0, "tried to free more revocable memory than is reserved");
+        revocableReserved -= bytes;
+        memoryPool.freeRevocable(queryId, bytes);
+    }
+
     public synchronized void freeSystemMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -165,16 +191,17 @@ public class QueryContext
             return;
         }
         MemoryPool originalPool = memoryPool;
-        long originalReserved = reserved;
+        long originalReserved = reserved + revocableReserved;
         memoryPool = pool;
-        ListenableFuture<?> future = pool.reserve(queryId, reserved);
-        Futures.addCallback(future, new FutureCallback<Object>() {
+        ListenableFuture<?> future = pool.reserve(queryId, originalReserved);
+        Futures.addCallback(future, new FutureCallback<Object>()
+        {
             @Override
             public void onSuccess(Object result)
             {
                 originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.forEach(TaskContext::moreMemoryAvailable);
+                taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
             }
 
             @Override
@@ -182,15 +209,40 @@ public class QueryContext
             {
                 originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.forEach(TaskContext::moreMemoryAvailable);
+                taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
             }
         });
     }
 
+    public synchronized MemoryPool getMemoryPool()
+    {
+        return memoryPool;
+    }
+
     public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
-        taskContexts.add(taskContext);
+        TaskContext taskContext = new TaskContext(this, taskStateMachine, notificationExecutor, yieldExecutor, session, verboseStats, cpuTimerEnabled);
+        taskContexts.put(taskStateMachine.getTaskId(), taskContext);
+        return taskContext;
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitQueryContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return taskContexts.values()
+                .stream()
+                .map(taskContext -> taskContext.accept(visitor, context))
+                .collect(toList());
+    }
+
+    public TaskContext getTaskContextByTaskId(TaskId taskId)
+    {
+        TaskContext taskContext = taskContexts.get(taskId);
+        verify(taskContext != null, "task does not exist");
         return taskContext;
     }
 }

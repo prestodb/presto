@@ -39,8 +39,8 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -109,13 +109,15 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern tableScan(String expectedTableName)
     {
-        return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName));
+        return TableScanMatcher.create(expectedTableName);
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName, String originalConstraint)
     {
         Expression expectedOriginalConstraint = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(originalConstraint));
-        return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName, expectedOriginalConstraint));
+        return TableScanMatcher.builder(expectedTableName)
+                .expectedOriginalConstraint(expectedOriginalConstraint)
+                .build();
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, String> columnReferences)
@@ -134,12 +136,23 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint)
     {
-        return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName, constraint));
+        return TableScanMatcher.builder(expectedTableName)
+                .expectedConstraint(constraint)
+                .build();
     }
 
     public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
     {
         PlanMatchPattern result = constrainedTableScan(expectedTableName, constraint);
+        return result.addColumnReferences(expectedTableName, columnReferences);
+    }
+
+    public static PlanMatchPattern constrainedTableScanWithTableLayout(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
+    {
+        PlanMatchPattern result = TableScanMatcher.builder(expectedTableName)
+                .expectedConstraint(constraint)
+                .hasTableLayout()
+                .build();
         return result.addColumnReferences(expectedTableName, columnReferences);
     }
 
@@ -229,6 +242,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern sort(PlanMatchPattern source)
     {
         return node(SortNode.class, source);
+    }
+
+    public static PlanMatchPattern topN(long count, List<String> orderBy, PlanMatchPattern source)
+    {
+        return node(TopNNode.class, source).with(new TopNMatcher(count, toSymbolAliases(orderBy)));
     }
 
     public static PlanMatchPattern output(PlanMatchPattern source)
@@ -362,8 +380,7 @@ public final class PlanMatchPattern
     private static PlanMatchPattern values(
             Map<String, Integer> aliasToIndex,
             Optional<Integer> expectedOutputSymbolCount,
-            Optional<List<List<Expression>>> expectedRows
-    )
+            Optional<List<List<Expression>>> expectedRows)
     {
         return node(ValuesNode.class).with(new ValuesMatcher(aliasToIndex, expectedOutputSymbolCount, expectedRows));
     }
@@ -381,7 +398,7 @@ public final class PlanMatchPattern
         return values(aliasToIndex, Optional.empty(), Optional.empty());
     }
 
-    public static PlanMatchPattern values(String ... aliases)
+    public static PlanMatchPattern values(String... aliases)
     {
         return values(ImmutableList.copyOf(aliases));
     }

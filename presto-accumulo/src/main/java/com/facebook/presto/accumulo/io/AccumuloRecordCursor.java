@@ -139,12 +139,6 @@ public class AccumuloRecordCursor
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return 0L; // unknown value
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return bytesRead;

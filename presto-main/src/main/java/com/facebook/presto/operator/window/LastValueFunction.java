@@ -26,10 +26,12 @@ public class LastValueFunction
         extends ValueWindowFunction
 {
     private final int argumentChannel;
+    private final boolean ignoreNulls;
 
-    public LastValueFunction(List<Integer> argumentChannels)
+    public LastValueFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.argumentChannel = getOnlyElement(argumentChannels);
+        this.ignoreNulls = ignoreNulls;
     }
 
     @Override
@@ -40,6 +42,23 @@ public class LastValueFunction
             return;
         }
 
-        windowIndex.appendTo(argumentChannel, frameEnd, output);
+        int valuePosition = frameEnd;
+
+        if (ignoreNulls) {
+            while (valuePosition >= frameStart) {
+                if (!windowIndex.isNull(argumentChannel, valuePosition)) {
+                    break;
+                }
+
+                valuePosition--;
+            }
+
+            if (valuePosition < frameStart) {
+                output.appendNull();
+                return;
+            }
+        }
+
+        windowIndex.appendTo(argumentChannel, valuePosition, output);
     }
 }

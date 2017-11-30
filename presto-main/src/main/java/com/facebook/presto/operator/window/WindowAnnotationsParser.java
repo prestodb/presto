@@ -16,7 +16,6 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.function.WindowFunctionOptions;
 import com.facebook.presto.spi.function.WindowFunctionSignature;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
@@ -38,15 +37,14 @@ public final class WindowAnnotationsParser
     {
         WindowFunctionSignature[] signatures = clazz.getAnnotationsByType(WindowFunctionSignature.class);
         checkArgument(signatures.length > 0, "Class is not annotated with @WindowFunctionSignature: %s", clazz.getName());
-        WindowFunctionOptions options = clazz.getAnnotation(WindowFunctionOptions.class);
-        boolean canIgnoreNulls = options != null && options.canIgnoreNulls();
         return Stream.of(signatures)
-                .map(signature -> parse(clazz, signature, canIgnoreNulls))
+                .map(signature -> parse(clazz, signature))
                 .collect(toImmutableList());
     }
 
-    private static SqlWindowFunction parse(Class<? extends WindowFunction> clazz, WindowFunctionSignature window,
-            boolean canIgnoreNulls)
+    private static SqlWindowFunction parse(
+            Class<? extends WindowFunction> clazz,
+            WindowFunctionSignature window)
     {
         List<TypeVariableConstraint> typeVariables = ImmutableList.of();
         if (!window.typeVariable().isEmpty()) {
@@ -66,6 +64,6 @@ public final class WindowAnnotationsParser
                 argumentTypes,
                 false);
 
-        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, canIgnoreNulls, clazz));
+        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz));
     }
 }

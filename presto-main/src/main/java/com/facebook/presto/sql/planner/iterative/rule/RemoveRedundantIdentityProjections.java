@@ -13,43 +13,40 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Optional;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
 
 /**
  * Removes projection nodes that only perform non-renaming identity projections
  */
 public class RemoveRedundantIdentityProjections
-        implements Rule
+        implements Rule<ProjectNode>
 {
-    private static final Pattern PATTERN = Pattern.typeOf(ProjectNode.class);
+    private static final Pattern<ProjectNode> PATTERN = project()
+            .matching(ProjectNode::isIdentity)
+            // only drop this projection if it does not constrain the outputs
+            // of its child
+            .matching(project -> outputsSameAsSource(project));
+
+    private static boolean outputsSameAsSource(ProjectNode node)
+    {
+        return ImmutableSet.copyOf(node.getOutputSymbols()).equals(ImmutableSet.copyOf(node.getSource().getOutputSymbols()));
+    }
 
     @Override
-    public Pattern getPattern()
+    public Pattern<ProjectNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Optional<PlanNode> apply(PlanNode node, Context context)
+    public Result apply(ProjectNode project, Captures captures, Context context)
     {
-        ProjectNode project = (ProjectNode) node;
-
-        if (!project.isIdentity()) {
-            return Optional.empty();
-        }
-
-        // only drop this projection if it does not constrain the outputs
-        // of its child
-        if (!ImmutableSet.copyOf(project.getOutputSymbols()).equals(ImmutableSet.copyOf(project.getSource().getOutputSymbols()))) {
-            return Optional.empty();
-        }
-
-        return Optional.of(project.getSource());
+        return Result.ofPlanNode(project.getSource());
     }
 }
