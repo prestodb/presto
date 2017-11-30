@@ -71,6 +71,7 @@ public class ShardOrganizationManager
     private final MetadataDao metadataDao;
     private final ShardOrganizerDao organizerDao;
     private final ShardManager shardManager;
+    private final TemporalFunction temporalFunction;
 
     private final boolean enabled;
     private final long organizationIntervalMillis;
@@ -86,12 +87,14 @@ public class ShardOrganizationManager
             NodeManager nodeManager,
             ShardManager shardManager,
             ShardOrganizer organizer,
+            TemporalFunction temporalFunction,
             StorageManagerConfig config)
     {
         this(dbi,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 shardManager,
                 organizer,
+                temporalFunction,
                 config.isOrganizationEnabled(),
                 config.getOrganizationInterval());
     }
@@ -101,6 +104,7 @@ public class ShardOrganizationManager
             String currentNodeIdentifier,
             ShardManager shardManager,
             ShardOrganizer organizer,
+            TemporalFunction temporalFunction,
             boolean enabled,
             Duration organizationInterval)
     {
@@ -111,6 +115,7 @@ public class ShardOrganizationManager
         this.organizer = requireNonNull(organizer, "organizer is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.currentNodeIdentifier = requireNonNull(currentNodeIdentifier, "currentNodeIdentifier is null");
+        this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
 
         this.enabled = enabled;
 
@@ -189,7 +194,7 @@ public class ShardOrganizationManager
                 .collect(toSet());
 
         Collection<ShardIndexInfo> indexInfos = getOrganizationEligibleShards(dbi, metadataDao, tableInfo, filteredShards, true);
-        Set<OrganizationSet> organizationSets = createOrganizationSets(tableInfo, indexInfos);
+        Set<OrganizationSet> organizationSets = createOrganizationSets(temporalFunction, tableInfo, indexInfos);
 
         if (organizationSets.isEmpty()) {
             return;
@@ -226,9 +231,9 @@ public class ShardOrganizationManager
     }
 
     @VisibleForTesting
-    static Set<OrganizationSet> createOrganizationSets(Table tableInfo, Collection<ShardIndexInfo> shards)
+    static Set<OrganizationSet> createOrganizationSets(TemporalFunction temporalFunction, Table tableInfo, Collection<ShardIndexInfo> shards)
     {
-        return getShardsByDaysBuckets(tableInfo, shards).stream()
+        return getShardsByDaysBuckets(tableInfo, shards, temporalFunction).stream()
                 .map(indexInfos -> getOverlappingOrganizationSets(tableInfo, indexInfos))
                 .flatMap(Collection::stream)
                 .collect(toSet());
