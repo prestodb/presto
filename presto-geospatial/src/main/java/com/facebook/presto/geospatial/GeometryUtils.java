@@ -53,28 +53,24 @@ public final class GeometryUtils
 
     public static GeometryTypeName valueOf(String type)
     {
-        if (type.equals(POINT)) {
-            return GeometryTypeName.POINT;
+        switch (type) {
+            case POINT:
+                return GeometryTypeName.POINT;
+            case MULTI_POINT:
+                return GeometryTypeName.MULTI_POINT;
+            case LINE_STRING:
+                return GeometryTypeName.LINE_STRING;
+            case MULTI_LINE_STRING:
+                return GeometryTypeName.MULTI_LINE_STRING;
+            case POLYGON:
+                return GeometryTypeName.POLYGON;
+            case MULTI_POLYGON:
+                return GeometryTypeName.MULTI_POLYGON;
+            case GEOMETRY_COLLECTION:
+                return GeometryTypeName.GEOMETRY_COLLECTION;
+            default:
+                throw new IllegalArgumentException("Invalid Geometry Type: " + type);
         }
-        else if (type.equals(MULTI_POINT)) {
-            return GeometryTypeName.MULTI_POINT;
-        }
-        else if (type.equals(LINE_STRING)) {
-            return GeometryTypeName.LINE_STRING;
-        }
-        else if (type.equals(MULTI_LINE_STRING)) {
-            return GeometryTypeName.MULTI_LINE_STRING;
-        }
-        else if (type.equals(POLYGON)) {
-            return GeometryTypeName.POLYGON;
-        }
-        else if (type.equals(MULTI_POLYGON)) {
-            return GeometryTypeName.MULTI_POLYGON;
-        }
-        else if (type.equals(GEOMETRY_COLLECTION)) {
-            return GeometryTypeName.GEOMETRY_COLLECTION;
-        }
-        throw new IllegalArgumentException("Invalid Geometry Type: " + type);
     }
 
     public static OGCGeometry deserialize(Slice shape)
