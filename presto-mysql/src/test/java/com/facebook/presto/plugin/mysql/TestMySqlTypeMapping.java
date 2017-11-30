@@ -23,7 +23,6 @@ import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import io.airlift.testing.mysql.TestingMySqlServer;
-import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -38,6 +37,7 @@ import static com.facebook.presto.tests.datatype.DataType.stringDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 
 @Test
 public class TestMySqlTypeMapping
@@ -56,7 +56,7 @@ public class TestMySqlTypeMapping
     private TestMySqlTypeMapping(TestingMySqlServer mysqlServer)
             throws Exception
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
+        super(() -> createMySqlQueryRunner(mysqlServer, emptyList()));
         this.mysqlServer = mysqlServer;
     }
 
