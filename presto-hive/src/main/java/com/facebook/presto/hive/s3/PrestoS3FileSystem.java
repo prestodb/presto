@@ -902,7 +902,7 @@ public class PrestoS3FileSystem
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             try {
-                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path)).withRange(start, Long.MAX_VALUE);
+                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path)).withRange(start);
                                 return s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
