@@ -14,29 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
-public interface TypedHistogram
+public interface HistogramValueReader
 {
-    long getEstimatedSize();
-
-    void serialize(BlockBuilder out);
-
-    void addAll(TypedHistogram other);
-
-    void readAllValues(HistogramValueReader reader);
-
-    void add(int position, Block block, long count);
-
-    Type getType();
-
-    int getExpectedSize();
-
-    // no-op on non-grouped
-    default TypedHistogram setGroupId(long groupId) { return this;}
-
-    default void ensureCapacity(long size) {}
-
-    boolean isEmpty();
+    void read(Block block, int position, long count);
 }

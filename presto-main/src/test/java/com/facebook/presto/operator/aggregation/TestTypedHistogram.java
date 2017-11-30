@@ -34,7 +34,7 @@ public class TestTypedHistogram
     {
         BlockBuilder inputBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 5000);
 
-        TypedHistogram typedHistogram = new TypedHistogram(BIGINT, 1000);
+        TypedHistogram typedHistogram = new SingleTypedHistogram(BIGINT, 1000);
         IntStream.range(1, 2000)
                 .flatMap(i -> IntStream.iterate(i, IntUnaryOperator.identity()).limit(i))
                 .forEach(j -> BIGINT.writeLong(inputBlockBuilder, j));

@@ -13,118 +13,55 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.operator.aggregation.TypedHistogram;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import org.openjdk.jol.info.ClassLayout;
-
-import static java.util.Objects.requireNonNull;
+import com.facebook.presto.spi.type.Type;
 
 public class HistogramStateFactory
         implements AccumulatorStateFactory<HistogramState>
 {
+    private final boolean fullyShared;
+    private final Type keyType;
+    private final int expectedEntriesCount;
+
+    public HistogramStateFactory(Type keyType, int expectedEntriesCount)
+    {
+        this.keyType = keyType;
+        this.expectedEntriesCount = expectedEntriesCount;
+        // todo: hack: remove before merge and use config system and specialize if need be
+        fullyShared = Boolean.parseBoolean(System.getProperty("presto.aggregations.grouped-histo-gram.fully-shared", "true"));
+    }
+
     @Override
     public HistogramState createSingleState()
     {
-        return new SingleState();
+        return new SingleHistogramState(keyType, expectedEntriesCount);
     }
 
     @Override
     public Class<? extends HistogramState> getSingleStateClass()
     {
-        return SingleState.class;
+        return SingleHistogramState.class;
     }
 
     @Override
     public HistogramState createGroupedState()
     {
-        return new GroupedState();
+        if (fullyShared) {
+            return new SingleInstanceGroupedHistogramState(keyType, expectedEntriesCount);
+        }
+        else {
+            return new GroupedHistogramState(keyType, expectedEntriesCount);
+        }
     }
 
     @Override
     public Class<? extends HistogramState> getGroupedStateClass()
     {
-        return GroupedState.class;
-    }
-
-    public static class GroupedState
-            extends AbstractGroupedAccumulatorState
-            implements HistogramState
-    {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
-        private final ObjectBigArray<TypedHistogram> typedHistogram = new ObjectBigArray<>();
-        private long size;
-
-        @Override
-        public void ensureCapacity(long size)
-        {
-            typedHistogram.ensureCapacity(size);
+        if (fullyShared) {
+            return SingleInstanceGroupedHistogramState.class;
         }
-
-        @Override
-        public TypedHistogram get()
-        {
-            return typedHistogram.get(getGroupId());
-        }
-
-        @Override
-        public void set(TypedHistogram value)
-        {
-            requireNonNull(value, "value is null");
-
-            TypedHistogram previous = get();
-            if (previous != null) {
-                size -= previous.getEstimatedSize();
-            }
-
-            typedHistogram.set(getGroupId(), value);
-            size += value.getEstimatedSize();
-        }
-
-        @Override
-        public void addMemoryUsage(long memory)
-        {
-            size += memory;
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return INSTANCE_SIZE + size + typedHistogram.sizeOf();
-        }
-    }
-
-    public static class SingleState
-            implements HistogramState
-    {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
-        private TypedHistogram typedHistogram;
-
-        @Override
-        public TypedHistogram get()
-        {
-            return typedHistogram;
-        }
-
-        @Override
-        public void set(TypedHistogram value)
-        {
-            typedHistogram = value;
-        }
-
-        @Override
-        public void addMemoryUsage(long memory)
-        {
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            long estimatedSize = INSTANCE_SIZE;
-            if (typedHistogram != null) {
-                estimatedSize += typedHistogram.getEstimatedSize();
-            }
-            return estimatedSize;
+        else {
+            return GroupedHistogramState.class;
         }
     }
 }

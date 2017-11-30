@@ -14,16 +14,28 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.operator.aggregation.TypedHistogram;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import com.facebook.presto.spi.type.Type;
 
 @AccumulatorStateMetadata(stateFactoryClass = HistogramStateFactory.class, stateSerializerClass = HistogramStateSerializer.class)
 public interface HistogramState
         extends AccumulatorState
 {
+    /**
+     * will create an empty histogram if none exists
+     * @return histogram based on the type of state (single, grouped)
+     */
     TypedHistogram get();
 
-    void set(TypedHistogram value);
+    /**
+     * used only in combine() for efficiency
+     * @param typedHistogram
+     */
+    void set(TypedHistogram typedHistogram);
 
     void addMemoryUsage(long memory);
+
+    void deserialize(Block block, Type type, int expectedSize);
 }
