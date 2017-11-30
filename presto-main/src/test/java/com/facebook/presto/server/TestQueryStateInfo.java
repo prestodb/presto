@@ -206,6 +206,7 @@ public class TestQueryStateInfo
 
         QueryProgressStats progress = infoForQueryRunningOnRootAX.getProgress().get();
         assertTrue(progress.isBlocked());
+        assertEquals(progress.getBlockedReasons(), ImmutableSet.of(WAITING_FOR_MEMORY));
         assertEquals(progress.getProgressPercentage(), OptionalDouble.of(19));
         assertEquals(progress.getExecutionStartTime(), DateTime.parse("1991-09-06T05:01-05:30"));
         assertEquals(progress.getElapsedTimeMillis(), Duration.valueOf("8m").toMillis());

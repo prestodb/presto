@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -39,6 +40,7 @@ public class TestQueryProgressStats
                 1000,
                 100000,
                 false,
+                ImmutableSet.of(),
                 OptionalDouble.of(33.33));
         JsonCodec<QueryProgressStats> codec = JsonCodec.jsonCodec(QueryProgressStats.class);
 
@@ -56,6 +58,7 @@ public class TestQueryProgressStats
         assertEquals(actual.getInputRows(), 1000);
         assertEquals(actual.getInputBytes(), 100000);
         assertFalse(actual.isBlocked());
+        assertEquals(actual.getBlockedReasons(), ImmutableSet.of());
         assertEquals(actual.getProgressPercentage(), OptionalDouble.of(33.33));
     }
 }

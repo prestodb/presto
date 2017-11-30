@@ -15,11 +15,14 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.operator.BlockedReason;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTime;
 
 import java.util.OptionalDouble;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,6 +40,7 @@ public class QueryProgressStats
     private final long inputBytes;
     private final OptionalDouble progressPercentage;
     private final boolean blocked;
+    private final Set<BlockedReason> blockedReasons;
 
     @JsonCreator
     public QueryProgressStats(
@@ -51,6 +55,7 @@ public class QueryProgressStats
             @JsonProperty("inputRows") long inputRows,
             @JsonProperty("inputBytes") long inputBytes,
             @JsonProperty("blocked") boolean blocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
     {
         this.executionStartTime = requireNonNull(executionStartTime, "executionStartTime is null");
@@ -64,6 +69,7 @@ public class QueryProgressStats
         this.inputRows = inputRows;
         this.inputBytes = inputBytes;
         this.blocked = blocked;
+        this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 
@@ -81,6 +87,7 @@ public class QueryProgressStats
                 queryStats.getRawInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
                 queryStats.isFullyBlocked(),
+                queryStats.getBlockedReasons(),
                 queryStats.getProgressPercentage());
     }
 
@@ -154,5 +161,11 @@ public class QueryProgressStats
     public OptionalDouble getProgressPercentage()
     {
         return progressPercentage;
+    }
+
+    @JsonProperty
+    public Set<BlockedReason> getBlockedReasons()
+    {
+        return blockedReasons;
     }
 }
