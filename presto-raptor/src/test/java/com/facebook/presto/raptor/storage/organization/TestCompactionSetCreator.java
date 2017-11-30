@@ -32,6 +32,7 @@ import java.util.UUID;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -44,7 +45,7 @@ public class TestCompactionSetCreator
     private static final Table bucketedTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty(), false);
     private static final Table bucketedTemporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.of(1), false);
 
-    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
+    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new TemporalFunction(UTC), MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 
     @Test
     public void testNonTemporalOrganizationSetSimple()
