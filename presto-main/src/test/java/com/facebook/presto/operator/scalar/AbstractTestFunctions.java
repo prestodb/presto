@@ -28,7 +28,6 @@ import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.AfterClass;
@@ -42,17 +41,13 @@ import java.util.Map;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
@@ -119,141 +114,47 @@ public abstract class AbstractTestFunctions
 
     protected void assertInvalidFunction(String projection)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to fail");
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
+        functionAssertions.assertInvalidFunction(projection);
     }
 
     protected void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to throw a PrestoException with message matching " + messagePattern);
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), errorCode.toErrorCode());
-                assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern));
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        functionAssertions.assertInvalidFunction(projection, errorCode, messagePattern);
     }
 
     protected void assertInvalidFunction(String projection, String messagePattern)
     {
-        assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
+        functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
     }
 
     protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
     {
-        try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode));
-        }
-        catch (SemanticException e) {
-            try {
-                assertEquals(e.getCode(), expectedErrorCode);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
     }
 
     protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String message)
     {
-        try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode));
-        }
-        catch (SemanticException e) {
-            try {
-                assertEquals(e.getCode(), expectedErrorCode);
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        functionAssertions.assertInvalidFunction(projection, expectedErrorCode, message);
     }
 
     protected void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
     {
-        try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode.toErrorCode()));
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), expectedErrorCode.toErrorCode());
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
     }
 
     protected void assertNumericOverflow(String projection, String message)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an NUMERIC_VALUE_OUT_OF_RANGE exception with message " + message);
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode());
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        functionAssertions.assertNumericOverflow(projection, message);
     }
 
     protected void assertInvalidCast(String projection)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        functionAssertions.assertInvalidCast(projection);
     }
 
     protected void assertInvalidCast(String projection, String message)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        functionAssertions.assertInvalidCast(projection, message);
     }
 
     public void assertCachedInstanceHasBoundedRetainedSize(String projection)
@@ -341,11 +242,5 @@ public abstract class AbstractTestFunctions
             }
         }
         return map;
-    }
-
-    private void evaluateInvalid(String projection)
-    {
-        // type isn't necessary as the function is not valid
-        functionAssertions.assertFunction(projection, UNKNOWN, null);
     }
 }
