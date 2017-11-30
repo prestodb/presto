@@ -92,7 +92,9 @@ public class DriverFactory
             Operator operator = operatorFactory.createOperator(driverContext);
             operators.add(operator);
         }
-        return new Driver(driverContext, operators.build());
+        Driver driver = new Driver(driverContext, operators.build());
+        driver.initialize();
+        return driver;
     }
 
     public synchronized void noMoreDrivers()

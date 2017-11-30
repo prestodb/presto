@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -80,6 +81,7 @@ public class Driver
     private TaskSource currentTaskSource;
 
     private AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
+    private final AtomicBoolean initialized = new AtomicBoolean();
 
     private enum State
     {
@@ -123,13 +125,24 @@ public class Driver
         driverBlockedFuture.set(future);
     }
 
+    public void initialize()
+    {
+        if (initialized.compareAndSet(false, true)) {
+            operators.stream()
+                    .map(Operator::getOperatorContext)
+                    .forEach(operatorContext -> operatorContext.setMemoryRevocationRequestListener(() -> driverBlockedFuture.get().set(null)));
+        }
+    }
+
     public DriverContext getDriverContext()
     {
+        checkState(initialized.get(), "Driver is not initialized");
         return driverContext;
     }
 
     public Optional<PlanNodeId> getSourceId()
     {
+        checkState(initialized.get(), "Driver is not initialized");
         return sourceOperator.map(SourceOperator::getSourceId);
     }
 
@@ -170,6 +183,7 @@ public class Driver
 
     public void updateSource(TaskSource source)
     {
+        checkState(initialized.get(), "Driver is not initialized");
         checkLockNotHeld("Can not update sources while holding the driver lock");
 
         // does this driver have an operator for the specified source?
@@ -230,6 +244,7 @@ public class Driver
 
     public ListenableFuture<?> processFor(Duration duration)
     {
+        checkState(initialized.get(), "Driver is not initialized");
         checkLockNotHeld("Can not process for a duration while holding the driver lock");
 
         requireNonNull(duration, "duration is null");
@@ -266,6 +281,7 @@ public class Driver
 
     public ListenableFuture<?> process()
     {
+        checkState(initialized.get(), "Driver is not initialized");
         checkLockNotHeld("Can not process while holding the driver lock");
 
         // if the driver is blocked we don't need to continue
@@ -283,6 +299,7 @@ public class Driver
 
     private ListenableFuture<?> updateDriverBlockedFuture(ListenableFuture<?> sourceBlockedFuture)
     {
+        checkState(initialized.get(), "Driver is not initialized");
         // driverBlockedFuture will be completed as soon as the sourceBlockedFuture is completed
         // or any of the operators gets a memory revocation request
         SettableFuture<?> newDriverBlockedFuture = SettableFuture.create();

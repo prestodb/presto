@@ -430,6 +430,7 @@ public class TestHashJoinOperator
                     valuesOperatorFactory.createOperator(joinDriverContext),
                     joinOperator,
                     pageBufferOperatorFactory.createOperator(joinDriverContext));
+            joinDriver.initialize();
 
             while (!called.get()) { // process first row of first page of LookupJoinOperator
                 processRow(joinDriver, taskStateMachine);
@@ -1074,6 +1075,7 @@ public class TestHashJoinOperator
         Driver sourceDriver = new Driver(collectDriverContext,
                 valuesOperatorFactory.createOperator(collectDriverContext),
                 sinkOperatorFactory.createOperator(collectDriverContext));
+        sourceDriver.initialize();
         valuesOperatorFactory.noMoreOperators();
         sinkOperatorFactory.noMoreOperators();
 
@@ -1112,6 +1114,7 @@ public class TestHashJoinOperator
                     buildDriverContext,
                     sourceOperatorFactory.createOperator(buildDriverContext),
                     buildOperator);
+            driver.initialize();
             buildDrivers.add(driver);
             buildOperators.add(buildOperator);
         }

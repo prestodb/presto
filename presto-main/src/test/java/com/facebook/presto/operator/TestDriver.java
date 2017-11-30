@@ -104,6 +104,7 @@ public class TestDriver
 
         Operator sink = createSinkOperator(source);
         Driver driver = new Driver(driverContext, source, sink);
+        driver.initialize();
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -126,6 +127,7 @@ public class TestDriver
 
         PageConsumerOperator sink = createSinkOperator(source);
         Driver driver = new Driver(driverContext, source, sink);
+        driver.initialize();
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -163,6 +165,7 @@ public class TestDriver
 
         PageConsumerOperator sink = createSinkOperator(source);
         Driver driver = new Driver(driverContext, source, sink);
+        driver.initialize();
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -186,6 +189,7 @@ public class TestDriver
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
         final Driver driver = new Driver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
+        driver.initialize();
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -219,6 +223,7 @@ public class TestDriver
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
         final Driver driver = new Driver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
+        driver.initialize();
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -267,6 +272,7 @@ public class TestDriver
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
         final Driver driver = new Driver(driverContext, source, brokenOperator);
+        driver.initialize();
 
         // block thread in operator processing
         Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
