@@ -80,7 +80,7 @@ public class Driver
     @GuardedBy("exclusiveLock")
     private TaskSource currentTaskSource;
 
-    private AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
+    private final AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
     private final AtomicBoolean initialized = new AtomicBoolean();
 
     private enum State
