@@ -309,6 +309,8 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
+    // this is not safe as it catches all RuntimeExceptions
+    @Deprecated
     public void assertInvalidFunction(String projection)
     {
         try {
