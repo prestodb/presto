@@ -217,7 +217,7 @@ public class BingTileFunctions
             checkCondition(tileCount <= 1_000_000, "The number of input tiles is too large (more than 1M) to compute a set of covering bing tiles.");
         }
         else {
-            long complexity = tileCount * getPointCount(geometry.getEsriGeometry());
+            long complexity = ((long) tileCount) * getPointCount(geometry.getEsriGeometry());
             checkCondition(complexity <= 25_000_000, "The zoom level is too high or the geometry is too complex to compute a set of covering bing tiles. " +
                     "Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
         }
