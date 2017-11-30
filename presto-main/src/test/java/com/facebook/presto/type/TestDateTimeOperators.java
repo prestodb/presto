@@ -14,7 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
@@ -40,7 +39,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertThrows;
 
 public class TestDateTimeOperators
         extends AbstractTestFunctions
@@ -67,8 +65,8 @@ public class TestDateTimeOperators
         assertFunction("DATE '2001-1-22' + INTERVAL '3' year", DATE, toDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, UTC)));
         assertFunction("INTERVAL '3' year + DATE '2001-1-22'", DATE, toDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, UTC)));
 
-        assertThrows(PrestoException.class, () -> functionAssertions.tryEvaluate("DATE '2001-1-22' + INTERVAL '3' hour", DATE));
-        assertThrows(PrestoException.class, () -> functionAssertions.tryEvaluate("INTERVAL '3' hour + DATE '2001-1-22'", DATE));
+        assertInvalidFunction("DATE '2001-1-22' + INTERVAL '3' hour", "Cannot add hour, minutes or seconds to a date");
+        assertInvalidFunction("INTERVAL '3' hour + DATE '2001-1-22'", "Cannot add hour, minutes or seconds to a date");
     }
 
     @Test
@@ -178,7 +176,7 @@ public class TestDateTimeOperators
     {
         assertFunction("DATE '2001-1-22' - INTERVAL '3' day", DATE, toDate(new DateTime(2001, 1, 19, 0, 0, 0, 0, UTC)));
 
-        assertThrows(PrestoException.class, () -> functionAssertions.tryEvaluate("DATE '2001-1-22' - INTERVAL '3' hour", DATE));
+        assertInvalidFunction("DATE '2001-1-22' - INTERVAL '3' hour", "Cannot subtract hour, minutes or seconds from a date");
     }
 
     @Test
