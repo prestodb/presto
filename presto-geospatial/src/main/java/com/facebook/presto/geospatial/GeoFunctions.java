@@ -356,7 +356,7 @@ public final class GeoFunctions
         if (geometry.isEmpty()) {
             return null;
         }
-        return Double.valueOf(((OGCPoint) geometry).X());
+        return ((OGCPoint) geometry).X();
     }
 
     @SqlNullable
@@ -370,7 +370,7 @@ public final class GeoFunctions
         if (geometry.isEmpty()) {
             return null;
         }
-        return Double.valueOf(((OGCPoint) geometry).Y());
+        return ((OGCPoint) geometry).Y();
     }
 
     @Description("Returns the closure of the combinatorial boundary of this Geometry")
