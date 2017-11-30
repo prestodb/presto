@@ -135,8 +135,14 @@ public abstract class AbstractTestFunctions
             fail("Expected to throw a PrestoException with message matching " + messagePattern);
         }
         catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
-            assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern));
+            try {
+                assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+                assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern));
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
         }
     }
 
@@ -152,7 +158,13 @@ public abstract class AbstractTestFunctions
             fail(format("Expected to throw %s exception", expectedErrorCode));
         }
         catch (SemanticException e) {
-            assertEquals(e.getCode(), expectedErrorCode);
+            try {
+                assertEquals(e.getCode(), expectedErrorCode);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
         }
     }
 
@@ -163,8 +175,14 @@ public abstract class AbstractTestFunctions
             fail(format("Expected to throw %s exception", expectedErrorCode));
         }
         catch (SemanticException e) {
-            assertEquals(e.getCode(), expectedErrorCode);
-            assertEquals(e.getMessage(), message);
+            try {
+                assertEquals(e.getCode(), expectedErrorCode);
+                assertEquals(e.getMessage(), message);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
         }
     }
 
@@ -175,7 +193,13 @@ public abstract class AbstractTestFunctions
             fail(format("Expected to throw %s exception", expectedErrorCode.toErrorCode()));
         }
         catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), expectedErrorCode.toErrorCode());
+            try {
+                assertEquals(e.getErrorCode(), expectedErrorCode.toErrorCode());
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
         }
     }
 
@@ -186,8 +210,14 @@ public abstract class AbstractTestFunctions
             fail("Expected to throw an NUMERIC_VALUE_OUT_OF_RANGE exception with message " + message);
         }
         catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode());
-            assertEquals(e.getMessage(), message);
+            try {
+                assertEquals(e.getErrorCode(), NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode());
+                assertEquals(e.getMessage(), message);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
         }
     }
 
@@ -198,7 +228,13 @@ public abstract class AbstractTestFunctions
             fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
         }
         catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+            try {
+                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
         }
     }
 
@@ -209,8 +245,14 @@ public abstract class AbstractTestFunctions
             fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
         }
         catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
+            try {
+                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+                assertEquals(e.getMessage(), message);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
         }
     }
 
@@ -226,8 +268,14 @@ public abstract class AbstractTestFunctions
             fail("expected exception");
         }
         catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
-            assertEquals(e.getMessage(), message);
+            try {
+                assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+                assertEquals(e.getMessage(), message);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
         }
     }
 
