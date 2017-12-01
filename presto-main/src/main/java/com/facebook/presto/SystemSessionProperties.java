@@ -372,7 +372,7 @@ public final class SystemSessionProperties
                         false),
                 booleanSessionProperty(
                         LEGACY_TIMESTAMP,
-                        "Use legacy TIME & TIMESTAMP semantics",
+                        "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
                         featuresConfig.isLegacyTimestamp(),
                         true),
                 booleanSessionProperty(
