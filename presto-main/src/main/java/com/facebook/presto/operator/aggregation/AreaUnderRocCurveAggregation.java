@@ -86,7 +86,7 @@ public class AreaUnderRocCurveAggregation
                 DOUBLE);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, DOUBLE, true, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, DOUBLE, true, false, factory);
     }
 
     private static List<AggregationMetadata.ParameterMetadata> createInputParameterMetadata()
