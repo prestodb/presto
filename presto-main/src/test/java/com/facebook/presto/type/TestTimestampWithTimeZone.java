@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.type;
 
-// TODO unignore when new semantics is implemented
-// Note: ignore done using comments because @Test(enabled = false) misbehave on subclass
 public class TestTimestampWithTimeZone
-        // extends TestTimestampWithTimeZoneBase
+        extends TestTimestampWithTimeZoneBase
 {
     public TestTimestampWithTimeZone()
     {
-        // super(false);
+        super(false);
     }
 }

@@ -14,13 +14,11 @@
 
 package com.facebook.presto.operator.scalar;
 
-// TODO unignore when new semantics is implemented
-// Note: ignore done using comments because @Test(enabled = false) misbehave on subclass
 public class TestDateTimeFunctions
-        // extends TestDateTimeFunctionsBase
+        extends TestDateTimeFunctionsBase
 {
     public TestDateTimeFunctions()
     {
-        // super(false);
+        super(false);
     }
 }
