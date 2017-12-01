@@ -305,6 +305,19 @@ public class Driver
         SettableFuture<?> newDriverBlockedFuture = SettableFuture.create();
         driverBlockedFuture.set(newDriverBlockedFuture);
         sourceBlockedFuture.addListener(() -> newDriverBlockedFuture.set(null), newDirectExecutorService());
+
+        // it's possible that memory revoking is requested for some operator
+        // before we update driverBlockedFuture above and we don't want to miss that
+        // notification, so we check to see whether that's the case before returning.
+        boolean memoryRevokingRequested = operators.stream()
+                .filter(operator -> !revokingOperators.containsKey(operator))
+                .map(Operator::getOperatorContext)
+                .anyMatch(OperatorContext::isMemoryRevokingRequested);
+
+        if (memoryRevokingRequested) {
+            newDriverBlockedFuture.set(null);
+        }
+
         return newDriverBlockedFuture;
     }
 
