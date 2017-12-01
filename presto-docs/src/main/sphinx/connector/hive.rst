@@ -143,6 +143,8 @@ Property Name                                      Description                  
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
+``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
+
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
