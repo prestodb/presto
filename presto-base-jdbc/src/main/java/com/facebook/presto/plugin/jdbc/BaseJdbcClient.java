@@ -71,7 +71,6 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Maps.fromProperties;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -243,8 +242,6 @@ public class BaseJdbcClient
                 tableHandle.getCatalogName(),
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
-                connectionUrl,
-                fromProperties(connectionProperties),
                 layoutHandle.getTupleDomain());
         return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
@@ -253,7 +250,7 @@ public class BaseJdbcClient
     public Connection getConnection(JdbcSplit split)
             throws SQLException
     {
-        Connection connection = driver.connect(split.getConnectionUrl(), toProperties(split.getConnectionProperties()));
+        Connection connection = driver.connect(connectionUrl, connectionProperties);
         try {
             connection.setReadOnly(true);
         }
@@ -341,9 +338,7 @@ public class BaseJdbcClient
                     table,
                     columnNames.build(),
                     columnTypes.build(),
-                    temporaryName,
-                    connectionUrl,
-                    fromProperties(connectionProperties));
+                    temporaryName);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -431,7 +426,7 @@ public class BaseJdbcClient
     public Connection getConnection(JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return driver.connect(handle.getConnectionUrl(), toProperties(handle.getConnectionProperties()));
+        return driver.connect(connectionUrl, connectionProperties);
     }
 
     @Override
@@ -587,14 +582,5 @@ public class BaseJdbcClient
                 escapeNamePattern(tableHandle.getSchemaName(), escape),
                 escapeNamePattern(tableHandle.getTableName(), escape),
                 null);
-    }
-
-    private static Properties toProperties(Map<String, String> map)
-    {
-        Properties properties = new Properties();
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
-        }
-        return properties;
     }
 }
