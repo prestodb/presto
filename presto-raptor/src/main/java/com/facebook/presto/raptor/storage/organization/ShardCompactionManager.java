@@ -69,6 +69,7 @@ public class ShardCompactionManager
     private final MetadataDao metadataDao;
     private final ShardOrganizer organizer;
     private final ShardManager shardManager;
+    private final ShardSplitterProvider shardSplitterProvider;
     private final String currentNodeIdentifier;
     private final CompactionSetCreator compactionSetCreator;
 
@@ -79,12 +80,13 @@ public class ShardCompactionManager
     private final IDBI dbi;
 
     @Inject
-    public ShardCompactionManager(@ForMetadata IDBI dbi, NodeManager nodeManager, ShardManager shardManager, ShardOrganizer organizer, StorageManagerConfig config)
+    public ShardCompactionManager(@ForMetadata IDBI dbi, NodeManager nodeManager, ShardManager shardManager, ShardOrganizer organizer, ShardSplitterProvider shardSplitterProvider, StorageManagerConfig config)
     {
         this(dbi,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 shardManager,
                 organizer,
+                shardSplitterProvider,
                 config.getCompactionInterval(),
                 config.getMaxShardSize(),
                 config.getMaxShardRows(),
@@ -96,6 +98,7 @@ public class ShardCompactionManager
             String currentNodeIdentifier,
             ShardManager shardManager,
             ShardOrganizer organizer,
+            ShardSplitterProvider shardSplitterProvider,
             Duration compactionDiscoveryInterval,
             DataSize maxShardSize,
             long maxShardRows,
@@ -107,6 +110,7 @@ public class ShardCompactionManager
         this.currentNodeIdentifier = requireNonNull(currentNodeIdentifier, "currentNodeIdentifier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.organizer = requireNonNull(organizer, "organizer is null");
+        this.shardSplitterProvider = requireNonNull(shardSplitterProvider, "shardSplitterProvider is null");
         this.compactionDiscoveryInterval = requireNonNull(compactionDiscoveryInterval, "compactionDiscoveryInterval is null");
 
         checkArgument(maxShardSize.toBytes() > 0, "maxShardSize must be > 0");
@@ -116,7 +120,7 @@ public class ShardCompactionManager
         this.maxShardRows = maxShardRows;
 
         this.compactionEnabled = compactionEnabled;
-        this.compactionSetCreator = new CompactionSetCreator(maxShardSize, maxShardRows);
+        this.compactionSetCreator = new CompactionSetCreator(shardSplitterProvider, maxShardSize, maxShardRows);
     }
 
     @PostConstruct

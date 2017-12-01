@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -58,6 +59,7 @@ public class StorageManagerConfig
     private long maxShardRows = 1_000_000;
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
     private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
+    private DateTimeZone shardDayBoundaryTimeZone = DateTimeZone.UTC;
     private int oneSplitPerBucketThreshold;
 
     @NotNull
@@ -284,6 +286,20 @@ public class StorageManagerConfig
     {
         this.maxShardSize = maxShardSize;
         return this;
+    }
+
+    @Config("storage.shard-day-boundary-time-zone")
+    @ConfigDescription("Time zone to determine the day boundary used to split shards")
+    public StorageManagerConfig setShardDayBoundaryTimeZone(String dayBoundaryTimeZone)
+    {
+        this.shardDayBoundaryTimeZone = DateTimeZone.forID(dayBoundaryTimeZone);
+        return this;
+    }
+
+    @NotNull
+    public DateTimeZone getShardDayBoundaryTimeZone()
+    {
+        return shardDayBoundaryTimeZone;
     }
 
     @MinDataSize("1MB")

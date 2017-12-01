@@ -63,7 +63,8 @@ public class TestStorageManagerConfig
                 .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
                 .setMaxBufferSize(new DataSize(256, MEGABYTE))
-                .setOneSplitPerBucketThreshold(0));
+                .setOneSplitPerBucketThreshold(0)
+                .setShardDayBoundaryTimeZone("UTC"));
     }
 
     @Test

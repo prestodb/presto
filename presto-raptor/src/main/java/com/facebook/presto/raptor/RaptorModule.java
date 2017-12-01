@@ -16,6 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.raptor.storage.organization.ShardSplitterProvider;
 import com.facebook.presto.raptor.systemtables.ShardMetadataSystemTable;
 import com.facebook.presto.raptor.systemtables.TableMetadataSystemTable;
 import com.facebook.presto.raptor.systemtables.TableStatsSystemTable;
@@ -60,6 +61,7 @@ public class RaptorModule
         binder.bind(RaptorNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(RaptorTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(ShardSplitterProvider.class).in(Scopes.SINGLETON);
 
         Multibinder<SystemTable> tableBinder = newSetBinder(binder, SystemTable.class);
         tableBinder.addBinding().to(ShardMetadataSystemTable.class).in(Scopes.SINGLETON);

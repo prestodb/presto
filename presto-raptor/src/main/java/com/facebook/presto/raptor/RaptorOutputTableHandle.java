@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,7 @@ public class RaptorOutputTableHandle
     private final OptionalInt bucketCount;
     private final List<RaptorColumnHandle> bucketColumnHandles;
     private final boolean organized;
+    private final Optional<DateTimeZone> tableTimeZone;
 
     @JsonCreator
     public RaptorOutputTableHandle(
@@ -60,7 +62,8 @@ public class RaptorOutputTableHandle
             @JsonProperty("distributionId") OptionalLong distributionId,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("organized") boolean organized,
-            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles)
+            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
+            @JsonProperty("tableTimeZone") Optional<DateTimeZone> tableTimeZone)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionId = transactionId;
@@ -75,6 +78,7 @@ public class RaptorOutputTableHandle
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.organized = organized;
+        this.tableTimeZone = requireNonNull(tableTimeZone, "tableTimeZone is null");
     }
 
     @JsonProperty
@@ -153,6 +157,12 @@ public class RaptorOutputTableHandle
     public boolean isOrganized()
     {
         return organized;
+    }
+
+    @JsonProperty
+    public Optional<DateTimeZone> getTableTimeZone()
+    {
+        return tableTimeZone;
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -69,6 +70,17 @@ public class TestMetadataDao
         long tableId2 = dao.insertTable("schema1", "table2", true, false, null, 0);
         Long columnId2 = dao.getTemporalColumnId(tableId2);
         assertNull(columnId2);
+    }
+
+    @Test
+    public void testTableTimeZone()
+    {
+        Long columnId = 1L;
+        long tableId = dao.insertTable("schema1", "table1", true, false, null, 0);
+        dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
+        dao.updateTemporalColumnId(tableId, columnId);
+        dao.updateTableTimeZone(tableId, "America/LosAngles");
+        DateTimeZone dateTimeZone = DateTimeZone.forID(dao.getTableTimeZone(tableId));
     }
 
     @Test

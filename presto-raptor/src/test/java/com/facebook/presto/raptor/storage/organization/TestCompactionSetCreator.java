@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
@@ -39,12 +40,12 @@ public class TestCompactionSetCreator
 {
     private static final long MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_SHARD_SIZE = new DataSize(100, DataSize.Unit.BYTE);
-    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), false);
-    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), false);
-    private static final Table bucketedTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty(), false);
-    private static final Table bucketedTemporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.of(1), false);
+    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), Optional.empty(), false);
+    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), Optional.of(DateTimeZone.UTC), false);
+    private static final Table bucketedTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty(), Optional.empty(), false);
+    private static final Table bucketedTemporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.of(1), Optional.empty(), false);
 
-    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
+    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new ShardSplitterProvider((tableId, columnId) -> Optional.empty(), DateTimeZone.UTC), MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 
     @Test
     public void testNonTemporalOrganizationSetSimple()
@@ -106,6 +107,7 @@ public class TestCompactionSetCreator
         long day1 = Duration.ofDays(Duration.ofNanos(System.nanoTime()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
         long day3 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 2).toMillis();
+        CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new ShardSplitterProvider((tableId, columnId) -> Optional.of(TIMESTAMP), DateTimeZone.UTC), MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithTemporalRange(TIMESTAMP, day1, day1),
@@ -131,6 +133,7 @@ public class TestCompactionSetCreator
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
         long day3 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 2).toMillis();
         long day4 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 3).toMillis();
+        CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new ShardSplitterProvider((tableId, columnId) -> Optional.of(TIMESTAMP), DateTimeZone.UTC), MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithTemporalRange(TIMESTAMP, day1, day3), // day2
@@ -159,6 +162,7 @@ public class TestCompactionSetCreator
         long day1 = Duration.ofNanos(System.nanoTime()).toDays();
         long day2 = day1 + 1;
         long day3 = day1 + 2;
+        CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new ShardSplitterProvider((tableId, columnId) -> Optional.of(DATE), DateTimeZone.UTC), MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 
         List<ShardIndexInfo> inputShards = ImmutableList.of(
                 shardWithTemporalRange(DATE, day1, day1),
@@ -227,6 +231,8 @@ public class TestCompactionSetCreator
                 shardWithTemporalBucket(OptionalInt.of(2), DATE, day2, day2),
                 shardWithTemporalBucket(OptionalInt.of(1), DATE, day3, day3),
                 shardWithTemporalBucket(OptionalInt.of(2), DATE, day4, day4));
+
+        CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new ShardSplitterProvider((tableId, columnId) -> Optional.of(DATE), DateTimeZone.UTC), MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 
         long tableId = bucketedTemporalTableInfo.getTableId();
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(bucketedTemporalTableInfo, inputShards);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -34,6 +35,7 @@ public final class Table
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
     private final OptionalLong temporalColumnId;
+    private final Optional<DateTimeZone> tableTimeZone;
     private final boolean organized;
 
     public Table(
@@ -42,6 +44,7 @@ public final class Table
             Optional<String> distributionName,
             OptionalInt bucketCount,
             OptionalLong temporalColumnId,
+            Optional<DateTimeZone> tableTimeZone,
             boolean organized)
     {
         this.tableId = tableId;
@@ -49,6 +52,7 @@ public final class Table
         this.distributionName = requireNonNull(distributionName, "distributionName is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
+        this.tableTimeZone = requireNonNull(tableTimeZone, "tableTimeZone is null");
         this.organized = organized;
     }
 
@@ -77,6 +81,11 @@ public final class Table
         return temporalColumnId;
     }
 
+    public Optional<DateTimeZone> getTableTimeZone()
+    {
+        return tableTimeZone;
+    }
+
     public boolean isOrganized()
     {
         return organized;
@@ -90,6 +99,7 @@ public final class Table
                 .add("distributionId", distributionId.isPresent() ? distributionId.getAsLong() : null)
                 .add("bucketCount", bucketCount.isPresent() ? bucketCount.getAsInt() : null)
                 .add("temporalColumnId", temporalColumnId.isPresent() ? temporalColumnId.getAsLong() : null)
+                .add("tableTiemZone", tableTimeZone.isPresent() ? tableTimeZone.get().toString() : null)
                 .add("organized", organized)
                 .omitNullValues()
                 .toString();
@@ -108,6 +118,7 @@ public final class Table
                     Optional.ofNullable(r.getString("distribution_name")),
                     getOptionalInt(r, "bucket_count"),
                     getOptionalLong(r, "temporal_column_id"),
+                    Optional.ofNullable(r.getString("table_time_zone")).map(DateTimeZone::forID),
                     r.getBoolean("organization_enabled"));
         }
     }

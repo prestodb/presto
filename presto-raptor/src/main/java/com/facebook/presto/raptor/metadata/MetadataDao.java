@@ -27,7 +27,7 @@ import java.util.Set;
 public interface MetadataDao
 {
     String TABLE_INFORMATION_SELECT = "" +
-            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled\n" +
+            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled, t.table_time_zone\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n";
 
@@ -118,7 +118,7 @@ public interface MetadataDao
             "  shard_count, row_count, compressed_size, uncompressed_size)\n" +
             "VALUES (\n" +
             "  :schemaName, :tableName, :compactionEnabled, :organizationEnabled, :distributionId,\n" +
-            "  :createTime, :createTime, 0,\n" +
+            "  :createTime, :createTime,  0,\n" +
             "  0, 0, 0, 0)\n")
     @GetGeneratedKeys
     long insertTable(
@@ -219,6 +219,16 @@ public interface MetadataDao
     void updateTemporalColumnId(
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId);
+
+    @SqlQuery("SELECT table_time_zone\n" +
+            "FROM tables\n" +
+            "WHERE table_id = :tableId\n")
+    String getTableTimeZone(@Bind("tableId") long tableId);
+
+    @SqlUpdate("UPDATE tables SET\n" +
+            "table_time_zone = :tableTimeZone\n" +
+            "WHERE table_id = :tableId")
+    void updateTableTimeZone(@Bind("tableId") long tableId, @Bind("tableTimeZone") String timeZone);
 
     @SqlQuery("SELECT compaction_enabled AND maintenance_blocked IS NULL\n" +
             "FROM tables\n" +
