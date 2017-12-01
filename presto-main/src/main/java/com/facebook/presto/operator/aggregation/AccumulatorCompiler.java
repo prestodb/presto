@@ -116,7 +116,8 @@ public class AccumulatorCompiler
         FieldDefinition stateFactoryField = definition.declareField(a(PRIVATE, FINAL), "stateFactory", AccumulatorStateFactory.class);
         FieldDefinition inputChannelsField = definition.declareField(a(PRIVATE, FINAL), "inputChannels", type(List.class, Integer.class));
         FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", type(Optional.class, Integer.class));
-        FieldDefinition stateField = definition.declareField(a(PRIVATE, FINAL), "state", grouped ? stateFactory.getGroupedStateClass() : stateFactory.getSingleStateClass());
+        Class<?> stateClass = grouped ? stateFactory.getGroupedStateClass() : stateFactory.getSingleStateClass();
+        FieldDefinition stateField = definition.declareField(a(PRIVATE, FINAL), "state", stateClass);
 
         // Generate constructor
         generateConstructor(
@@ -135,7 +136,7 @@ public class AccumulatorCompiler
         generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
         generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
 
-        generateAddIntermediateAsCombine(definition, stateField, stateSerializerField, stateFactoryField, metadata.getCombineFunction(), stateFactory.getSingleStateClass(), callSiteBinder, grouped);
+        generateAddIntermediateAsCombine(definition, stateField, stateSerializerField, stateFactoryField, metadata.getCombineFunction(), stateClass, callSiteBinder, grouped);
 
         if (grouped) {
             generateGroupedEvaluateIntermediate(definition, stateSerializerField, stateField);
@@ -544,7 +545,7 @@ public class AccumulatorCompiler
             FieldDefinition stateSerializerField,
             FieldDefinition stateFactoryField,
             MethodHandle combineFunction,
-            Class<?> singleStateClass,
+            Class<?> stateClass,
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
@@ -554,12 +555,12 @@ public class AccumulatorCompiler
         Variable thisVariable = method.getThis();
 
         Variable block = scope.getVariable("block");
-        Variable scratchState = scope.declareVariable(singleStateClass, "scratchState");
+        Variable scratchState = scope.declareVariable(stateClass, "scratchState");
         Variable position = scope.declareVariable(int.class, "position");
-
-        body.comment("scratchState = stateFactory.createSingleState();")
+        String createStateMethodName = grouped ? "createGroupedState" : "createSingleState";
+        body.comment(format("scratchState = stateFactory.%s()", createStateMethodName))
                 .append(thisVariable.getField(stateFactoryField))
-                .invokeInterface(AccumulatorStateFactory.class, "createSingleState", Object.class)
+                .invokeInterface(AccumulatorStateFactory.class, createStateMethodName, Object.class)
                 .checkCast(scratchState.getType())
                 .putVariable(scratchState);
 
