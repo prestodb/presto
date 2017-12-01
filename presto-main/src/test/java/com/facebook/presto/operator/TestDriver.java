@@ -34,6 +34,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -249,6 +250,34 @@ public class TestDriver
     }
 
     @Test
+    public void testMemoryRevocationRace()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
+                new PlanNodeId("source"),
+                new PageSourceProvider()
+                {
+                    @Override
+                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+                    {
+                        return new FixedPageSource(rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build());
+                    }
+                },
+                types,
+                ImmutableList.of());
+
+        Driver driver = new Driver(driverContext, source, createSinkOperator(source));
+        driver.initialize();
+        // the table scan operator will request memory revocation with requestMemoryRevoking()
+        // while the driver is still not done with the processFor() method and before it moves to
+        // updateDriverBlockedFuture() method.
+        assertTrue(driver.processFor(new Duration(100, TimeUnit.MILLISECONDS)).isDone());
+    }
+
+    @Test
     public void testBrokenOperatorAddSource()
             throws Exception
     {
@@ -444,6 +473,30 @@ public class TestDriver
             if (lockForClose) {
                 waitForUnlock();
             }
+        }
+    }
+
+    private static class AlwaysBlockedMemoryRevokingTableScanOperator
+            extends TableScanOperator
+    {
+        public AlwaysBlockedMemoryRevokingTableScanOperator(
+                OperatorContext operatorContext,
+                PlanNodeId planNodeId,
+                PageSourceProvider pageSourceProvider,
+                List<Type> types,
+                Iterable<ColumnHandle> columns)
+        {
+            super(operatorContext, planNodeId, pageSourceProvider, types, columns);
+        }
+
+        @Override
+        public ListenableFuture<?> isBlocked()
+        {
+            // this operator is always blocked and when queried by the driver
+            // it triggers memory revocation so that the driver gets unblocked
+            getOperatorContext().reserveRevocableMemory(100);
+            getOperatorContext().requestMemoryRevoking();
+            return SettableFuture.create();
         }
     }
 
