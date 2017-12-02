@@ -62,9 +62,12 @@ public interface ResourceGroupsDao
     @Mapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
-    @SqlQuery("SELECT resource_group_id, user_regex, source_regex, client_tags from selectors")
+    @SqlQuery("SELECT S.resource_group_id, S.user_regex, S.source_regex, S.client_tags\n" +
+            "FROM selectors S\n" +
+            "JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)\n" +
+            "WHERE R.environment = :environment\n")
     @Mapper(SelectorRecord.Mapper.class)
-    List<SelectorRecord> getSelectors();
+    List<SelectorRecord> getSelectors(@Bind("environment") String environment);
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS selectors (\n" +
             "  resource_group_id BIGINT NOT NULL,\n" +
