@@ -693,6 +693,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.jdbi</groupId>
+                <artifactId>jdbi3-sqlobject</artifactId>
+                <version>${dep.jdbi3.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>okhttp</artifactId>
                 <version>${dep.okhttp.version}</version>

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import org.h2.jdbc.JdbcSQLException;
-import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;

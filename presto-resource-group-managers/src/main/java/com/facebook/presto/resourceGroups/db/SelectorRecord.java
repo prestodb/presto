@@ -15,8 +15,8 @@ package com.facebook.presto.resourceGroups.db;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -77,12 +77,12 @@ public class SelectorRecord
     }
 
     public static class Mapper
-            implements ResultSetMapper<SelectorRecord>
+            implements RowMapper<SelectorRecord>
     {
         private static final JsonCodec<List<String>> LIST_STRING_CODEC = listJsonCodec(String.class);
 
         @Override
-        public SelectorRecord map(int index, ResultSet resultSet, StatementContext context)
+        public SelectorRecord map(ResultSet resultSet, StatementContext context)
                 throws SQLException
         {
             return new SelectorRecord(
