@@ -16,6 +16,7 @@ package com.facebook.presto.resourceGroups;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -69,5 +70,11 @@ public class StaticSelector
         }
 
         return Optional.of(group.expandTemplate(context));
+    }
+
+    @VisibleForTesting
+    public Optional<Pattern> getUserRegex()
+    {
+        return userRegex;
     }
 }

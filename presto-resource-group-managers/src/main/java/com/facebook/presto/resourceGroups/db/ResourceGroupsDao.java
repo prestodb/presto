@@ -62,10 +62,11 @@ public interface ResourceGroupsDao
     @Mapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
-    @SqlQuery("SELECT S.resource_group_id, S.user_regex, S.source_regex, S.client_tags\n" +
+    @SqlQuery("SELECT S.resource_group_id, S.user_regex, S.source_regex, S.client_tags, S.priority\n" +
             "FROM selectors S\n" +
             "JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)\n" +
-            "WHERE R.environment = :environment\n")
+            "WHERE R.environment = :environment\n" +
+            "ORDER by priority DESC")
     @Mapper(SelectorRecord.Mapper.class)
     List<SelectorRecord> getSelectors(@Bind("environment") String environment);
 
@@ -74,6 +75,7 @@ public interface ResourceGroupsDao
             "  user_regex VARCHAR(512),\n" +
             "  source_regex VARCHAR(512),\n" +
             "  client_tags VARCHAR(512),\n" +
+            "  priority BIGINT NOT NULL,\n" +
             "  FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id)\n" +
             ")")
     void createSelectorsTable();
