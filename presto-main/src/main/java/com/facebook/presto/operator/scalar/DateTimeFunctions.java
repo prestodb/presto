@@ -314,7 +314,7 @@ public final class DateTimeFunctions
 
     @Description("add the specified amount of date to the given date")
     @LiteralParameters("x")
-    @ScalarFunction("date_add")
+    @ScalarFunction(value = "date_add", alias = "dateadd")
     @SqlType(StandardTypes.DATE)
     public static long addFieldValueDate(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
     {
@@ -324,7 +324,7 @@ public final class DateTimeFunctions
 
     @Description("add the specified amount of time to the given time")
     @LiteralParameters("x")
-    @ScalarFunction("date_add")
+    @ScalarFunction(value = "date_add", alias = "dateadd")
     @SqlType(StandardTypes.TIME)
     public static long addFieldValueTime(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.TIME) long time)
     {
@@ -334,7 +334,7 @@ public final class DateTimeFunctions
 
     @Description("add the specified amount of time to the given time")
     @LiteralParameters("x")
-    @ScalarFunction("date_add")
+    @ScalarFunction(value = "date_add", alias = "dateadd")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long addFieldValueTimeWithTimeZone(
             @SqlType("varchar(x)") Slice unit,
@@ -348,7 +348,7 @@ public final class DateTimeFunctions
 
     @Description("add the specified amount of time to the given timestamp")
     @LiteralParameters("x")
-    @ScalarFunction("date_add")
+    @ScalarFunction(value = "date_add", alias = "dateadd")
     @SqlType(StandardTypes.TIMESTAMP)
     public static long addFieldValueTimestamp(
             ConnectorSession session,
@@ -361,7 +361,7 @@ public final class DateTimeFunctions
 
     @Description("add the specified amount of time to the given timestamp")
     @LiteralParameters("x")
-    @ScalarFunction("date_add")
+    @ScalarFunction(value = "date_add", alias = "dateadd")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long addFieldValueTimestampWithTimeZone(
             @SqlType("varchar(x)") Slice unit,
@@ -373,7 +373,7 @@ public final class DateTimeFunctions
     }
 
     @Description("difference of the given dates in the given unit")
-    @ScalarFunction("date_diff")
+    @ScalarFunction(value = "date_diff", alias = "datediff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long diffDate(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
@@ -382,7 +382,7 @@ public final class DateTimeFunctions
     }
 
     @Description("difference of the given times in the given unit")
-    @ScalarFunction("date_diff")
+    @ScalarFunction(value = "date_diff", alias = "datediff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long diffTime(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIME) long time1, @SqlType(StandardTypes.TIME) long time2)
@@ -392,7 +392,7 @@ public final class DateTimeFunctions
     }
 
     @Description("difference of the given times in the given unit")
-    @ScalarFunction("date_diff")
+    @ScalarFunction(value = "date_diff", alias = "datediff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long diffTimeWithTimeZone(
@@ -404,7 +404,7 @@ public final class DateTimeFunctions
     }
 
     @Description("difference of the given times in the given unit")
-    @ScalarFunction("date_diff")
+    @ScalarFunction(value = "date_diff", alias = "datediff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long diffTimestamp(
@@ -417,7 +417,7 @@ public final class DateTimeFunctions
     }
 
     @Description("difference of the given times in the given unit")
-    @ScalarFunction("date_diff")
+    @ScalarFunction(value = "date_diff", alias = "datediff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long diffTimestampWithTimeZone(
