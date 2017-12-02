@@ -11,16 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.operator.aggregation.histogram;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.state.HistogramState;
-import com.facebook.presto.operator.aggregation.state.HistogramStateFactory;
-import com.facebook.presto.operator.aggregation.state.HistogramStateSerializer;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
+import com.facebook.presto.operator.aggregation.AggregationMetadata;
+import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -39,31 +38,30 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 
 public class Histogram
         extends SqlAggregationFunction
 {
-    public static final Histogram HISTOGRAM = new Histogram();
     public static final String NAME = "histogram";
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(Histogram.class, "output", Type.class, HistogramState.class, BlockBuilder.class);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(Histogram.class, "input", Type.class, HistogramState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(Histogram.class, "combine", HistogramState.class, HistogramState.class);
 
     public static final int EXPECTED_SIZE_FOR_HASHING = 10;
+    private final HistogramGroupImplementation groupMode;
 
-    public Histogram()
+    public Histogram(HistogramGroupImplementation groupMode)
     {
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("K")),
                 ImmutableList.of(),
                 parseTypeSignature("map(K,bigint)"),
                 ImmutableList.of(parseTypeSignature("K")));
+        this.groupMode = groupMode;
     }
 
     @Override
@@ -79,10 +77,14 @@ public class Histogram
         Type outputType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(BIGINT.getTypeSignature())));
-        return generateAggregation(keyType, outputType);
+        return generateAggregation(NAME, keyType, outputType, groupMode);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type keyType, Type outputType)
+    private static InternalAggregationFunction generateAggregation(
+            String functionName,
+            Type keyType,
+            Type outputType,
+            HistogramGroupImplementation groupMode)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(Histogram.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(keyType);
@@ -92,18 +94,18 @@ public class Histogram
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                generateAggregationName(functionName, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType),
                 inputFunction,
                 COMBINE_FUNCTION,
                 outputFunction,
                 HistogramState.class,
                 stateSerializer,
-                new HistogramStateFactory(),
+                new HistogramStateFactory(keyType, EXPECTED_SIZE_FOR_HASHING, groupMode),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
+        return new InternalAggregationFunction(functionName, inputTypes, intermediateType, outputType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)
@@ -116,18 +118,8 @@ public class Histogram
     public static void input(Type type, HistogramState state, Block key, int position)
     {
         TypedHistogram typedHistogram = state.get();
-        if (typedHistogram == null) {
-            typedHistogram = new TypedHistogram(type, EXPECTED_SIZE_FOR_HASHING);
-            state.set(typedHistogram);
-        }
-
         long startSize = typedHistogram.getEstimatedSize();
-        try {
-            typedHistogram.add(position, key, 1L);
-        }
-        catch (ExceededMemoryLimitException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of histogram may not exceed %s", e.getMaxMemory()));
-        }
+        typedHistogram.add(position, key, 1L);
         state.addMemoryUsage(typedHistogram.getEstimatedSize() - startSize);
     }
 
@@ -136,27 +128,18 @@ public class Histogram
         if (state.get() != null && otherState.get() != null) {
             TypedHistogram typedHistogram = state.get();
             long startSize = typedHistogram.getEstimatedSize();
-            try {
-                typedHistogram.addAll(otherState.get());
-            }
-            catch (ExceededMemoryLimitException e) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of histogram may not exceed %s", e.getMaxMemory()));
-            }
+            typedHistogram.addAll(otherState.get());
             state.addMemoryUsage(typedHistogram.getEstimatedSize() - startSize);
         }
-        else if (state.get() == null) {
-            state.set(otherState.get());
+        else if (state.get() == null && otherState.get() != null) {
+            TypedHistogram otherTypedHistogram = otherState.get();
+            state.set(otherTypedHistogram);
         }
     }
 
     public static void output(Type type, HistogramState state, BlockBuilder out)
     {
         TypedHistogram typedHistogram = state.get();
-        if (typedHistogram == null) {
-            out.appendNull();
-        }
-        else {
-            typedHistogram.serialize(out);
-        }
+        typedHistogram.serialize(out);
     }
 }

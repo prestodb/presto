@@ -321,14 +321,14 @@ public final class AggregationTestUtils
         return args;
     }
 
-    private static int[] reverseArgs(InternalAggregationFunction function)
+    public static int[] reverseArgs(InternalAggregationFunction function)
     {
         int[] args = createArgs(function);
         Collections.reverse(Ints.asList(args));
         return args;
     }
 
-    private static int[] offsetArgs(InternalAggregationFunction function, int offset)
+    public static int[] offsetArgs(InternalAggregationFunction function, int offset)
     {
         int[] args = createArgs(function);
         for (int i = 0; i < args.length; i++) {
@@ -337,7 +337,7 @@ public final class AggregationTestUtils
         return args;
     }
 
-    private static Page[] reverseColumns(Page[] pages)
+    public static Page[] reverseColumns(Page[] pages)
     {
         Page[] newPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
@@ -354,7 +354,7 @@ public final class AggregationTestUtils
         return newPages;
     }
 
-    private static Page[] offsetColumns(Page[] pages, int offset)
+    public static Page[] offsetColumns(Page[] pages, int offset)
     {
         Page[] newPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
@@ -380,7 +380,7 @@ public final class AggregationTestUtils
         return new RunLengthEncodedBlock(value, positionCount);
     }
 
-    private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
+    public static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
         BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
         groupedAggregation.evaluateFinal(groupId, out);
