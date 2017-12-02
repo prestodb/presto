@@ -250,9 +250,8 @@ public class DbResourceGroupConfigurationManager
         // Specs are built from db records, validate and return manager spec
         List<ResourceGroupSpec> rootGroups = rootGroupIds.stream().map(resourceGroupSpecMap::get).collect(Collectors.toList());
 
-        List<SelectorSpec> selectors = dao.getSelectors()
+        List<SelectorSpec> selectors = dao.getSelectors(environment)
                 .stream()
-                .filter(selectorRecord -> resourceGroupIdTemplateMap.containsKey(selectorRecord.getResourceGroupId()))
                 .map(selectorRecord ->
                 new SelectorSpec(
                         selectorRecord.getUserRegex(),
