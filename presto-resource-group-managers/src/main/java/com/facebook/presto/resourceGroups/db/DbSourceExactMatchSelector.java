@@ -18,7 +18,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import org.skife.jdbi.v2.exceptions.DBIException;
+import org.jdbi.v3.core.JdbiException;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -67,7 +67,7 @@ public class DbSourceExactMatchSelector
                 return Optional.empty();
             }
         }
-        catch (DBIException e) {
+        catch (JdbiException e) {
             if (daoOfflineStart.compareAndSet(null, System.nanoTime())) {
                 log.warn(e, "Failed to fetch exact match resource group selectors");
             }

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 public interface H2ResourceGroupsDao
         extends ResourceGroupsDao

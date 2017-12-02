@@ -17,8 +17,8 @@ import com.facebook.presto.resourceGroups.ResourceGroupNameTemplate;
 import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -126,10 +126,10 @@ public class ResourceGroupSpecBuilder
     }
 
     public static class Mapper
-            implements ResultSetMapper<ResourceGroupSpecBuilder>
+            implements RowMapper<ResourceGroupSpecBuilder>
     {
         @Override
-        public ResourceGroupSpecBuilder map(int index, ResultSet resultSet, StatementContext context)
+        public ResourceGroupSpecBuilder map(ResultSet resultSet, StatementContext context)
                 throws SQLException
         {
             long id = resultSet.getLong("resource_group_id");

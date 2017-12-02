@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.SqlQuery;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jdbi.v3.sqlobject.statement.UseRowMapper;
 
 import java.util.List;
 
@@ -30,7 +30,7 @@ public interface ResourceGroupsDao
     void createResourceGroupsGlobalPropertiesTable();
 
     @SqlQuery("SELECT value FROM resource_groups_global_properties WHERE name = 'cpu_quota_period'")
-    @Mapper(ResourceGroupGlobalProperties.Mapper.class)
+    @UseRowMapper(ResourceGroupGlobalProperties.Mapper.class)
     List<ResourceGroupGlobalProperties> getResourceGroupGlobalProperties();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups (\n" +
@@ -59,7 +59,7 @@ public interface ResourceGroupsDao
             "  hard_cpu_limit, queued_time_limit, running_time_limit, parent\n" +
             "FROM resource_groups\n" +
             "WHERE environment = :environment\n")
-    @Mapper(ResourceGroupSpecBuilder.Mapper.class)
+    @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
     @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.query_type, S.client_tags\n" +
@@ -67,7 +67,7 @@ public interface ResourceGroupsDao
             "JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)\n" +
             "WHERE R.environment = :environment\n" +
             "ORDER by priority DESC")
-    @Mapper(SelectorRecord.Mapper.class)
+    @UseRowMapper(SelectorRecord.Mapper.class)
     List<SelectorRecord> getSelectors(@Bind("environment") String environment);
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS selectors (\n" +
