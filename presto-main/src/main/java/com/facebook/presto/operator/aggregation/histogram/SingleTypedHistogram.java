@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.operator.aggregation.histogram;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
@@ -20,53 +20,60 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
-import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.util.Objects.requireNonNull;
 
-public class TypedHistogram
+public class SingleTypedHistogram
+        implements TypedHistogram
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedHistogram.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleTypedHistogram.class).instanceSize();
+    private static final float FILL_RATIO = 0.75f;
 
-    private static final float FILL_RATIO = 0.9f;
-    private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
-
+    private final int expectedSize;
     private int hashCapacity;
     private int maxFill;
     private int mask;
 
     private final Type type;
-
     private final BlockBuilder values;
+
     private IntBigArray hashPositions;
     private final LongBigArray counts;
 
-    public TypedHistogram(Type type, int expectedSize)
+    private SingleTypedHistogram(Type type, int expectedSize, int hashCapacity, BlockBuilder values)
     {
         this.type = type;
+        this.expectedSize = expectedSize;
+        this.hashCapacity = hashCapacity;
+        this.values = values;
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        hashCapacity = arraySize(expectedSize, FILL_RATIO);
-
         maxFill = calculateMaxFill(hashCapacity);
         mask = hashCapacity - 1;
-        values = this.type.createBlockBuilder(null, hashCapacity);
         hashPositions = new IntBigArray(-1);
         hashPositions.ensureCapacity(hashCapacity);
         counts = new LongBigArray();
         counts.ensureCapacity(hashCapacity);
     }
 
-    public TypedHistogram(Block block, Type type, int expectedSize)
+    public SingleTypedHistogram(Type type, int expectedSize)
+    {
+        this(type, expectedSize, computeBucketCount(expectedSize), type.createBlockBuilder(null, computeBucketCount(expectedSize)));
+    }
+
+    private static int computeBucketCount(int expectedSize)
+    {
+        return arraySize(expectedSize, FILL_RATIO);
+    }
+
+    public SingleTypedHistogram(Block block, Type type, int expectedSize)
     {
         this(type, expectedSize);
         requireNonNull(block, "block is null");
@@ -75,47 +82,50 @@ public class TypedHistogram
         }
     }
 
+    @Override
     public long getEstimatedSize()
     {
         return INSTANCE_SIZE + values.getRetainedSizeInBytes() + counts.sizeOf() + hashPositions.sizeOf();
     }
 
-    private Block getValues()
-    {
-        return values.build();
-    }
-
-    private LongBigArray getCounts()
-    {
-        return counts;
-    }
-
+    @Override
     public void serialize(BlockBuilder out)
     {
-        Block valuesBlock = values.build();
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-        for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
-            type.appendTo(valuesBlock, i, blockBuilder);
-            BIGINT.writeLong(blockBuilder, counts.get(i));
+        if (values.getPositionCount() == 0) {
+            out.appendNull();
         }
-        out.closeEntry();
+        else {
+            Block valuesBlock = values.build();
+            BlockBuilder blockBuilder = out.beginBlockEntry();
+            for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
+                type.appendTo(valuesBlock, i, blockBuilder);
+                BIGINT.writeLong(blockBuilder, counts.get(i));
+            }
+            out.closeEntry();
+        }
     }
 
+    @Override
     public void addAll(TypedHistogram other)
     {
-        Block otherValues = other.getValues();
-        LongBigArray otherCounts = other.getCounts();
-        for (int i = 0; i < otherValues.getPositionCount(); i++) {
-            long count = otherCounts.get(i);
+        other.readAllValues((block, position, count) -> add(position, block, count));
+    }
+
+    @Override
+    public void readAllValues(HistogramValueReader reader)
+    {
+        for (int i = 0; i < values.getPositionCount(); i++) {
+            long count = counts.get(i);
             if (count > 0) {
-                add(i, otherValues, count);
+                reader.read(values, i, count);
             }
         }
     }
 
+    @Override
     public void add(int position, Block block, long count)
     {
-        int hashPosition = getHashPosition(TypeUtils.hashPosition(type, block, position), mask);
+        int hashPosition = getBucketId(TypeUtils.hashPosition(type, block, position), mask);
 
         // look for an empty slot or a slot containing this key
         while (true) {
@@ -127,12 +137,29 @@ public class TypedHistogram
                 counts.add(hashPositions.get(hashPosition), count);
                 return;
             }
-
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
         }
 
         addNewGroup(hashPosition, position, block, count);
+    }
+
+    @Override
+    public Type getType()
+    {
+        return type;
+    }
+
+    @Override
+    public int getExpectedSize()
+    {
+        return expectedSize;
+    }
+
+    @Override
+    public boolean isEmpty()
+    {
+        return values.getPositionCount() == 0;
     }
 
     private void addNewGroup(int hashPosition, int position, Block block, long count)
@@ -144,10 +171,6 @@ public class TypedHistogram
         // increase capacity, if necessary
         if (values.getPositionCount() >= maxFill) {
             rehash();
-        }
-
-        if (getEstimatedSize() > FOUR_MEGABYTES) {
-            throw exceededLocalLimit(new DataSize(4, MEGABYTE));
         }
     }
 
@@ -165,7 +188,8 @@ public class TypedHistogram
 
         for (int i = 0; i < values.getPositionCount(); i++) {
             // find an empty slot for the address
-            int hashPosition = getHashPosition(TypeUtils.hashPosition(type, values, i), newMask);
+            int hashPosition = getBucketId(TypeUtils.hashPosition(type, values, i), newMask);
+
             while (newHashPositions.get(hashPosition) != -1) {
                 hashPosition = (hashPosition + 1) & newMask;
             }
@@ -182,7 +206,7 @@ public class TypedHistogram
         this.counts.ensureCapacity(maxFill);
     }
 
-    private static int getHashPosition(long rawHash, int mask)
+    private static int getBucketId(long rawHash, int mask)
     {
         return ((int) murmurHash3(rawHash)) & mask;
     }

@@ -161,14 +161,24 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager()
     {
-        return createTestMetadataManager(new CatalogManager());
+        return createTestMetadataManager(new FeaturesConfig());
+    }
+
+    public static MetadataManager createTestMetadataManager(FeaturesConfig featuresConfig)
+    {
+        return createTestMetadataManager(new CatalogManager(), featuresConfig);
     }
 
     public static MetadataManager createTestMetadataManager(CatalogManager catalogManager)
     {
+        return createTestMetadataManager(catalogManager, new FeaturesConfig());
+    }
+
+    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig)
+    {
         TypeManager typeManager = new TypeRegistry();
         return new MetadataManager(
-                new FeaturesConfig(),
+                featuresConfig,
                 typeManager,
                 new BlockEncodingManager(typeManager),
                 new SessionPropertyManager(),

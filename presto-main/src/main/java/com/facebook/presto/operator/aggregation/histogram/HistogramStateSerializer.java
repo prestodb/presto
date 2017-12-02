@@ -11,15 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.operator.aggregation.histogram;
 
-import com.facebook.presto.operator.aggregation.TypedHistogram;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 
-import static com.facebook.presto.operator.aggregation.Histogram.EXPECTED_SIZE_FOR_HASHING;
+import static com.facebook.presto.operator.aggregation.histogram.Histogram.EXPECTED_SIZE_FOR_HASHING;
 
 public class HistogramStateSerializer
         implements AccumulatorStateSerializer<HistogramState>
@@ -42,17 +41,12 @@ public class HistogramStateSerializer
     @Override
     public void serialize(HistogramState state, BlockBuilder out)
     {
-        if (state.get() == null) {
-            out.appendNull();
-        }
-        else {
-            state.get().serialize(out);
-        }
+        state.get().serialize(out);
     }
 
     @Override
     public void deserialize(Block block, int index, HistogramState state)
     {
-        state.set(new TypedHistogram((Block) serializedType.getObject(block, index), type, EXPECTED_SIZE_FOR_HASHING));
+        state.deserialize((Block) serializedType.getObject(block, index), type, EXPECTED_SIZE_FOR_HASHING);
     }
 }

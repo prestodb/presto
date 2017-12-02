@@ -11,19 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.operator.aggregation.histogram;
 
-import com.facebook.presto.operator.aggregation.TypedHistogram;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import com.facebook.presto.spi.block.Block;
 
-@AccumulatorStateMetadata(stateFactoryClass = HistogramStateFactory.class, stateSerializerClass = HistogramStateSerializer.class)
-public interface HistogramState
-        extends AccumulatorState
+public interface HistogramValueReader
 {
-    TypedHistogram get();
-
-    void set(TypedHistogram value);
-
-    void addMemoryUsage(long memory);
+    void read(Block block, int position, long count);
 }
