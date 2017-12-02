@@ -30,13 +30,15 @@ import static java.util.Objects.requireNonNull;
 public class SelectorRecord
 {
     private final long resourceGroupId;
+    private final long priority;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
     private final Optional<List<String>> clientTags;
 
-    public SelectorRecord(long resourceGroupId, Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Optional<List<String>> clientTags)
+    public SelectorRecord(long resourceGroupId, Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Optional<List<String>> clientTags, long priority)
     {
         this.resourceGroupId = resourceGroupId;
+        this.priority = priority;
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null").map(ImmutableList::copyOf);
@@ -45,6 +47,11 @@ public class SelectorRecord
     public long getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    public long getPriority()
+    {
+        return priority;
     }
 
     public Optional<Pattern> getUserRegex()
@@ -75,7 +82,8 @@ public class SelectorRecord
                     resultSet.getLong("resource_group_id"),
                     Optional.ofNullable(resultSet.getString("user_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
-                    Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson));
+                    Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
+                    resultSet.getLong("priority"));
         }
     }
 }
