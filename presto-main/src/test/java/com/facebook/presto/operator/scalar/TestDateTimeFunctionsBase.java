@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -191,6 +192,11 @@ public abstract class TestDateTimeFunctionsBase
 
         DateTime expected = new DateTime(dateTime, getDateTimeZone(getTimeZoneKeyForOffset((timeZoneHoursOffset * 60L) + timezoneMinutesOffset)));
         assertFunction("from_unixtime(" + seconds + ", " + timeZoneHoursOffset + ", " + timezoneMinutesOffset + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        // test invalid minute offsets
+        assertInvalidFunction("from_unixtime(0, 1, 10000)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_unixtime(0, 10000, 0)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_unixtime(0, -100, 100)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
