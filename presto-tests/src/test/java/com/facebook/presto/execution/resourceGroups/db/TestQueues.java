@@ -197,7 +197,7 @@ public class TestQueues
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
         int selectorCount = getSelectors(queryRunner).size();
-        dao.insertSelector(4, "user.*", "(?i).*reject.*", null, 100_000);
+        dao.insertSelector(4, "user.*", "(?i).*reject.*", null, null, 100_000);
         dbConfigurationManager.load();
         assertEquals(getSelectors(queryRunner).size(), selectorCount + 1);
         // Verify the query can be submitted
@@ -229,7 +229,7 @@ public class TestQueues
         dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         // add a new selector that has a higher priority than the existing dashboard selector and that routes queries to the "reject-all-queries" resource group
-        dao.insertSelector(8, "user.*", "(?i).*dashboard.*", null, 200);
+        dao.insertSelector(8, "user.*", "(?i).*dashboard.*", null, null, 200);
 
         // reload the configuration
         dbConfigurationManager.load();
@@ -296,6 +296,21 @@ public class TestQueues
         queryManager.cancelQuery(firstQuery);
         // wait until the second one is FAILED
         waitForQueryState(queryRunner, secondQuery, FAILED);
+    }
+
+    @Test
+    public void testQueryTypeBasedSelection()
+            throws InterruptedException
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .build();
+        QueryId queryId = createQuery(queryRunner, session, "EXPLAIN " + LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
+        Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
+        assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
+        assertEquals(resourceGroupName.get(), "explain");
     }
 
     @Test

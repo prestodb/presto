@@ -34,14 +34,16 @@ public class SelectorRecord
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
     private final Optional<List<String>> clientTags;
+    private final Optional<String> queryType;
 
-    public SelectorRecord(long resourceGroupId, Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Optional<List<String>> clientTags, long priority)
+    public SelectorRecord(long resourceGroupId, Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Optional<List<String>> clientTags, Optional<String> queryType, long priority)
     {
         this.resourceGroupId = resourceGroupId;
         this.priority = priority;
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null").map(ImmutableList::copyOf);
+        this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
     public long getResourceGroupId()
@@ -69,6 +71,11 @@ public class SelectorRecord
         return clientTags;
     }
 
+    public Optional<String> getQueryType()
+    {
+        return queryType;
+    }
+
     public static class Mapper
             implements ResultSetMapper<SelectorRecord>
     {
@@ -83,6 +90,7 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("user_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
+                    Optional.ofNullable(resultSet.getString("query_type")),
                     resultSet.getLong("priority"));
         }
     }
