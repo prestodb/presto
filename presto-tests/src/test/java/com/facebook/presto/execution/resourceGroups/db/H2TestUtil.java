@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
+import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -163,14 +164,16 @@ class H2TestUtil
         dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dao.insertResourceGroup(6, "no-queueing", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT_2);
-        dao.insertSelector(2, "user.*", "test", null, 10_000);
-        dao.insertSelector(4, "user.*", "(?i).*adhoc.*", null, 1_000);
-        dao.insertSelector(5, "user.*", "(?i).*dashboard.*", null, 100);
-        dao.insertSelector(4, "user.*", null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1", "tag2")), 10);
-        dao.insertSelector(2, "user.*", null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1")), 1);
-        dao.insertSelector(6, ".*", ".*", null, 6);
+        dao.insertResourceGroup(7, "explain", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(2, "user.*", "test", null, null, 10_000);
+        dao.insertSelector(4, "user.*", "(?i).*adhoc.*", null, null, 1_000);
+        dao.insertSelector(5, "user.*", "(?i).*dashboard.*", null, null, 100);
+        dao.insertSelector(4, "user.*", null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1", "tag2")), null, 10);
+        dao.insertSelector(2, "user.*", null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1")), null, 1);
+        dao.insertSelector(6, ".*", ".*", null, null, 6);
+        dao.insertSelector(7, null, null, null, EXPLAIN.name(), 100_000);
 
-        int expectedSelectors = 5;
+        int expectedSelectors = 6;
         if (environment.equals(TEST_ENVIRONMENT_2)) {
             expectedSelectors = 1;
         }

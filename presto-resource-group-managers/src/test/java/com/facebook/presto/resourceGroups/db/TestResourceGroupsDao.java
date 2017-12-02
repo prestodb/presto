@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -104,6 +105,7 @@ public class TestResourceGroupsDao
                         Optional.of(Pattern.compile("ping_user")),
                         Optional.of(Pattern.compile(".*")),
                         Optional.empty(),
+                        Optional.empty(),
                         1L));
         map.put(3L,
                 new SelectorRecord(
@@ -111,12 +113,13 @@ public class TestResourceGroupsDao
                         Optional.of(Pattern.compile("admin_user")),
                         Optional.of(Pattern.compile(".*")),
                         Optional.of(ImmutableList.of("tag1", "tag2")),
+                        Optional.of(EXPLAIN.name()),
                         2L));
         dao.insertResourceGroup(1, "admin", "100%", 100, 100, 100, null, null, null, null, null, null, null, null, ENVIRONMENT);
         dao.insertResourceGroup(2, "ping_query", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
         dao.insertResourceGroup(3, "config", "50%", 50, 50, 50, null, null, null, null, null, null, null, 1L, ENVIRONMENT);
-        dao.insertSelector(2, "ping_user", ".*", null, 1);
-        dao.insertSelector(3, "admin_user", ".*", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")), 2);
+        dao.insertSelector(2, "ping_user", ".*", null, null, 1);
+        dao.insertSelector(3, "admin_user", ".*", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")), EXPLAIN.name(), 2);
         List<SelectorRecord> records = dao.getSelectors(ENVIRONMENT);
         compareSelectors(map, records);
     }
@@ -129,6 +132,7 @@ public class TestResourceGroupsDao
                 Optional.of(Pattern.compile("ping.*")),
                 Optional.of(Pattern.compile("ping_source")),
                 Optional.of(ImmutableList.of("tag1")),
+                Optional.empty(),
                 1L);
         map.put(2L, updated);
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
@@ -136,7 +140,7 @@ public class TestResourceGroupsDao
 
     private static void testSelectorUpdateNull(H2ResourceGroupsDao dao, Map<Long, SelectorRecord> map)
     {
-        SelectorRecord updated = new SelectorRecord(2, Optional.empty(), Optional.empty(), Optional.empty(), 3L);
+        SelectorRecord updated = new SelectorRecord(2, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 3L);
         map.put(2L, updated);
         dao.updateSelector(2, null, null, null, "ping.*", "ping_source", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1")));
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
@@ -145,6 +149,7 @@ public class TestResourceGroupsDao
                 Optional.of(Pattern.compile("ping.*")),
                 Optional.of(Pattern.compile("ping_source")),
                 Optional.of(ImmutableList.of("tag1", "tag2")),
+                Optional.empty(),
                 2L);
         map.put(2L, updated);
         dao.updateSelector(2, "ping.*", "ping_source", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")), null, null, null);
@@ -161,7 +166,7 @@ public class TestResourceGroupsDao
     private static void testSelectorDeleteNull(H2ResourceGroupsDao dao, Map<Long, SelectorRecord> map)
     {
         dao.updateSelector(3, null, null, null, "admin_user", ".*", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")));
-        SelectorRecord nullRegexes = new SelectorRecord(3L, Optional.empty(), Optional.empty(), Optional.empty(), 2L);
+        SelectorRecord nullRegexes = new SelectorRecord(3L, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 2L);
         map.put(3L, nullRegexes);
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
         dao.deleteSelector(3, null, null, null);
@@ -175,11 +180,12 @@ public class TestResourceGroupsDao
             return;
         }
 
-        dao.insertSelector(3, "user1", "pipeline", null, 3L);
+        dao.insertSelector(3, "user1", "pipeline", null, null, 3L);
         map.put(3L, new SelectorRecord(
                 3L,
                 Optional.of(Pattern.compile("user1")),
                 Optional.of(Pattern.compile("pipeline")),
+                Optional.empty(),
                 Optional.empty(),
                 3L));
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
