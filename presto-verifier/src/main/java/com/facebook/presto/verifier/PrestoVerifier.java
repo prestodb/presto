@@ -49,7 +49,9 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
-import org.skife.jdbi.v2.DBI;
+import org.jdbi.v3.core.ConnectionFactory;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -110,7 +112,9 @@ public class PrestoVerifier
             }
             Set<EventClient> eventClients = injector.getInstance(Key.get(new TypeLiteral<Set<EventClient>>() {}));
 
-            VerifierDao dao = getQueryDatabase(injector).onDemand(VerifierDao.class);
+            VerifierDao dao = Jdbi.create(getQueryDatabase(injector))
+                    .installPlugin(new SqlObjectPlugin())
+                    .onDemand(VerifierDao.class);
 
             ImmutableList.Builder<QueryPair> queriesBuilder = ImmutableList.builder();
             for (String suite : config.getSuites()) {
@@ -193,10 +197,10 @@ public class PrestoVerifier
     /**
      * Override this method to use a different method of acquiring a database connection.
      */
-    protected DBI getQueryDatabase(Injector injector)
+    protected ConnectionFactory getQueryDatabase(Injector injector)
     {
         VerifierConfig config = injector.getInstance(VerifierConfig.class);
-        return new DBI(config.getQueryDatabase());
+        return () -> DriverManager.getConnection(config.getQueryDatabase());
     }
 
     /**
