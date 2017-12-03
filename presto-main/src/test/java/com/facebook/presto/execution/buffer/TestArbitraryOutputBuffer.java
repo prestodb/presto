@@ -843,6 +843,45 @@ public class TestArbitraryOutputBuffer
         assertTrue(buffer.get(FIRST, 0, sizeOfPages(10)).isDone());
     }
 
+    @Test
+    public void testFinishBeforeNoMoreBuffers()
+    {
+        ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
+
+        // fill the buffer
+        for (int i = 0; i < 3; i++) {
+            addPage(buffer, createPage(i));
+        }
+        buffer.setNoMorePages();
+        assertFalse(buffer.isFinished());
+
+        // add one output buffer
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, 0);
+        buffer.setOutputBuffers(outputBuffers);
+        assertFalse(buffer.isFinished());
+
+        // read a page from the first buffer
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
+        assertFalse(buffer.isFinished());
+
+        // read remaining pages from the first buffer and acknowledge
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(10), NO_WAIT), bufferResult(1, createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 3, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 3, true));
+        assertFalse(buffer.isFinished());
+
+        // finish first queue
+        buffer.abort(FIRST);
+        assertQueueClosed(buffer, 0, FIRST, 3);
+        assertFinished(buffer);
+
+        // add another buffer after finish
+        outputBuffers = outputBuffers.withBuffer(SECOND, 0);
+        buffer.setOutputBuffers(outputBuffers);
+
+        // verify second buffer has no results
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
+    }
+
     private static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
         ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
