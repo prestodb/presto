@@ -227,7 +227,7 @@ public class LocalFileRecordCursor
     {
         checkArgument(field < columns.size(), "Invalid field index");
         String fieldValue = getFieldValue(field);
-        return fieldValue.equals("null") || Strings.isNullOrEmpty(fieldValue);
+        return "null".equals(fieldValue) || Strings.isNullOrEmpty(fieldValue);
     }
 
     private void checkFieldType(int field, Type... expected)

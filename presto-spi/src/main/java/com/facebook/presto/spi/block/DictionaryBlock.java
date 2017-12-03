@@ -311,6 +311,28 @@ public class DictionaryBlock
     }
 
     @Override
+    public Block getPositions(int[] positions)
+    {
+        int length = positions.length;
+        int[] newIds = new int[length];
+        boolean isCompact = isCompact() && length >= dictionary.getPositionCount();
+        boolean[] seen = null;
+        if (isCompact) {
+            seen = new boolean[dictionary.getPositionCount()];
+        }
+        for (int i = 0; i < length; i++) {
+            newIds[i] = getId(positions[i]);
+            if (isCompact) {
+                seen[newIds[i]] = true;
+            }
+        }
+        for (int i = 0; i < dictionary.getPositionCount() && isCompact; i++) {
+            isCompact &= seen[i];
+        }
+        return new DictionaryBlock(newIds.length, getDictionary(), newIds, isCompact, getDictionarySourceId());
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("DictionaryBlock{");

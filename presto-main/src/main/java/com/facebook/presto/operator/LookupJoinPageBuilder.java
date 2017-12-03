@@ -14,21 +14,18 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 
-public interface JoinProbe
+public interface LookupJoinPageBuilder
 {
-    int getOutputChannelCount();
+    boolean isFull();
 
-    int[] getOutputChannels();
+    boolean isEmpty();
 
-    boolean advanceNextPosition();
+    void reset();
 
-    long getCurrentJoinPosition(LookupSource lookupSource);
+    void appendRow(JoinProbe probe, LookupSource lookupSource, long joinPosition);
 
-    void appendTo(PageBuilder pageBuilder);
+    void appendNullForBuild(JoinProbe probe);
 
-    int getPosition();
-
-    Page getPage();
+    Page build(JoinProbe probe);
 }

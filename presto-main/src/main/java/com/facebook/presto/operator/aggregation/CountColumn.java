@@ -95,7 +95,7 @@ public class CountColumn
                 BIGINT);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

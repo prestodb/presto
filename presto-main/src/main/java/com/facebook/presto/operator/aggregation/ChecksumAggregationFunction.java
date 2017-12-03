@@ -94,7 +94,7 @@ public class ChecksumAggregationFunction
                 VARBINARY);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, BIGINT, VARBINARY, true, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, BIGINT, VARBINARY, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

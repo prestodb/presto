@@ -37,19 +37,24 @@ import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
@@ -103,6 +108,9 @@ import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -120,6 +128,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -298,6 +307,153 @@ public final class FunctionAssertions
         assertTrue(resultSet.size() == 1, "Expected only one result unique result, but got " + resultSet);
 
         return Iterables.getOnlyElement(resultSet);
+    }
+
+    // this is not safe as it catches all RuntimeExceptions
+    @Deprecated
+    public void assertInvalidFunction(String projection)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to fail");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+    }
+
+    public void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw a PrestoException with message matching " + messagePattern);
+        }
+        catch (PrestoException e) {
+            try {
+                assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+                assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern));
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+    }
+
+    public void assertInvalidFunction(String projection, String messagePattern)
+    {
+        assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
+    }
+
+    public void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail(format("Expected to throw %s exception", expectedErrorCode));
+        }
+        catch (SemanticException e) {
+            try {
+                assertEquals(e.getCode(), expectedErrorCode);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+    }
+
+    public void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail(format("Expected to throw %s exception", expectedErrorCode));
+        }
+        catch (SemanticException e) {
+            try {
+                assertEquals(e.getCode(), expectedErrorCode);
+                assertEquals(e.getMessage(), message);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+    }
+
+    public void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail(format("Expected to throw %s exception", expectedErrorCode.toErrorCode()));
+        }
+        catch (PrestoException e) {
+            try {
+                assertEquals(e.getErrorCode(), expectedErrorCode.toErrorCode());
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+    }
+
+    public void assertNumericOverflow(String projection, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw an NUMERIC_VALUE_OUT_OF_RANGE exception with message " + message);
+        }
+        catch (PrestoException e) {
+            try {
+                assertEquals(e.getErrorCode(), NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode());
+                assertEquals(e.getMessage(), message);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+    }
+
+    public void assertInvalidCast(String projection)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
+        }
+        catch (PrestoException e) {
+            try {
+                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+    }
+
+    public void assertInvalidCast(String projection, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
+        }
+        catch (PrestoException e) {
+            try {
+                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+                assertEquals(e.getMessage(), message);
+            }
+            catch (Throwable failure) {
+                failure.addSuppressed(e);
+                throw failure;
+            }
+        }
+    }
+
+    private void evaluateInvalid(String projection)
+    {
+        // type isn't necessary as the function is not valid
+        selectSingleValue(projection, UNKNOWN, compiler);
     }
 
     public void assertCachedInstanceHasBoundedRetainedSize(String projection)

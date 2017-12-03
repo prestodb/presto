@@ -16,8 +16,10 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
@@ -39,13 +41,22 @@ public class AggregationMatcher
     private final Map<Symbol, Symbol> masks;
     private final List<List<String>> groupingSets;
     private final Optional<Symbol> groupId;
+    private final Optional<Map<String, List<String>>> orderBys;
+    private final Optional<Map<String, List<SortOrder>>> orderings;
     private final Step step;
 
     public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
     {
+        this(groupingSets, masks, groupId, Optional.empty(), Optional.empty(), step);
+    }
+
+    public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Optional<Map<String, List<String>>> orderBys, Optional<Map<String, List<SortOrder>>> orderings, Step step)
+    {
         this.masks = masks;
         this.groupingSets = groupingSets;
         this.groupId = groupId;
+        this.orderBys = orderBys;
+        this.orderings = orderings;
         this.step = step;
     }
 
@@ -88,6 +99,15 @@ public class AggregationMatcher
 
         for (int i = 0; i < groupingSets.size(); i++) {
             if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i), symbolAliases)) {
+                return NO_MATCH;
+            }
+        }
+
+        for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
+            String name = entry.getKey().getName();
+            Aggregation aggregation = entry.getValue();
+            if (orderBys.isPresent() && (!orderBys.get().keySet().contains(name) || !orderBys.get().get(name).equals(aggregation.getOrderBy().stream().map(Symbol::getName).collect(toImmutableList()))) ||
+                    orderBys.isPresent() && (!orderings.get().keySet().contains(name) || !orderings.get().get(name).equals(aggregation.getOrdering()))) {
                 return NO_MATCH;
             }
         }

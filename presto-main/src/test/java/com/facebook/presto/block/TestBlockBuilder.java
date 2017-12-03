@@ -25,11 +25,13 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestBlockBuilder
 {
@@ -78,6 +80,40 @@ public class TestBlockBuilder
             assertNotEquals(pageBuilder.getBlockBuilder(i), newPageBuilder.getBlockBuilder(i));
             assertEquals(newPageBuilder.getBlockBuilder(i).getPositionCount(), 0);
             assertTrue(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes());
+        }
+    }
+
+    @Test
+    public void testMask()
+    {
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(5).appendNull().writeLong(42L).appendNull().writeLong(43L).appendNull();
+        int[] positions = new int[] {0, 1, 1, 1, 4};
+
+        // test mask for block builder
+        Block expected = BIGINT.createFixedSizeBlockBuilder(5).appendNull().writeLong(42).writeLong(42).writeLong(42).appendNull().build();
+        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions), expected);
+
+        // out of range
+        assertInvalidMask(blockBuilder, new int[] {-1});
+        assertInvalidMask(blockBuilder, new int[] {6});
+
+        // test mask for block
+        Block block = blockBuilder.build();
+        assertBlockEquals(BIGINT, block.getPositions(positions), expected);
+
+        // out of range
+        assertInvalidMask(block, new int[] {-1});
+        assertInvalidMask(block, new int[] {6});
+    }
+
+    private static void assertInvalidMask(Block block, int[] positions)
+    {
+        try {
+            block.getPositions(positions).getLong(0, 0);
+            fail("Expected to fail");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().startsWith("position is not valid"));
         }
     }
 }

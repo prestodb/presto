@@ -704,7 +704,7 @@ public abstract class AbstractTestQueries
         Multimap<String, Long> orderKeyByStatus = ArrayListMultimap.create();
         Multimap<String, Double> totalPriceByStatus = ArrayListMultimap.create();
         for (MaterializedRow row : raw.getMaterializedRows()) {
-            orderKeyByStatus.put((String) row.getField(0), (Long) row.getField(1));
+            orderKeyByStatus.put((String) row.getField(0), ((Number) row.getField(1)).longValue());
             totalPriceByStatus.put((String) row.getField(0), (Double) row.getField(2));
         }
 
@@ -719,9 +719,9 @@ public abstract class AbstractTestQueries
 
         for (MaterializedRow row : actual.getMaterializedRows()) {
             String status = (String) row.getField(0);
-            Long orderKey = (Long) row.getField(1);
+            Long orderKey = ((Number) row.getField(1)).longValue();
             Double totalPrice = (Double) row.getField(2);
-            Long orderKeyWeighted = (Long) row.getField(3);
+            Long orderKeyWeighted = ((Number) row.getField(3)).longValue();
             Double totalPriceWeighted = (Double) row.getField(4);
 
             List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
@@ -745,21 +745,15 @@ public abstract class AbstractTestQueries
     @Test
     public void testComplexQuery()
     {
-        MaterializedResult actual = computeActual("SELECT sum(orderkey), row_number() OVER (ORDER BY orderkey)\n" +
-                "FROM orders\n" +
-                "WHERE orderkey <= 10\n" +
-                "GROUP BY orderkey\n" +
-                "HAVING sum(orderkey) >= 3\n" +
-                "ORDER BY orderkey DESC\n" +
-                "LIMIT 3");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(7L, 5L)
-                .row(6L, 4L)
-                .row(5L, 3L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT sum(orderkey), row_number() OVER (ORDER BY orderkey) " +
+                        "FROM orders " +
+                        "WHERE orderkey <= 10 " +
+                        "GROUP BY orderkey " +
+                        "HAVING sum(orderkey) >= 3 " +
+                        "ORDER BY orderkey DESC " +
+                        "LIMIT 3",
+                "VALUES (7, 5), (6, 4), (5, 3)");
     }
 
     @Test
@@ -2418,7 +2412,7 @@ public abstract class AbstractTestQueries
         MaterializedRow actualRow = getOnlyElement(computeActual(
                 "SELECT count(*) FROM " +
                         "customer c1 JOIN customer c2 ON c1.nationkey=c2.nationkey " +
-                        "WHERE c1.custkey - RANDOM(c1.custkey) < c2.custkey").getMaterializedRows());
+                        "WHERE c1.custkey - RANDOM(CAST(c1.custkey AS BIGINT)) < c2.custkey").getMaterializedRows());
         assertEquals(actualRow.getFieldCount(), 1);
         long actualCount = (Long) actualRow.getField(0); // this should be around ~69000
 
@@ -4166,14 +4160,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testWindowImplicitCoercion()
     {
-        MaterializedResult actual = computeActual("SELECT orderkey, 1e0 / row_number() OVER (ORDER BY orderkey) FROM orders LIMIT 2");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, DOUBLE)
-                .row(1L, 1.0)
-                .row(2L, 0.5)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, 1e0 / row_number() OVER (ORDER BY orderkey) FROM orders LIMIT 2",
+                "VALUES (1, 1.0), (2, 0.5)");
     }
 
     @Test
@@ -4262,27 +4251,24 @@ public abstract class AbstractTestQueries
     public void testWindowsConstantExpression()
             throws Exception
     {
-        MaterializedResult actual = computeActual("SELECT " +
-                "sum(size) OVER(PARTITION BY type ORDER BY brand)," +
-                "lag(partkey, 1) OVER(PARTITION BY type ORDER BY name)" +
-                "FROM part " +
-                "ORDER BY 1, 2 " +
-                "LIMIT 10");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 315L)
-                .row(1L, 881L)
-                .row(1L, 1009L)
-                .row(3L, 1087L)
-                .row(3L, 1187L)
-                .row(3L, 1529L)
-                .row(4L, 969L)
-                .row(5L, 151L)
-                .row(5L, 505L)
-                .row(5L, 872L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT " +
+                        "sum(size) OVER(PARTITION BY type ORDER BY brand)," +
+                        "lag(partkey, 1) OVER(PARTITION BY type ORDER BY name)" +
+                        "FROM part " +
+                        "ORDER BY 1, 2 " +
+                        "LIMIT 10",
+                "VALUES " +
+                        "(1, 315), " +
+                        "(1, 881), " +
+                        "(1, 1009), " +
+                        "(3, 1087), " +
+                        "(3, 1187), " +
+                        "(3, 1529), " +
+                        "(4, 969), " +
+                        "(5, 151), " +
+                        "(5, 505), " +
+                        "(5, 872)");
     }
 
     @Test
@@ -4411,22 +4397,18 @@ public abstract class AbstractTestQueries
     @Test
     public void testWindowFunctionsExpressions()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, orderstatus\n" +
-                ", row_number() OVER (ORDER BY orderkey * 2) *\n" +
-                "  row_number() OVER (ORDER BY orderkey DESC) + 100\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1L, "O", (1L * 10) + 100)
-                .row(2L, "O", (2L * 9) + 100)
-                .row(3L, "F", (3L * 8) + 100)
-                .row(4L, "O", (4L * 7) + 100)
-                .row(5L, "F", (5L * 6) + 100)
-                .build();
-
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQueryOrdered(
+                "SELECT orderkey, orderstatus " +
+                        ", row_number() OVER (ORDER BY orderkey * 2) * " +
+                        "  row_number() OVER (ORDER BY orderkey DESC) + 100 " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES " +
+                        "(1, 'O', 110), " +
+                        "(2, 'O', 118), " +
+                        "(3, 'F', 124), " +
+                        "(4, 'O', 128), " +
+                        "(5, 'F', 130)");
     }
 
     @Test
@@ -4460,21 +4442,16 @@ public abstract class AbstractTestQueries
     @Test
     public void testOrderByWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, row_number() OVER (ORDER BY orderkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 DESC\n" +
-                "LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(34L, 10L)
-                .row(33L, 9L)
-                .row(32L, 8L)
-                .row(7L, 7L)
-                .row(6L, 6L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, row_number() OVER (ORDER BY orderkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY 2 DESC " +
+                        "LIMIT 5",
+                "VALUES (34, 10), " +
+                        "(33, 9), " +
+                        "(32, 8), " +
+                        "(7, 7), " +
+                        "(6, 6)");
     }
 
     @Test
@@ -4708,27 +4685,25 @@ public abstract class AbstractTestQueries
     @Test
     public void testRowNumberPropertyDerivation()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, orderstatus, SUM(rn) OVER (PARTITION BY orderstatus) c\n" +
-                "FROM (\n" +
-                "   SELECT orderkey, orderstatus, row_number() OVER (PARTITION BY orderstatus) rn\n" +
-                "   FROM (\n" +
-                "       SELECT * FROM orders ORDER BY orderkey LIMIT 10\n" +
-                "   )\n" +
-                ")");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1L, "O", 21L)
-                .row(2L, "O", 21L)
-                .row(3L, "F", 10L)
-                .row(4L, "O", 21L)
-                .row(5L, "F", 10L)
-                .row(6L, "F", 10L)
-                .row(7L, "O", 21L)
-                .row(32L, "O", 21L)
-                .row(33L, "F", 10L)
-                .row(34L, "O", 21L)
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT orderkey, orderstatus, SUM(rn) OVER (PARTITION BY orderstatus) c " +
+                        "FROM ( " +
+                        "   SELECT orderkey, orderstatus, row_number() OVER (PARTITION BY orderstatus) rn " +
+                        "   FROM ( " +
+                        "       SELECT * FROM orders ORDER BY orderkey LIMIT 10 " +
+                        "   ) " +
+                        ")",
+                "VALUES " +
+                        "(1, 'O', 21), " +
+                        "(2, 'O', 21), " +
+                        "(3, 'F', 10), " +
+                        "(4, 'O', 21), " +
+                        "(5, 'F', 10), " +
+                        "(6, 'F', 10), " +
+                        "(7, 'O', 21), " +
+                        "(32, 'O', 21), " +
+                        "(33, 'F', 10), " +
+                        "(34, 'O', 21)");
     }
 
     @Test
@@ -4750,31 +4725,29 @@ public abstract class AbstractTestQueries
     @Test
     public void testWindowPropertyDerivation()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderstatus, orderkey,\n" +
-                "SUM(s) OVER (PARTITION BY orderstatus),\n" +
-                "SUM(s) OVER (PARTITION BY orderstatus, orderkey),\n" +
-                "SUM(s) OVER (PARTITION BY orderstatus ORDER BY orderkey),\n" +
-                "SUM(s) OVER (ORDER BY orderstatus, orderkey)\n" +
-                "FROM (\n" +
-                "   SELECT orderkey, orderstatus, SUM(orderkey) OVER (ORDER BY orderstatus, orderkey) s\n" +
-                "   FROM (\n" +
-                "       SELECT * FROM orders ORDER BY orderkey LIMIT 10\n" +
-                "   )\n" +
-                ")");
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
-                .row("F", 3L, 72L, 3L, 3L, 3L)
-                .row("F", 5L, 72L, 8L, 11L, 11L)
-                .row("F", 6L, 72L, 14L, 25L, 25L)
-                .row("F", 33L, 72L, 47L, 72L, 72L)
-                .row("O", 1L, 433L, 48L, 48L, 120L)
-                .row("O", 2L, 433L, 50L, 98L, 170L)
-                .row("O", 4L, 433L, 54L, 152L, 224L)
-                .row("O", 7L, 433L, 61L, 213L, 285L)
-                .row("O", 32L, 433L, 93L, 306L, 378L)
-                .row("O", 34L, 433L, 127L, 433L, 505L)
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT orderstatus, orderkey, " +
+                        "SUM(s) OVER (PARTITION BY orderstatus), " +
+                        "SUM(s) OVER (PARTITION BY orderstatus, orderkey), " +
+                        "SUM(s) OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
+                        "SUM(s) OVER (ORDER BY orderstatus, orderkey) " +
+                        "FROM ( " +
+                        "   SELECT orderkey, orderstatus, SUM(orderkey) OVER (ORDER BY orderstatus, orderkey) s " +
+                        "   FROM ( " +
+                        "       SELECT * FROM orders ORDER BY orderkey LIMIT 10 " +
+                        "   ) " +
+                        ")",
+                "VALUES " +
+                        "('F', 3, 72, 3, 3, 3), " +
+                        "('F', 5, 72, 8, 11, 11), " +
+                        "('F', 6, 72, 14, 25, 25), " +
+                        "('F', 33, 72, 47, 72, 72), " +
+                        "('O', 1, 433, 48, 48, 120), " +
+                        "('O', 2, 433, 50, 98, 170), " +
+                        "('O', 4, 433, 54, 152, 224), " +
+                        "('O', 7, 433, 61, 213, 285), " +
+                        "('O', 32, 433, 93, 306, 378), " +
+                        "('O', 34, 433, 127, 433, 505)");
     }
 
     @Test
@@ -4806,124 +4779,101 @@ public abstract class AbstractTestQueries
     @Test
     public void testTopNPartitionedWindow()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn <= 2");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(1L, 1L, "O")
-                .row(2L, 2L, "O")
-                .row(1L, 3L, "F")
-                .row(2L, 5L, "F")
-                .row(1L, 65L, "P")
-                .row(2L, 197L, "P")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn <= 2",
+                "VALUES " +
+                        "(1, 1, 'O'), " +
+                        "(2, 2, 'O'), " +
+                        "(1, 3, 'F'), " +
+                        "(2, 5, 'F'), " +
+                        "(1, 65, 'P'), " +
+                        "(2, 197, 'P')");
 
         // Test for unreferenced outputs
-        actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
-                "   FROM orders\n" +
-                ") WHERE rn <= 2");
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 2L)
-                .row(1L, 3L)
-                .row(2L, 5L)
-                .row(1L, 65L)
-                .row(2L, 197L)
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey " +
+                        "   FROM orders " +
+                        ") WHERE rn <= 2",
+                "VALUES " +
+                        "(1, 1), " +
+                        "(2, 2), " +
+                        "(1, 3), " +
+                        "(2, 5), " +
+                        "(1, 65), " +
+                        "(2, 197)");
 
-        actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn <= 2");
-        expected = resultBuilder(getSession(), BIGINT, VARCHAR)
-                .row(1L, "O")
-                .row(2L, "O")
-                .row(1L, "F")
-                .row(2L, "F")
-                .row(1L, "P")
-                .row(2L, "P")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn <= 2",
+                "VALUES " +
+                        "(1, 'O'), " +
+                        "(2, 'O'), " +
+                        "(1, 'F'), " +
+                        "(2, 'F'), " +
+                        "(1, 'P'), " +
+                        "(2, 'P')");
     }
 
     @Test
     public void testTopNUnpartitionedWindowWithEqualityFilter()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 2");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(2L, 2L, "O")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 2",
+                "VALUES (2, 2, 'O')");
     }
 
     @Test
     public void testTopNUnpartitionedWindowWithCompositeFilter()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(1L, 1L, "O")
-                .row(3L, 3L, "F")
-                .row(4L, 4L, "O")
-                .row(6L, 6L, "F")
-                .row(7L, 7L, "O")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7",
+                "VALUES " +
+                        "(1, 1, 'O'), " +
+                        "(3, 3, 'F'), " +
+                        "(4, 4, 'O'), " +
+                        "(6, 6, 'F'), " +
+                        "(7, 7, 'O')");
     }
 
     @Test
     public void testTopNPartitionedWindowWithEqualityFilter()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 2");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(2L, 2L, "O")
-                .row(2L, 5L, "F")
-                .row(2L, 197L, "P")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 2",
+                "VALUES " +
+                        "(2, 2, 'O'), " +
+                        "(2, 5, 'F'), " +
+                        "(2, 197, 'P')");
 
         // Test for unreferenced outputs
-        actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 2");
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2L, 2L)
-                .row(2L, 5L)
-                .row(2L, 197L)
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey " +
+                        "   FROM orders " +
+                        ") WHERE rn = 2",
+                "VALUES (2, 2), (2, 5), (2, 197)");
 
-        actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
-                "   FROM orders\n" +
-                ") WHERE rn = 2");
-        expected = resultBuilder(getSession(), BIGINT, VARCHAR)
-                .row(2L, "O")
-                .row(2L, "F")
-                .row(2L, "P")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus " +
+                        "   FROM orders " +
+                        ") WHERE rn = 2",
+                "VALUES (2, 'O'), (2, 'F'), (2, 'P')");
     }
 
     @Test
@@ -4944,188 +4894,134 @@ public abstract class AbstractTestQueries
     @Test
     public void testPartialPrePartitionedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey, custkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 1L)
-                .row(3L, 1L)
-                .row(4L, 1L)
-                .row(5L, 1L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered("" +
+                        "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey, custkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 1), " +
+                        "(2, 1), " +
+                        "(3, 1), " +
+                        "(4, 1), " +
+                        "(5, 1)");
     }
 
     @Test
     public void testFullPrePartitionedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 1L)
-                .row(3L, 1L)
-                .row(4L, 1L)
-                .row(5L, 1L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 1), (2, 1), (3, 1), (4, 1), (5, 1)");
     }
 
     @Test
     public void testPartialPreSortedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey, custkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 2L)
-                .row(3L, 3L)
-                .row(4L, 4L)
-                .row(5L, 5L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey, custkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 1), " +
+                        "(2, 2), " +
+                        "(3, 3), " +
+                        "(4, 4), " +
+                        "(5, 5)");
     }
 
     @Test
     public void testFullPreSortedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1L, 1L)
-                .row(2L, 2L)
-                .row(3L, 3L)
-                .row(4L, 4L)
-                .row(5L, 5L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 1), (2, 2), (3, 3), (4, 4), (5, 5)");
     }
 
     @Test
     public void testFullyPartitionedAndPartiallySortedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, custkey, orderPriority, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey, orderPriority)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR, BIGINT)
-                .row(1L, 370L, "5-LOW", 1L)
-                .row(2L, 781L, "1-URGENT", 1L)
-                .row(3L, 1234L, "5-LOW", 1L)
-                .row(4L, 1369L, "5-LOW", 1L)
-                .row(5L, 445L, "5-LOW", 1L)
-                .build();
-
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQueryOrdered(
+                "SELECT orderkey, custkey, orderPriority, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey, orderPriority) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 370, '5-LOW', 1), " +
+                        "(2, 781, '1-URGENT', 1), " +
+                        "(3, 1234, '5-LOW', 1), " +
+                        "(4, 1369, '5-LOW', 1), " +
+                        "(5, 445, '5-LOW', 1)");
     }
 
     @Test
     public void testFullyPartitionedAndFullySortedWindowFunction()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT orderkey, custkey, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10)\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, BIGINT)
-                .row(1L, 370L, 1L)
-                .row(2L, 781L, 1L)
-                .row(3L, 1234L, 1L)
-                .row(4L, 1369L, 1L)
-                .row(5L, 445L, 1L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, custkey, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10) " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES (1, 370, 1), " +
+                        "(2, 781, 1), " +
+                        "(3, 1234, 1), " +
+                        "(4, 1369, 1), " +
+                        "(5, 445, 1)");
     }
 
     @Test
     public void testOrderByWindowFunctionWithNulls()
     {
-        MaterializedResult actual;
-        MaterializedResult expected;
-
         // Nulls first
-        actual = computeActual("" +
-                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS FIRST)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 ASC\n" +
-                "LIMIT 5");
-
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(3L, 1L)
-                .row(1L, 2L)
-                .row(2L, 3L)
-                .row(4L, 4L)
-                .row(5L, 5L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS FIRST) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY 2 ASC " +
+                        "LIMIT 5",
+                "VALUES (3, 1), " +
+                        "(1, 2), " +
+                        "(2, 3), " +
+                        "(4, 4)," +
+                        "(5, 5)");
 
         // Nulls last
-        actual = computeActual("" +
-                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS LAST)\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 DESC\n" +
-                "LIMIT 5");
-
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(3L, 10L)
-                .row(34L, 9L)
-                .row(33L, 8L)
-                .row(32L, 7L)
-                .row(7L, 6L)
-                .build();
-
-        assertEquals(actual, expected);
+        String nullsLastExpected = "VALUES (3, 10), " +
+                "(34, 9), " +
+                "(33, 8), " +
+                "(32, 7), " +
+                "(7, 6)";
+        assertQueryOrdered(
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3) NULLS LAST) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY 2 DESC " +
+                        "LIMIT 5",
+                nullsLastExpected);
 
         // and nulls last should be the default
-        actual = computeActual("" +
-                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3))\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 DESC\n" +
-                "LIMIT 5");
-
-        assertEquals(actual, expected);
+        assertQueryOrdered(
+                "SELECT orderkey, row_number() OVER (ORDER BY nullif(orderkey, 3)) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "ORDER BY 2 DESC " +
+                        "LIMIT 5",
+                nullsLastExpected);
     }
 
     @Test
     public void testValueWindowFunctions()
     {
-        MaterializedResult actual = computeActual("SELECT * FROM (\n" +
-                "  SELECT orderkey, orderstatus\n" +
-                "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) fvalue\n" +
-                "    , nth_value(orderkey + 1000, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey\n" +
-                "        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) nvalue\n" +
-                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "  ) x\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT, BIGINT)
-                .row(1L, "O", 1001L, 1002L)
-                .row(2L, "O", 1001L, 1002L)
-                .row(3L, "F", 1003L, 1005L)
-                .row(4L, "O", 1001L, 1002L)
-                .row(5L, "F", 1003L, 1005L)
-                .build();
-
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertQueryOrdered(
+                "SELECT * FROM ( " +
+                        "  SELECT orderkey, orderstatus " +
+                        "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) fvalue " +
+                        "    , nth_value(orderkey + 1000, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) nvalue " +
+                        "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x " +
+                        "  ) x " +
+                        "ORDER BY orderkey LIMIT 5",
+                "VALUES " +
+                        "(1, 'O', 1001, 1002), " +
+                        "(2, 'O', 1001, 1002), " +
+                        "(3, 'F', 1003, 1005), " +
+                        "(4, 'O', 1001, 1002), " +
+                        "(5, 'F', 1003, 1005)");
     }
 
     @Test
@@ -7337,7 +7233,7 @@ public abstract class AbstractTestQueries
                 "SELECT max(o.orderdate), o.orderkey, " +
                         "(SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) " +
                         "FROM orders o GROUP BY o.orderkey ORDER BY o.orderkey LIMIT 1",
-                "VALUES ('1996-01-02', 1, 40000.0)"); // h2 is slow
+                "VALUES ('1996-01-02', 1, 40000)"); // h2 is slow
         assertQuery(
                 "SELECT max(o.orderdate), o.orderkey " +
                         "FROM orders o " +
@@ -9143,6 +9039,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testAggregationWithOrderBy()
     {
+        assertQuery(
+                "SELECT sum(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
+                "VALUES (8)");
         assertQuery(
                 "SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
                 "VALUES ((4, 1, 3))");

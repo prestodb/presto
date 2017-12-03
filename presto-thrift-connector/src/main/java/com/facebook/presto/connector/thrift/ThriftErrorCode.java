@@ -23,7 +23,8 @@ public enum ThriftErrorCode
         implements ErrorCodeSupplier
 {
     THRIFT_SERVICE_CONNECTION_ERROR(1, EXTERNAL),
-    THRIFT_SERVICE_INVALID_RESPONSE(2, EXTERNAL);
+    THRIFT_SERVICE_INVALID_RESPONSE(2, EXTERNAL),
+    THRIFT_SERVICE_GENERIC_REMOTE_ERROR(3, EXTERNAL);
 
     private final ErrorCode errorCode;
 

@@ -13,11 +13,19 @@
  */
 package com.facebook.presto.connector.thrift.util;
 
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
+import io.airlift.stats.TimeDistribution;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
+
+import javax.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -29,7 +37,9 @@ import java.util.function.Predicate;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class RetryDriver
 {
@@ -117,7 +127,7 @@ public class RetryDriver
     /**
      * This is only for sync calls. For Callable that returns Future object, use runAsync instead.
      */
-    public <V> V run(String callableName, Callable<V> callable)
+    public <V> V run(String callableName, RetryStats stats, Callable<V> callable)
     {
         requireNonNull(callableName, "callableName is null");
         requireNonNull(callable, "callable is null");
@@ -126,14 +136,20 @@ public class RetryDriver
         while (true) {
             retryStatus.nextAttempt();
             try {
-                return callable.call();
+                V result = callable.call();
+                stats.addSuccess();
+                stats.addAttemptsBeforeSuccess(retryStatus.getAttempts());
+                stats.addSuccessLatency(retryStatus.getDuration());
+                return result;
             }
             catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
+                recordFailure(retryStatus, stats);
                 throw propagate(ie);
             }
             catch (Exception e) {
                 if (retryStatus.shouldStopRetry(e)) {
+                    recordFailure(retryStatus, stats);
                     throw propagate(e);
                 }
 
@@ -143,28 +159,43 @@ public class RetryDriver
                 }
                 catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
+                    recordFailure(retryStatus, stats);
                     throw propagate(ie);
                 }
             }
         }
     }
 
-    public <V> ListenableFuture<V> runAsync(String callableName, Callable<ListenableFuture<V>> callable)
+    public <V> ListenableFuture<V> runAsync(String callableName, RetryStats stats, Callable<ListenableFuture<V>> callable)
     {
         requireNonNull(callableName, "callableName is null");
         requireNonNull(callable, "callable is null");
-        return runAsyncInternal(callableName, callable, new RetryStatus());
+        return runAsyncInternal(callableName, stats, callable, new RetryStatus());
     }
 
-    private <V> ListenableFuture<V> runAsyncInternal(String callableName, Callable<ListenableFuture<V>> callable, RetryStatus retryStatus)
+    private <V> ListenableFuture<V> runAsyncInternal(String callableName, RetryStats stats, Callable<ListenableFuture<V>> callable, RetryStatus retryStatus)
     {
         retryStatus.nextAttempt();
         ListenableFuture<V> resultFuture;
         try {
             resultFuture = callable.call();
+            Futures.addCallback(resultFuture, new FutureCallback<V>()
+            {
+                @Override
+                public void onSuccess(@Nullable V result)
+                {
+                    stats.addSuccess();
+                    stats.addAttemptsBeforeSuccess(retryStatus.getAttempts());
+                    stats.addSuccessLatency(retryStatus.getDuration());
+                }
+
+                @Override
+                public void onFailure(Throwable t) {}
+            });
         }
         catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
+            recordFailure(retryStatus, stats);
             throw propagate(ie);
         }
         catch (Exception e) {
@@ -174,13 +205,15 @@ public class RetryDriver
         return Futures.catchingAsync(resultFuture, Exception.class, e -> {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
+                recordFailure(retryStatus, stats);
                 throw propagate(e);
             }
             else if (retryStatus.shouldStopRetry(e)) {
+                recordFailure(retryStatus, stats);
                 throw propagate(e);
             }
             log.warn(e, "Failed on executing %s with attempt %d, will perform async retry.", callableName, retryStatus.getAttempts());
-            return Futures.dereference(retryExecutorService.schedule(() -> runAsyncInternal(callableName, callable, retryStatus), retryStatus.getRetryDelayInMs(), MILLISECONDS));
+            return Futures.dereference(retryExecutorService.schedule(() -> runAsyncInternal(callableName, stats, callable, retryStatus), retryStatus.getRetryDelayInMs(), MILLISECONDS));
         });
     }
 
@@ -189,6 +222,13 @@ public class RetryDriver
         Exception classified = classifier.apply(e);
         throwIfUnchecked(classified);
         throw new RuntimeException(classified);
+    }
+
+    private void recordFailure(RetryStatus retryStatus, RetryStats stats)
+    {
+        stats.addFinalFailure();
+        stats.addAttemptsBeforeFailure(retryStatus.getAttempts());
+        stats.addFailureLatency(retryStatus.getDuration());
     }
 
     private final class RetryStatus
@@ -209,6 +249,11 @@ public class RetryDriver
             return delayInMs + jitter;
         }
 
+        Duration getDuration()
+        {
+            return Duration.nanosSince(startTime);
+        }
+
         boolean shouldStopRetry(Exception e)
         {
             return stopRetrying.test(e) || attempts.get() >= maxAttempts || Duration.nanosSince(startTime).compareTo(maxRetryTime) >= 0;
@@ -224,6 +269,89 @@ public class RetryDriver
             if (attempts.incrementAndGet() > 1) {
                 retryRunnable.ifPresent(Runnable::run);
             }
+        }
+    }
+
+    public static final class RetryStats
+    {
+        private final CounterStat success = new CounterStat();
+        private final CounterStat finalFailure = new CounterStat();
+        private final DistributionStat attemptsBeforeFailure = new DistributionStat();
+        private final TimeDistribution failureLatency = new TimeDistribution(MICROSECONDS);
+        private final DistributionStat attemptsBeforeSuccess = new DistributionStat();
+        private final TimeDistribution successLatency = new TimeDistribution(MICROSECONDS);
+
+        @Managed
+        @Nested
+        public CounterStat getSuccess()
+        {
+            return success;
+        }
+
+        @Managed
+        @Nested
+        public DistributionStat getAttemptsBeforeSuccess()
+        {
+            return attemptsBeforeSuccess;
+        }
+
+        @Managed
+        @Nested
+        public TimeDistribution getSuccessLatency()
+        {
+            return successLatency;
+        }
+
+        @Managed
+        @Nested
+        public CounterStat getFinalFailure()
+        {
+            return finalFailure;
+        }
+
+        @Managed
+        @Nested
+        public DistributionStat getAttemptsBeforeFailure()
+        {
+            return attemptsBeforeFailure;
+        }
+
+        @Managed
+        @Nested
+        public TimeDistribution getFailureLatency()
+
+        {
+            return failureLatency;
+        }
+
+        public void addSuccess()
+        {
+            success.update(1);
+        }
+
+        public void addAttemptsBeforeSuccess(int count)
+        {
+            attemptsBeforeSuccess.add(count);
+        }
+
+        public void addSuccessLatency(Duration duration)
+        {
+            successLatency.add(duration.roundTo(NANOSECONDS));
+        }
+
+        public void addFinalFailure()
+        {
+            finalFailure.update(1);
+        }
+
+        public void addAttemptsBeforeFailure(int count)
+        {
+            attemptsBeforeFailure.add(count);
+        }
+
+        public void addFailureLatency(Duration duration)
+        {
+            failureLatency.add(duration.roundTo(NANOSECONDS));
         }
     }
 }

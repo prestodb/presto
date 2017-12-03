@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.connector.thrift.util.RetryDriver.RetryStats;
 import static com.facebook.presto.connector.thrift.util.TestRetryDriver.AttemptStatus.ASYNC_FAILURE;
 import static com.facebook.presto.connector.thrift.util.TestRetryDriver.AttemptStatus.SUCCESS;
 import static com.facebook.presto.connector.thrift.util.TestRetryDriver.AttemptStatus.SYNC_FAILURE;
@@ -75,9 +76,11 @@ public class TestRetryDriver
             throws Exception
     {
         SyncTaskImpl task = new SyncTaskImpl(SUCCESS);
-        Integer result = retry.run("test", task);
+        RetryStats retryStats = new RetryStats();
+        Integer result = retry.run("test", retryStats, task);
 
         assertSyncSuccess(result, task, 1);
+        assertFinalSuccess(retryStats, 1);
     }
 
     @Test
@@ -85,18 +88,21 @@ public class TestRetryDriver
             throws Exception
     {
         SyncTaskImpl task = new SyncTaskImpl(SYNC_FAILURE, SYNC_FAILURE, SYNC_FAILURE, SYNC_FAILURE, SUCCESS);
-        Integer result = retry.run("test", task);
+        RetryStats retryStats = new RetryStats();
+        Integer result = retry.run("test", retryStats, task);
 
         assertSyncSuccess(result, task, 5);
+        assertFinalSuccess(retryStats, 5);
     }
 
     @Test
     void testOutOfRetries()
     {
         SyncTaskImpl task = new SyncTaskImpl(SYNC_FAILURE, SYNC_FAILURE, SYNC_FAILURE);
+        RetryStats retryStats = new RetryStats();
 
         try {
-            retry.maxAttempts(3).run("test", task);
+            retry.maxAttempts(3).run("test", retryStats, task);
             fail("Call didn't fail as expected");
         }
         catch (Exception e) {
@@ -105,6 +111,7 @@ public class TestRetryDriver
             }
         }
         assertEquals(task.totalAttemptsMade(), 3);
+        assertFinalFailure(retryStats, 3);
     }
 
     @Test
@@ -112,9 +119,11 @@ public class TestRetryDriver
             throws Exception
     {
         AsyncTaskImpl task = new AsyncTaskImpl(SUCCESS);
-        ListenableFuture<Integer> result = retry.runAsync("test", task);
+        RetryStats retryStats = new RetryStats();
+        ListenableFuture<Integer> result = retry.runAsync("test", retryStats, task);
 
         assertAsyncSuccess(result, task, 1);
+        assertFinalSuccess(retryStats, 1);
     }
 
     @Test
@@ -122,9 +131,11 @@ public class TestRetryDriver
             throws Exception
     {
         AsyncTaskImpl task = new AsyncTaskImpl(SYNC_FAILURE, ASYNC_FAILURE, SYNC_FAILURE, ASYNC_FAILURE, SUCCESS);
-        ListenableFuture<Integer> result = retry.runAsync("test", task);
+        RetryStats retryStats = new RetryStats();
+        ListenableFuture<Integer> result = retry.runAsync("test", retryStats, task);
 
         assertAsyncSuccess(result, task, 5);
+        assertFinalSuccess(retryStats, 5);
     }
 
     @Test
@@ -132,9 +143,11 @@ public class TestRetryDriver
             throws Exception
     {
         AsyncTaskImpl task = new AsyncTaskImpl(ASYNC_FAILURE, ASYNC_FAILURE, ASYNC_FAILURE, ASYNC_FAILURE, SUCCESS);
-        ListenableFuture<Integer> result = retry.runAsync("test", task);
+        RetryStats retryStats = new RetryStats();
+        ListenableFuture<Integer> result = retry.runAsync("test", retryStats, task);
 
         assertAsyncSuccess(result, task, 5);
+        assertFinalSuccess(retryStats, 5);
     }
 
     @Test
@@ -142,7 +155,8 @@ public class TestRetryDriver
             throws Exception
     {
         AsyncTaskImpl task = new AsyncTaskImpl(ASYNC_FAILURE, ASYNC_FAILURE, ASYNC_FAILURE, ASYNC_FAILURE);
-        ListenableFuture<Integer> result = retry.maxAttempts(4).runAsync("test", task);
+        RetryStats retryStats = new RetryStats();
+        ListenableFuture<Integer> result = retry.maxAttempts(4).runAsync("test", retryStats, task);
 
         try {
             result.get();
@@ -154,6 +168,23 @@ public class TestRetryDriver
             }
         }
         assertEquals(task.totalAttemptsMade(), 4);
+        assertFinalFailure(retryStats, 4);
+    }
+
+    private static void assertFinalSuccess(RetryStats stats, int expectedAttempts)
+    {
+        assertEquals(stats.getSuccess().getTotalCount(), 1);
+        assertEquals(stats.getFinalFailure().getTotalCount(), 0);
+        assertEquals((int) stats.getAttemptsBeforeSuccess().getAllTime().getTotal(), expectedAttempts);
+        assertEquals((int) stats.getAttemptsBeforeFailure().getAllTime().getTotal(), 0);
+    }
+
+    private static void assertFinalFailure(RetryStats stats, int expectedAttempts)
+    {
+        assertEquals(stats.getSuccess().getTotalCount(), 0);
+        assertEquals(stats.getFinalFailure().getTotalCount(), 1);
+        assertEquals((int) stats.getAttemptsBeforeSuccess().getAllTime().getTotal(), 0);
+        assertEquals((int) stats.getAttemptsBeforeFailure().getAllTime().getTotal(), expectedAttempts);
     }
 
     private static void assertSyncSuccess(Integer result, SyncTaskImpl task, int expectedAttempts)

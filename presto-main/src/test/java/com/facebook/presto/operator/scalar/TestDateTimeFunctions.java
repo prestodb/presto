@@ -849,38 +849,38 @@ public class TestDateTimeFunctions
                 .setLocale(locale)
                 .build();
 
-        FunctionAssertions localeAssertions = new FunctionAssertions(localeSession);
+        try (FunctionAssertions localeAssertions = new FunctionAssertions(localeSession)) {
+            String dateTimeLiteral = "TIMESTAMP '2001-01-09 13:04:05.321'";
 
-        String dateTimeLiteral = "TIMESTAMP '2001-01-09 13:04:05.321'";
+            localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%a')", VARCHAR, "火");
+            localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%W')", VARCHAR, "火曜日");
+            localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%p')", VARCHAR, "午後");
+            localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%r')", VARCHAR, "01:04:05 午後");
+            localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%b')", VARCHAR, "1");
+            localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%M')", VARCHAR, "1月");
 
-        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%a')", VARCHAR, "火");
-        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%W')", VARCHAR, "火曜日");
-        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%p')", VARCHAR, "午後");
-        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%r')", VARCHAR, "01:04:05 午後");
-        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%b')", VARCHAR, "1");
-        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%M')", VARCHAR, "1月");
+            localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'EEE')", VARCHAR, "火");
+            localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'EEEE')", VARCHAR, "火曜日");
+            localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'a')", VARCHAR, "午後");
+            localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'MMM')", VARCHAR, "1");
+            localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'MMMM')", VARCHAR, "1月");
 
-        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'EEE')", VARCHAR, "火");
-        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'EEEE')", VARCHAR, "火曜日");
-        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'a')", VARCHAR, "午後");
-        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'MMM')", VARCHAR, "1");
-        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'MMMM')", VARCHAR, "1月");
+            localeAssertions.assertFunction("date_parse('2013-05-17 12:35:10 午後', '%Y-%m-%d %h:%i:%s %p')",
+                    TimestampType.TIMESTAMP,
+                    toTimestamp(new DateTime(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE), localeSession));
+            localeAssertions.assertFunction("date_parse('2013-05-17 12:35:10 午前', '%Y-%m-%d %h:%i:%s %p')",
+                    TimestampType.TIMESTAMP,
+                    toTimestamp(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE), localeSession));
 
-        localeAssertions.assertFunction("date_parse('2013-05-17 12:35:10 午後', '%Y-%m-%d %h:%i:%s %p')",
-                TimestampType.TIMESTAMP,
-                toTimestamp(new DateTime(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE), localeSession));
-        localeAssertions.assertFunction("date_parse('2013-05-17 12:35:10 午前', '%Y-%m-%d %h:%i:%s %p')",
-                TimestampType.TIMESTAMP,
-                toTimestamp(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE), localeSession));
+            localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 午後', 'yyyy-MM-dd hh:mm:ss a')",
+                    TIMESTAMP_WITH_TIME_ZONE,
+                    toTimestampWithTimeZone(new DateTime(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE)));
+            localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 午前', 'yyyy-MM-dd hh:mm:ss aaa')",
+                    TIMESTAMP_WITH_TIME_ZONE,
+                    toTimestampWithTimeZone(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE)));
 
-        localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 午後', 'yyyy-MM-dd hh:mm:ss a')",
-                TIMESTAMP_WITH_TIME_ZONE,
-                toTimestampWithTimeZone(new DateTime(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE)));
-        localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 午前', 'yyyy-MM-dd hh:mm:ss aaa')",
-                TIMESTAMP_WITH_TIME_ZONE,
-                toTimestampWithTimeZone(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE)));
-
-        localeAssertions.close();
+            localeAssertions.close();
+        }
     }
 
     @Test

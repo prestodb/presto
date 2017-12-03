@@ -150,6 +150,7 @@ public class TestJoinProbeCompiler
 
         // verify channel count
         assertEquals(joinProbe.getOutputChannelCount(), outputChannels.size());
+        assertEquals(joinProbe.getOutputChannels(), outputChannels.stream().mapToInt(i -> i).toArray());
 
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
         for (int position = 0; position < page.getPositionCount(); position++) {

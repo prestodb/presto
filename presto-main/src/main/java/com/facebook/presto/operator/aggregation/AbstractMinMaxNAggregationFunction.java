@@ -103,7 +103,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, outputType, true, factory);
+        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, outputType, true, false, factory);
     }
 
     public static void input(BlockComparator comparator, Type type, MinMaxNState state, Block block, long n, int blockIndex)
