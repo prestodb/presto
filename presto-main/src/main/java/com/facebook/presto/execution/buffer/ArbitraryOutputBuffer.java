@@ -341,12 +341,14 @@ public class ArbitraryOutputBuffer
     @GuardedBy("this")
     private void checkFlushComplete()
     {
-        if (state.get() != FLUSHING) {
-            return;
-        }
-
-        if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
-            destroy();
+        // This buffer type assigns each page to a single, arbitrary reader,
+        // so we don't need to wait for no-more-buffers to finish the buffer.
+        // Any readers added after finish will simply receive no data.
+        BufferState state = this.state.get();
+        if ((state == FLUSHING) || ((state == NO_MORE_PAGES) && masterBuffer.isEmpty())) {
+            if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
+                destroy();
+            }
         }
     }
 
