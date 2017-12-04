@@ -81,18 +81,20 @@ public interface ResourceGroupsDao
             ")")
     void createSelectorsTable();
 
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS exact_match_selectors(\n" +
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS exact_match_source_selectors(\n" +
             "  environment VARCHAR(128) NOT NULL,\n" +
-            "  query_identifier VARCHAR(512) NOT NULL,\n" +
+            "  source VARCHAR(512) NOT NULL,\n" +
             "  update_time DATETIME NOT NULL,\n" +
             "  resource_group_id VARCHAR(256) NOT NULL,\n" +
-            "  PRIMARY KEY(environment, query_identifier) \n" +
+            "  PRIMARY KEY (environment, source) \n" +
             ")")
     void createExactMatchSelectorsTable();
 
     @SqlQuery("SELECT resource_group_id\n" +
-            "FROM exact_match_selectors\n" +
+            "FROM exact_match_source_selectors\n" +
             "WHERE environment = :environment\n" +
-            "  AND query_identifier = :queryIdentifier")
-    String getExactMatchResourceGroup(@Bind("environment") String environment, @Bind("queryIdentifier") String queryIdentifier);
+            "  AND source = :source")
+    String getExactMatchResourceGroup(
+            @Bind("environment") String environment,
+            @Bind("source") String source);
 }
