@@ -44,6 +44,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -65,7 +66,6 @@ public class TestClientBuffer
 
     @Test
     public void testSimplePushBuffer()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
@@ -120,7 +120,6 @@ public class TestClientBuffer
 
     @Test
     public void testSimplePullBuffer()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
@@ -185,7 +184,6 @@ public class TestClientBuffer
 
     @Test
     public void testDuplicateRequests()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
@@ -216,7 +214,6 @@ public class TestClientBuffer
 
     @Test
     public void testAddAfterNoMorePages()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
         buffer.setNoMorePages();
@@ -227,7 +224,6 @@ public class TestClientBuffer
 
     @Test
     public void testAddAfterDestroy()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
         buffer.destroy();
@@ -238,7 +234,6 @@ public class TestClientBuffer
 
     @Test
     public void testDestroy()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
@@ -261,7 +256,6 @@ public class TestClientBuffer
 
     @Test
     public void testNoMorePagesFreesReader()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
@@ -291,7 +285,6 @@ public class TestClientBuffer
 
     @Test
     public void testDestroyFreesReader()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
@@ -325,7 +318,6 @@ public class TestClientBuffer
 
     @Test
     public void testInvalidTokenFails()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
         addPage(buffer, createPage(0));
@@ -344,7 +336,6 @@ public class TestClientBuffer
 
     @Test
     public void testReferenceCount()
-            throws Exception
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
 
@@ -397,9 +388,10 @@ public class TestClientBuffer
         return getFuture(future, maxWait);
     }
 
-    private static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
+    static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
     {
-        return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
+        return tryGetFutureValue(future, toIntExact(maxWait.toMillis()), MILLISECONDS)
+                .orElseThrow(() -> new AssertionError("timed out waiting for future"));
     }
 
     private static AtomicBoolean addPage(ClientBuffer buffer, Page page)
@@ -429,7 +421,7 @@ public class TestClientBuffer
                                 sizeOfPages(bufferedPages).toBytes(),
                                 bufferedPages + pagesSent, // every page has one row
                                 bufferedPages + pagesSent)));
-        assertEquals(buffer.isDestroyed(), false);
+        assertFalse(buffer.isDestroyed());
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -438,21 +430,21 @@ public class TestClientBuffer
         BufferInfo bufferInfo = buffer.getInfo();
         assertEquals(bufferInfo.getBufferedPages(), 0);
         assertEquals(bufferInfo.getPagesSent(), pagesSent);
-        assertEquals(bufferInfo.isFinished(), true);
-        assertEquals(buffer.isDestroyed(), true);
+        assertTrue(bufferInfo.isFinished());
+        assertTrue(buffer.isDestroyed());
     }
 
-    private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
+    static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
     {
-        assertEquals(actual.getSerializedPages().size(), expected.getSerializedPages().size());
-        assertEquals(actual.getToken(), expected.getToken());
+        assertEquals(actual.getSerializedPages().size(), expected.getSerializedPages().size(), "page count");
+        assertEquals(actual.getToken(), expected.getToken(), "token");
         for (int i = 0; i < actual.getSerializedPages().size(); i++) {
             Page actualPage = PAGES_SERDE.deserialize(actual.getSerializedPages().get(i));
             Page expectedPage = PAGES_SERDE.deserialize(expected.getSerializedPages().get(i));
             assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
             PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
-        assertEquals(actual.isBufferComplete(), expected.isBufferComplete());
+        assertEquals(actual.isBufferComplete(), expected.isBufferComplete(), "buffer complete");
     }
 
     private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
