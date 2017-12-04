@@ -64,10 +64,10 @@ public class JdbcRecordCursor
 
     private final List<JdbcColumnHandle> columnHandles;
 
-    private final Connection connection;
+    protected final Connection connection;
     private final PreparedStatement statement;
-    private final ResultSet resultSet;
-    private boolean closed;
+    protected final ResultSet resultSet;
+    protected boolean closed;
 
     public JdbcRecordCursor(JdbcClient jdbcClient, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
     {
@@ -264,7 +264,7 @@ public class JdbcRecordCursor
         }
     }
 
-    private RuntimeException handleSqlException(Exception e)
+    protected RuntimeException handleSqlException(Exception e)
     {
         try {
             close();

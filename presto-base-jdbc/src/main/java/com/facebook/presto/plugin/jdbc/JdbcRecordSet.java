@@ -53,6 +53,6 @@ public class JdbcRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new JdbcRecordCursor(jdbcClient, split, columnHandles);
+        return jdbcClient.createRecordCursor(split, columnHandles);
     }
 }
