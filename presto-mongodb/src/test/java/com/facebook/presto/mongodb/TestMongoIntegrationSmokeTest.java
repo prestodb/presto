@@ -21,6 +21,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.util.Date;
 
@@ -79,7 +80,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
-        assertEquals(row.getField(1), "bar".getBytes(UTF_8));
+        assertEquals(row.getField(1), ByteBuffer.wrap("bar".getBytes(UTF_8)));
         assertEquals(row.getField(2), 1L);
         assertEquals(row.getField(3), 3.14);
         assertEquals(row.getField(4), true);

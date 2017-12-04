@@ -117,9 +117,6 @@ public class MaterializedRow
             }
             return map;
         }
-        if (value instanceof ByteBuffer) {
-            return ((ByteBuffer) value).array();
-        }
 
         return value;
     }

@@ -26,6 +26,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -237,7 +238,7 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(7), false);
         assertEquals(row.getField(8), new Date(0));
         assertEquals(row.getField(9), new Timestamp(0));
-        assertEquals(row.getField(10), "****************".getBytes());
+        assertEquals(row.getField(10), ByteBuffer.wrap("****************".getBytes()));
         assertEquals(row.getField(11), new BigDecimal("0.00"));
         assertEquals(row.getField(12), new BigDecimal("00000000000000000000.0000000000"));
         dropBlackholeAllTypesTable();

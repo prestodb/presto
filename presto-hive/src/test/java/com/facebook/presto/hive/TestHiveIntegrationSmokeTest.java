@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -188,7 +189,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
-        assertEquals(row.getField(1), "bar".getBytes(UTF_8));
+        assertEquals(row.getField(1), ByteBuffer.wrap("bar".getBytes(UTF_8)));
         assertEquals(row.getField(2), 1L);
         assertEquals(row.getField(3), 2);
         assertEquals(row.getField(4), 3.14);
