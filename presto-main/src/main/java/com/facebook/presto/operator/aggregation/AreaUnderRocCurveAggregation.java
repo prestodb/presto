@@ -13,104 +13,50 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.bytecode.DynamicClassLoader;
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.state.MultiKeyValuePairStateSerializer;
-import com.facebook.presto.operator.aggregation.state.MultiKeyValuePairsState;
-import com.facebook.presto.operator.aggregation.state.MultiKeyValuePairsStateFactory;
+import com.facebook.presto.operator.aggregation.state.AreaUnderRocCurveState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.StandardTypes;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 
-import java.lang.invoke.MethodHandle;
-import java.util.List;
-
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
-public class AreaUnderRocCurveAggregation
-        extends SqlAggregationFunction
+@AggregationFunction("area_under_roc_curve")
+public final class AreaUnderRocCurveAggregation
 {
-    public static final AreaUnderRocCurveAggregation AUC = new AreaUnderRocCurveAggregation();
-    public static final String NAME = "area_under_roc_curve";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "input", MultiKeyValuePairsState.class, Block.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "combine", MultiKeyValuePairsState.class, MultiKeyValuePairsState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AreaUnderRocCurveAggregation.class, "output", MultiKeyValuePairsState.class, BlockBuilder.class);
+    private AreaUnderRocCurveAggregation() {}
 
-    public AreaUnderRocCurveAggregation()
-    {
-        super(NAME,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature()));
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns AUC";
-    }
-
-    @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        DynamicClassLoader classLoader = new DynamicClassLoader(AreaUnderRocCurveAggregation.class.getClassLoader());
-
-        List<Type> inputTypes = ImmutableList.of(BOOLEAN, DOUBLE);
-
-        MultiKeyValuePairStateSerializer stateSerializer = new MultiKeyValuePairStateSerializer(BOOLEAN, DOUBLE);
-        Type intermediateType = stateSerializer.getSerializedType();
-
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, DOUBLE.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
-                createInputParameterMetadata(),
-                INPUT_FUNCTION,
-                COMBINE_FUNCTION,
-                OUTPUT_FUNCTION,
-                MultiKeyValuePairsState.class,
-                stateSerializer,
-                new MultiKeyValuePairsStateFactory(BOOLEAN, DOUBLE),
-                DOUBLE);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, DOUBLE, true, false, factory);
-    }
-
-    private static List<AggregationMetadata.ParameterMetadata> createInputParameterMetadata()
-    {
-        return ImmutableList.of(new AggregationMetadata.ParameterMetadata(STATE),
-                new AggregationMetadata.ParameterMetadata(BLOCK_INPUT_CHANNEL, BOOLEAN),
-                new AggregationMetadata.ParameterMetadata(BLOCK_INPUT_CHANNEL, DOUBLE),
-                new AggregationMetadata.ParameterMetadata(BLOCK_INDEX));
-    }
-
-    public static void input(MultiKeyValuePairsState state, Block label, Block score, int position)
+    @InputFunction
+    public static void input(@AggregationState AreaUnderRocCurveState state, @SqlType(StandardTypes.BOOLEAN) boolean label, @SqlType(StandardTypes.DOUBLE) double score)
     {
         MultiKeyValuePairs pairs = state.get();
         if (pairs == null) {
-            pairs = new MultiKeyValuePairs(state.getKeyType(), state.getValueType());
+            pairs = new MultiKeyValuePairs(BOOLEAN, DOUBLE);
             state.set(pairs);
         }
 
+        BlockBuilder labelBlockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BOOLEAN.writeBoolean(labelBlockBuilder, label);
+
+        BlockBuilder scoreBlockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
+        DOUBLE.writeDouble(scoreBlockBuilder, score);
+
         long startSize = pairs.estimatedInMemorySize();
-        pairs.add(label, score, position, position);
+        pairs.add(labelBlockBuilder.build(), scoreBlockBuilder.build(), 0, 0);
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
 
-    public static void combine(MultiKeyValuePairsState state, MultiKeyValuePairsState otherState)
+    @CombineFunction
+    public static void combine(@AggregationState AreaUnderRocCurveState state, @AggregationState AreaUnderRocCurveState otherState)
     {
         if (state.get() != null && otherState.get() != null) {
             Block labelsBlock = otherState.get().getKeys();
@@ -127,7 +73,8 @@ public class AreaUnderRocCurveAggregation
         }
     }
 
-    public static void output(MultiKeyValuePairsState state, BlockBuilder out)
+    @OutputFunction(StandardTypes.DOUBLE)
+    public static void output(@AggregationState AreaUnderRocCurveState state, BlockBuilder out)
     {
         MultiKeyValuePairs pairs = state.get();
         if (pairs == null) {
