@@ -42,6 +42,6 @@ public class BingTileType
             return null;
         }
 
-        return BingTile.decode(block.getLong(0, 0));
+        return BingTile.decode(block.getLong(0));
     }
 }

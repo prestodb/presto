@@ -235,8 +235,8 @@ public class TestStateCompiler
         assertEquals(deserializedState.getSlice(), singleState.getSlice());
         assertEquals(deserializedState.getAnotherSlice(), singleState.getAnotherSlice());
         assertEquals(deserializedState.getYetAnotherSlice(), singleState.getYetAnotherSlice());
-        assertEquals(deserializedState.getBlock().getLong(0, 0), singleState.getBlock().getLong(0, 0));
-        assertEquals(deserializedState.getAnotherBlock().getLong(0, 0), singleState.getAnotherBlock().getLong(0, 0));
+        assertEquals(deserializedState.getBlock().getLong(0), singleState.getBlock().getLong(0));
+        assertEquals(deserializedState.getAnotherBlock().getLong(0), singleState.getAnotherBlock().getLong(0));
         assertEquals(deserializedState.getAnotherBlock().getSlice(1, 0, 9), singleState.getAnotherBlock().getSlice(1, 0, 9));
     }
 

@@ -87,21 +87,21 @@ public final class TinyintType
             return null;
         }
 
-        return block.getByte(position, 0);
+        return block.getByte(position);
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftValue = leftBlock.getByte(leftPosition, 0);
-        int rightValue = rightBlock.getByte(rightPosition, 0);
+        int leftValue = leftBlock.getByte(leftPosition);
+        int rightValue = rightBlock.getByte(rightPosition);
         return leftValue == rightValue;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return hash(block.getByte(position, 0));
+        return hash(block.getByte(position));
     }
 
     @Override
@@ -109,8 +109,8 @@ public final class TinyintType
     {
         // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
         // function being the equivalence of internal long representation.
-        byte leftValue = leftBlock.getByte(leftPosition, 0);
-        byte rightValue = rightBlock.getByte(rightPosition, 0);
+        byte leftValue = leftBlock.getByte(leftPosition);
+        byte rightValue = rightBlock.getByte(rightPosition);
         return Byte.compare(leftValue, rightValue);
     }
 
@@ -121,14 +121,14 @@ public final class TinyintType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeByte(block.getByte(position, 0)).closeEntry();
+            blockBuilder.writeByte(block.getByte(position)).closeEntry();
         }
     }
 
     @Override
     public long getLong(Block block, int position)
     {
-        return (long) block.getByte(position, 0);
+        return (long) block.getByte(position);
     }
 
     @Override

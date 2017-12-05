@@ -97,7 +97,7 @@ public class TestMergeHashSort
         Page actualPage = mergedPage.next();
         assertEquals(actualPage.getPositionCount(), 1);
         assertEquals(actualPage.getChannelCount(), 1);
-        assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
+        assertEquals(actualPage.getBlock(0).getLong(0), 42);
 
         assertFalse(mergedPage.hasNext());
     }

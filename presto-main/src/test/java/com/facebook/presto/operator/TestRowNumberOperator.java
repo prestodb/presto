@@ -264,7 +264,7 @@ public class TestRowNumberOperator
         assertEquals(rowNumberColumn.getPositionCount(), 8);
         // Check that all row numbers generated are <= 3
         for (int i = 0; i < rowNumberColumn.getPositionCount(); i++) {
-            assertTrue(rowNumberColumn.getLong(i, 0) <= 3);
+            assertTrue(rowNumberColumn.getLong(i) <= 3);
         }
 
         pages = stripRowNumberColumn(pages);
@@ -341,7 +341,7 @@ public class TestRowNumberOperator
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {
-                BIGINT.writeLong(builder, page.getBlock(rowNumberChannel).getLong(i, 0));
+                BIGINT.writeLong(builder, page.getBlock(rowNumberChannel).getLong(i));
             }
         }
         return builder.build();

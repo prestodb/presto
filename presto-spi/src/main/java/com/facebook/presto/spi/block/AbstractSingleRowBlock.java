@@ -50,31 +50,31 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getByte(position / numFields, offset);
+        return getFieldBlock(position % numFields).getByte(position / numFields);
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getShort(position / numFields, offset);
+        return getFieldBlock(position % numFields).getShort(position / numFields);
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getInt(position / numFields, offset);
+        return getFieldBlock(position % numFields).getInt(position / numFields);
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
         position = getAbsolutePosition(position);
-        return getFieldBlock(position % numFields).getLong(position / numFields, offset);
+        return getFieldBlock(position % numFields).getLong(position / numFields);
     }
 
     @Override

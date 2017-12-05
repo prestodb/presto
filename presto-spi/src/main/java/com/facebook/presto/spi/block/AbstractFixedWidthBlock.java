@@ -46,31 +46,31 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice().getByte(valueOffset(position) + offset);
+        return getRawSlice().getByte(valueOffset(position));
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice().getShort(valueOffset(position) + offset);
+        return getRawSlice().getShort(valueOffset(position));
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice().getInt(valueOffset(position) + offset);
+        return getRawSlice().getInt(valueOffset(position));
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice().getLong(valueOffset(position) + offset);
+        return getRawSlice().getLong(valueOffset(position));
     }
 
     @Override

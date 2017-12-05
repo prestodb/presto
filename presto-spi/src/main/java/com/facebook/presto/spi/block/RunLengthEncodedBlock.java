@@ -129,27 +129,27 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
-        return value.getByte(0, offset);
+        return value.getByte(0);
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
-        return value.getShort(0, offset);
+        return value.getShort(0);
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
-        return value.getInt(0, offset);
+        return value.getInt(0);
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
-        return value.getLong(0, offset);
+        return value.getLong(0);
     }
 
     @Override

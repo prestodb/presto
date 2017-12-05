@@ -44,31 +44,31 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         checkReadablePosition(position);
-        return getBlock().getByte(position + start, offset);
+        return getBlock().getByte(position + start);
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         checkReadablePosition(position);
-        return getBlock().getShort(position + start, offset);
+        return getBlock().getShort(position + start);
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         checkReadablePosition(position);
-        return getBlock().getInt(position + start, offset);
+        return getBlock().getInt(position + start);
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
         checkReadablePosition(position);
-        return getBlock().getLong(position + start, offset);
+        return getBlock().getLong(position + start);
     }
 
     @Override

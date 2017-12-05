@@ -109,7 +109,7 @@ public class TestBlockBuilder
     private static void assertInvalidMask(Block block, int[] positions)
     {
         try {
-            block.getPositions(positions).getLong(0, 0);
+            block.getPositions(positions).getLong(0);
             fail("Expected to fail");
         }
         catch (IllegalArgumentException e) {

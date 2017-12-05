@@ -103,27 +103,27 @@ public class DictionaryBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
-        return dictionary.getByte(getId(position), offset);
+        return dictionary.getByte(getId(position));
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
-        return dictionary.getShort(getId(position), offset);
+        return dictionary.getShort(getId(position));
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
-        return dictionary.getInt(getId(position), offset);
+        return dictionary.getInt(getId(position));
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
-        return dictionary.getLong(getId(position), offset);
+        return dictionary.getLong(getId(position));
     }
 
     @Override

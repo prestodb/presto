@@ -37,7 +37,7 @@ public class ListLiteralCast
     {
         ImmutableList.Builder<Integer> listBuilder = ImmutableList.builder();
         for (int i = 0; i < array.getPositionCount(); i++) {
-            listBuilder.add(array.getInt(i, 0));
+            listBuilder.add(array.getInt(i));
         }
 
         return listBuilder.build();

@@ -30,33 +30,33 @@ public interface Block
     }
 
     /**
-     * Gets a byte at {@code offset} in the value at {@code position}.
+     * Gets a byte in the value at {@code position}.
      */
-    default byte getByte(int position, int offset)
+    default byte getByte(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
-     * Gets a little endian short at {@code offset} in the value at {@code position}.
+     * Gets a little endian short in the value at {@code position}.
      */
-    default short getShort(int position, int offset)
+    default short getShort(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
-     * Gets a little endian int at {@code offset} in the value at {@code position}.
+     * Gets a little endian int in the value at {@code position}.
      */
-    default int getInt(int position, int offset)
+    default int getInt(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
-     * Gets a little endian long at {@code offset} in the value at {@code position}.
+     * Gets a little endian long in the value at {@code position}.
      */
-    default long getLong(int position, int offset)
+    default long getLong(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }

@@ -197,7 +197,7 @@ public class TestDictionaryAwarePageFilter
 
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
-            if (isSelected(filterRange, block.getLong(position, 0))) {
+            if (isSelected(filterRange, block.getLong(position))) {
                 expectedSelectedPositions.add(position);
             }
         }
@@ -281,7 +281,7 @@ public class TestDictionaryAwarePageFilter
             boolean sequential = true;
             IntArrayList selectedPositions = new IntArrayList();
             for (int position = 0; position < block.getPositionCount(); position++) {
-                long value = block.getLong(position, 0);
+                long value = block.getLong(position);
                 verifyPositive(value);
 
                 boolean selected = isSelected(filterRange, value);
