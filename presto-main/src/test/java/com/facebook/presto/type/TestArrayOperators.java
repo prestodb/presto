@@ -72,6 +72,7 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
@@ -1678,7 +1679,7 @@ public class TestArrayOperators
 
     private static SqlTimestamp sqlTimestamp(long millisUtc)
     {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+        return sqlTimestampOf(millisUtc, TEST_SESSION);
     }
 
     private static SqlTimestamp sqlTimestamp(String dateString)
