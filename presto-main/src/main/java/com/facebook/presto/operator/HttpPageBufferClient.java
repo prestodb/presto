@@ -110,7 +110,7 @@ public final class HttpPageBufferClient
     private final DataSize maxResponseSize;
     private final URI location;
     private final ClientCallback clientCallback;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService scheduler;
     private final Backoff backoff;
 
     @GuardedBy("this")
@@ -145,9 +145,9 @@ public final class HttpPageBufferClient
             Duration maxErrorDuration,
             URI location,
             ClientCallback clientCallback,
-            ScheduledExecutorService executor)
+            ScheduledExecutorService scheduler)
     {
-        this(httpClient, maxResponseSize, minErrorDuration, maxErrorDuration, location, clientCallback, executor, Ticker.systemTicker());
+        this(httpClient, maxResponseSize, minErrorDuration, maxErrorDuration, location, clientCallback, scheduler, Ticker.systemTicker());
     }
 
     public HttpPageBufferClient(
@@ -157,14 +157,14 @@ public final class HttpPageBufferClient
             Duration maxErrorDuration,
             URI location,
             ClientCallback clientCallback,
-            ScheduledExecutorService executor,
+            ScheduledExecutorService scheduler,
             Ticker ticker)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.scheduler = requireNonNull(scheduler, "scheduler is null");
         requireNonNull(minErrorDuration, "minErrorDuration is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
@@ -262,7 +262,7 @@ public final class HttpPageBufferClient
         backoff.startRequest();
 
         long delayNanos = backoff.getBackoffDelayNanos();
-        executor.schedule(() -> {
+        scheduler.schedule(() -> {
             try {
                 initiateRequest();
             }
@@ -383,7 +383,7 @@ public final class HttpPageBufferClient
                 }
                 handleFailure(t, resultFuture);
             }
-        }, executor);
+        }, scheduler);
     }
 
     private synchronized void sendDelete()
@@ -423,7 +423,7 @@ public final class HttpPageBufferClient
                 }
                 handleFailure(t, resultFuture);
             }
-        }, executor);
+        }, scheduler);
     }
 
     private void checkNotHoldsLock()

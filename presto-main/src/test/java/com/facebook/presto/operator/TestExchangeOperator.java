@@ -87,7 +87,7 @@ public class TestExchangeOperator
 
     private final LoadingCache<String, TaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TaskBuffer::new));
 
-    private ScheduledExecutorService executor;
+    private ScheduledExecutorService scheduler;
     private ScheduledExecutorService scheduledExecutor;
     private HttpClient httpClient;
     private ExchangeClientSupplier exchangeClientSupplier;
@@ -97,10 +97,10 @@ public class TestExchangeOperator
     public void setUp()
             throws Exception
     {
-        executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
-        httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
+        httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), scheduler);
 
         exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
                 new DataSize(32, MEGABYTE),
@@ -109,7 +109,7 @@ public class TestExchangeOperator
                 new Duration(1, TimeUnit.MINUTES),
                 new Duration(1, TimeUnit.MINUTES),
                 httpClient,
-                executor,
+                scheduler,
                 systemMemoryUsageListener);
     }
 
@@ -120,8 +120,8 @@ public class TestExchangeOperator
         httpClient.close();
         httpClient = null;
 
-        executor.shutdownNow();
-        executor = null;
+        scheduler.shutdownNow();
+        scheduler = null;
 
         scheduledExecutor.shutdownNow();
         scheduledExecutor = null;
@@ -265,7 +265,7 @@ public class TestExchangeOperator
     {
         ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY, TYPES);
 
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+        DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true)
                 .addDriverContext();
 

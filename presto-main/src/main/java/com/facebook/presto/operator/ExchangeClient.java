@@ -61,7 +61,7 @@ public class ExchangeClient
     private final Duration minErrorDuration;
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService scheduler;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -100,7 +100,7 @@ public class ExchangeClient
             Duration minErrorDuration,
             Duration maxErrorDuration,
             HttpClient httpClient,
-            ScheduledExecutorService executor,
+            ScheduledExecutorService scheduler,
             SystemMemoryUsageListener systemMemoryUsageListener)
     {
         this.bufferCapacity = bufferCapacity.toBytes();
@@ -109,7 +109,7 @@ public class ExchangeClient
         this.minErrorDuration = minErrorDuration;
         this.maxErrorDuration = maxErrorDuration;
         this.httpClient = httpClient;
-        this.executor = executor;
+        this.scheduler = scheduler;
         this.systemMemoryUsageListener = systemMemoryUsageListener;
         this.maxBufferBytes = Long.MIN_VALUE;
     }
@@ -157,7 +157,7 @@ public class ExchangeClient
                 maxErrorDuration,
                 location,
                 new ExchangeClientCallback(),
-                executor);
+                scheduler);
         allClients.put(location, client);
         queuedClients.add(client);
 
@@ -333,7 +333,7 @@ public class ExchangeClient
         blockedCallers.clear();
         for (SettableFuture<?> blockedCaller : callers) {
             // Notify callers in a separate thread to avoid callbacks while holding a lock
-            executor.execute(() -> blockedCaller.set(null));
+            scheduler.execute(() -> blockedCaller.set(null));
         }
     }
 
