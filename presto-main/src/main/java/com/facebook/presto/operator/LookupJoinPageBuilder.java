@@ -95,13 +95,13 @@ public class LookupJoinPageBuilder
 
     public Page build(JoinProbe probe)
     {
-        Block[] blocks = new Block[probe.getOutputChannelCount() + buildOutputChannelCount];
         int[] probeIndices = probeIndexBuilder.toIntArray();
         int length = probeIndices.length;
         verify(buildPageBuilder.getPositionCount() == length);
 
         int[] probeOutputChannels = probe.getOutputChannels();
-        for (int i = 0; i < probe.getOutputChannelCount(); i++) {
+        Block[] blocks = new Block[probeOutputChannels.length + buildOutputChannelCount];
+        for (int i = 0; i < probeOutputChannels.length; i++) {
             Block probeBlock = probe.getPage().getBlock(probeOutputChannels[i]);
             if (!isSequentialProbeIndices || length == 0) {
                 blocks[i] = probeBlock.getPositions(probeIndices);
@@ -120,7 +120,7 @@ public class LookupJoinPageBuilder
         }
 
         Page buildPage = buildPageBuilder.build();
-        int offset = probe.getOutputChannelCount();
+        int offset = probeOutputChannels.length;
         for (int i = 0; i < buildOutputChannelCount; i++) {
             blocks[offset + i] = buildPage.getBlock(i);
         }

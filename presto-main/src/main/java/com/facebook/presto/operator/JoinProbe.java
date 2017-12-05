@@ -66,11 +66,6 @@ public class JoinProbe
         this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt())) : Optional.empty();
     }
 
-    public int getOutputChannelCount()
-    {
-        return probeOutputChannels.length;
-    }
-
     public int[] getOutputChannels()
     {
         return probeOutputChannels;
