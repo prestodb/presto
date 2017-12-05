@@ -49,6 +49,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.integerData;
+import static com.facebook.presto.operator.index.SimplePageSet.fromRecordSet;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -95,7 +96,7 @@ public class TestThriftIndexPageSource
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
                 ImmutableList.of(column("b", INTEGER)),
-                new InMemoryRecordSet(ImmutableList.of(INTEGER), generateKeys(0, splits)),
+                fromRecordSet(new InMemoryRecordSet(ImmutableList.of(INTEGER), generateKeys(0, splits))),
                 MAX_BYTES_PER_RESPONSE,
                 lookupRequestsConcurrency);
 
@@ -187,12 +188,13 @@ public class TestThriftIndexPageSource
     {
         TestingThriftService client = new TestingThriftService(rowsPerSplit, true, twoSplitBatches);
         TestingServiceProvider serviceProvider = new TestingServiceProvider(client);
+
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
                 serviceProvider,
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
                 ImmutableList.of(column("b", INTEGER)),
-                new InMemoryRecordSet(ImmutableList.of(INTEGER), generateKeys(1, splits + 1)),
+                fromRecordSet(new InMemoryRecordSet(ImmutableList.of(INTEGER), generateKeys(1, splits + 1))),
                 MAX_BYTES_PER_RESPONSE,
                 lookupRequestsConcurrency);
 

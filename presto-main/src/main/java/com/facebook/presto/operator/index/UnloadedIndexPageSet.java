@@ -116,7 +116,7 @@ public class UnloadedIndexPageSet
             }
 
             if (!positions.isEmpty()) {
-                builder.add(page.mask(positions.toIntArray()));
+                builder.add(page.getPositions(positions.toIntArray()));
             }
         }
 

@@ -135,7 +135,7 @@ public class IndexSnapshotBuilder
                 }
             }
             if (!missingKeyPositions.isEmpty()) {
-                Page missingKeysPage = page.mask(missingKeyPositions.toIntArray());
+                Page missingKeysPage = page.getPositions(missingKeyPositions.toIntArray());
                 memoryInBytes += missingKeysPage.getSizeInBytes();
                 if (isMemoryExceeded()) {
                     return null;

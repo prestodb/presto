@@ -36,7 +36,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMultiplePageRecordSet
 {
     @Test
-    public void testRecordSetConversion()
+    public void testRecordSetConversionRoundTrip()
     {
         ArrayType arrayOfBigintType = new ArrayType(BIGINT);
         RecordSet recordSet = new InMemoryRecordSet(

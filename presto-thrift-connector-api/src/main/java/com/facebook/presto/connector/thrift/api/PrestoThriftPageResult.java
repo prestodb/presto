@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.thrift.api;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.swift.codec.ThriftConstructor;
@@ -32,7 +31,6 @@ import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlo
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -123,11 +121,6 @@ public final class PrestoThriftPageResult
                 .add("rowCount", rowCount)
                 .add("nextToken", nextToken)
                 .toString();
-    }
-
-    public static List<PrestoThriftPageResult> fromPageSet(PageSet pageset)
-    {
-        return pageset.getPages().stream().map(page -> fromPage(pageset.getColumnTypes(), page)).collect(toImmutableList());
     }
 
     public static PrestoThriftPageResult fromPage(List<Type> types, Page page)

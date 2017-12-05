@@ -83,7 +83,7 @@ public class FieldSetFilteringPageSet
                 positionMask.add(i);
             }
         }
-        return page.mask(positionMask.toIntArray());
+        return page.getPositions(positionMask.toIntArray());
     }
 
     private static class Field
