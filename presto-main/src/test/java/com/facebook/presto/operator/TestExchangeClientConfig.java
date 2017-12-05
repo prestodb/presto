@@ -38,6 +38,7 @@ public class TestExchangeClientConfig
                 .setMinErrorDuration(new Duration(1, TimeUnit.MINUTES))
                 .setMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
+                .setPageBufferClientMaxCallbackThreads(25)
                 .setClientThreads(25));
     }
 
@@ -51,6 +52,7 @@ public class TestExchangeClientConfig
                 .put("exchange.max-error-duration", "33s")
                 .put("exchange.max-response-size", "1MB")
                 .put("exchange.client-threads", "2")
+                .put("exchange.page-buffer-client.max-callback-threads", "16")
                 .build();
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
@@ -59,7 +61,8 @@ public class TestExchangeClientConfig
                 .setMinErrorDuration(new Duration(13, TimeUnit.SECONDS))
                 .setMaxErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))
-                .setClientThreads(2);
+                .setClientThreads(2)
+                .setPageBufferClientMaxCallbackThreads(16);
 
         assertFullMapping(properties, expected);
     }

@@ -39,6 +39,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -62,6 +64,7 @@ import static org.testng.Assert.assertEquals;
 public class TestHttpPageBufferClient
 {
     private ScheduledExecutorService scheduler;
+    private ExecutorService pageBufferClientCallbackExecutor;
 
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
@@ -69,6 +72,7 @@ public class TestHttpPageBufferClient
     public void setUp()
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
     }
 
     @AfterClass(alwaysRun = true)
@@ -77,6 +81,10 @@ public class TestHttpPageBufferClient
         if (scheduler != null) {
             scheduler.shutdownNow();
             scheduler = null;
+        }
+        if (pageBufferClientCallbackExecutor != null) {
+            pageBufferClientCallbackExecutor.shutdownNow();
+            pageBufferClientCallbackExecutor = null;
         }
     }
 
@@ -100,7 +108,8 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                scheduler);
+                scheduler,
+                pageBufferClientCallbackExecutor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -184,7 +193,8 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                scheduler);
+                scheduler,
+                pageBufferClientCallbackExecutor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -223,7 +233,8 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                scheduler);
+                scheduler,
+                pageBufferClientCallbackExecutor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -290,7 +301,8 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                scheduler);
+                scheduler,
+                pageBufferClientCallbackExecutor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -344,7 +356,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                ticker);
+                ticker,
+                pageBufferClientCallbackExecutor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 

@@ -34,6 +34,7 @@ public class ExchangeClientConfig
     private Duration maxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
     private int clientThreads = 25;
+    private int pageBufferClientMaxCallbackThreads = 25;
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -113,6 +114,19 @@ public class ExchangeClientConfig
     public ExchangeClientConfig setClientThreads(int clientThreads)
     {
         this.clientThreads = clientThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getPageBufferClientMaxCallbackThreads()
+    {
+        return pageBufferClientMaxCallbackThreads;
+    }
+
+    @Config("exchange.page-buffer-client.max-callback-threads")
+    public ExchangeClientConfig setPageBufferClientMaxCallbackThreads(int pageBufferClientMaxCallbackThreads)
+    {
+        this.pageBufferClientMaxCallbackThreads = pageBufferClientMaxCallbackThreads;
         return this;
     }
 }
