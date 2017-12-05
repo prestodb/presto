@@ -44,6 +44,7 @@ public class StatementStats
     private final long elapsedTimeMillis;
     private final long processedRows;
     private final long processedBytes;
+    private final long peakMemoryBytes;
     private final StageStats rootStage;
 
     @JsonCreator
@@ -63,6 +64,7 @@ public class StatementStats
             @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
+            @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("rootStage") StageStats rootStage)
     {
         this.state = requireNonNull(state, "state is null");
@@ -80,6 +82,7 @@ public class StatementStats
         this.elapsedTimeMillis = elapsedTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
+        this.peakMemoryBytes = peakMemoryBytes;
         this.rootStage = rootStage;
     }
 
@@ -174,6 +177,12 @@ public class StatementStats
         return processedBytes;
     }
 
+    @JsonProperty
+    public long getPeakMemoryBytes()
+    {
+        return peakMemoryBytes;
+    }
+
     @Nullable
     @JsonProperty
     public StageStats getRootStage()
@@ -209,6 +218,7 @@ public class StatementStats
                 .add("elapsedTimeMillis", elapsedTimeMillis)
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
+                .add("peakMemoryBytes", peakMemoryBytes)
                 .add("rootStage", rootStage)
                 .toString();
     }
@@ -235,6 +245,7 @@ public class StatementStats
         private long elapsedTimeMillis;
         private long processedRows;
         private long processedBytes;
+        private long peakMemoryBytes;
         private StageStats rootStage;
 
         private Builder() {}
@@ -329,6 +340,12 @@ public class StatementStats
             return this;
         }
 
+        public Builder setPeakMemoryBytes(long peakMemoryBytes)
+        {
+            this.peakMemoryBytes = peakMemoryBytes;
+            return this;
+        }
+
         public Builder setRootStage(StageStats rootStage)
         {
             this.rootStage = rootStage;
@@ -353,6 +370,7 @@ public class StatementStats
                     elapsedTimeMillis,
                     processedRows,
                     processedBytes,
+                    peakMemoryBytes,
                     rootStage);
         }
     }

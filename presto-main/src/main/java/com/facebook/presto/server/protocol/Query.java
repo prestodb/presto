@@ -472,6 +472,7 @@ class Query
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
                 .setProcessedRows(queryStats.getRawInputPositions())
                 .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
+                .setPeakMemoryBytes(queryStats.getPeakMemoryReservation().toBytes())
                 .setRootStage(toStageStats(outputStage))
                 .build();
     }
