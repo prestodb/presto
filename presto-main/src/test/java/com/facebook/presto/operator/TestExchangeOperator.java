@@ -49,6 +49,8 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -91,6 +93,7 @@ public class TestExchangeOperator
     private ScheduledExecutorService scheduledExecutor;
     private HttpClient httpClient;
     private ExchangeClientSupplier exchangeClientSupplier;
+    private ExecutorService pageBufferClientCallbackExecutor;
 
     @SuppressWarnings("resource")
     @BeforeClass
@@ -99,7 +102,7 @@ public class TestExchangeOperator
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
-
+        pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
         httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), scheduler);
 
         exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
@@ -110,7 +113,8 @@ public class TestExchangeOperator
                 new Duration(1, TimeUnit.MINUTES),
                 httpClient,
                 scheduler,
-                systemMemoryUsageListener);
+                systemMemoryUsageListener,
+                pageBufferClientCallbackExecutor);
     }
 
     @AfterClass(alwaysRun = true)
@@ -125,6 +129,9 @@ public class TestExchangeOperator
 
         scheduledExecutor.shutdownNow();
         scheduledExecutor = null;
+
+        pageBufferClientCallbackExecutor.shutdownNow();
+        pageBufferClientCallbackExecutor = null;
     }
 
     @BeforeMethod
