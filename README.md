@@ -27,7 +27,9 @@ Presto has a comprehensive set of unit tests that can take several minutes to ru
 
 ### Overview
 
-After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, choose Open Project from the Quick Start box or choose Open from the File menu and select the root `pom.xml` file.
+After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, do so by either of the following two ways:
+    1) choose Import Project from the Quick Start box (The welcome window), then select the `pom.xml` file in the `presto` folder, follow the steps by clicking next, then give your project a name (default is `presto-root`) and click finish. This will create a new project.
+    2)choose Open from the File menu and select the root `pom.xml` file in your `presto` folder.
 
 After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
 
@@ -44,7 +46,7 @@ Presto comes with sample configuration that should work out-of-the-box for devel
 
 The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
-Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
+Additionally, the Hive plugin must be configured with URI of your Hive metastore Thrift service. Add the following line to the list of VM options you added above, where the `thrift://localhost:9083` is the Hive metastore Thrift service URI. Replace `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
 
