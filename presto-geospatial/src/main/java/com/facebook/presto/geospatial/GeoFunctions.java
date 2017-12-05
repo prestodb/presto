@@ -32,9 +32,9 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.commons.lang.StringUtils;
 
 import java.util.EnumSet;
 import java.util.Objects;
@@ -53,9 +53,12 @@ import static com.facebook.presto.geospatial.GeometryUtils.serialize;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public final class GeoFunctions
 {
+    private static final Joiner OR_JOINER = Joiner.on(" or ");
+
     private GeoFunctions() {}
 
     @Description("Returns a Geometry type LineString object from Well-Known Text representation (WKT)")
@@ -570,7 +573,7 @@ public final class GeoFunctions
     {
         GeometryTypeName type = GeometryUtils.valueOf(geometry.geometryType());
         if (!validTypes.contains(type)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, function + " only applies to " + StringUtils.join(validTypes, " or ") + ". Input type is: " + type);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
     }
 
