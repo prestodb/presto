@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
 import org.joda.time.DateTime;
@@ -28,6 +27,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.TimestampOperators.castToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
@@ -138,18 +138,13 @@ public class TestTeradataDateFunctions
         return new SqlDate(days);
     }
 
-    private static SqlTimestamp toTimestamp(DateTime dateTime)
-    {
-        return new SqlTimestamp(dateTime.getMillis(), SESSION.getTimeZoneKey());
-    }
-
     @SuppressWarnings("SameParameterValue")
     private void assertTimestamp(String projection, int year, int month, int day, int hour, int minutes, int seconds)
     {
         assertFunction(
                 projection,
                 TimestampType.TIMESTAMP,
-                toTimestamp(new DateTime(year, month, day, hour, minutes, seconds, DATE_TIME_ZONE)));
+                sqlTimestampOf(year, month, day, hour, minutes, seconds, 0, DATE_TIME_ZONE, SESSION.getTimeZoneKey(), SESSION));
     }
 
     private void assertDate(String projection, int year, int month, int day)
@@ -157,7 +152,7 @@ public class TestTeradataDateFunctions
         assertFunction(
                 projection,
                 DateType.DATE,
-                sqlDate(new DateTime(year, month, day, 0, 0, DATE_TIME_ZONE)));
+                sqlDate(new DateTime(year, month, day, 0, 0, DateTimeZone.UTC)));
     }
 
     private void assertVarchar(String projection, String expected)
