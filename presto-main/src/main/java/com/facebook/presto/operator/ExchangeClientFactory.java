@@ -35,13 +35,13 @@ public class ExchangeClientFactory
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService scheduler;
 
     @Inject
     public ExchangeClientFactory(
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
-            @ForExchange ScheduledExecutorService executor)
+            @ForExchange ScheduledExecutorService scheduler)
     {
         this(
                 config.getMaxBufferSize(),
@@ -50,7 +50,7 @@ public class ExchangeClientFactory
                 config.getMinErrorDuration(),
                 config.getMaxErrorDuration(),
                 httpClient,
-                executor);
+                scheduler);
     }
 
     public ExchangeClientFactory(
@@ -60,7 +60,7 @@ public class ExchangeClientFactory
             Duration minErrorDuration,
             Duration maxErrorDuration,
             HttpClient httpClient,
-            ScheduledExecutorService executor)
+            ScheduledExecutorService scheduler)
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -74,7 +74,7 @@ public class ExchangeClientFactory
         long maxResponseSizeBytes = (long) (Math.min(httpClient.getMaxContentLength(), maxResponseSize.toBytes()) * 0.75);
         this.maxResponseSize = new DataSize(maxResponseSizeBytes, BYTE);
 
-        this.executor = requireNonNull(executor, "executor is null");
+        this.scheduler = requireNonNull(scheduler, "scheduler is null");
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
@@ -91,7 +91,7 @@ public class ExchangeClientFactory
                 minErrorDuration,
                 maxErrorDuration,
                 httpClient,
-                executor,
+                scheduler,
                 systemMemoryUsageListener);
     }
 }
