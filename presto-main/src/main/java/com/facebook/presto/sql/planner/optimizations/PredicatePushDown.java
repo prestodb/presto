@@ -393,15 +393,15 @@ public class PredicatePushDown
                 if (newJoinFilter.get() == BooleanLiteral.TRUE_LITERAL) {
                     newJoinFilter = Optional.empty();
                 }
-
-                if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty()) {
-                    // if we do not have any equi conjunct we do not pushdown non-equality condition into
-                    // inner join, so we plan execution as nested-loops-join followed by filter instead
-                    // hash join.
-                    // todo: remove the code when we have support for filter function in nested loop join
-                    postJoinPredicate = combineConjuncts(postJoinPredicate, newJoinFilter.get());
-                    newJoinFilter = Optional.empty();
-                }
+//
+//                if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty()) {
+//                    // if we do not have any equi conjunct we do not pushdown non-equality condition into
+//                    // inner join, so we plan execution as nested-loops-join followed by filter instead
+//                    // hash join.
+//                    // todo: remove the code when we have support for filter function in nested loop join
+//                    postJoinPredicate = combineConjuncts(postJoinPredicate, newJoinFilter.get());
+//                    newJoinFilter = Optional.empty();
+//                }
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());

@@ -84,11 +84,10 @@ public class TestLogicalPlanner
                 anyTree(
                         node(DistinctLimitNode.class,
                                 anyTree(
-                                        filter("O_ORDERKEY < L_ORDERKEY",
-                                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
-                                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
-                                                        .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
+                                        join(INNER, ImmutableList.of(), Optional.of("O_ORDERKEY < L_ORDERKEY"),
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                                any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                                .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY"))))));
 
         assertPlan("SELECT DISTINCT o.orderkey FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey LIMIT 1",
                 anyTree(
@@ -112,10 +111,9 @@ public class TestLogicalPlanner
     {
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
                 anyTree(
-                        filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
-                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+                        join(INNER, ImmutableList.of(), Optional.of("O_ORDERKEY < L_ORDERKEY"),
+                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))));
     }
 
     @Test
@@ -142,12 +140,11 @@ public class TestLogicalPlanner
     {
         assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey < l.orderkey WHERE l.orderkey IS NOT NULL",
                 anyTree(
-                        filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
-                                        any(
-                                                filter("NOT (L_ORDERKEY IS NULL)",
-                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
+                        join(INNER, ImmutableList.of(), Optional.of("O_ORDERKEY < L_ORDERKEY"),
+                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                any(
+                                        filter("NOT (L_ORDERKEY IS NULL)",
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
     }
 
     @Test

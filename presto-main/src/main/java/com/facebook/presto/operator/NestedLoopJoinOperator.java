@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.project.MergingPageOutput;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
@@ -21,12 +23,14 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -45,9 +49,19 @@ public class NestedLoopJoinOperator
         private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
         private final List<Type> probeTypes;
         private final List<Type> types;
+        private final Supplier<PageProcessor> processor;
+        private final DataSize minOutputPageSize;
+        private final int minOutputPageRowCount;
         private boolean closed;
 
-        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier, List<Type> probeTypes)
+        public NestedLoopJoinOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier,
+                List<Type> probeTypes,
+                Supplier<PageProcessor> processor,
+                DataSize minOutputPageSize,
+                int minOutputPageRowCount)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -58,6 +72,9 @@ public class NestedLoopJoinOperator
                     .addAll(probeTypes)
                     .addAll(nestedLoopJoinPagesSupplier.getTypes())
                     .build();
+            this.processor = processor;
+            this.minOutputPageRowCount = minOutputPageRowCount;
+            this.minOutputPageSize = minOutputPageSize;
         }
 
         @Override
@@ -71,7 +88,11 @@ public class NestedLoopJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
-            return new NestedLoopJoinOperator(operatorContext, nestedLoopJoinPagesSupplier, probeTypes);
+            return new NestedLoopJoinOperator(operatorContext,
+                    nestedLoopJoinPagesSupplier,
+                    probeTypes,
+                    processor.get(),
+                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
         }
 
         @Override
@@ -87,12 +108,14 @@ public class NestedLoopJoinOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new NestedLoopJoinOperatorFactory(operatorId, planNodeId, nestedLoopJoinPagesSupplier, probeTypes);
+            return new NestedLoopJoinOperatorFactory(operatorId, planNodeId, nestedLoopJoinPagesSupplier, probeTypes, processor, minOutputPageSize, minOutputPageRowCount);
         }
     }
 
     private final NestedLoopJoinPagesSupplier buildPagesSupplier;
     private final ListenableFuture<NestedLoopJoinPages> nestedLoopJoinPagesFuture;
+    private final PageProcessor processor;
+    private final MergingPageOutput mergingPageOutput;
 
     private final OperatorContext operatorContext;
     private final List<Type> types;
@@ -104,7 +127,11 @@ public class NestedLoopJoinOperator
     private boolean finishing;
     private boolean closed;
 
-    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesSupplier buildPagesSupplier, List<Type> probeTypes)
+    public NestedLoopJoinOperator(OperatorContext operatorContext,
+            NestedLoopJoinPagesSupplier buildPagesSupplier,
+            List<Type> probeTypes,
+            PageProcessor processor,
+            MergingPageOutput mergingPageOutput)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.buildPagesSupplier = requireNonNull(buildPagesSupplier, "buildPagesSupplier is null");
@@ -116,6 +143,8 @@ public class NestedLoopJoinOperator
                 .addAll(probeTypes)
                 .addAll(buildPagesSupplier.getTypes())
                 .build();
+        this.processor = processor;
+        this.mergingPageOutput = mergingPageOutput;
     }
 
     @Override
@@ -193,12 +222,14 @@ public class NestedLoopJoinOperator
         }
 
         if (nestedLoopPageBuilder != null && nestedLoopPageBuilder.hasNext()) {
-            return nestedLoopPageBuilder.next();
+            mergingPageOutput.addInput(processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), nestedLoopPageBuilder.next()));
+            return mergingPageOutput.getOutput();
         }
 
         if (buildPageIterator.hasNext()) {
             nestedLoopPageBuilder = new NestedLoopPageBuilder(probePage, buildPageIterator.next());
-            return nestedLoopPageBuilder.next();
+            mergingPageOutput.addInput(processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), nestedLoopPageBuilder.next()));
+            return mergingPageOutput.getOutput();
         }
 
         probePage = null;

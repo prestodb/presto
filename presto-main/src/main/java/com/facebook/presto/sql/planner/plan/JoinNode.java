@@ -96,7 +96,6 @@ public class JoinNode
                 .addAll(right.getOutputSymbols())
                 .build();
         checkArgument(new HashSet<>(inputSymbols).containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
-        checkArgument(!isCrossJoin() || inputSymbols.equals(outputSymbols), "Cross join does not support output symbols pruning or reordering");
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
@@ -235,7 +234,7 @@ public class JoinNode
 
     public boolean isCrossJoin()
     {
-        return criteria.isEmpty() && !filter.isPresent() && type == INNER;
+        return criteria.isEmpty() && type == INNER;
     }
 
     public static class EquiJoinClause
