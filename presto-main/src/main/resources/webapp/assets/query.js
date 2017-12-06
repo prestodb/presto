@@ -1046,6 +1046,14 @@ let QueryDetail = React.createClass({
                                 </tr>
                                 <tr>
                                     <td className="info-title">
+                                        Client Tags
+                                    </td>
+                                    <td className="info-text">
+                                        { query.session.clientTags.join(", ") }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
                                         Submission Time
                                     </td>
                                     <td className="info-text">
