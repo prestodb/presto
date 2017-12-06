@@ -23,6 +23,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
+import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
 import static org.testng.Assert.assertEquals;
 
 public class TestDbSourceExactMatchSelector
@@ -42,14 +44,36 @@ public class TestDbSourceExactMatchSelector
     public void testMatch()
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(ImmutableList.of("global", "test", "user"));
-        dao.insertExactMatchSelector("test", "@test@test_pipeline", CODEC.toJson(resourceGroupId));
+        dao.insertExactMatchSelector("test", "@test@test_pipeline_all_query_type", null, CODEC.toJson(resourceGroupId));
+        dao.insertExactMatchSelector("test", "@test@test_pipeline_insert", INSERT.name(), CODEC.toJson(resourceGroupId));
 
         DbSourceExactMatchSelector selector = new DbSourceExactMatchSelector("test", dao);
+
+        // Test @test@test_pipeline_all_query_type
         assertEquals(
-                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), 1, Optional.empty())),
+                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline_all_query_type"), ImmutableSet.of("tag"), 1, Optional.empty())),
                 Optional.of(resourceGroupId));
         assertEquals(
-                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_new"), ImmutableSet.of(), 1, Optional.empty())),
+                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline_all_query_type"), ImmutableSet.of("tag"), 1, Optional.of(INSERT.name()))),
+                Optional.of(resourceGroupId));
+        assertEquals(
+                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline_all_query_type"), ImmutableSet.of("tag"), 1, Optional.of(SELECT.name()))),
+                Optional.of(resourceGroupId));
+
+        // Test @test@test_pipeline_insert
+        assertEquals(
+                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline_insert"), ImmutableSet.of("tag"), 1, Optional.empty())),
+                Optional.empty());
+        assertEquals(
+                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline_insert"), ImmutableSet.of("tag"), 1, Optional.of(INSERT.name()))),
+                Optional.of(resourceGroupId));
+        assertEquals(
+                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_pipeline_insert"), ImmutableSet.of("tag"), 1, Optional.of(SELECT.name()))),
+                Optional.empty());
+
+        // name not match
+        assertEquals(
+                selector.match(new SelectionContext(true, "testuser", Optional.of("@test@test_new"), ImmutableSet.of(), 1, Optional.of(INSERT.name()))),
                 Optional.empty());
     }
 }

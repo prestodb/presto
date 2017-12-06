@@ -84,6 +84,7 @@ public interface ResourceGroupsDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS exact_match_source_selectors(\n" +
             "  environment VARCHAR(128) NOT NULL,\n" +
             "  source VARCHAR(512) NOT NULL,\n" +
+            "  query_type VARCHAR(512),\n" +
             "  update_time DATETIME NOT NULL,\n" +
             "  resource_group_id VARCHAR(256) NOT NULL,\n" +
             "  PRIMARY KEY (environment, source) \n" +
@@ -93,8 +94,10 @@ public interface ResourceGroupsDao
     @SqlQuery("SELECT resource_group_id\n" +
             "FROM exact_match_source_selectors\n" +
             "WHERE environment = :environment\n" +
-            "  AND source = :source")
+            "  AND source = :source\n" +
+            "  AND (query_type IS NULL OR query_type = :query_type)")
     String getExactMatchResourceGroup(
             @Bind("environment") String environment,
-            @Bind("source") String source);
+            @Bind("source") String source,
+            @Bind("query_type") String queryType);
 }

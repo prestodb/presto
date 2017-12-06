@@ -28,7 +28,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
 import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
+import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -227,11 +229,19 @@ public class TestResourceGroupsDao
 
         ResourceGroupId resourceGroupId = new ResourceGroupId(ImmutableList.of("global", "test", "user"));
         JsonCodec<ResourceGroupId> codec = JsonCodec.jsonCodec(ResourceGroupId.class);
-        dao.insertExactMatchSelector("test", "@test@test_pipeline", codec.toJson(resourceGroupId));
+        dao.insertExactMatchSelector("test", "@test@test_pipeline_all_query_type", null, codec.toJson(resourceGroupId));
+        dao.insertExactMatchSelector("test", "@test@test_pipeline_insert", INSERT.name(), codec.toJson(resourceGroupId));
 
-        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline"), codec.toJson(resourceGroupId));
-        assertNull(dao.getExactMatchResourceGroup("test", "abc"));
-        assertNull(dao.getExactMatchResourceGroup("prod", "@test@test_pipeline"));
+        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline_all_query_type", null), codec.toJson(resourceGroupId));
+        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline_all_query_type", INSERT.name()), codec.toJson(resourceGroupId));
+        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline_all_query_type", DELETE.name()), codec.toJson(resourceGroupId));
+
+        assertNull(dao.getExactMatchResourceGroup("test", "@test@test_pipeline_insert", null));
+        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline_insert", INSERT.name()), codec.toJson(resourceGroupId));
+        assertNull(dao.getExactMatchResourceGroup("test", "@test@test_pipeline_insert", DELETE.name()));
+
+        assertNull(dao.getExactMatchResourceGroup("test", "abc", null));
+        assertNull(dao.getExactMatchResourceGroup("prod", "@test@test_pipeline_all_query_type", null));
     }
 
     private static void compareResourceGroups(Map<Long, ResourceGroupSpecBuilder> map, List<ResourceGroupSpecBuilder> records)
