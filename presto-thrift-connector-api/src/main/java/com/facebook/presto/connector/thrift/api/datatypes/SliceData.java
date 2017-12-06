@@ -31,6 +31,7 @@ import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTyp
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 final class SliceData
         implements PrestoThriftColumnData
@@ -89,6 +90,12 @@ final class SliceData
             return sizes.length;
         }
         return 0;
+    }
+
+    @Override
+    public long retainedSize()
+    {
+        return sizeOf(nulls) + sizeOf(sizes) + sizeOf(bytes);
     }
 
     @Override

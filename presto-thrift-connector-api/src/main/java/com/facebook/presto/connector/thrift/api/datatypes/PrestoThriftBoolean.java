@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
@@ -86,6 +87,12 @@ public final class PrestoThriftBoolean
             return booleans.length;
         }
         return 0;
+    }
+
+    @Override
+    public long retainedSize()
+    {
+        return sizeOf(nulls) + sizeOf(booleans);
     }
 
     @Override

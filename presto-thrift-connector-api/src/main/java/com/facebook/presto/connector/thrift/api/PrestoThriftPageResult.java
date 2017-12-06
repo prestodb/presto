@@ -94,6 +94,11 @@ public final class PrestoThriftPageResult
         return new Page(blocks);
     }
 
+    public long getRetainedSize()
+    {
+        return columnBlocks.stream().mapToLong(PrestoThriftBlock::retainedSize).sum();
+    }
+
     @Override
     public boolean equals(Object obj)
     {

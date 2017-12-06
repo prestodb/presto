@@ -24,6 +24,7 @@ import com.google.common.io.BaseEncoding;
 import java.util.Arrays;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -47,6 +48,11 @@ public final class PrestoThriftId
     public byte[] getId()
     {
         return id;
+    }
+
+    public long retainedSize()
+    {
+        return sizeOf(id);
     }
 
     @Override
