@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -90,6 +91,9 @@ public class DbResourceGroupConfigurationManager
             this.dao.createExactMatchSelectorsTable();
         }
         load();
+
+        checkState(!rootGroups.get().isEmpty(), "No root groups loaded from the database");
+        checkState(!selectors.get().isEmpty(), "No selectors loaded from the database");
     }
 
     @Override
@@ -114,7 +118,7 @@ public class DbResourceGroupConfigurationManager
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            configExecutor.scheduleWithFixedDelay(this::load, 1, 1, TimeUnit.SECONDS);
+            configExecutor.scheduleWithFixedDelay(this::refresh, 1, 1, TimeUnit.SECONDS);
         }
     }
 
@@ -123,7 +127,7 @@ public class DbResourceGroupConfigurationManager
     {
         Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, context);
         if (groups.putIfAbsent(group.getId(), group) == null) {
-            // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of load().
+            // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of refresh().
             configuredGroups.computeIfAbsent(entry.getKey(), v -> new LinkedList<>()).add(group.getId());
         }
         synchronized (getRootGroup(group.getId())) {
@@ -144,42 +148,49 @@ public class DbResourceGroupConfigurationManager
         return (!globalProperties.isEmpty()) ? globalProperties.get(0).getCpuQuotaPeriod() : Optional.empty();
     }
 
-    @VisibleForTesting
-    public synchronized void load()
+    private synchronized void refresh()
     {
         try {
-            Map.Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> specsFromDb = buildSpecsFromDb();
-            ManagerSpec managerSpec = specsFromDb.getKey();
-            Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = specsFromDb.getValue();
-            Set<ResourceGroupIdTemplate> changedSpecs = new HashSet<>();
-            Set<ResourceGroupIdTemplate> deletedSpecs = Sets.difference(this.resourceGroupSpecs.keySet(), resourceGroupSpecs.keySet());
-
-            for (Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry : resourceGroupSpecs.entrySet()) {
-                if (!entry.getValue().sameConfig(this.resourceGroupSpecs.get(entry.getKey()))) {
-                    changedSpecs.add(entry.getKey());
-                }
-            }
-
-            this.resourceGroupSpecs = resourceGroupSpecs;
-            this.cpuQuotaPeriod.set(managerSpec.getCpuQuotaPeriod());
-            this.rootGroups.set(managerSpec.getRootGroups());
-            List<ResourceGroupSelector> selectors = buildSelectors(managerSpec);
-            if (exactMatchSelectorEnabled) {
-                ImmutableList.Builder<ResourceGroupSelector> builder = ImmutableList.builder();
-                builder.add(new DbSourceExactMatchSelector(environment, dao));
-                builder.addAll(selectors);
-                this.selectors.set(builder.build());
-            }
-            else {
-                this.selectors.set(selectors);
-            }
-
-            configureChangedGroups(changedSpecs);
-            disableDeletedGroups(deletedSpecs);
+            load();
         }
         catch (Throwable e) {
             log.error(e, "Error loading configuration from db");
         }
+    }
+
+    @VisibleForTesting
+    public synchronized void load()
+    {
+        Map.Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> specsFromDb = buildSpecsFromDb();
+        ManagerSpec managerSpec = specsFromDb.getKey();
+        Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = specsFromDb.getValue();
+        Set<ResourceGroupIdTemplate> changedSpecs = new HashSet<>();
+        Set<ResourceGroupIdTemplate> deletedSpecs = Sets.difference(this.resourceGroupSpecs.keySet(), resourceGroupSpecs.keySet());
+
+        for (Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry : resourceGroupSpecs.entrySet()) {
+            if (!entry.getValue().sameConfig(this.resourceGroupSpecs.get(entry.getKey()))) {
+                changedSpecs.add(entry.getKey());
+            }
+        }
+
+        this.resourceGroupSpecs = resourceGroupSpecs;
+        this.cpuQuotaPeriod.set(managerSpec.getCpuQuotaPeriod());
+        this.rootGroups.set(managerSpec.getRootGroups());
+        List<ResourceGroupSelector> selectors = buildSelectors(managerSpec);
+        if (exactMatchSelectorEnabled) {
+            ImmutableList.Builder<ResourceGroupSelector> builder = ImmutableList.builder();
+            builder.add(new DbSourceExactMatchSelector(environment, dao));
+            builder.addAll(selectors);
+            this.selectors.set(builder.build());
+        }
+        else {
+            this.selectors.set(selectors);
+        }
+
+        configureChangedGroups(changedSpecs);
+        disableDeletedGroups(deletedSpecs);
+
+        log.debug("Updated configuration from database: %s specs changed, %s specs deleted, %s total selectors", changedSpecs.size(), deletedSpecs.size(), selectors.size());
     }
 
     // Populate temporary data structures to build resource group specs and selectors from db
@@ -301,5 +312,17 @@ public class DbResourceGroupConfigurationManager
         }
         // GroupId is guaranteed to be in groups: it is added before the first call to this method in configure()
         return groups.get(groupId);
+    }
+
+    @Managed
+    public int getSpecCount()
+    {
+        return resourceGroupSpecs.size();
+    }
+
+    @Managed
+    public int getSelectorCount()
+    {
+        return selectors.get().size();
     }
 }
