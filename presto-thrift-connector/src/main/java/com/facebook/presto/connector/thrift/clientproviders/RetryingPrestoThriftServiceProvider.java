@@ -37,7 +37,6 @@ import io.airlift.log.Logger;
 import org.apache.thrift.TApplicationException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
@@ -46,7 +45,6 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
-import static com.facebook.presto.connector.thrift.util.RetryDriver.RetryStats;
 import static java.util.Objects.requireNonNull;
 
 public class RetryingPrestoThriftServiceProvider
@@ -55,7 +53,7 @@ public class RetryingPrestoThriftServiceProvider
     private static final Logger log = Logger.get(RetryingPrestoThriftServiceProvider.class);
     private final PrestoThriftServiceProvider original;
     private final RetryDriver retry;
-    private final Stats stats = new Stats();
+    private final RetryingPrestoThriftServiceStats stats = new RetryingPrestoThriftServiceStats();
 
     @Inject
     public RetryingPrestoThriftServiceProvider(@NonRetrying PrestoThriftServiceProvider original, @ForRetryDriver ListeningScheduledExecutorService retryExecutor, ThriftConnectorConfig config)
@@ -85,7 +83,7 @@ public class RetryingPrestoThriftServiceProvider
 
     @Managed
     @Flatten
-    public Stats getStats()
+    public RetryingPrestoThriftServiceStats getStats()
     {
         return stats;
     }
@@ -109,9 +107,9 @@ public class RetryingPrestoThriftServiceProvider
         private final Supplier<PrestoThriftService> clientSupplier;
         private final RetryDriver retry;
         private PrestoThriftService client;
-        private Stats stats;
+        private RetryingPrestoThriftServiceStats stats;
 
-        public RetryingService(Supplier<PrestoThriftService> clientSupplier, RetryDriver retry, Stats stats)
+        public RetryingService(Supplier<PrestoThriftService> clientSupplier, RetryDriver retry, RetryingPrestoThriftServiceStats stats)
         {
             this.clientSupplier = requireNonNull(clientSupplier, "clientSupplier is null");
             this.retry = retry.onRetry(this::close);
@@ -190,58 +188,6 @@ public class RetryingPrestoThriftServiceProvider
                 log.warn(e, "Error closing client");
             }
             client = null;
-        }
-    }
-
-    public static class Stats
-    {
-        private final RetryStats listSchemaName = new RetryStats();
-        private final RetryStats listTable = new RetryStats();
-        private final RetryStats getTableMetadata = new RetryStats();
-        private final RetryStats getSplits = new RetryStats();
-        private final RetryStats getIndexSplits = new RetryStats();
-        private final RetryStats getRows = new RetryStats();
-
-        @Managed
-        @Nested
-        public RetryStats getListSchemaName()
-        {
-            return listSchemaName;
-        }
-
-        @Managed
-        @Nested
-        public RetryStats getListTable()
-        {
-            return listTable;
-        }
-
-        @Managed
-        @Nested
-        public RetryStats getGetTableMetadata()
-        {
-            return getTableMetadata;
-        }
-
-        @Managed
-        @Nested
-        public RetryStats getGetSplits()
-        {
-            return getSplits;
-        }
-
-        @Managed
-        @Nested
-        public RetryStats getGetIndexSplits()
-        {
-            return getIndexSplits;
-        }
-
-        @Managed
-        @Nested
-        public RetryStats getGetRows()
-        {
-            return getRows;
         }
     }
 }

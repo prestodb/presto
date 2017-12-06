@@ -32,6 +32,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Double.doubleToLongBits;
 
 /**
@@ -94,6 +95,12 @@ public final class PrestoThriftDouble
             return doubles.length;
         }
         return 0;
+    }
+
+    @Override
+    public long retainedSize()
+    {
+        return sizeOf(nulls) + sizeOf(doubles);
     }
 
     @Override

@@ -86,6 +86,12 @@ public final class PrestoThriftJson
     }
 
     @Override
+    public long retainedSize()
+    {
+        return sliceType.retainedSize();
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

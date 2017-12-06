@@ -48,6 +48,11 @@ public final class PrestoThriftSplit
         return hosts;
     }
 
+    public long retainedSize()
+    {
+        return splitId.retainedSize() + hosts.stream().mapToLong(PrestoThriftHostAddress::retainedSize).sum();
+    }
+
     @Override
     public boolean equals(Object obj)
     {

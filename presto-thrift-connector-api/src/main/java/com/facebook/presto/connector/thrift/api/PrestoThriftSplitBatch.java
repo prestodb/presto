@@ -52,6 +52,11 @@ public final class PrestoThriftSplitBatch
         return nextToken;
     }
 
+    public long getRetainedSize()
+    {
+        return splits.stream().mapToLong(PrestoThriftSplit::retainedSize).sum() + nextToken.retainedSize();
+    }
+
     @Override
     public boolean equals(Object obj)
     {

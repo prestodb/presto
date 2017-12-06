@@ -89,6 +89,12 @@ public final class PrestoThriftVarchar
     }
 
     @Override
+    public long retainedSize()
+    {
+        return sliceType.retainedSize();
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

@@ -84,6 +84,8 @@ public final class PrestoThriftBlock
     // non-thrift field which points to non-null data item
     private final PrestoThriftColumnData dataReference;
 
+    private final long retainedSize;
+
     @ThriftConstructor
     public PrestoThriftBlock(
             @Nullable PrestoThriftInteger integerData,
@@ -107,6 +109,7 @@ public final class PrestoThriftBlock
         this.jsonData = jsonData;
         this.hyperLogLogData = hyperLogLogData;
         this.bigintArrayData = bigintArrayData;
+        this.retainedSize = sumSize(integerData, bigintData, doubleData, varcharData, booleanData, dateData, timestampData, jsonData, hyperLogLogData, bigintArrayData);
         this.dataReference = theOnlyNonNull(integerData, bigintData, doubleData, varcharData, booleanData, dateData, timestampData, jsonData, hyperLogLogData, bigintArrayData);
     }
 
@@ -188,6 +191,11 @@ public final class PrestoThriftBlock
     public int numberOfRecords()
     {
         return dataReference.numberOfRecords();
+    }
+
+    public long retainedSize()
+    {
+        return retainedSize;
     }
 
     @Override
@@ -366,5 +374,16 @@ public final class PrestoThriftBlock
         }
         checkArgument(result != null, "no types are present");
         return result;
+    }
+
+    private static long sumSize(PrestoThriftColumnData... columnsData)
+    {
+        long size = 0;
+        for (PrestoThriftColumnData data : columnsData) {
+            if (data != null) {
+                size += data.retainedSize();
+            }
+        }
+        return size;
     }
 }

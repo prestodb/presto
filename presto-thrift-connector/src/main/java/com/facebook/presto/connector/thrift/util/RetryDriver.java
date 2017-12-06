@@ -140,6 +140,7 @@ public class RetryDriver
                 stats.addSuccess();
                 stats.addAttemptsBeforeSuccess(retryStatus.getAttempts());
                 stats.addSuccessLatency(retryStatus.getDuration());
+                stats.addResult(result);
                 return result;
             }
             catch (InterruptedException ie) {
@@ -187,6 +188,7 @@ public class RetryDriver
                     stats.addSuccess();
                     stats.addAttemptsBeforeSuccess(retryStatus.getAttempts());
                     stats.addSuccessLatency(retryStatus.getDuration());
+                    stats.addResult(result);
                 }
 
                 @Override
@@ -272,7 +274,7 @@ public class RetryDriver
         }
     }
 
-    public static final class RetryStats
+    public static class RetryStats
     {
         private final CounterStat success = new CounterStat();
         private final CounterStat finalFailure = new CounterStat();
@@ -353,5 +355,8 @@ public class RetryDriver
         {
             failureLatency.add(duration.roundTo(NANOSECONDS));
         }
+
+        public void addResult(Object v)
+        {}
     }
 }

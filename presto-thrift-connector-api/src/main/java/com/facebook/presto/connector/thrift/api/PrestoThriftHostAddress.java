@@ -17,6 +17,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.swift.codec.ThriftConstructor;
 import com.facebook.swift.codec.ThriftField;
 import com.facebook.swift.codec.ThriftStruct;
+import io.airlift.slice.SizeOf;
 
 import java.util.Objects;
 
@@ -51,6 +52,11 @@ public final class PrestoThriftHostAddress
     public HostAddress toHostAddress()
     {
         return HostAddress.fromParts(getHost(), getPort());
+    }
+
+    public long retainedSize()
+    {
+        return host.length() + SizeOf.SIZE_OF_INT;
     }
 
     @Override
