@@ -1554,6 +1554,16 @@ public class TestPrestoDriver
         }
     }
 
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "\\QResult data has wrong deserialized type (expected: java.util.List, actual: java.lang.String)\\E")
+    public void testClientDeserializationFailure()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("select map(array[array['hello']], array[42])");
+        }
+    }
+
     private QueryState getQueryState(String queryId)
             throws SQLException
     {

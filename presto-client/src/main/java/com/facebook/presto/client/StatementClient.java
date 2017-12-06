@@ -64,6 +64,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
@@ -374,6 +375,13 @@ public class StatementClient
     {
         gone.set(true);
         if (!response.hasValue()) {
+            if (response.getException() != null) {
+                for (Throwable throwable : getCausalChain(response.getException())) {
+                    if (throwable instanceof ClientException) {
+                        return (ClientException) throwable;
+                    }
+                }
+            }
             if (response.getStatusCode() == HTTP_UNAUTHORIZED) {
                 return new ClientException("Authentication failed" +
                         Optional.ofNullable(response.getStatusMessage())

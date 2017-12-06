@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -251,7 +252,7 @@ public class QueryResults
 
         if (signature.getBase().equals(ARRAY)) {
             List<Object> fixedValue = new ArrayList<>();
-            for (Object object : List.class.cast(value)) {
+            for (Object object : safeCast(List.class, value)) {
                 fixedValue.add(fixValue(signature.getTypeParametersAsTypeSignatures().get(0), object));
             }
             return fixedValue;
@@ -260,14 +261,16 @@ public class QueryResults
             TypeSignature keySignature = signature.getTypeParametersAsTypeSignatures().get(0);
             TypeSignature valueSignature = signature.getTypeParametersAsTypeSignatures().get(1);
             Map<Object, Object> fixedValue = new HashMap<>();
-            for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
+            @SuppressWarnings("unchecked")
+            Set<Map.Entry<?, ?>> entries = (Set<Map.Entry<?, ?>>) safeCast(Map.class, value).entrySet();
+            for (Map.Entry<?, ?> entry : entries) {
                 fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
             }
             return fixedValue;
         }
         if (signature.getBase().equals(ROW)) {
             Map<String, Object> fixedValue = new LinkedHashMap<>();
-            List<Object> listValue = List.class.cast(value);
+            List<?> listValue = safeCast(List.class, value);
             checkArgument(listValue.size() == signature.getParameters().size(), "Mismatched data values and row type");
             for (int i = 0; i < listValue.size(); i++) {
                 TypeSignatureParameter parameter = signature.getParameters().get(i);
@@ -286,37 +289,37 @@ public class QueryResults
                 if (value instanceof String) {
                     return Long.parseLong((String) value);
                 }
-                return ((Number) value).longValue();
+                return safeCast(Number.class, value).longValue();
             case INTEGER:
                 if (value instanceof String) {
                     return Integer.parseInt((String) value);
                 }
-                return ((Number) value).intValue();
+                return safeCast(Number.class, value).intValue();
             case SMALLINT:
                 if (value instanceof String) {
                     return Short.parseShort((String) value);
                 }
-                return ((Number) value).shortValue();
+                return safeCast(Number.class, value).shortValue();
             case TINYINT:
                 if (value instanceof String) {
                     return Byte.parseByte((String) value);
                 }
-                return ((Number) value).byteValue();
+                return safeCast(Number.class, value).byteValue();
             case DOUBLE:
                 if (value instanceof String) {
                     return Double.parseDouble((String) value);
                 }
-                return ((Number) value).doubleValue();
+                return safeCast(Number.class, value).doubleValue();
             case REAL:
                 if (value instanceof String) {
                     return Float.parseFloat((String) value);
                 }
-                return ((Number) value).floatValue();
+                return safeCast(Number.class, value).floatValue();
             case BOOLEAN:
                 if (value instanceof String) {
                     return Boolean.parseBoolean((String) value);
                 }
-                return Boolean.class.cast(value);
+                return safeCast(Boolean.class, value);
             case VARCHAR:
             case JSON:
             case TIME:
@@ -329,7 +332,7 @@ public class QueryResults
             case IPADDRESS:
             case DECIMAL:
             case CHAR:
-                return String.class.cast(value);
+                return safeCast(String.class, value);
             default:
                 // for now we assume that only the explicit types above are passed
                 // as a plain text and everything else is base64 encoded binary
@@ -338,5 +341,16 @@ public class QueryResults
                 }
                 return value;
         }
+    }
+
+    private static <T> T safeCast(Class<T> type, Object value)
+    {
+        if (!type.isInstance(value)) {
+            throw new ClientException(format(
+                    "Result data has wrong deserialized type (expected: %s, actual: %s)",
+                    type.getName(),
+                    value.getClass().getName()));
+        }
+        return type.cast(value);
     }
 }
