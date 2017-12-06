@@ -60,7 +60,7 @@ final class BlockUtil
     static void checkValidRegion(int positionCount, int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(String.format("Invalid position '%s' in block with '%s' positions", positionOffset, positionCount));
         }
     }
 
@@ -76,7 +76,7 @@ final class BlockUtil
         else if (newSize > MAX_ARRAY_SIZE) {
             newSize = MAX_ARRAY_SIZE;
             if (newSize == currentSize) {
-                throw new IllegalArgumentException("Can not grow array beyond " + MAX_ARRAY_SIZE);
+                throw new IllegalArgumentException(String.format("Can not grow array beyond '%s'", MAX_ARRAY_SIZE));
             }
         }
         return (int) newSize;
