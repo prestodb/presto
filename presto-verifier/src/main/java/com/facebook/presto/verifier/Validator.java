@@ -57,6 +57,7 @@ import static com.facebook.presto.verifier.QueryResult.State;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.primitives.Doubles.isFinite;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -178,7 +179,7 @@ public class Validator
         else {
             sb.append("SKIPPED: ");
             if (getControlResult().getException() != null) {
-                sb.append(getControlResult().getException().getMessage());
+                sb.append(getStackTraceAsString(getControlResult().getException()));
             }
         }
         return sb.toString();
