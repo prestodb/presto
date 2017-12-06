@@ -526,6 +526,9 @@ public class Driver
             if (driverContext.getSystemMemoryUsage() > 0) {
                 log.error("Driver still has system memory reserved after freeing all operator memory. Freeing it.");
             }
+            if (driverContext.getRevocableMemoryUsage() > 0) {
+                log.error("Driver still has revocable memory reserved after freeing all operator memory. Freeing it.");
+            }
             driverContext.freeMemory(driverContext.getMemoryUsage());
             driverContext.freeSystemMemory(driverContext.getSystemMemoryUsage());
             driverContext.freeRevocableMemory(driverContext.getRevocableMemoryUsage());
