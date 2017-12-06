@@ -39,7 +39,7 @@ public final class TimeType
             return null;
         }
 
-        return new SqlTime(block.getLong(position, 0), session.getTimeZoneKey());
+        return new SqlTime(block.getLong(position), session.getTimeZoneKey());
     }
 
     @Override

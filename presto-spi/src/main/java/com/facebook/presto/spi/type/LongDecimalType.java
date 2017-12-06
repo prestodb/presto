@@ -88,18 +88,21 @@ final class LongDecimalType
     @Override
     public long hash(Block block, int position)
     {
-        long low = block.getLong(position, 0);
-        long high = block.getLong(position, SIZE_OF_LONG);
+        Slice slice = block.getSlice(position, 0, getFixedSize());
+        long low = slice.getLong(0);
+        long high = slice.getLong(SIZE_OF_LONG);
         return UnscaledDecimal128Arithmetic.hash(low, high);
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftLow = leftBlock.getLong(leftPosition, 0);
-        long leftHigh = leftBlock.getLong(leftPosition, SIZE_OF_LONG);
-        long rightLow = rightBlock.getLong(rightPosition, 0);
-        long rightHigh = rightBlock.getLong(rightPosition, SIZE_OF_LONG);
+        Slice leftSlice = leftBlock.getSlice(leftPosition, 0, getFixedSize());
+        long leftLow = leftSlice.getLong(0);
+        long leftHigh = leftSlice.getLong(SIZE_OF_LONG);
+        Slice rightSlice = rightBlock.getSlice(rightPosition, 0, getFixedSize());
+        long rightLow = rightSlice.getLong(0);
+        long rightHigh = rightSlice.getLong(SIZE_OF_LONG);
         return compare(leftLow, leftHigh, rightLow, rightHigh);
     }
 

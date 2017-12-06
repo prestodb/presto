@@ -39,7 +39,7 @@ public final class TimestampType
             return null;
         }
 
-        return new SqlTimestamp(block.getLong(position, 0), session.getTimeZoneKey());
+        return new SqlTimestamp(block.getLong(position), session.getTimeZoneKey());
     }
 
     @Override

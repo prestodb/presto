@@ -87,21 +87,21 @@ public final class SmallintType
             return null;
         }
 
-        return block.getShort(position, 0);
+        return block.getShort(position);
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftValue = leftBlock.getShort(leftPosition, 0);
-        int rightValue = rightBlock.getShort(rightPosition, 0);
+        int leftValue = leftBlock.getShort(leftPosition);
+        int rightValue = rightBlock.getShort(rightPosition);
         return leftValue == rightValue;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return hash(block.getShort(position, 0));
+        return hash(block.getShort(position));
     }
 
     @Override
@@ -109,8 +109,8 @@ public final class SmallintType
     {
         // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
         // function being the equivalence of internal long representation.
-        short leftValue = leftBlock.getShort(leftPosition, 0);
-        short rightValue = rightBlock.getShort(rightPosition, 0);
+        short leftValue = leftBlock.getShort(leftPosition);
+        short rightValue = rightBlock.getShort(rightPosition);
         return Short.compare(leftValue, rightValue);
     }
 
@@ -121,14 +121,14 @@ public final class SmallintType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeShort(block.getShort(position, 0)).closeEntry();
+            blockBuilder.writeShort(block.getShort(position)).closeEntry();
         }
     }
 
     @Override
     public long getLong(Block block, int position)
     {
-        return (long) block.getShort(position, 0);
+        return (long) block.getShort(position);
     }
 
     @Override

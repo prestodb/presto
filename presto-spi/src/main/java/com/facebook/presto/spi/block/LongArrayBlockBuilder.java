@@ -160,37 +160,27 @@ public class LongArrayBlockBuilder
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
         return values[position];
     }
 
     @Override
     @Deprecated
     // TODO: Remove when we fix intermediate types on aggregations.
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
         return toIntExact(values[position]);
     }
 
     @Override
     @Deprecated
     // TODO: Remove when we fix intermediate types on aggregations.
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-
         short value = (short) (values[position]);
         if (value != values[position]) {
             throw new ArithmeticException("short overflow");
@@ -201,13 +191,9 @@ public class LongArrayBlockBuilder
     @Override
     @Deprecated
     // TODO: Remove when we fix intermediate types on aggregations.
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-
         byte value = (byte) (values[position]);
         if (value != values[position]) {
             throw new ArithmeticException("byte overflow");

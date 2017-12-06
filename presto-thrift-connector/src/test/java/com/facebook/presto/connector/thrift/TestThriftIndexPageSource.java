@@ -118,7 +118,7 @@ public class TestThriftIndexPageSource
         Page page = pageSource.getNextPage();
         assertNotNull(page);
         assertEquals(page.getPositionCount(), 1);
-        assertEquals(page.getBlock(0).getInt(0, 0), 20);
+        assertEquals(page.getBlock(0).getInt(0), 20);
         // not complete yet
         assertFalse(pageSource.isFinished());
         assertEquals(client.timesClosed(), 2);
@@ -132,7 +132,7 @@ public class TestThriftIndexPageSource
         page = pageSource.getNextPage();
         assertNotNull(page);
         assertEquals(page.getPositionCount(), 1);
-        assertEquals(page.getBlock(0).getInt(0, 0), 10);
+        assertEquals(page.getBlock(0).getInt(0), 10);
         // still not complete
         assertFalse(pageSource.isFinished());
         assertEquals(client.timesClosed(), 3);
@@ -142,7 +142,7 @@ public class TestThriftIndexPageSource
         page = pageSource.getNextPage();
         assertNotNull(page);
         assertEquals(page.getPositionCount(), 1);
-        assertEquals(page.getBlock(0).getInt(0, 0), 30);
+        assertEquals(page.getBlock(0).getInt(0), 30);
         // finished now
         assertTrue(pageSource.isFinished());
         assertEquals(client.timesClosed(), 4);
@@ -204,7 +204,7 @@ public class TestThriftIndexPageSource
             if (page != null) {
                 Block block = page.getBlock(0);
                 for (int position = 0; position < block.getPositionCount(); position++) {
-                    actual.add(block.getInt(position, 0));
+                    actual.add(block.getInt(position));
                 }
             }
         }

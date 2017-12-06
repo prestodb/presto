@@ -76,27 +76,27 @@ public class GroupByIdBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
-        return block.getByte(position, offset);
+        return block.getByte(position);
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
-        return block.getShort(position, offset);
+        return block.getShort(position);
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
-        return block.getInt(position, offset);
+        return block.getInt(position);
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
-        return block.getLong(position, offset);
+        return block.getLong(position);
     }
 
     @Override

@@ -36,7 +36,7 @@ public final class IntervalYearMonthType
         if (block.isNull(position)) {
             return null;
         }
-        return new SqlIntervalYearMonth(block.getInt(position, 0));
+        return new SqlIntervalYearMonth(block.getInt(position));
     }
 
     @Override

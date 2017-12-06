@@ -337,7 +337,7 @@ public class RaptorPageSink
             }
 
             if (temporalColumnType.equals(TIMESTAMP)) {
-                return (temporalBlock, position) -> toIntExact(MILLISECONDS.toDays(temporalBlock.getLong(position, 0)));
+                return (temporalBlock, position) -> toIntExact(MILLISECONDS.toDays(temporalBlock.getLong(position)));
             }
 
             throw new IllegalArgumentException("Wrong type for temporal column: " + temporalColumnType);

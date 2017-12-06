@@ -51,7 +51,7 @@ public abstract class AbstractLongType
     @Override
     public final long getLong(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return block.getLong(position);
     }
 
     @Override
@@ -73,29 +73,29 @@ public abstract class AbstractLongType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            blockBuilder.writeLong(block.getLong(position)).closeEntry();
         }
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
+        long leftValue = leftBlock.getLong(leftPosition);
+        long rightValue = rightBlock.getLong(rightPosition);
         return leftValue == rightValue;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return hash(block.getLong(position, 0));
+        return hash(block.getLong(position));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
+        long leftValue = leftBlock.getLong(leftPosition);
+        long rightValue = rightBlock.getLong(rightPosition);
         return Long.compare(leftValue, rightValue);
     }
 

@@ -58,14 +58,14 @@ public final class DoubleType
         if (block.isNull(position)) {
             return null;
         }
-        return longBitsToDouble(block.getLong(position, 0));
+        return longBitsToDouble(block.getLong(position));
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition, 0));
-        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition, 0));
+        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition));
+        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition));
 
         // direct equality is correct here
         // noinspection FloatingPointEquality
@@ -75,14 +75,14 @@ public final class DoubleType
     @Override
     public long hash(Block block, int position)
     {
-        return AbstractLongType.hash(block.getLong(position, 0));
+        return AbstractLongType.hash(block.getLong(position));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition, 0));
-        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition, 0));
+        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition));
+        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition));
         return Double.compare(leftValue, rightValue);
     }
 
@@ -93,14 +93,14 @@ public final class DoubleType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            blockBuilder.writeLong(block.getLong(position)).closeEntry();
         }
     }
 
     @Override
     public double getDouble(Block block, int position)
     {
-        return longBitsToDouble(block.getLong(position, 0));
+        return longBitsToDouble(block.getLong(position));
     }
 
     @Override
