@@ -54,6 +54,8 @@ public class TestOperatorStats
             new DataSize(13, BYTE),
             14,
 
+            new DataSize(23, BYTE),
+
             new Duration(15, NANOSECONDS),
 
             16,
@@ -89,6 +91,8 @@ public class TestOperatorStats
             new Duration(12, NANOSECONDS),
             new DataSize(13, BYTE),
             14,
+
+            new DataSize(23, BYTE),
 
             new Duration(15, NANOSECONDS),
 
@@ -135,6 +139,8 @@ public class TestOperatorStats
         assertEquals(actual.getOutputDataSize(), new DataSize(13, BYTE));
         assertEquals(actual.getOutputPositions(), 14);
 
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(23, BYTE));
+
         assertEquals(actual.getBlockedWall(), new Duration(15, NANOSECONDS));
 
         assertEquals(actual.getFinishCalls(), 16);
@@ -173,6 +179,8 @@ public class TestOperatorStats
         assertEquals(actual.getOutputDataSize(), new DataSize(3 * 13, BYTE));
         assertEquals(actual.getOutputPositions(), 3 * 14);
 
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(3 * 23, BYTE));
+
         assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
 
         assertEquals(actual.getFinishCalls(), 3 * 16);
@@ -208,6 +216,8 @@ public class TestOperatorStats
         assertEquals(actual.getGetOutputUser(), new Duration(3 * 12, NANOSECONDS));
         assertEquals(actual.getOutputDataSize(), new DataSize(3 * 13, BYTE));
         assertEquals(actual.getOutputPositions(), 3 * 14);
+
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(3 * 23, BYTE));
 
         assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
 

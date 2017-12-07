@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
+
 public interface StatisticsBuilder
 {
+    void addBlock(Type type, Block block);
+
     ColumnStatistics buildColumnStatistics();
 }

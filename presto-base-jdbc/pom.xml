@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.190-SNAPSHOT</version>
+        <version>0.192-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-base-jdbc</artifactId>
@@ -100,12 +100,6 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -46,16 +46,16 @@ public class StaticLocationProvider
      * Provides the next host from a configured list of hosts in a round-robin fashion.
      */
     @Override
-    public HostAddress getAnyHost()
+    public HostLocationHandle getAnyHost()
     {
-        return hosts.get(index.getAndUpdate(this::next));
+        return new SimpleHostLocationHandle(hosts.get(index.getAndUpdate(this::next)));
     }
 
     @Override
-    public HostAddress getAnyOf(List<HostAddress> requestedHosts)
+    public HostLocationHandle getAnyOf(List<HostAddress> requestedHosts)
     {
         checkArgument(requestedHosts != null && !requestedHosts.isEmpty(), "requestedHosts is null or empty");
-        return requestedHosts.get(ThreadLocalRandom.current().nextInt(requestedHosts.size()));
+        return new SimpleHostLocationHandle(requestedHosts.get(ThreadLocalRandom.current().nextInt(requestedHosts.size())));
     }
 
     private int next(int x)

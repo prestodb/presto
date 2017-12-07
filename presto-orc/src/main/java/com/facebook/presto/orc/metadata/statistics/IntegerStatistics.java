@@ -26,12 +26,14 @@ public class IntegerStatistics
 
     private final Long minimum;
     private final Long maximum;
+    private final Long sum;
 
-    public IntegerStatistics(Long minimum, Long maximum)
+    public IntegerStatistics(Long minimum, Long maximum, Long sum)
     {
         checkArgument(minimum == null || maximum == null || minimum <= maximum, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
+        this.sum = sum;
     }
 
     @Override
@@ -46,6 +48,11 @@ public class IntegerStatistics
         return maximum;
     }
 
+    public Long getSum()
+    {
+        return sum;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -57,13 +64,14 @@ public class IntegerStatistics
         }
         IntegerStatistics that = (IntegerStatistics) o;
         return Objects.equals(minimum, that.minimum) &&
-                Objects.equals(maximum, that.maximum);
+                Objects.equals(maximum, that.maximum) &&
+                Objects.equals(sum, that.sum);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(minimum, maximum);
+        return Objects.hash(minimum, maximum, sum);
     }
 
     @Override
@@ -72,6 +80,7 @@ public class IntegerStatistics
         return toStringHelper(this)
                 .add("min", minimum)
                 .add("max", maximum)
+                .add("sum", sum)
                 .toString();
     }
 }

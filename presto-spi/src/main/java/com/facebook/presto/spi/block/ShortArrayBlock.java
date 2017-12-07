@@ -15,9 +15,9 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -132,17 +132,19 @@ public class ShortArrayBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        boolean[] newValueIsNull = new boolean[positions.size()];
-        short[] newValues = new short[positions.size()];
-        for (int i = 0; i < positions.size(); i++) {
-            int position = positions.get(i);
+        checkArrayRange(positions, offset, length);
+
+        boolean[] newValueIsNull = new boolean[length];
+        short[] newValues = new short[length];
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
             checkReadablePosition(position);
             newValueIsNull[i] = valueIsNull[position + arrayOffset];
             newValues[i] = values[position + arrayOffset];
         }
-        return new ShortArrayBlock(positions.size(), newValueIsNull, newValues);
+        return new ShortArrayBlock(length, newValueIsNull, newValues);
     }
 
     @Override

@@ -15,6 +15,7 @@ package com.facebook.presto.client;
 
 import com.facebook.presto.client.OkHttpUtil.NullCallback;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +50,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
@@ -141,6 +143,9 @@ public class StatementClient
 
         if (session.getSource() != null) {
             builder.addHeader(PRESTO_SOURCE, session.getSource());
+        }
+        if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
+            builder.addHeader(PRESTO_CLIENT_TAGS, Joiner.on(",").join(session.getClientTags()));
         }
         if (session.getClientInfo() != null) {
             builder.addHeader(PRESTO_CLIENT_INFO, session.getClientInfo());

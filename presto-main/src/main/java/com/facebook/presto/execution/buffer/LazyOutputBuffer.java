@@ -105,6 +105,18 @@ public class LazyOutputBuffer
     }
 
     @Override
+    public boolean isOverutilized()
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            outputBuffer = delegate;
+        }
+
+        // until output buffer is initialized, readers cannot enqueue and thus cannot be blocked
+        return (outputBuffer != null) && outputBuffer.isOverutilized();
+    }
+
+    @Override
     public OutputBufferInfo getInfo()
     {
         OutputBuffer outputBuffer;

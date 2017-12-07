@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.jdbc.MetadataUtil.OUTPUT_TABLE_CODEC;
@@ -33,9 +32,7 @@ public class TestJdbcOutputTableHandle
                 "table",
                 ImmutableList.of("abc", "xyz"),
                 ImmutableList.of(VARCHAR, VARCHAR),
-                "tmp_table",
-                "jdbc:junk",
-                ImmutableMap.of("user", "test"));
+                "tmp_table");
 
         assertJsonRoundTrip(OUTPUT_TABLE_CODEC, handle);
     }

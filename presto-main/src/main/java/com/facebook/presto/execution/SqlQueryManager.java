@@ -495,6 +495,18 @@ public class SqlQueryManager
     }
 
     @Override
+    public void failQuery(QueryId queryId, Throwable cause)
+    {
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(cause, "cause is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query != null) {
+            query.fail(cause);
+        }
+    }
+
+    @Override
     public void cancelQuery(QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");
@@ -624,14 +636,19 @@ public class SqlQueryManager
     public void failAbandonedQueries()
     {
         for (QueryExecution queryExecution : queries.values()) {
-            QueryInfo queryInfo = queryExecution.getQueryInfo();
-            if (queryInfo.getState().isDone()) {
-                continue;
-            }
+            try {
+                QueryInfo queryInfo = queryExecution.getQueryInfo();
+                if (queryInfo.getState().isDone()) {
+                    continue;
+                }
 
-            if (isAbandoned(queryInfo)) {
-                log.info("Failing abandoned query %s", queryExecution.getQueryId());
-                queryExecution.fail(new PrestoException(ABANDONED_QUERY, format("Query %s has not been accessed since %s: currentTime %s", queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now())));
+                if (isAbandoned(queryInfo)) {
+                    log.info("Failing abandoned query %s", queryExecution.getQueryId());
+                    queryExecution.fail(new PrestoException(ABANDONED_QUERY, format("Query %s has not been accessed since %s: currentTime %s", queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now())));
+                }
+            }
+            catch (RuntimeException e) {
+                log.error(e, "Exception failing abandoned query %s", queryExecution.getQueryId());
             }
         }
     }

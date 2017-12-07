@@ -298,7 +298,7 @@ public abstract class AbstractTestDistributedQueries
 
     private void assertExplainAnalyze(@Language("SQL") String query)
     {
-        String value = getOnlyElement(computeActual(query).getOnlyColumnAsSet());
+        String value = (String) computeActual(query).getOnlyValue();
 
         assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
 
@@ -970,7 +970,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
-        assertTrue(queryInfo.getQueryStats().getWrittenDataSize().toBytes() > 0L);
+        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
         sql = "INSERT INTO test_written_stats SELECT * FROM nation LIMIT 10";
         resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
@@ -978,7 +978,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
-        assertTrue(queryInfo.getQueryStats().getWrittenDataSize().toBytes() > 0L);
+        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
         assertUpdate("DROP TABLE test_written_stats");
     }

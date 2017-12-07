@@ -102,6 +102,12 @@ public class BroadcastOutputBuffer
     }
 
     @Override
+    public boolean isOverutilized()
+    {
+        return memoryManager.isFull();
+    }
+
+    @Override
     public OutputBufferInfo getInfo()
     {
         //

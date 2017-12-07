@@ -197,7 +197,7 @@ public class TestQueues
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
         int selectorCount = getSelectors(queryRunner).size();
-        dao.insertSelector(4, "user.*", "(?i).*reject.*", null);
+        dao.insertSelector(4, 100_000, "user.*", "(?i).*reject.*", null, null);
         dbConfigurationManager.load();
         assertEquals(getSelectors(queryRunner).size(), selectorCount + 1);
         // Verify the query can be submitted
@@ -208,6 +208,38 @@ public class TestQueues
         // Verify the query cannot be submitted
         queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, FAILED);
+    }
+
+    @Test(timeOut = 60_000)
+    public void testSelectorPriority()
+            throws Exception
+    {
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        QueryId firstQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQuery, RUNNING);
+
+        Optional<String> resourceGroup = queryManager.getQueryInfo(firstQuery).getResourceGroupName();
+        assertTrue(resourceGroup.isPresent());
+        assertEquals(resourceGroup.get(), "global.user-user.dashboard-user");
+
+        // create a new resource group that rejects all queries submitted to it
+        dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+
+        // add a new selector that has a higher priority than the existing dashboard selector and that routes queries to the "reject-all-queries" resource group
+        dao.insertSelector(8, 200, "user.*", "(?i).*dashboard.*", null, null);
+
+        // reload the configuration
+        dbConfigurationManager.load();
+
+        QueryId secondQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, secondQuery, FAILED);
+
+        resourceGroup = queryManager.getQueryInfo(secondQuery).getResourceGroupName();
+        assertTrue(resourceGroup.isPresent());
+        assertEquals(resourceGroup.get(), "global.user-user.reject-all-queries");
     }
 
     @Test(timeOut = 60_000)
@@ -264,6 +296,21 @@ public class TestQueues
         queryManager.cancelQuery(firstQuery);
         // wait until the second one is FAILED
         waitForQueryState(queryRunner, secondQuery, FAILED);
+    }
+
+    @Test
+    public void testQueryTypeBasedSelection()
+            throws InterruptedException
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .build();
+        QueryId queryId = createQuery(queryRunner, session, "EXPLAIN " + LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
+        Optional<String> resourceGroupName = queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getResourceGroupName();
+        assertTrue(resourceGroupName.isPresent(), "Query should have a resource group");
+        assertEquals(resourceGroupName.get(), "explain");
     }
 
     @Test

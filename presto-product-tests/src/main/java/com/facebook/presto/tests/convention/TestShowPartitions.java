@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import javax.inject.Inject;
 
-import java.sql.SQLException;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.tests.TestGroups.BASIC_SQL;
@@ -43,7 +42,7 @@ public class TestShowPartitions
         extends ProductTest
         implements RequirementsProvider
 {
-    private static final String TABLE_NAME = "partitioned_table";
+    private static final String PARTITIONED_TABLE = "partitioned_table";
 
     @Inject
     private MutableTablesState tablesState;
@@ -51,32 +50,28 @@ public class TestShowPartitions
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return compose(mutableTable(generateTableDefinition(), TABLE_NAME, MutableTableRequirement.State.CREATED));
+        return compose(mutableTable(partitionedTableDefinition(), PARTITIONED_TABLE, MutableTableRequirement.State.CREATED));
     }
 
-    private static TableDefinition generateTableDefinition()
+    private static TableDefinition partitionedTableDefinition()
     {
-        StringBuilder createTableDdl = new StringBuilder();
-        createTableDdl.append("CREATE EXTERNAL TABLE %NAME%(");
-        createTableDdl.append("   col INT");
-        createTableDdl.append(") ");
-        createTableDdl.append("PARTITIONED BY (part_col INT) ");
-        createTableDdl.append(" STORED AS ORC");
+        String createTableDdl = "CREATE EXTERNAL TABLE %NAME%(col INT) " +
+                "PARTITIONED BY (part_col INT) " +
+                "STORED AS ORC";
 
-        HiveDataSource dataSource = createResourceDataSource(TABLE_NAME, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
-        HiveDataSource invalidData = createStringDataSource(TABLE_NAME, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "INVALID DATA");
-        return HiveTableDefinition.builder(TABLE_NAME)
-                .setCreateTableDDLTemplate(createTableDdl.toString())
+        HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource invalidData = createStringDataSource(PARTITIONED_TABLE, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "INVALID DATA");
+        return HiveTableDefinition.builder(PARTITIONED_TABLE)
+                .setCreateTableDDLTemplate(createTableDdl)
                 .addPartition("part_col = 1", invalidData)
                 .addPartition("part_col = 2", dataSource)
                 .build();
     }
 
     @Test(groups = {BASIC_SQL})
-    public void testSelectPartitionedHiveTableDifferentFormats()
-            throws SQLException
+    public void testShowPartitionsFromHiveTable()
     {
-        String tableNameInDatabase = tablesState.get(TABLE_NAME).getNameInDatabase();
+        String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
 
         String selectFromOnePartitionsSql = "show partitions from " + tableNameInDatabase;
         QueryResult partitionListResult = query(selectFromOnePartitionsSql);

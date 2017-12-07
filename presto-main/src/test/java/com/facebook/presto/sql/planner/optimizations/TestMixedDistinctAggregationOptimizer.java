@@ -13,24 +13,18 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.StatsRecorder;
+import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -46,34 +40,13 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestMixedDistinctAggregationOptimizer
+        extends BasePlanTest
 {
-    private LocalQueryRunner queryRunner;
-
-    @BeforeClass
-    public void setUp()
+    public TestMixedDistinctAggregationOptimizer()
     {
-        Session defaultSession = testSessionBuilder()
-                .setCatalog("local")
-                .setSchema(TINY_SCHEMA_NAME)
-                .setSystemProperty(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
-                .build();
-
-        queryRunner = new LocalQueryRunner(defaultSession);
-        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
-                new TpchConnectorFactory(1),
-                ImmutableMap.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        closeAllRuntimeException(queryRunner);
-        queryRunner = null;
+        super(ImmutableMap.of(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true"));
     }
 
     @Test
@@ -140,13 +113,8 @@ public class TestMixedDistinctAggregationOptimizer
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(new StatsRecorder(), ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new OptimizeMixedDistinctAggregations(queryRunner.getMetadata()),
+                new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs());
-
-        queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
-            return null;
-        });
+        assertPlan(sql, pattern, optimizers);
     }
 }

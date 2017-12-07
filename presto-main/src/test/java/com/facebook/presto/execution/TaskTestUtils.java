@@ -40,7 +40,6 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
-import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
@@ -65,6 +64,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -102,7 +102,8 @@ public final class TaskTestUtils
             SOURCE_DISTRIBUTION,
             ImmutableList.of(TABLE_SCAN_NODE_ID),
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
-                    .withBucketToPartition(Optional.of(new int[1])));
+                    .withBucketToPartition(Optional.of(new int[1])),
+            UNGROUPED_EXECUTION);
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
@@ -150,7 +151,7 @@ public final class TaskTestUtils
                 new TestingBlockEncodingSerde(new TestingTypeManager()),
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(),
-                new LookupJoinOperators(new JoinProbeCompiler()));
+                new LookupJoinOperators());
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

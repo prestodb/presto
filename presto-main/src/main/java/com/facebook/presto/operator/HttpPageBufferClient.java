@@ -48,6 +48,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,6 +77,7 @@ import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -110,7 +112,7 @@ public final class HttpPageBufferClient
     private final DataSize maxResponseSize;
     private final URI location;
     private final ClientCallback clientCallback;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService scheduler;
     private final Backoff backoff;
 
     @GuardedBy("this")
@@ -138,6 +140,8 @@ public final class HttpPageBufferClient
     private final AtomicInteger requestsCompleted = new AtomicInteger();
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
+    private final Executor pageBufferClientCallbackExecutor;
+
     public HttpPageBufferClient(
             HttpClient httpClient,
             DataSize maxResponseSize,
@@ -145,9 +149,10 @@ public final class HttpPageBufferClient
             Duration maxErrorDuration,
             URI location,
             ClientCallback clientCallback,
-            ScheduledExecutorService executor)
+            ScheduledExecutorService scheduler,
+            Executor pageBufferClientCallbackExecutor)
     {
-        this(httpClient, maxResponseSize, minErrorDuration, maxErrorDuration, location, clientCallback, executor, Ticker.systemTicker());
+        this(httpClient, maxResponseSize, minErrorDuration, maxErrorDuration, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
     }
 
     public HttpPageBufferClient(
@@ -157,14 +162,16 @@ public final class HttpPageBufferClient
             Duration maxErrorDuration,
             URI location,
             ClientCallback clientCallback,
-            ScheduledExecutorService executor,
-            Ticker ticker)
+            ScheduledExecutorService scheduler,
+            Ticker ticker,
+            Executor pageBufferClientCallbackExecutor)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.scheduler = requireNonNull(scheduler, "scheduler is null");
+        this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         requireNonNull(minErrorDuration, "minErrorDuration is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
@@ -262,7 +269,7 @@ public final class HttpPageBufferClient
         backoff.startRequest();
 
         long delayNanos = backoff.getBackoffDelayNanos();
-        executor.schedule(() -> {
+        scheduler.schedule(() -> {
             try {
                 initiateRequest();
             }
@@ -383,7 +390,7 @@ public final class HttpPageBufferClient
                 }
                 handleFailure(t, resultFuture);
             }
-        }, executor);
+        }, pageBufferClientCallbackExecutor);
     }
 
     private synchronized void sendDelete()
@@ -423,7 +430,7 @@ public final class HttpPageBufferClient
                 }
                 handleFailure(t, resultFuture);
             }
-        }, executor);
+        }, pageBufferClientCallbackExecutor);
     }
 
     private void checkNotHoldsLock()
@@ -530,7 +537,7 @@ public final class HttpPageBufferClient
                 // otherwise we must have gotten an OK response, everything else is considered fatal
                 if (response.getStatusCode() != HttpStatus.OK.code()) {
                     StringBuilder body = new StringBuilder();
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream()))) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getInputStream(), UTF_8))) {
                         // Get up to 1000 lines for debugging
                         for (int i = 0; i < 1000; i++) {
                             String line = reader.readLine();

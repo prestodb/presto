@@ -25,6 +25,7 @@ import io.airlift.units.MaxDataSize;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -44,11 +45,12 @@ public class FeaturesConfig
 {
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
-    private boolean dictionaryProcessingJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
     private boolean fastInequalityJoins = true;
     private boolean reorderJoins = true;
     private boolean redistributeWrites = true;
+    private boolean scaleWriters;
+    private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
@@ -57,6 +59,7 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
+    private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
@@ -113,18 +116,6 @@ public class FeaturesConfig
         return distributedJoinsEnabled;
     }
 
-    @Config("dictionary-processing-joins-enabled")
-    public FeaturesConfig setDictionaryProcessingJoinsEnabled(boolean dictionaryProcessingJoinsEnabled)
-    {
-        this.dictionaryProcessingJoinsEnabled = dictionaryProcessingJoinsEnabled;
-        return this;
-    }
-
-    public boolean isDictionaryProcessingJoinsEnabled()
-    {
-        return dictionaryProcessingJoinsEnabled;
-    }
-
     @Config("deprecated.legacy-array-agg")
     public FeaturesConfig setLegacyArrayAgg(boolean legacyArrayAgg)
     {
@@ -147,6 +138,18 @@ public class FeaturesConfig
     public boolean isLegacyOrderBy()
     {
         return legacyOrderBy;
+    }
+
+    @Config("deprecated.legacy-timestamp")
+    public FeaturesConfig setLegacyTimestamp(boolean value)
+    {
+        this.legacyTimestamp = value;
+        return this;
+    }
+
+    public boolean isLegacyTimestamp()
+    {
+        return legacyTimestamp;
     }
 
     @Config("deprecated.legacy-map-subscript")
@@ -216,6 +219,32 @@ public class FeaturesConfig
     public FeaturesConfig setRedistributeWrites(boolean redistributeWrites)
     {
         this.redistributeWrites = redistributeWrites;
+        return this;
+    }
+
+    public boolean isScaleWriters()
+    {
+        return scaleWriters;
+    }
+
+    @Config("scale-writers")
+    public FeaturesConfig setScaleWriters(boolean scaleWriters)
+    {
+        this.scaleWriters = scaleWriters;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getWriterMinSize()
+    {
+        return writerMinSize;
+    }
+
+    @Config("writer-min-size")
+    @ConfigDescription("Target minimum size of writer output when scaling writers")
+    public FeaturesConfig setWriterMinSize(DataSize writerMinSize)
+    {
+        this.writerMinSize = writerMinSize;
         return this;
     }
 

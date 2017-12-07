@@ -17,15 +17,30 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.StripeInformation;
+import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.BooleanStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder;
+import com.facebook.presto.orc.metadata.statistics.StatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
+import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.block.ColumnarMap;
+import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
@@ -36,11 +51,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcWriteValidation
@@ -102,6 +138,19 @@ public class OrcWriteValidation
         return metadata;
     }
 
+    public void validateMetadata(OrcDataSourceId orcDataSourceId, Map<String, Slice> actualMetadata)
+            throws OrcCorruptionException
+    {
+        // Filter out metadata value statically added by the DWRF writer
+        Map<String, Slice> filteredMetadata = actualMetadata.entrySet().stream()
+                .filter(entry -> !STATIC_METADATA.containsKey(entry.getKey()))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+        if (!metadata.equals(filteredMetadata)) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected metadata");
+        }
+    }
+
     public WriteChecksum getChecksum()
     {
         return checksum;
@@ -135,12 +184,18 @@ public class OrcWriteValidation
         for (int stripeIndex = 0; stripeIndex < actualStripes.size(); stripeIndex++) {
             long stripeOffset = actualStripes.get(stripeIndex).getOffset();
             StripeStatistics actual = actualStripeStatistics.get(stripeIndex);
-            StripeStatistics expected = stripeStatistics.get(stripeOffset);
-            if (expected == null) {
-                throw new OrcCorruptionException(orcDataSourceId, "Unexpected stripe at offset %s", stripeOffset);
-            }
-            validateColumnStatisticsEquivalent(orcDataSourceId, "Stripe at " + stripeOffset, actual.getColumnStatistics(), expected.getColumnStatistics());
+            validateStripeStatistics(orcDataSourceId, stripeOffset, actual.getColumnStatistics());
         }
+    }
+
+    public void validateStripeStatistics(OrcDataSourceId orcDataSourceId, long stripeOffset, List<ColumnStatistics> actual)
+            throws OrcCorruptionException
+    {
+        StripeStatistics expected = stripeStatistics.get(stripeOffset);
+        if (expected == null) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected stripe at offset %s", stripeOffset);
+        }
+        validateColumnStatisticsEquivalent(orcDataSourceId, "Stripe at " + stripeOffset, actual, expected.getColumnStatistics());
     }
 
     public void validateRowGroupStatistics(OrcDataSourceId orcDataSourceId, long stripeOffset, Map<Integer, List<RowGroupIndex>> actualRowGroupStatistics)
@@ -171,6 +226,31 @@ public class OrcWriteValidation
                 validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
             }
         }
+    }
+
+    public void validateRowGroupStatistics(
+            OrcDataSourceId orcDataSourceId,
+            long stripeOffset,
+            int rowGroupIndex,
+            List<ColumnStatistics> actual)
+            throws OrcCorruptionException
+    {
+        List<RowGroupStatistics> rowGroups = rowGroupStatistics.get(stripeOffset);
+        if (rowGroups == null) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected stripe at offset %s", stripeOffset);
+        }
+        if (rowGroups.size() <= rowGroupIndex) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
+        }
+        Map<Integer, ColumnStatistics> expectedByColumnIndex = rowGroups.get(rowGroupIndex).getColumnStatistics();
+
+        // new writer does not write row group stats for column zero (table row column)
+        List<ColumnStatistics> expected = IntStream.range(1, actual.size())
+                .mapToObj(expectedByColumnIndex::get)
+                .collect(toImmutableList());
+        actual = actual.subList(1, actual.size());
+
+        validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
     }
 
     private static void validateColumnStatisticsEquivalent(
@@ -337,7 +417,7 @@ public class OrcWriteValidation
                 return NULL_HASH_CODE;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.MAP)) {
+            if (type.getTypeSignature().getBase().equals(MAP)) {
                 Type keyType = type.getTypeParameters().get(0);
                 Type valueType = type.getTypeParameters().get(1);
                 Block mapBlock = (Block) type.getObject(block, position);
@@ -351,7 +431,7 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY)) {
+            if (type.getTypeSignature().getBase().equals(ARRAY)) {
                 Type elementType = type.getTypeParameters().get(0);
                 Block array = (Block) type.getObject(block, position);
                 long hash = 0;
@@ -361,7 +441,7 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.ROW)) {
+            if (type.getTypeSignature().getBase().equals(ROW)) {
                 Block row = (Block) type.getObject(block, position);
                 long hash = 0;
                 for (int i = 0; i < row.getPositionCount(); i++) {
@@ -382,6 +462,221 @@ public class OrcWriteValidation
                     columnHashes.stream()
                             .map(XxHash64::hash)
                             .collect(toImmutableList()));
+        }
+    }
+
+    public static class StatisticsValidation
+    {
+        private final List<Type> types;
+        private List<ColumnStatisticsValidation> columnStatisticsValidations;
+        private long rowCount;
+
+        private StatisticsValidation(List<Type> types)
+        {
+            this.types = requireNonNull(types, "types is null");
+            columnStatisticsValidations = types.stream()
+                    .map(ColumnStatisticsValidation::new)
+                    .collect(toImmutableList());
+        }
+
+        public static StatisticsValidation createWriteStatisticsBuilder(Map<Integer, Type> readColumns)
+        {
+            requireNonNull(readColumns, "readColumns is null");
+            checkArgument(!readColumns.isEmpty(), "readColumns is empty");
+            int columnCount = readColumns.keySet().stream()
+                    .mapToInt(Integer::intValue)
+                    .max().getAsInt() + 1;
+            checkArgument(readColumns.size() == columnCount, "statistics validation requires all columns to be read");
+
+            ImmutableList.Builder<Type> types = ImmutableList.builder();
+            for (int column = 0; column < columnCount; column++) {
+                Type type = readColumns.get(column);
+                checkArgument(type != null, "statistics validation requires all columns to be read");
+                types.add(type);
+            }
+            return new StatisticsValidation(types.build());
+        }
+
+        public void reset()
+        {
+            rowCount = 0;
+            columnStatisticsValidations = types.stream()
+                    .map(ColumnStatisticsValidation::new)
+                    .collect(toImmutableList());
+        }
+
+        public void addPage(Page page)
+        {
+            rowCount += page.getPositionCount();
+            for (int channel = 0; channel < columnStatisticsValidations.size(); channel++) {
+                columnStatisticsValidations.get(channel).addBlock(page.getBlock(channel));
+            }
+        }
+
+        public List<ColumnStatistics> build()
+        {
+            ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
+            // if there are no rows, there will be no stats
+            if (rowCount > 0) {
+                statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null));
+                columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
+            }
+            return statisticsBuilders.build();
+        }
+    }
+
+    private static class ColumnStatisticsValidation
+    {
+        private final Type type;
+        private final StatisticsBuilder statisticsBuilder;
+        private final Function<Block, List<Block>> fieldExtractor;
+        private final List<ColumnStatisticsValidation> fieldBuilders;
+
+        private ColumnStatisticsValidation(Type type)
+        {
+            this.type = requireNonNull(type, "type is null");
+
+            if (BOOLEAN.equals(type)) {
+                statisticsBuilder = new BooleanStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TINYINT.equals(type)) {
+                statisticsBuilder = new CountStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (SMALLINT.equals(type)) {
+                statisticsBuilder = new IntegerStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (INTEGER.equals(type)) {
+                statisticsBuilder = new IntegerStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (BIGINT.equals(type)) {
+                statisticsBuilder = new IntegerStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (DOUBLE.equals(type)) {
+                statisticsBuilder = new DoubleStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (REAL.equals(type)) {
+                statisticsBuilder = new DoubleStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (type instanceof VarcharType) {
+                statisticsBuilder = new StringStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (type instanceof CharType) {
+                statisticsBuilder = new StringStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (VARBINARY.equals(type)) {
+                statisticsBuilder = new BinaryStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (DATE.equals(type)) {
+                statisticsBuilder = new DateStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP.equals(type)) {
+                statisticsBuilder = new CountStatisticsBuilder();
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (type instanceof DecimalType) {
+                DecimalType decimalType = (DecimalType) type;
+                if (decimalType.isShort()) {
+                    statisticsBuilder = new ShortDecimalStatisticsBuilder((decimalType).getScale());
+                }
+                else {
+                    statisticsBuilder = new LongDecimalStatisticsBuilder();
+                }
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (type.getTypeSignature().getBase().equals(ARRAY)) {
+                statisticsBuilder = new CountStatisticsBuilder();
+                fieldExtractor = block -> ImmutableList.of(toColumnarArray(block).getElementsBlock());
+                fieldBuilders = ImmutableList.of(new ColumnStatisticsValidation(Iterables.getOnlyElement(type.getTypeParameters())));
+            }
+            else if (type.getTypeSignature().getBase().equals(MAP)) {
+                statisticsBuilder = new CountStatisticsBuilder();
+                fieldExtractor = block -> {
+                    ColumnarMap columnarMap = toColumnarMap(block);
+                    return ImmutableList.of(columnarMap.getKeysBlock(), columnarMap.getValuesBlock());
+                };
+                fieldBuilders = type.getTypeParameters().stream()
+                        .map(ColumnStatisticsValidation::new)
+                        .collect(toImmutableList());
+            }
+            else if (type.getTypeSignature().getBase().equals(ROW)) {
+                statisticsBuilder = new CountStatisticsBuilder();
+                fieldExtractor = block -> {
+                    ColumnarRow columnarRow = ColumnarRow.toColumnarRow(block);
+                    ImmutableList.Builder<Block> fields = ImmutableList.builder();
+                    for (int index = 0; index < columnarRow.getFieldCount(); index++) {
+                        fields.add(columnarRow.getField(index));
+                    }
+                    return fields.build();
+                };
+                fieldBuilders = type.getTypeParameters().stream()
+                        .map(ColumnStatisticsValidation::new)
+                        .collect(toImmutableList());
+            }
+            else {
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+            }
+        }
+
+        private void addBlock(Block block)
+        {
+            statisticsBuilder.addBlock(type, block);
+
+            List<Block> fields = fieldExtractor.apply(block);
+            for (int i = 0; i < fieldBuilders.size(); i++) {
+                fieldBuilders.get(i).addBlock(fields.get(i));
+            }
+        }
+
+        private void build(ImmutableList.Builder<ColumnStatistics> output)
+        {
+            output.add(statisticsBuilder.buildColumnStatistics());
+            fieldBuilders.forEach(fieldBuilders -> fieldBuilders.build(output));
+        }
+    }
+
+    private static class CountStatisticsBuilder
+            implements StatisticsBuilder
+    {
+        private long rowCount;
+
+        @Override
+        public void addBlock(Type type, Block block)
+        {
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                if (!block.isNull(position)) {
+                    rowCount++;
+                }
+            }
+        }
+
+        @Override
+        public ColumnStatistics buildColumnStatistics()
+        {
+            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null);
         }
     }
 

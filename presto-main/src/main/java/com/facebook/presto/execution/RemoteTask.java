@@ -36,6 +36,8 @@ public interface RemoteTask
 
     void noMoreSplits(PlanNodeId sourceId);
 
+    void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan);
+
     void setOutputBuffers(OutputBuffers outputBuffers);
 
     void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener);

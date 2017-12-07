@@ -29,8 +29,8 @@ import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.verifier.QueryType.READ;
+import static com.facebook.presto.verifier.VerifyCommand.statementToQueryType;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -53,7 +54,7 @@ public class TestShadowing
 
     public TestShadowing()
     {
-        handle = DBI.open(URL);
+        handle = Jdbi.open(URL);
     }
 
     @AfterClass(alwaysRun = true)
@@ -79,7 +80,7 @@ public class TestShadowing
         assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
         assertFalse(createTableAs.getName().getSuffix().contains("my_test_table"));
 
-        assertEquals(PrestoVerifier.statementToQueryType(parser, rewrittenQuery.getQuery()), READ);
+        assertEquals(statementToQueryType(parser, rewrittenQuery.getQuery()), READ);
 
         Table table = new Table(createTableAs.getName());
         SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("COLUMN1"))));

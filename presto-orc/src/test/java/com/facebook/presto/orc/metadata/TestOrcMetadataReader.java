@@ -38,6 +38,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MAX_SURROGATE;
 import static java.lang.Character.MIN_CODE_POINT;
+import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Character.MIN_SURROGATE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -135,6 +136,7 @@ public class TestOrcMetadataReader
             wrappedBuffer(CONTINUATION_BYTE, (byte) 0xE2, (byte) 0x80, (byte) 0x83, CONTINUATION_BYTE);
 
     private static final List<Slice> VALID_UTF8_SEQUENCES = ImmutableList.<Slice>builder()
+            .add(STRING_OO)
             .add(EMPTY_SLICE)
             .add(STRING_APPLE)
             .add(STRING_OESTERREICH)
@@ -296,12 +298,18 @@ public class TestOrcMetadataReader
             Slice codePoint = codePointToUtf8(testCodePoint);
 
             Slice value = concatSlice(prefix, codePoint, suffix);
+            assertEquals(minStringTruncateToValidRange(value, ORC_HIVE_8732), value);
 
-            if (testCodePoint == REPLACEMENT_CHARACTER_CODE_POINT) {
-                assertEquals(minStringTruncateToValidRange(value, ORC_HIVE_8732), prefix);
-            }
-            else {
-                assertEquals(minStringTruncateToValidRange(value, ORC_HIVE_8732), value);
+            // For ORIGINAL, skip prefixes that truncate
+            if (prefix.equals(minStringTruncateToValidRange(prefix, ORIGINAL))) {
+                if (testCodePoint == REPLACEMENT_CHARACTER_CODE_POINT || testCodePoint >= MIN_SUPPLEMENTARY_CODE_POINT) {
+                    // truncate at test code point
+                    assertEquals(minStringTruncateToValidRange(value, ORIGINAL), prefix);
+                }
+                else {
+                    // truncate in suffix (if at all)
+                    assertEquals(minStringTruncateToValidRange(value, ORIGINAL), concatSlice(prefix, codePoint, minStringTruncateToValidRange(suffix, ORIGINAL)));
+                }
             }
         }
     }
@@ -319,17 +327,22 @@ public class TestOrcMetadataReader
 
     private static void testMaxStringTruncateAtFirstReplacementCharacter(Slice prefix, Slice suffix)
     {
-        Slice expectedTruncatedValue = concatSlice(prefix, wrappedBuffer((byte) 0xFF));
         for (int testCodePoint : TEST_CODE_POINTS) {
             Slice codePoint = codePointToUtf8(testCodePoint);
 
             Slice value = concatSlice(prefix, codePoint, suffix);
+            assertEquals(maxStringTruncateToValidRange(value, ORC_HIVE_8732), value);
 
-            if (testCodePoint == REPLACEMENT_CHARACTER_CODE_POINT) {
-                assertEquals(maxStringTruncateToValidRange(value, ORC_HIVE_8732), expectedTruncatedValue);
-            }
-            else {
-                assertEquals(maxStringTruncateToValidRange(value, ORC_HIVE_8732), value);
+            // For ORIGINAL, skip prefixes that truncate
+            if (prefix.equals(maxStringTruncateToValidRange(prefix, ORIGINAL))) {
+                if (testCodePoint == REPLACEMENT_CHARACTER_CODE_POINT || testCodePoint >= MIN_SUPPLEMENTARY_CODE_POINT) {
+                    // truncate at test code point
+                    assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), concatSlice(prefix, wrappedBuffer((byte) 0xFF)));
+                }
+                else {
+                    // truncate in suffix (if at all)
+                    assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), concatSlice(prefix, codePoint, maxStringTruncateToValidRange(suffix, ORIGINAL)));
+                }
             }
         }
     }

@@ -18,7 +18,6 @@ import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.RetryDriver;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
-import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrincipal;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.spi.PrestoException;

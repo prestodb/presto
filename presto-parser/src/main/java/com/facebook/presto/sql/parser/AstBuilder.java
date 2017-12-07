@@ -174,7 +174,7 @@ import static java.util.stream.Collectors.toList;
 class AstBuilder
         extends SqlBaseBaseVisitor<Node>
 {
-    private int parameterPosition = 0;
+    private int parameterPosition;
     private final ParsingOptions parsingOptions;
 
     AstBuilder(ParsingOptions parsingOptions)

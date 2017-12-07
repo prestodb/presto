@@ -789,7 +789,7 @@ public class Validator
             implements Consumer<QueryStats>
     {
         private QueryStats queryStats;
-        private boolean finished = false;
+        private boolean finished;
 
         @Override
         public synchronized void accept(QueryStats queryStats)

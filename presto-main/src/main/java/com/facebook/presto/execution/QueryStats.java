@@ -82,6 +82,8 @@ public class QueryStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final DataSize physicalWrittenDataSize;
+
     private final List<OperatorStats> operatorSummaries;
 
     @VisibleForTesting
@@ -121,6 +123,7 @@ public class QueryStats
         this.processedInputPositions = 0;
         this.outputDataSize = null;
         this.outputPositions = 0;
+        this.physicalWrittenDataSize = null;
         this.operatorSummaries = null;
     }
 
@@ -168,6 +171,8 @@ public class QueryStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
@@ -223,6 +228,9 @@ public class QueryStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
 
@@ -273,7 +281,8 @@ public class QueryStats
             // counter-intuitively, this means that the query is still queued
             return new Duration(0, NANOSECONDS);
         }
-        return succinctNanos((long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS));
+        long executionNanos = (long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS);
+        return succinctNanos(Math.max(0, executionNanos));
     }
 
     @JsonProperty
@@ -445,6 +454,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
     public long getWrittenPositions()
     {
         return operatorSummaries.stream()
@@ -454,7 +469,7 @@ public class QueryStats
     }
 
     @JsonProperty
-    public DataSize getWrittenDataSize()
+    public DataSize getLogicalWrittenDataSize()
     {
         return succinctBytes(
                 operatorSummaries.stream()

@@ -119,7 +119,8 @@ public class TestMemoryPools
             RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
             createOperator.set(revocableMemoryOperator);
 
-            return ImmutableList.of(new Driver(driverContext, revocableMemoryOperator, outputOperator));
+            Driver driver = Driver.createDriver(driverContext, revocableMemoryOperator, outputOperator);
+            return ImmutableList.of(driver);
         });
         return createOperator.get();
     }
@@ -268,7 +269,7 @@ public class TestMemoryPools
         private final DataSize reservedPerPage;
         private final long numberOfPages;
         private final OperatorContext operatorContext;
-        private long producedPagesCount = 0;
+        private long producedPagesCount;
 
         public RevocableMemoryOperator(OperatorContext operatorContext, DataSize reservedPerPage, long numberOfPages)
         {

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 public interface H2ResourceGroupsDao
         extends ResourceGroupsDao
@@ -86,12 +86,14 @@ public interface H2ResourceGroupsDao
     void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);
 
     @SqlUpdate("INSERT INTO selectors\n" +
-            "(resource_group_id, user_regex, source_regex, client_tags)\n" +
-            "VALUES (:resource_group_id, :user_regex, :source_regex, :client_tags)")
+            "(resource_group_id, priority, user_regex, source_regex, query_type, client_tags)\n" +
+            "VALUES (:resource_group_id, :priority, :user_regex, :source_regex, :query_type, :client_tags)")
     void insertSelector(
             @Bind("resource_group_id") long resourceGroupId,
+            @Bind("priority") long priority,
             @Bind("user_regex") String userRegex,
             @Bind("source_regex") String sourceRegex,
+            @Bind("query_type") String queryType,
             @Bind("client_tags") String clientTags);
 
     @SqlUpdate("UPDATE selectors SET\n" +
@@ -125,7 +127,14 @@ public interface H2ResourceGroupsDao
     @SqlUpdate("DELETE FROM selectors WHERE resource_group_id = :resource_group_id")
     void deleteSelectors(@Bind("resource_group_id") long resourceGroup);
 
-    @SqlUpdate("INSERT INTO exact_match_selectors (environment, query_identifier, update_time, resource_group_id)\n" +
-            "VALUES (:environment, :queryIdentifier, now(), :resourceGroupId)\n")
-    void insertExactMatchSelector(@Bind("environment") String environment, @Bind("queryIdentifier") String queryIdentifier, @Bind("resourceGroupId") String resourceGroupId);
+    @SqlUpdate("INSERT INTO exact_match_source_selectors (environment, source, query_type, update_time, resource_group_id)\n" +
+            "VALUES (:environment, :source, :query_type, now(), :resourceGroupId)\n")
+    void insertExactMatchSelector(
+            @Bind("environment") String environment,
+            @Bind("source") String source,
+            @Bind("query_type") String queryType,
+            @Bind("resourceGroupId") String resourceGroupId);
+
+    @SqlUpdate("DROP TABLE selectors")
+    void dropSelectorsTable();
 }

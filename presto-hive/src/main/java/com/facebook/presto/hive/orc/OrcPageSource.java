@@ -154,6 +154,10 @@ public class OrcPageSource
             closeWithSuppression(e);
             throw e;
         }
+        catch (OrcCorruptionException e) {
+            closeWithSuppression(e);
+            throw new PrestoException(HIVE_BAD_DATA, e);
+        }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
             throw new PrestoException(HIVE_CURSOR_ERROR, e);
@@ -234,10 +238,10 @@ public class OrcPageSource
                 Block block = recordReader.readBlock(type, columnIndex);
                 lazyBlock.setBlock(block);
             }
+            catch (OrcCorruptionException e) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
+            }
             catch (IOException e) {
-                if (e instanceof OrcCorruptionException) {
-                    throw new PrestoException(HIVE_BAD_DATA, e);
-                }
                 throw new PrestoException(HIVE_CURSOR_ERROR, e);
             }
 

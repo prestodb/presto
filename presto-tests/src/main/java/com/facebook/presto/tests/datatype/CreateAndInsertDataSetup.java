@@ -40,7 +40,13 @@ public class CreateAndInsertDataSetup
     public TestTable setupTestTable(List<DataTypeTest.Input<?>> inputs)
     {
         TestTable testTable = createTestTable(inputs);
-        insertRows(testTable, inputs);
+        try {
+            insertRows(testTable, inputs);
+        }
+        catch (Exception e) {
+            testTable.close();
+            throw e;
+        }
         return testTable;
     }
 

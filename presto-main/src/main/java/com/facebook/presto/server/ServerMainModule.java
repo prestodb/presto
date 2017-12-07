@@ -112,7 +112,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
-import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -139,6 +138,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
@@ -210,6 +210,10 @@ public class ServerMainModule
                 throw new UnsupportedOperationException();
             }));
         }
+
+        // discovery server
+        // TODO: move to CoordinatorModule
+        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
@@ -315,8 +319,6 @@ public class ServerMainModule
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
-        binder.bind(JoinProbeCompiler.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(JoinProbeCompiler.class).withGeneratedName();
         binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);

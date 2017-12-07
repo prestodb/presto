@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import com.facebook.presto.spi.type.Type;
@@ -23,8 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
@@ -42,26 +45,24 @@ public class LookupJoinOperatorFactory
     private final PlanNodeId planNodeId;
     private final List<Type> probeTypes;
     private final List<Type> probeOutputTypes;
-    private final List<Type> buildTypes;
     private final List<Type> buildOutputTypes;
     private final JoinType joinType;
-    private final LookupSourceFactory lookupSourceFactory;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
-    private final ReferenceCount probeReferenceCount;
-    private final ReferenceCount lookupSourceFactoryUsersCount;
+    private final PerLifespanDataManager perLifespanDataManager;
     private final OptionalInt totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
+
     private boolean closed;
 
-    @UsedByGeneratedCode
     public LookupJoinOperatorFactory(
             int operatorId,
             PlanNodeId planNodeId,
-            LookupSourceFactory lookupSourceFactory,
+            LookupSourceFactoryManager lookupSourceFactoryManager,
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
+            List<Type> buildOutputTypes,
             JoinType joinType,
             JoinProbeFactory joinProbeFactory,
             OptionalInt totalOperatorsCount,
@@ -71,38 +72,25 @@ public class LookupJoinOperatorFactory
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-        this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
         this.probeOutputTypes = ImmutableList.copyOf(requireNonNull(probeOutputTypes, "probeOutputTypes is null"));
-        this.buildTypes = ImmutableList.copyOf(lookupSourceFactory.getTypes());
-        this.buildOutputTypes = ImmutableList.copyOf(lookupSourceFactory.getOutputTypes());
+        this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
-        probeReferenceCount = new ReferenceCount(1);
-        lookupSourceFactoryUsersCount = new ReferenceCount(1);
-
-        // when all probe and build-outer operators finish, destroy the lookup source (freeing the memory)
-        lookupSourceFactoryUsersCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
-
-        // Whole probe side is counted as 1 in lookupSourceFactoryUsersCount
-        probeReferenceCount.getFreeFuture().addListener(lookupSourceFactoryUsersCount::release, directExecutor());
+        this.perLifespanDataManager = new PerLifespanDataManager(joinType, lookupSourceFactoryManager);
 
         if (joinType == INNER || joinType == PROBE_OUTER) {
             this.outerOperatorFactory = Optional.empty();
         }
         else {
-            // when all join operators finish (and lookup source is ready), set the outer position future to start the outer operator
-            ListenableFuture<LookupSourceProvider> lookupSourceAfterProbeFinished = transformAsync(
-                    probeReferenceCount.getFreeFuture(),
-                    ignored -> lookupSourceFactory.createLookupSourceProvider());
-            ListenableFuture<OuterPositionIterator> outerPositionsFuture = transform(lookupSourceAfterProbeFinished, lookupSourceProvider -> {
-                lookupSourceProvider.close();
-                return lookupSourceFactory.getOuterPositionIterator();
-            });
-
-            lookupSourceFactoryUsersCount.retain();
-            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(operatorId, planNodeId, outerPositionsFuture, probeOutputTypes, buildOutputTypes, lookupSourceFactoryUsersCount));
+            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    perLifespanDataManager::getOuterPositionsFuture,
+                    probeOutputTypes,
+                    buildOutputTypes,
+                    perLifespanDataManager::getLookupSourceFactoryUsersCount));
         }
         this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
 
@@ -128,19 +116,15 @@ public class LookupJoinOperatorFactory
         planNodeId = other.planNodeId;
         probeTypes = other.probeTypes;
         probeOutputTypes = other.probeOutputTypes;
-        buildTypes = other.buildTypes;
         buildOutputTypes = other.buildOutputTypes;
         joinType = other.joinType;
-        lookupSourceFactory = other.lookupSourceFactory;
         joinProbeFactory = other.joinProbeFactory;
-        probeReferenceCount = other.probeReferenceCount;
-        lookupSourceFactoryUsersCount = other.lookupSourceFactoryUsersCount;
+        // Invokes .duplicate on perLifespanDataManager
+        perLifespanDataManager = other.perLifespanDataManager.duplicate();
         outerOperatorFactory = other.outerOperatorFactory;
         totalOperatorsCount = other.totalOperatorsCount;
         probeHashGenerator = other.probeHashGenerator;
         partitioningSpillerFactory = other.partitioningSpillerFactory;
-
-        probeReferenceCount.retain();
     }
 
     public int getOperatorId()
@@ -161,6 +145,9 @@ public class LookupJoinOperatorFactory
     public Operator createOperator(DriverContext driverContext)
     {
         checkState(!closed, "Factory is already closed");
+        LookupSourceFactory lookupSourceFactory = perLifespanDataManager.getLookupSourceFactory(driverContext.getLifespan());
+        ReferenceCount probeReferenceCount = perLifespanDataManager.getProbeReferenceCount(driverContext.getLifespan());
+
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupJoinOperator.class.getSimpleName());
 
         lookupSourceFactory.setTaskContext(driverContext.getPipelineContext().getTaskContext());
@@ -183,11 +170,15 @@ public class LookupJoinOperatorFactory
     @Override
     public void noMoreOperators()
     {
-        if (closed) {
-            return;
-        }
+        checkState(!closed);
         closed = true;
-        probeReferenceCount.release();
+        perLifespanDataManager.noMoreLifespan();
+    }
+
+    @Override
+    public void noMoreOperators(Lifespan lifespan)
+    {
+        perLifespanDataManager.getProbeReferenceCount(lifespan).release();
     }
 
     @Override
@@ -200,5 +191,168 @@ public class LookupJoinOperatorFactory
     public Optional<OperatorFactory> createOuterOperatorFactory()
     {
         return outerOperatorFactory;
+    }
+
+    public static class PerLifespanDataManager
+    {
+        private final JoinType joinType;
+        private final FreezeOnReadCounter factoryCount;
+        private final LookupSourceFactoryManager lookupSourceFactoryManager;
+
+        private final Map<Lifespan, PerLifespanData> dataByLifespan;
+        private final ReferenceCount probeFactoryReferenceCount;
+
+        private boolean closed;
+
+        public PerLifespanDataManager(JoinType joinType, LookupSourceFactoryManager lookupSourceFactoryManager)
+        {
+            this.joinType = joinType;
+            this.lookupSourceFactoryManager = lookupSourceFactoryManager;
+            this.dataByLifespan = new ConcurrentHashMap<>();
+
+            this.factoryCount = new FreezeOnReadCounter();
+            this.factoryCount.increment();
+
+            // Each LookupJoinOperatorFactory count as 1 probe, until noMoreOperators() is called.
+            this.probeFactoryReferenceCount = new ReferenceCount(1);
+            this.probeFactoryReferenceCount.getFreeFuture().addListener(lookupSourceFactoryManager::noMoreLookupSourceFactory, directExecutor());
+        }
+
+        private PerLifespanDataManager(PerLifespanDataManager other)
+        {
+            joinType = other.joinType;
+            factoryCount = other.factoryCount;
+            lookupSourceFactoryManager = other.lookupSourceFactoryManager;
+            dataByLifespan = other.dataByLifespan;
+            probeFactoryReferenceCount = other.probeFactoryReferenceCount;
+
+            factoryCount.increment();
+            probeFactoryReferenceCount.retain();
+        }
+
+        public PerLifespanDataManager duplicate()
+        {
+            return new PerLifespanDataManager(this);
+        }
+
+        public void noMoreLifespan()
+        {
+            checkState(!closed);
+            closed = true;
+            probeFactoryReferenceCount.release();
+        }
+
+        public LookupSourceFactory getLookupSourceFactory(Lifespan lifespan)
+        {
+            return data(lifespan).getLookupSourceFactory();
+        }
+
+        public ReferenceCount getProbeReferenceCount(Lifespan lifespan)
+        {
+            return data(lifespan).getProbeReferenceCount();
+        }
+
+        public ReferenceCount getLookupSourceFactoryUsersCount(Lifespan lifespan)
+        {
+            return data(lifespan).getLookupSourceFactoryUsersCount();
+        }
+
+        public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture(Lifespan lifespan)
+        {
+            return data(lifespan).getOuterPositionsFuture();
+        }
+
+        private PerLifespanData data(Lifespan lifespan)
+        {
+            return dataByLifespan.computeIfAbsent(
+                    lifespan,
+                    id -> {
+                        checkState(!closed);
+                        return new PerLifespanData(joinType, factoryCount.get(), lookupSourceFactoryManager.forLifespan(id));
+                    });
+        }
+    }
+
+    public static class PerLifespanData
+    {
+        private final LookupSourceFactory lookupSourceFactory;
+        private final ReferenceCount probeReferenceCount;
+        private final ReferenceCount lookupSourceFactoryUsersCount;
+        private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
+
+        public PerLifespanData(JoinType joinType, int factoryCount, LookupSourceFactory lookupSourceFactory)
+        {
+            this.lookupSourceFactory = lookupSourceFactory;
+
+            // When all probe and build-outer operators finish, destroy the lookup source (freeing the memory)
+            // * Whole probe side (operator and operatorFactory) is counted as 1 lookup source factory user
+            // * Each LookupOuterOperatorFactory count as 1 lookup source factory user, until noMoreOperators(DLC) is called.
+            //   * There is at most 1 LookupOuterOperatorFactory
+            // * Each LookupOuterOperator count as 1 lookup source factory user, until close() is called.
+            lookupSourceFactoryUsersCount = new ReferenceCount(1);
+            lookupSourceFactoryUsersCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
+
+            // * Each LookupJoinOperatorFactory count as 1 probe, until noMoreOperators(DLC) is called.
+            // * Each LookupJoinOperator count as 1 probe, until close() is called.
+            probeReferenceCount = new ReferenceCount(factoryCount);
+            probeReferenceCount.getFreeFuture().addListener(lookupSourceFactoryUsersCount::release, directExecutor());
+
+            if (joinType == INNER || joinType == PROBE_OUTER) {
+                outerPositionsFuture = null;
+            }
+            else {
+                // increment the user count by 1 to account for the build-outer factory
+                lookupSourceFactoryUsersCount.retain();
+
+                // When all join operators finish (and lookup source is ready), set the outer position future to start the outer operator.
+                // * When all join operators finish, wait until lookup source is ready;
+                // * When both are ready, set the outer position future to start the outer operator.
+                ListenableFuture<LookupSourceProvider> lookupSourceAfterProbeFinished = transformAsync(
+                        probeReferenceCount.getFreeFuture(),
+                        ignored -> lookupSourceFactory.createLookupSourceProvider());
+                outerPositionsFuture = transform(lookupSourceAfterProbeFinished, lookupSource -> {
+                    lookupSource.close();
+                    return lookupSourceFactory.getOuterPositionIterator();
+                });
+            }
+        }
+
+        public LookupSourceFactory getLookupSourceFactory()
+        {
+            return lookupSourceFactory;
+        }
+
+        public ReferenceCount getProbeReferenceCount()
+        {
+            return probeReferenceCount;
+        }
+
+        public ReferenceCount getLookupSourceFactoryUsersCount()
+        {
+            return lookupSourceFactoryUsersCount;
+        }
+
+        public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture()
+        {
+            return outerPositionsFuture;
+        }
+    }
+
+    public static class FreezeOnReadCounter
+    {
+        private int count;
+        private boolean freezed;
+
+        public synchronized void increment()
+        {
+            checkState(!freezed, "Counter has been read");
+            count++;
+        }
+
+        public synchronized int get()
+        {
+            freezed = true;
+            return count;
+        }
     }
 }

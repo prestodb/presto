@@ -496,7 +496,7 @@ public class TestNestedLoopJoinOperator
         ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.getTypes(), buildPages.build());
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), buildPages.getTypes());
 
-        Driver driver = new Driver(driverContext,
+        Driver driver = Driver.createDriver(driverContext,
                 valuesOperatorFactory.createOperator(driverContext),
                 nestedLoopBuildOperatorFactory.createOperator(driverContext));
 

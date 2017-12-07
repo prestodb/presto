@@ -24,8 +24,8 @@ import com.google.common.collect.SetMultimap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -182,12 +182,12 @@ public class TestRaptorIntegrationSmokeTest
         MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date");
 
         // Each shard will only contain data of one date.
-        SetMultimap<String, Date> shardDateMap = HashMultimap.create();
+        SetMultimap<String, LocalDate> shardDateMap = HashMultimap.create();
         for (MaterializedRow row : results.getMaterializedRows()) {
-            shardDateMap.put((String) row.getField(1), (Date) row.getField(0));
+            shardDateMap.put((String) row.getField(1), (LocalDate) row.getField(0));
         }
 
-        for (Collection<Date> dates : shardDateMap.asMap().values()) {
+        for (Collection<LocalDate> dates : shardDateMap.asMap().values()) {
             assertEquals(dates.size(), 1);
         }
 
@@ -215,12 +215,12 @@ public class TestRaptorIntegrationSmokeTest
         MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date_bucketed");
 
         // Each shard will only contain data of one date.
-        SetMultimap<String, Date> shardDateMap = HashMultimap.create();
+        SetMultimap<String, LocalDate> shardDateMap = HashMultimap.create();
         for (MaterializedRow row : results.getMaterializedRows()) {
-            shardDateMap.put((String) row.getField(1), (Date) row.getField(0));
+            shardDateMap.put((String) row.getField(1), (LocalDate) row.getField(0));
         }
 
-        for (Collection<Date> dates : shardDateMap.asMap().values()) {
+        for (Collection<LocalDate> dates : shardDateMap.asMap().values()) {
             assertEquals(dates.size(), 1);
         }
 
@@ -671,8 +671,8 @@ public class TestRaptorIntegrationSmokeTest
                 "  AND table_name = 'test_table_stats'";
         MaterializedRow row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
-        Timestamp createTime = (Timestamp) row.getField(0);
-        Timestamp updateTime1 = (Timestamp) row.getField(1);
+        LocalDateTime createTime = (LocalDateTime) row.getField(0);
+        LocalDateTime updateTime1 = (LocalDateTime) row.getField(1);
         assertEquals(createTime, updateTime1);
 
         assertEquals(row.getField(2), 1L);      // table_version
@@ -685,7 +685,7 @@ public class TestRaptorIntegrationSmokeTest
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
-        Timestamp updateTime2 = (Timestamp) row.getField(1);
+        LocalDateTime updateTime2 = (LocalDateTime) row.getField(1);
         assertLessThan(updateTime1, updateTime2);
 
         assertEquals(row.getField(2), 2L);                    // table_version
@@ -699,7 +699,7 @@ public class TestRaptorIntegrationSmokeTest
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
-        Timestamp updateTime3 = (Timestamp) row.getField(1);
+        LocalDateTime updateTime3 = (LocalDateTime) row.getField(1);
         assertLessThan(updateTime2, updateTime3);
 
         assertEquals(row.getField(2), 3L);                    // table_version
@@ -713,7 +713,7 @@ public class TestRaptorIntegrationSmokeTest
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
-        assertLessThan(updateTime3, (Timestamp) row.getField(1));
+        assertLessThan(updateTime3, (LocalDateTime) row.getField(1));
 
         assertEquals(row.getField(2), 4L);      // table_version
         assertEquals(row.getField(4), 2L);      // row_count

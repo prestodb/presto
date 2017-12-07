@@ -23,6 +23,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
@@ -40,6 +41,7 @@ public class QueryRunner
 {
     private final AtomicReference<ClientSession> session;
     private final OkHttpClient httpClient;
+    private final Consumer<OkHttpClient.Builder> sslSetup;
 
     public QueryRunner(
             ClientSession session,
@@ -61,12 +63,13 @@ public class QueryRunner
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
 
+        this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
         setupTimeouts(builder, 5, SECONDS);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
-        setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
         setupBasicAuth(builder, session, user, password);
 
         if (kerberosEnabled) {
@@ -105,7 +108,11 @@ public class QueryRunner
 
     private StatementClient startInternalQuery(ClientSession session, String query)
     {
-        return new StatementClient(httpClient, session, query);
+        OkHttpClient.Builder builder = httpClient.newBuilder();
+        sslSetup.accept(builder);
+        OkHttpClient client = builder.build();
+
+        return new StatementClient(client, session, query);
     }
 
     @Override

@@ -31,13 +31,14 @@ import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Joiner;
 import io.airlift.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.ParsedSql;
+import org.jdbi.v3.core.statement.PreparedBatch;
+import org.jdbi.v3.core.statement.SqlParser;
+import org.jdbi.v3.core.statement.StatementContext;
 import org.joda.time.DateTimeZone;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.PreparedBatch;
-import org.skife.jdbi.v2.PreparedBatchPart;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.io.Closeable;
 import java.math.BigDecimal;
@@ -68,7 +69,6 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
@@ -88,7 +88,7 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
-        handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
+        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime());
         TpchMetadata tpchMetadata = new TpchMetadata("");
 
         handle.execute("CREATE TABLE orders (\n" +
@@ -157,23 +157,22 @@ public class H2QueryRunner
     public MaterializedResult execute(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         MaterializedResult materializedRows = new MaterializedResult(
-                handle.createQuery(sql)
+                handle.setSqlParser(new RawSqlParser())
+                        .setTemplateEngine((template, context) -> template)
+                        .createQuery(sql)
                         .map(rowMapper(resultTypes))
                         .list(),
                 resultTypes);
 
-        // H2 produces dates in the JVM time zone instead of the session timezone
-        materializedRows = materializedRows.toTimeZone(DateTimeZone.getDefault(), getDateTimeZone(session.getTimeZoneKey()));
-
         return materializedRows;
     }
 
-    private static ResultSetMapper<MaterializedRow> rowMapper(final List<? extends Type> types)
+    private static RowMapper<MaterializedRow> rowMapper(List<? extends Type> types)
     {
-        return new ResultSetMapper<MaterializedRow>()
+        return new RowMapper<MaterializedRow>()
         {
             @Override
-            public MaterializedRow map(int index, ResultSet resultSet, StatementContext ctx)
+            public MaterializedRow map(ResultSet resultSet, StatementContext context)
                     throws SQLException
             {
                 int count = resultSet.getMetaData().getColumnCount();
@@ -268,26 +267,34 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            row.add(dateValue);
+                            row.add(dateValue.toLocalDate());
                         }
                     }
-                    else if (TIME.equals(type) || TIME_WITH_TIME_ZONE.equals(type)) {
+                    else if (TIME.equals(type)) {
                         Time timeValue = resultSet.getTime(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(timeValue);
+                            row.add(timeValue.toLocalTime());
                         }
                     }
-                    else if (TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                        throw new UnsupportedOperationException("H2 does not support TIME WITH TIME ZONE");
+                    }
+                    else if (TIMESTAMP.equals(type)) {
                         Timestamp timestampValue = resultSet.getTimestamp(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(timestampValue);
+                            row.add(timestampValue.toLocalDateTime());
                         }
+                    }
+                    else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                        // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
+                        // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
+                        throw new UnsupportedOperationException();
                     }
                     else if (UNKNOWN.equals(type)) {
                         Object objectValue = resultSet.getObject(i);
@@ -339,39 +346,61 @@ public class H2QueryRunner
             PreparedBatch batch = handle.prepareBatch(sql);
             for (int row = 0; row < 1000; row++) {
                 if (!cursor.advanceNextPosition()) {
-                    batch.execute();
+                    if (batch.size() > 0) {
+                        batch.execute();
+                    }
                     return;
                 }
-                PreparedBatchPart part = batch.add();
                 for (int column = 0; column < columns.size(); column++) {
                     Type type = columns.get(column).getType();
                     if (BOOLEAN.equals(type)) {
-                        part.bind(column, cursor.getBoolean(column));
+                        batch.bind(column, cursor.getBoolean(column));
                     }
                     else if (BIGINT.equals(type)) {
-                        part.bind(column, cursor.getLong(column));
+                        batch.bind(column, cursor.getLong(column));
                     }
                     else if (INTEGER.equals(type)) {
-                        part.bind(column, (int) cursor.getLong(column));
+                        batch.bind(column, (int) cursor.getLong(column));
                     }
                     else if (DOUBLE.equals(type)) {
-                        part.bind(column, cursor.getDouble(column));
+                        batch.bind(column, cursor.getDouble(column));
                     }
                     else if (type instanceof VarcharType) {
-                        part.bind(column, cursor.getSlice(column).toStringUtf8());
+                        batch.bind(column, cursor.getSlice(column).toStringUtf8());
                     }
                     else if (DATE.equals(type)) {
                         long millisUtc = TimeUnit.DAYS.toMillis(cursor.getLong(column));
                         // H2 expects dates in to be millis at midnight in the JVM timezone
                         long localMillis = DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millisUtc);
-                        part.bind(column, new Date(localMillis));
+                        batch.bind(column, new Date(localMillis));
                     }
                     else {
                         throw new IllegalArgumentException("Unsupported type " + type);
                     }
                 }
+                batch.add();
             }
             batch.execute();
+        }
+    }
+
+    /**
+     * Pass-through SQL parser that does not support named parameters or definitions.
+     * This allows queries such as {@code x<y} that do not work with the default parser.
+     */
+    private static class RawSqlParser
+            implements SqlParser
+    {
+        @Override
+        public ParsedSql parse(String sql, StatementContext ctx)
+        {
+            return ParsedSql.builder().append(sql).build();
+        }
+
+        @Override
+        public String nameParameter(String rawName, StatementContext ctx)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

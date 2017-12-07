@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.spi.block;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
-import static java.lang.String.format;
 
 public abstract class AbstractArrayBlock
         implements Block
@@ -43,14 +41,17 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        int[] newOffsets = new int[positions.size() + 1];
-        boolean[] newValueIsNull = new boolean[positions.size()];
+        checkArrayRange(positions, offset, length);
 
-        List<Integer> valuesPositions = new ArrayList<>();
+        int[] newOffsets = new int[length + 1];
+        boolean[] newValueIsNull = new boolean[length];
+
+        IntArrayList valuesPositions = new IntArrayList();
         int newPosition = 0;
-        for (int position : positions) {
+        for (int i = offset; i < offset + length; ++i) {
+            int position = positions[i];
             if (isNull(position)) {
                 newValueIsNull[newPosition] = true;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
@@ -68,17 +69,15 @@ public abstract class AbstractArrayBlock
             }
             newPosition++;
         }
-        Block newValues = getValues().copyPositions(valuesPositions);
-        return new ArrayBlock(positions.size(), newValueIsNull, newOffsets, newValues);
+        Block newValues = getValues().copyPositions(valuesPositions.elements(), 0, valuesPositions.size());
+        return new ArrayBlock(length, newValueIsNull, newOffsets, newValues);
     }
 
     @Override
     public Block getRegion(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
         if (position == 0 && length == positionCount) {
             return this;
@@ -96,9 +95,7 @@ public abstract class AbstractArrayBlock
     public long getRegionSizeInBytes(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
         int valueStart = getOffsets()[getOffsetBase() + position];
         int valueEnd = getOffsets()[getOffsetBase() + position + length];
@@ -110,9 +107,7 @@ public abstract class AbstractArrayBlock
     public Block copyRegion(int position, int length)
     {
         int positionCount = getPositionCount();
-        if (position < 0 || length < 0 || position + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position range [%s, %s) in block with %s positions", position, position + length, positionCount));
-        }
+        checkValidRegion(positionCount, position, length);
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + length);

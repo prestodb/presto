@@ -16,7 +16,6 @@ package com.facebook.presto.verifier;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import com.google.inject.name.Names;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.event.client.EventClient;
 
@@ -35,7 +34,7 @@ public class PrestoVerifierModule
         configBinder(binder).bindConfig(VerifierConfig.class);
         eventBinder(binder).bindEventClient(VerifierQueryEvent.class);
 
-        Multibinder<String> supportedClients = newSetBinder(binder, String.class, Names.named(PrestoVerifier.SUPPORTED_EVENT_CLIENTS));
+        Multibinder<String> supportedClients = newSetBinder(binder, String.class, SupportedEventClients.class);
         supportedClients.addBinding().toInstance("human-readable");
         supportedClients.addBinding().toInstance("file");
         Set<String> eventClientTypes = buildConfigObject(VerifierConfig.class).getEventClients();

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.190-SNAPSHOT</version>
+        <version>0.192-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-resource-group-managers</artifactId>
@@ -85,7 +85,12 @@
 
         <dependency>
             <groupId>org.jdbi</groupId>
-            <artifactId>jdbi</artifactId>
+            <artifactId>jdbi3-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jdbi</groupId>
+            <artifactId>jdbi3-sqlobject</artifactId>
         </dependency>
 
         <dependency>

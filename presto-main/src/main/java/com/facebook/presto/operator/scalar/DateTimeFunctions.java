@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
@@ -146,7 +147,14 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType(StandardTypes.BIGINT) long hoursOffset, @SqlType(StandardTypes.BIGINT) long minutesOffset)
     {
-        return packDateTimeWithZone(Math.round(unixTime * 1000), (int) (hoursOffset * 60 + minutesOffset));
+        TimeZoneKey timeZoneKey;
+        try {
+            timeZoneKey = getTimeZoneKeyForOffset((int) (hoursOffset * 60 + minutesOffset));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+        return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
     }
 
     @ScalarFunction("from_unixtime")

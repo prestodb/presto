@@ -15,8 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.Footer;
-import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
@@ -37,8 +35,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
-import static com.facebook.presto.orc.OrcWriter.createOrcWriter;
 import static com.facebook.presto.orc.StripeReader.isIndexStream;
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
@@ -56,19 +54,22 @@ public class TestOrcWriter
             throws IOException
     {
         TempFile tempFile = new TempFile();
-        OrcWriter writer = createOrcWriter(
+        OrcWriter writer = new OrcWriter(
                 new OutputStreamSliceOutput(new FileOutputStream(tempFile.getFile())),
-                    ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
-                    ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
-                    NONE,
-                    new DataSize(32, MEGABYTE),
-                    ORC_STRIPE_SIZE,
-                    ORC_STRIPE_SIZE,
-                    ORC_ROW_GROUP_SIZE,
-                    new DataSize(32, MEGABYTE),
-                    ImmutableMap.of(),
-                    HIVE_STORAGE_TIME_ZONE,
-                    true);
+                ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
+                ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
+                ORC,
+                NONE,
+                new OrcWriterOptions()
+                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                        .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                        .withStripeMinRowCount(ORC_STRIPE_SIZE)
+                        .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
+                        .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                ImmutableMap.of(),
+                HIVE_STORAGE_TIME_ZONE,
+                true,
+                new OrcWriterStats());
 
         // write down some data with unsorted streams
         String[] data = new String[]{"a", "bbbbb", "ccc", "dd", "eeee"};
@@ -92,16 +93,15 @@ public class TestOrcWriter
 
         // read the footer and verify the streams are ordered by size
         DataSize dataSize = new DataSize(1, MEGABYTE);
-        MetadataReader metadataReader = new OrcMetadataReader();
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-        Footer footer = new OrcReader(orcDataSource, metadataReader, dataSize, dataSize, dataSize).getFooter();
+        Footer footer = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize).getFooter();
 
         for (StripeInformation stripe : footer.getStripes()) {
             // read the footer
             byte[] tailBuffer = new byte[toIntExact(stripe.getFooterLength())];
             orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer);
             try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), Optional.empty(), new AggregatedMemoryContext())) {
-                StripeFooter stripeFooter = metadataReader.readStripeFooter(footer.getTypes(), inputStream);
+                StripeFooter stripeFooter = ORC.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
 
                 int size = 0;
                 boolean dataStreamStarted = false;

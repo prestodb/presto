@@ -1737,7 +1737,10 @@ class StatementAnalyzer
                         if (starPrefix.isPresent()) {
                             throw new SemanticException(MISSING_TABLE, item, "Table '%s' not found", starPrefix.get());
                         }
-                        throw new SemanticException(WILDCARD_WITHOUT_FROM, item, "SELECT * not allowed in queries without FROM clause");
+                        if (!node.getFrom().isPresent()) {
+                            throw new SemanticException(WILDCARD_WITHOUT_FROM, item, "SELECT * not allowed in queries without FROM clause");
+                        }
+                        throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, item, "SELECT * not allowed from relation that has no columns");
                     }
 
                     for (Field field : fields) {

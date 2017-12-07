@@ -258,9 +258,7 @@ public class TransformCorrelatedInPredicateToJoin
         return new AggregationNode.Aggregation(
                 countCall,
                 new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
-                Optional.<Symbol>empty(), /* mask */
-                ImmutableList.of(),
-                ImmutableList.of());
+                Optional.<Symbol>empty()); /* mask */
     }
 
     private static Expression isGreaterThan(Symbol symbol, long value)

@@ -142,7 +142,7 @@ public class Console
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
             else {
-                runConsole(queryRunner, session, exiting);
+                runConsole(queryRunner, exiting);
             }
         }
     }
@@ -166,7 +166,7 @@ public class Console
         return "";
     }
 
-    private static void runConsole(QueryRunner queryRunner, ClientSession session, AtomicBoolean exiting)
+    private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
                 LineReader reader = new LineReader(getHistory(), commandCompleter(), lowerCaseCommandCompleter(), tableNameCompleter)) {
@@ -175,8 +175,9 @@ public class Console
             while (!exiting.get()) {
                 // read a line of input from user
                 String prompt = PROMPT_NAME;
-                if (session.getSchema() != null) {
-                    prompt += ":" + session.getSchema();
+                String schema = queryRunner.getSession().getSchema();
+                if (schema != null) {
+                    prompt += ":" + schema;
                 }
                 if (buffer.length() > 0) {
                     prompt = Strings.repeat(" ", prompt.length() - 1) + "-";

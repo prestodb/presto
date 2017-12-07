@@ -235,9 +235,7 @@ public class ImplementIntersectAndExceptAsUnion
                 aggregations.put(output, new Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())),
                         COUNT_AGGREGATION,
-                        Optional.empty(),
-                        ImmutableList.of(),
-                        ImmutableList.of()));
+                        Optional.empty()));
             }
 
             return new AggregationNode(idAllocator.getNextId(),

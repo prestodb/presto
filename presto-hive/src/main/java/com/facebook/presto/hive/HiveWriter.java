@@ -32,7 +32,7 @@ public class HiveWriter
     private final Consumer<HiveWriter> onCommit;
     private final HiveWriterStats hiveWriterStats;
 
-    private long rowCount = 0;
+    private long rowCount;
 
     public HiveWriter(HiveFileWriter fileWriter,
             Optional<String> partitionName,
@@ -51,6 +51,11 @@ public class HiveWriter
         this.targetPath = targetPath;
         this.onCommit = onCommit;
         this.hiveWriterStats = hiveWriterStats;
+    }
+
+    public long getWrittenBytes()
+    {
+        return fileWriter.getWrittenBytes();
     }
 
     public long getSystemMemoryUsage()

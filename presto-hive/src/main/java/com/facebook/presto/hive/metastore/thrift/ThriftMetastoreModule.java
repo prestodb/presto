@@ -16,7 +16,6 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;

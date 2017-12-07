@@ -32,8 +32,14 @@ import java.sql.SQLException;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.charDataType;
+import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
+import static com.facebook.presto.tests.datatype.DataType.integerDataType;
+import static com.facebook.presto.tests.datatype.DataType.realDataType;
+import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
+import static com.facebook.presto.tests.datatype.DataType.tinyintDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
@@ -64,6 +70,19 @@ public class TestMySqlTypeMapping
     public final void destroy()
     {
         mysqlServer.close();
+    }
+
+    @Test
+    public void testBasicTypes()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(bigintDataType(), 123_456_789_012L)
+                .addRoundTrip(integerDataType(), 1_234_567_890)
+                .addRoundTrip(smallintDataType(), (short) 32_456)
+                .addRoundTrip(tinyintDataType(), (byte) 125)
+                .addRoundTrip(doubleDataType(), 123.45d)
+                .addRoundTrip(realDataType(), 123.45f)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
     }
 
     @Test

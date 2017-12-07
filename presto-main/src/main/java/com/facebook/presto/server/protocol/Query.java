@@ -313,23 +313,30 @@ class Query
         // client while holding the lock because the query may transition to the finished state when the
         // last page is removed.  If another thread observes this state before the response is cached
         // the pages will be lost.
-        ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
-        long bytes = 0;
-        long rows = 0;
-        while (bytes < DESIRED_RESULT_BYTES) {
-            SerializedPage serializedPage = exchangeClient.pollPage();
-            if (serializedPage == null) {
-                break;
+        Iterable<List<Object>> data = null;
+        try {
+            ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
+            long bytes = 0;
+            long rows = 0;
+            while (bytes < DESIRED_RESULT_BYTES) {
+                SerializedPage serializedPage = exchangeClient.pollPage();
+                if (serializedPage == null) {
+                    break;
+                }
+
+                Page page = serde.deserialize(serializedPage);
+                bytes += page.getSizeInBytes();
+                rows += page.getPositionCount();
+                pages.add(new RowIterable(session.toConnectorSession(), types, page));
             }
-
-            Page page = serde.deserialize(serializedPage);
-            bytes += page.getSizeInBytes();
-            rows += page.getPositionCount();
-            pages.add(new RowIterable(session.toConnectorSession(), types, page));
+            if (rows > 0) {
+                // client implementations do not properly handle empty list of data
+                data = Iterables.concat(pages.build());
+            }
         }
-
-        // client implementations do not properly handle empty list of data
-        Iterable<List<Object>> data = (rows == 0) ? null : Iterables.concat(pages.build());
+        catch (Throwable cause) {
+            queryManager.failQuery(queryId, cause);
+        }
 
         // get the query info before returning
         // force update if query manager is closed
@@ -472,6 +479,7 @@ class Query
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
                 .setProcessedRows(queryStats.getRawInputPositions())
                 .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
+                .setPeakMemoryBytes(queryStats.getPeakMemoryReservation().toBytes())
                 .setRootStage(toStageStats(outputStage))
                 .build();
     }

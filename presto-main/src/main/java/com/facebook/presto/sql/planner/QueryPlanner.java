@@ -575,17 +575,7 @@ class QueryPlanner
                 }
             }
 
-            aggregationsBuilder.put(newSymbol, new Aggregation(
-                    (FunctionCall) rewritten,
-                    analysis.getFunctionSignature(aggregate),
-                    marker,
-                    aggregate.getOrderBy().map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream()
-                            .map(SortItem::getSortKey)
-                            .map(argumentTranslations::get)
-                            .collect(toImmutableList()),
-                    aggregate.getOrderBy().map(OrderBy::getSortItems).orElse(ImmutableList.of()).stream()
-                            .map(QueryPlanner::toSortOrder)
-                            .collect(toImmutableList())));
+            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), marker));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
@@ -619,7 +609,7 @@ class QueryPlanner
                 Optional.empty(),
                 groupIdSymbol);
 
-        if (aggregationNode.hasEmptyGroupingSet() && aggregationNode.hasNonEmptyGroupingSet() && !aggregationNode.getOrderBySymbols().isEmpty()) {
+        if (aggregationNode.hasEmptyGroupingSet() && aggregationNode.hasNonEmptyGroupingSet() && aggregationNode.hasOrderings()) {
             // Having both empty grouping set and non-empty grouping set will require partial aggregation.
             // Since aggregation with ORDER BY does not support partial aggregation, we can not allow queries to have both.
             throw SemanticExceptions.notSupportedException(
@@ -656,7 +646,7 @@ class QueryPlanner
         projections.putIdentities(subPlan.getRoot().getOutputSymbols());
 
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
-            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, node, analysis, metadata, groupIdSymbol);
+            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, node, analysis, groupIdSymbol);
             Type coercion = analysis.getCoercion(groupingOperation);
             Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
@@ -915,7 +905,7 @@ class QueryPlanner
                 .collect(toImmutableMap(expression -> expression, builder::translate));
     }
 
-    private static SortOrder toSortOrder(SortItem sortItem)
+    public static SortOrder toSortOrder(SortItem sortItem)
     {
         if (sortItem.getOrdering() == Ordering.ASCENDING) {
             if (sortItem.getNullOrdering() == NullOrdering.FIRST) {

@@ -38,7 +38,6 @@ public class TestDriverStats
             new Duration(5, NANOSECONDS),
 
             new DataSize(6, BYTE),
-            new DataSize(20, BYTE),
             new DataSize(7, BYTE),
             new DataSize(8, BYTE),
 
@@ -58,6 +57,8 @@ public class TestDriverStats
 
             new DataSize(18, BYTE),
             19,
+
+            new DataSize(20, BYTE),
 
             ImmutableList.of(TestOperatorStats.EXPECTED));
 
@@ -81,7 +82,6 @@ public class TestDriverStats
         assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
 
         assertEquals(actual.getMemoryReservation(), new DataSize(6, BYTE));
-        assertEquals(actual.getPeakMemoryReservation(), new DataSize(20, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(7, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(8, BYTE));
 
@@ -99,6 +99,8 @@ public class TestDriverStats
 
         assertEquals(actual.getOutputDataSize(), new DataSize(18, BYTE));
         assertEquals(actual.getOutputPositions(), 19);
+
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(20, BYTE));
 
         assertEquals(actual.getOperatorStats().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorStats().get(0));

@@ -35,6 +35,14 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
+    public long getCompletedBytes()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getCompletedBytes();
+        }
+    }
+
+    @Override
     public long getSystemMemoryUsage()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

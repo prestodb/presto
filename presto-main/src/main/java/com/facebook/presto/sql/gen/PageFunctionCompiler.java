@@ -216,9 +216,7 @@ public class PageFunctionCompiler
 
     private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
     {
-        StringBuilder className = new StringBuilder("PageProjectionWork");
-        classNameSuffix.ifPresent(suffix -> className.append("_").append(suffix.replace('.', '_')));
-        return makeClassName(className.toString());
+        return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
     private ClassDefinition definePageProjectWorkClass(RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
@@ -274,9 +272,6 @@ public class PageFunctionCompiler
                 .append(thisVariable.setField(resultField, constantNull(Block.class)));
 
         cachedInstanceBinder.generateInitializations(thisVariable, body);
-        for (CompiledLambda compiledLambda : preGeneratedExpressions.getCompiledLambdaMap().values()) {
-            compiledLambda.generateInitialization(thisVariable, body);
-        }
         body.ret();
 
         return classDefinition;
@@ -429,9 +424,7 @@ public class PageFunctionCompiler
 
     private static ParameterizedType generateFilterClassName(Optional<String> classNameSuffix)
     {
-        StringBuilder className = new StringBuilder(PageFilter.class.getSimpleName());
-        classNameSuffix.ifPresent(suffix -> className.append("_").append(suffix.replace('.', '_')));
-        return makeClassName(className.toString());
+        return makeClassName(PageFilter.class.getSimpleName(), classNameSuffix);
     }
 
     private ClassDefinition defineFilterClass(RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
@@ -621,9 +614,6 @@ public class PageFunctionCompiler
         additionalStatements.accept(constructorDefinition);
 
         cachedInstanceBinder.generateInitializations(thisVariable, body);
-        for (CompiledLambda compiledLambda : preGeneratedExpressions.getCompiledLambdaMap().values()) {
-            compiledLambda.generateInitialization(thisVariable, body);
-        }
         body.ret();
     }
 

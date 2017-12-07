@@ -56,6 +56,7 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Ticker.systemTicker;
@@ -207,6 +208,6 @@ public class TestRaptorSplitManager
     private static ConnectorSplitSource getSplits(RaptorSplitManager splitManager, ConnectorTableLayoutResult layout)
     {
         ConnectorTransactionHandle transaction = new RaptorTransactionHandle();
-        return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle());
+        return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle(), UNGROUPED_SCHEDULING);
     }
 }

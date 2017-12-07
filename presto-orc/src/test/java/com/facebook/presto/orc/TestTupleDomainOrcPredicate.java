@@ -118,7 +118,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics integerColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum), null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null), null, null, null, null, null, null);
     }
 
     @Test

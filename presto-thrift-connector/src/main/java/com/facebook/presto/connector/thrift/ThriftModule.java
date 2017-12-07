@@ -15,8 +15,8 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.connector.thrift.annotations.ForMetadataRefresh;
 import com.facebook.presto.connector.thrift.annotations.ForRetryDriver;
-import com.facebook.presto.connector.thrift.annotations.NonRetrying;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
+import com.facebook.presto.connector.thrift.clientproviders.ConnectedThriftServiceProvider;
 import com.facebook.presto.connector.thrift.clientproviders.DefaultPrestoThriftServiceProvider;
 import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
 import com.facebook.presto.connector.thrift.clientproviders.RetryingPrestoThriftServiceProvider;
@@ -35,12 +35,22 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ThriftModule
         implements Module
 {
+    private final String connectorId;
+
+    public ThriftModule(String connectorId)
+    {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -49,11 +59,16 @@ public class ThriftModule
         binder.bind(ThriftMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ThriftSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ThriftPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectedThriftServiceProvider.class).to(DefaultPrestoThriftServiceProvider.class).in(Scopes.SINGLETON);
         binder.bind(PrestoThriftServiceProvider.class).to(RetryingPrestoThriftServiceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(PrestoThriftServiceProvider.class).annotatedWith(NonRetrying.class).to(DefaultPrestoThriftServiceProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ThriftConnectorConfig.class);
         binder.bind(ThriftSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(ThriftIndexProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ThriftConnectorStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(PrestoThriftServiceProvider.class)
+                .as(generatedNameOf(RetryingPrestoThriftServiceProvider.class, connectorId));
+        newExporter(binder).export(ThriftConnectorStats.class)
+                .as(generatedNameOf(ThriftConnectorStats.class, connectorId));
     }
 
     @Provides

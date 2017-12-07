@@ -29,6 +29,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -50,22 +52,28 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestExchangeClient
 {
-    private ScheduledExecutorService executor;
+    private ScheduledExecutorService scheduler;
+    private ExecutorService pageBufferClientCallbackExecutor;
 
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
     @BeforeClass
     public void setUp()
     {
-        executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        if (executor != null) {
-            executor.shutdownNow();
-            executor = null;
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+            scheduler = null;
+        }
+        if (pageBufferClientCallbackExecutor != null) {
+            pageBufferClientCallbackExecutor.shutdownNow();
+            pageBufferClientCallbackExecutor = null;
         }
     }
 
@@ -83,7 +91,7 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, executor), executor, deltaMemoryInBytes -> {});
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, scheduler), scheduler, deltaMemoryInBytes -> {}, pageBufferClientCallbackExecutor);
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -113,7 +121,7 @@ public class TestExchangeClient
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> {});
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), scheduler, deltaMemoryInBytes -> {}, pageBufferClientCallbackExecutor);
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -177,7 +185,7 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> {});
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), scheduler, deltaMemoryInBytes -> {}, pageBufferClientCallbackExecutor);
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -250,7 +258,7 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> {});
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), scheduler, deltaMemoryInBytes -> {}, pageBufferClientCallbackExecutor);
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
 

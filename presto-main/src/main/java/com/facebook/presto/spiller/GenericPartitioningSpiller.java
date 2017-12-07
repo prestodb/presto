@@ -117,7 +117,7 @@ public class GenericPartitioningSpiller
         IntArrayList unspilledPositions = partitionPage(page, spillPartitionMask);
         ListenableFuture<?> future = flushFullBuilders();
 
-        return new PartitioningSpillResult(future, page.getPositions(unspilledPositions.toIntArray()));
+        return new PartitioningSpillResult(future, page.getPositions(unspilledPositions.elements(), 0, unspilledPositions.size()));
     }
 
     private synchronized IntArrayList partitionPage(Page page, IntPredicate spillPartitionMask)

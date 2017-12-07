@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -147,10 +148,10 @@ final class WeightedFairQueue<E>
         // relative number that is used to determine fraction of resources a group should get
         // for example, if there are two eligible groups with shares 1 and 2, the first group
         // should get 1/(1+2) fraction of resources.
-        private int share;
+        private final int share;
 
         // a number that represents the current utilization of resources by a group
-        private int utilization;
+        private final int utilization;
 
         public Usage(int share, int utilization)
         {
@@ -170,11 +171,21 @@ final class WeightedFairQueue<E>
         {
             return utilization;
         }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("share", share)
+                    .add("utilization", utilization)
+                    .toString();
+        }
     }
 
     private static final class Node<E>
     {
-        private E value;
+        private final E value;
+
         private Usage usage;
 
         private Node(E value, Usage usage)
@@ -201,6 +212,15 @@ final class WeightedFairQueue<E>
         public int getUtilization()
         {
             return usage.getUtilization();
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("value", value)
+                    .add("usage", usage)
+                    .toString();
         }
     }
 }

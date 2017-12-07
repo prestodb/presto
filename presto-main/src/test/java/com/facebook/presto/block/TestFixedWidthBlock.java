@@ -16,7 +16,6 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -43,7 +42,7 @@ public class TestFixedWidthBlock
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
             Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
             BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
-            assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
+            assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
         }
     }
 

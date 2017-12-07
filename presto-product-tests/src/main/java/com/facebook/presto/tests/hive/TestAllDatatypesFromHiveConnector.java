@@ -25,7 +25,6 @@ import com.teradata.tempto.fulfillment.table.TableDefinition;
 import com.teradata.tempto.fulfillment.table.TableHandle;
 import com.teradata.tempto.fulfillment.table.TableInstance;
 import com.teradata.tempto.query.QueryResult;
-import com.teradata.tempto.query.QueryType;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -35,8 +34,11 @@ import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
+import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
+import static com.facebook.presto.tests.TestGroups.SKIP_ON_CDH;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
+import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
@@ -118,6 +120,18 @@ public class TestAllDatatypesFromHiveConnector
         }
     }
 
+    public static final class AvroRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return Requirements.compose(
+                    MutableTableRequirement.builder(ALL_HIVE_SIMPLE_TYPES_AVRO).withState(CREATED).build(),
+                    immutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE));
+        }
+    }
+
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_CONNECTOR, SMOKE})
     public void testSelectAllDatatypesTextFile()
@@ -149,7 +163,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test(groups = {HIVE_CONNECTOR, JDBC})
     public void testSelectAllDatatypesOrc()
             throws SQLException
     {
@@ -181,7 +195,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(RcfileRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test(groups = {HIVE_CONNECTOR, JDBC})
     public void testSelectAllDatatypesRcfile()
             throws SQLException
     {
@@ -212,9 +226,100 @@ public class TestAllDatatypesFromHiveConnector
                         "kot binarny".getBytes()));
     }
 
+    @Requires(AvroRequirements.class)
+    @Test(groups = {HIVE_CONNECTOR, JDBC, SKIP_ON_CDH})
+    public void testSelectAllDatatypesAvro()
+            throws SQLException
+    {
+        String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
+
+        onHive().executeQuery(format("INSERT INTO %s VALUES(" +
+                "2147483647," +
+                "9223372036854775807," +
+                "123.345," +
+                "234.567," +
+                "346," +
+                "345.67800," +
+                "'" + parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE).toString() + "'," +
+                "'" + Date.valueOf("2015-05-10") + "'," +
+                "'ala ma kota'," +
+                "'ala ma kot'," +
+                "'ala ma    '," +
+                "true," +
+                "'kot binarny'" +
+                ")",
+                tableName));
+
+        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
+                row("c_int", "integer"),
+                row("c_bigint", "bigint"),
+                row("c_float", "real"),
+                row("c_double", "double"),
+                row("c_decimal", "decimal(10,0)"),
+                row("c_decimal_w_params", "decimal(10,5)"),
+                row("c_timestamp", "timestamp"),
+                row("c_date", "date"),
+                row("c_string", "varchar"),
+                row("c_varchar", "varchar(10)"),
+                row("c_char", "char(10)"),
+                row("c_boolean", "boolean"),
+                row("c_binary", "varbinary"));
+
+        QueryResult queryResult = query("SELECT * FROM " + tableName);
+        Connection connection = defaultQueryExecutor().getConnection();
+        if (usingPrestoJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
+                    INTEGER,
+                    BIGINT,
+                    REAL,
+                    DOUBLE,
+                    DECIMAL,
+                    DECIMAL,
+                    TIMESTAMP,
+                    DATE,
+                    LONGNVARCHAR,
+                    LONGNVARCHAR,
+                    CHAR,
+                    BOOLEAN,
+                    LONGVARBINARY);
+        }
+        else if (usingTeradataJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
+                    INTEGER,
+                    BIGINT,
+                    REAL,
+                    DOUBLE,
+                    DECIMAL,
+                    DECIMAL,
+                    TIMESTAMP,
+                    DATE,
+                    VARCHAR,
+                    VARCHAR,
+                    CHAR,
+                    BOOLEAN,
+                    VARBINARY);
+        }
+
+        assertThat(queryResult).containsOnly(
+                row(
+                        2147483647,
+                        9223372036854775807L,
+                        123.345f,
+                        234.567,
+                        new BigDecimal("346"),
+                        new BigDecimal("345.67800"),
+                        parseTimestampInLocalTime("2015-05-10 12:15:35.123", PRODUCT_TESTS_TIME_ZONE),
+                        Date.valueOf("2015-05-10"),
+                        "ala ma kota",
+                        "ala ma kot",
+                        "ala ma    ",
+                        true,
+                        "kot binarny".getBytes()));
+    }
+
     private void assertProperAllDatatypesSchema(String tableName)
     {
-        assertThat(query("SHOW COLUMNS FROM " + tableName, QueryType.SELECT).project(1, 2)).containsExactly(
+        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
@@ -300,7 +405,7 @@ public class TestAllDatatypesFromHiveConnector
                 "'kot binarny'" +
                 ")", tableName));
 
-        assertThat(query(format("SHOW COLUMNS FROM %s", tableName), QueryType.SELECT).project(1, 2)).containsExactly(
+        assertThat(query(format("SHOW COLUMNS FROM %s", tableName)).project(1, 2)).containsExactly(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),

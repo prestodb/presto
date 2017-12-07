@@ -15,6 +15,7 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumn;
+import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -49,6 +50,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
@@ -68,7 +70,7 @@ public class SliceDictionaryColumnWriter
     private final Type type;
     private final CompressionKind compression;
     private final int bufferSize;
-    private final boolean isDwrf;
+    private final OrcEncoding orcEncoding;
 
     private final LongOutputStream dataStream;
     private final PresentOutputStream presentStream;
@@ -92,16 +94,16 @@ public class SliceDictionaryColumnWriter
     private boolean directEncoded;
     private SliceDirectColumnWriter directColumnWriter;
 
-    public SliceDictionaryColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, boolean isDwrf)
+    public SliceDictionaryColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding)
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
         this.compression = requireNonNull(compression, "compression is null");
         this.bufferSize = bufferSize;
-        this.isDwrf = isDwrf;
+        this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         LongOutputStream result;
-        if (isDwrf) {
+        if (orcEncoding == DWRF) {
             result = new LongOutputStreamV1(compression, bufferSize, false, DATA);
         }
         else {
@@ -110,7 +112,7 @@ public class SliceDictionaryColumnWriter
         this.dataStream = result;
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.dictionaryDataStream = new ByteArrayOutputStream(compression, bufferSize, StreamKind.DICTIONARY_DATA);
-        this.dictionaryLengthStream = createLengthOutputStream(compression, bufferSize, isDwrf);
+        this.dictionaryLengthStream = createLengthOutputStream(compression, bufferSize, orcEncoding);
         values = new IntBigArray();
     }
 
@@ -152,7 +154,7 @@ public class SliceDictionaryColumnWriter
         checkState(!closed);
         checkState(!directEncoded);
         if (directColumnWriter == null) {
-            directColumnWriter = new SliceDirectColumnWriter(column, type, compression, bufferSize, isDwrf, StringStatisticsBuilder::new);
+            directColumnWriter = new SliceDirectColumnWriter(column, type, compression, bufferSize, orcEncoding, StringStatisticsBuilder::new);
         }
 
         Block dictionaryValues = dictionary.getElementBlock();
@@ -302,7 +304,7 @@ public class SliceDictionaryColumnWriter
                 dictionaryDataStream.writeSlice(value);
             }
         }
-        columnEncoding = new ColumnEncoding(isDwrf ? DICTIONARY : DICTIONARY_V2, dictionaryElements.getPositionCount() - 1);
+        columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DICTIONARY : DICTIONARY_V2, dictionaryElements.getPositionCount() - 1);
 
         // build index from original dictionary index to new sorted position
         int[] originalDictionaryToSortedIndex = new int[sortedDictionaryIndexes.length];

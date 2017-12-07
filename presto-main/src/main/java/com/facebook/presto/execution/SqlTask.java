@@ -55,6 +55,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTask
@@ -141,6 +142,11 @@ public class SqlTask
         });
     }
 
+    public boolean isOutputBufferOverutilized()
+    {
+        return outputBuffer.isOverutilized();
+    }
+
     private static final class UpdateSystemMemory
             implements SystemMemoryUsageListener
     {
@@ -217,21 +223,29 @@ public class SqlTask
 
         int queuedPartitionedDrivers = 0;
         int runningPartitionedDrivers = 0;
+        DataSize physicalWrittenDataSize = new DataSize(0, BYTE);
         DataSize memoryReservation = new DataSize(0, BYTE);
+        // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
+        Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
+            physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
             memoryReservation = taskStats.getMemoryReservation();
         }
         else if (taskHolder.getTaskExecution() != null) {
+            long physicalWrittenBytes = 0;
             TaskContext taskContext = taskHolder.getTaskExecution().getTaskContext();
             for (PipelineContext pipelineContext : taskContext.getPipelineContexts()) {
                 PipelineStatus pipelineStatus = pipelineContext.getPipelineStatus();
                 queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
+                physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
+            physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             memoryReservation = taskContext.getMemoryReservation();
+            completedDriverGroups = taskContext.getCompletedDriverGroups();
         }
 
         return new TaskStatus(taskStateMachine.getTaskId(),
@@ -240,9 +254,12 @@ public class SqlTask
                 state,
                 location,
                 nodeId,
+                completedDriverGroups,
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
+                isOutputBufferOverutilized(),
+                physicalWrittenDataSize,
                 memoryReservation);
     }
 

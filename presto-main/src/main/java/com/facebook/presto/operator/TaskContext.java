@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
@@ -72,6 +73,8 @@ public class TaskContext
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
 
+    private final Set<Lifespan> completedDriverGroups = newConcurrentHashSet();
+
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
     private final boolean verboseStats;
@@ -81,12 +84,27 @@ public class TaskContext
     private final AtomicDouble cumulativeMemory = new AtomicDouble(0.0);
 
     @GuardedBy("cumulativeMemoryLock")
-    private long lastMemoryReservation = 0;
+    private long lastMemoryReservation;
 
     @GuardedBy("cumulativeMemoryLock")
-    private long lastTaskStatCallNanos = 0;
+    private long lastTaskStatCallNanos;
 
-    public TaskContext(QueryContext queryContext,
+    public static TaskContext createTaskContext(
+            QueryContext queryContext,
+            TaskStateMachine taskStateMachine,
+            Executor notificationExecutor,
+            ScheduledExecutorService yieldExecutor,
+            Session session,
+            boolean verboseStats,
+            boolean cpuTimerEnabled)
+    {
+        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, notificationExecutor, yieldExecutor, session, verboseStats, cpuTimerEnabled);
+        taskContext.initialize();
+        return taskContext;
+    }
+
+    private TaskContext(
+            QueryContext queryContext,
             TaskStateMachine taskStateMachine,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -99,20 +117,21 @@ public class TaskContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
-        taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-        {
-            @Override
-            public void stateChanged(TaskState newState)
-            {
-                if (newState.isDone()) {
-                    executionEndTime.set(DateTime.now());
-                    endNanos.set(System.nanoTime());
-                }
-            }
-        });
-
         this.verboseStats = verboseStats;
         this.cpuTimerEnabled = cpuTimerEnabled;
+    }
+
+    // the state change listener is added here in a separate initialize() method
+    // instead of the constructor to prevent leaking the "this" reference to
+    // another thread, which will cause unsafe publication of this instance.
+    private void initialize()
+    {
+        taskStateMachine.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                executionEndTime.set(DateTime.now());
+                endNanos.set(System.nanoTime());
+            }
+        });
     }
 
     public TaskId getTaskId()
@@ -160,6 +179,22 @@ public class TaskContext
     public DataSize getMemoryReservation()
     {
         return new DataSize(memoryReservation.get(), BYTE);
+    }
+
+    /**
+     * Returns the completed driver groups (excluding taskWide).
+     * A driver group is considered complete if all drivers associated with it
+     * has completed, and no new drivers associated with it will be created.
+     */
+    public Set<Lifespan> getCompletedDriverGroups()
+    {
+        return completedDriverGroups;
+    }
+
+    public void addCompletedDriverGroup(Lifespan driverGroup)
+    {
+        checkArgument(!driverGroup.isTaskWide(), "driverGroup is task-wide, not a driver group.");
+        completedDriverGroups.add(driverGroup);
     }
 
     public List<PipelineContext> getPipelineContexts()
@@ -336,6 +371,8 @@ public class TaskContext
         long outputDataSize = 0;
         long outputPositions = 0;
 
+        long physicalWrittenDataSize = 0;
+
         for (PipelineStats pipeline : pipelineStats) {
             if (pipeline.getLastEndTime() != null) {
                 lastExecutionEndTime = max(pipeline.getLastEndTime().getMillis(), lastExecutionEndTime);
@@ -366,6 +403,8 @@ public class TaskContext
                 outputDataSize += pipeline.getOutputDataSize().toBytes();
                 outputPositions += pipeline.getOutputPositions();
             }
+
+            physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSize().toBytes();
         }
 
         long startNanos = this.startNanos.get();
@@ -433,6 +472,7 @@ public class TaskContext
                 processedInputPositions,
                 succinctBytes(outputDataSize),
                 outputPositions,
+                succinctBytes(physicalWrittenDataSize),
                 pipelineStats);
     }
 

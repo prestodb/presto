@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
@@ -47,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
@@ -73,10 +75,10 @@ public class DecimalColumnWriter
 
     private boolean closed;
 
-    public DecimalColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, boolean isDwrf)
+    public DecimalColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding)
     {
         checkArgument(column >= 0, "column is negative");
-        checkArgument(!isDwrf, "DWRF does not support %s type", type);
+        checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
         this.column = column;
         this.type = (DecimalType) requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;

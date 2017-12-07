@@ -75,9 +75,7 @@ public class CountConstantOptimizer
                         aggregations.put(symbol, new Aggregation(
                                 new FunctionCall(functionCall.getName(), functionCall.getWindow(), functionCall.getFilter(), functionCall.getOrderBy(), functionCall.isDistinct(), functionCall.isIgnoreNulls(), ImmutableList.of()),
                                 new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
-                                aggregation.getMask(),
-                                ImmutableList.of(),
-                                ImmutableList.of()));
+                                aggregation.getMask()));
                     }
                 }
             }

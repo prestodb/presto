@@ -41,16 +41,16 @@ public class MongoClientConfig
     private List<ServerAddress> seeds = ImmutableList.of();
     private List<MongoCredential> credentials = ImmutableList.of();
 
-    private int minConnectionsPerHost = 0;
+    private int minConnectionsPerHost;
     private int connectionsPerHost = 100;
     private int maxWaitTime = 120_000;
     private int connectionTimeout = 10_000;
-    private int socketTimeout = 0;
-    private boolean socketKeepAlive = false;
-    private boolean sslEnabled = false;
+    private int socketTimeout;
+    private boolean socketKeepAlive;
+    private boolean sslEnabled;
 
     // query configurations
-    private int cursorBatchSize = 0; // use driver default
+    private int cursorBatchSize; // use driver default
 
     private ReadPreferenceType readPreference = ReadPreferenceType.PRIMARY;
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
