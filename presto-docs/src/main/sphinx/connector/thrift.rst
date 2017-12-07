@@ -42,6 +42,11 @@ Property Name                                 Description
 ``static-location.hosts``                     Location of Thrift servers
 ``presto-thrift.max-response-size``           Maximum size of a response from thrift server
 ``presto-thrift.metadata-refresh-threads``    Number of refresh threads for metadata cache
+``presto-thrift.max-retry-attempts``          Maximum number of retries for failed Thrift requests
+``presto-thrift.min-retry-sleep-time``        Minimum interval between retry attempts
+``presto-thrift.max-retry-sleep-time``        Maximum interval between retry attempts
+``presto-thrift.min-retry-duration``          Maximum duration across all attempts of a Thrift request
+``presto-thrift.retry-scale-factor``          Scale factor for exponential back off
 ===========================================   ==============================================================
 
 ``static-location.hosts``
