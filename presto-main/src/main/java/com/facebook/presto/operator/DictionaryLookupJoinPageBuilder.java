@@ -38,7 +38,7 @@ public class DictionaryLookupJoinPageBuilder
     private final IntArrayList probeIndexBuilder = new IntArrayList();
     private final PageBuilder buildPageBuilder;
     private final int buildOutputChannelCount;
-    private int probeBlockBytes;
+    private int estimatedProbeBlockBytes;
     private boolean isSequentialProbeIndices = true;
 
     public DictionaryLookupJoinPageBuilder(List<Type> buildTypes)
@@ -49,7 +49,7 @@ public class DictionaryLookupJoinPageBuilder
 
     public boolean isFull()
     {
-        return probeBlockBytes + buildPageBuilder.getSizeInBytes() >= DEFAULT_MAX_PAGE_SIZE_IN_BYTES || buildPageBuilder.isFull();
+        return estimatedProbeBlockBytes + buildPageBuilder.getSizeInBytes() >= DEFAULT_MAX_PAGE_SIZE_IN_BYTES || buildPageBuilder.isFull();
     }
 
     public boolean isEmpty()
@@ -62,7 +62,7 @@ public class DictionaryLookupJoinPageBuilder
         // be aware that probeIndexBuilder will not clear its capacity
         probeIndexBuilder.clear();
         buildPageBuilder.reset();
-        probeBlockBytes = 0;
+        estimatedProbeBlockBytes = 0;
         isSequentialProbeIndices = true;
     }
 
@@ -132,7 +132,7 @@ public class DictionaryLookupJoinPageBuilder
     public String toString()
     {
         return toStringHelper(this)
-                .add("estimatedSize", probeBlockBytes + buildPageBuilder.getSizeInBytes())
+                .add("estimatedSize", estimatedProbeBlockBytes + buildPageBuilder.getSizeInBytes())
                 .add("positionCount", buildPageBuilder.getPositionCount())
                 .toString();
     }
@@ -148,13 +148,37 @@ public class DictionaryLookupJoinPageBuilder
 
         probeIndexBuilder.add(position);
 
-        // update memory usage
+        // Update memory usage for probe side.
+        //
+        // The size of the probe cannot be easily calculated given
+        // (1) the structure of Block is recursive,
+        // (2) an inner block can serve as multiple views (e.g., in a dictionary block).
+        //     Without a dedup at the granularity of rows, we cannot tell if we are overcounting, and
+        // (3) even we are able to dedup magically, calling getRegionSizeInBytes can be expensive.
+        //     For example, consider a dictionary block inside an array block;
+        //     calling getRegionSizeInBytes(p, 1) of the array block can lead to calling getRegionSizeInBytes with an arbitrary length for the dictionary block,
+        //     which is very expensive.
+        //
+        // To workaround the memory accounting complexity yet having a relatively reasonable estimation, we use sizeInBytes / positionCount as the size for each row.
+        // It can be shown that the output page is bounded within range [buildPageBuilder.getSizeInBytes(), buildPageBuilder.getSizeInBytes + probe.getPage().getSizeInBytes()].
+        //
+        // This is under the assumption that the position of a probe is non-decreasing.
+        // if position > previousPosition, we know it is a new row to append and we accumulate the estimated row size (sizeInBytes / positionCount);
+        // otherwise we do not count because we know it is duplicated with the previous appended row.
+        // So in the worst case, we can only accumulate up to the sizeInBytes of the probe page.
+        //
+        // On the other hand, we do not want to produce a page that is too small if the build size is too small (e.g., the build side is with all nulls).
+        // That means we only appended a few small rows in the probe and reached the probe end.
+        // But that is going to happen anyway because we have to flush the page whenever we reach the probe end.
+        // So with or without precise memory accounting, the output page is small anyway.
+
         if (previousPosition == position) {
             return;
         }
         for (int index : probe.getOutputChannels()) {
-            // be aware that getRegionSizeInBytes could be expensive
-            probeBlockBytes += probe.getPage().getBlock(index).getRegionSizeInBytes(position, 1);
+            Block block = probe.getPage().getBlock(index);
+            // Estimate the size of the current row
+            estimatedProbeBlockBytes += block.getSizeInBytes() / block.getPositionCount();
         }
     }
 }
