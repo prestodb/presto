@@ -1255,6 +1255,7 @@ public class TestArrayOperators
                 "ARRAY_REMOVE(ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543], 4.0)",
                 new ArrayType(createDecimalType(22, 10)),
                 ImmutableList.of(decimal("1234567890.1234567890"), decimal("9876543210.9876543210"), decimal("123123123456.6549876543")));
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'foo')");
     }
 
     @Test
