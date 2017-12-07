@@ -90,8 +90,11 @@ public class TestThriftIndexPageSource
             }
         };
         TestingServiceProvider serviceProvider = new TestingServiceProvider(client);
+        ThriftConnectorStats stats = new ThriftConnectorStats();
+        long pageSizeReceived = 0;
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
                 serviceProvider,
+                stats,
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
                 ImmutableList.of(column("b", INTEGER)),
@@ -100,6 +103,7 @@ public class TestThriftIndexPageSource
                 lookupRequestsConcurrency);
 
         assertNull(pageSource.getNextPage());
+        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), 0);
         signals.get(0).await(1, SECONDS);
         signals.get(1).await(1, SECONDS);
         signals.get(2).await(1, SECONDS);
@@ -110,12 +114,15 @@ public class TestThriftIndexPageSource
         // at this point first two requests were sent
         assertFalse(pageSource.isFinished());
         assertNull(pageSource.getNextPage());
+        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), 0);
         // splits client is closed
         assertEquals(client.timesClosed(), 1);
 
         // completing the second request
         futures.get(1).set(pageResult(20, null));
         Page page = pageSource.getNextPage();
+        pageSizeReceived += page.getSizeInBytes();
+        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), pageSizeReceived);
         assertNotNull(page);
         assertEquals(page.getPositionCount(), 1);
         assertEquals(page.getBlock(0).getInt(0, 0), 20);
@@ -131,6 +138,8 @@ public class TestThriftIndexPageSource
         futures.get(0).set(pageResult(10, null));
         page = pageSource.getNextPage();
         assertNotNull(page);
+        pageSizeReceived += page.getSizeInBytes();
+        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), pageSizeReceived);
         assertEquals(page.getPositionCount(), 1);
         assertEquals(page.getBlock(0).getInt(0, 0), 10);
         // still not complete
@@ -141,6 +150,8 @@ public class TestThriftIndexPageSource
         futures.get(2).set(pageResult(30, null));
         page = pageSource.getNextPage();
         assertNotNull(page);
+        pageSizeReceived += page.getSizeInBytes();
+        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), pageSizeReceived);
         assertEquals(page.getPositionCount(), 1);
         assertEquals(page.getBlock(0).getInt(0, 0), 30);
         // finished now
@@ -189,6 +200,7 @@ public class TestThriftIndexPageSource
         TestingServiceProvider serviceProvider = new TestingServiceProvider(client);
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
                 serviceProvider,
+                new ThriftConnectorStats(),
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
                 ImmutableList.of(column("b", INTEGER)),

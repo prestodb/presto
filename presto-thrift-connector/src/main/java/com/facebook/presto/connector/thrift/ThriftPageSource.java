@@ -50,12 +50,14 @@ public class ThriftPageSource
     private PrestoThriftId nextToken;
     private boolean firstCall = true;
     private CompletableFuture<PrestoThriftPageResult> future;
+    private final ThriftConnectorStats stats;
     private long completedBytes;
 
     public ThriftPageSource(
             PrestoThriftServiceProvider clientProvider,
             ThriftConnectorSplit split,
             List<ColumnHandle> columns,
+            ThriftConnectorStats stats,
             long maxBytesPerResponse)
     {
         // init columns
@@ -69,6 +71,7 @@ public class ThriftPageSource
         }
         this.columnNames = columnNames.build();
         this.columnTypes = columnTypes.build();
+        this.stats = requireNonNull(stats, "stats is null");
 
         // this parameter is read from config, so it should be checked by config validation
         // however, here it's a raw constructor parameter, so adding this safety check
@@ -167,7 +170,12 @@ public class ThriftPageSource
         nextToken = rowsBatch.getNextToken();
         Page page = rowsBatch.toPage(columnTypes);
         if (page != null) {
-            completedBytes += page.getSizeInBytes();
+            long pageSize = page.getSizeInBytes();
+            completedBytes += pageSize;
+            stats.addScanPageSize(pageSize);
+        }
+        else {
+            stats.addScanPageSize(0);
         }
         return page;
     }

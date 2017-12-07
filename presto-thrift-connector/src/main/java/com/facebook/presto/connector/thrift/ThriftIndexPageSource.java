@@ -87,6 +87,7 @@ public class ThriftIndexPageSource
     private final List<PrestoThriftSplit> splits = new ArrayList<>();
     private final Queue<ListenableFuture<PrestoThriftPageResult>> dataRequests = new LinkedList<>();
     private final Map<ListenableFuture<PrestoThriftPageResult>, RunningSplitContext> contexts;
+    private final ThriftConnectorStats stats;
 
     private PrestoThriftService splitsClient;
     private int splitIndex;
@@ -95,6 +96,7 @@ public class ThriftIndexPageSource
 
     public ThriftIndexPageSource(
             PrestoThriftServiceProvider clientProvider,
+            ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,
             List<ColumnHandle> lookupColumns,
             List<ColumnHandle> outputColumns,
@@ -103,6 +105,7 @@ public class ThriftIndexPageSource
             int lookupRequestsConcurrency)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
+        this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(indexHandle, "indexHandle is null");
         this.schemaTableName = new PrestoThriftSchemaTableName(indexHandle.getSchemaTableName());
@@ -202,7 +205,12 @@ public class ThriftIndexPageSource
         PrestoThriftPageResult pageResult = getFutureValue(resultFuture);
         Page page = pageResult.toPage(outputColumnTypes);
         if (page != null) {
-            completedBytes += page.getSizeInBytes();
+            long pageSize = page.getSizeInBytes();
+            completedBytes += pageSize;
+            stats.addIndexPageSize(pageSize);
+        }
+        else {
+            stats.addIndexPageSize(0);
         }
         if (pageResult.getNextToken() != null) {
             // can get more data
