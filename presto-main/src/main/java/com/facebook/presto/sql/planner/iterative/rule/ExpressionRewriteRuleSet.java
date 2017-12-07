@@ -157,8 +157,9 @@ public class ExpressionRewriteRuleSet
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
                 FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getValue().getCall(), context);
-                aggregations.put(aggregation.getKey(),
-                        new Aggregation(call, aggregation.getValue().getSignature(), aggregation.getValue().getMask(), aggregation.getValue().getOrderBy(), aggregation.getValue().getOrdering()));
+                aggregations.put(
+                        aggregation.getKey(),
+                        new Aggregation(call, aggregation.getValue().getSignature(), aggregation.getValue().getMask()));
                 if (!aggregation.getValue().getCall().equals(call)) {
                     anyRewritten = true;
                 }
