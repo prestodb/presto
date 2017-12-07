@@ -202,25 +202,20 @@ public class PlanBuilder
 
         public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes)
         {
-            return addAggregation(output, expression, inputTypes, Optional.empty(), ImmutableList.of(), ImmutableList.of());
+            return addAggregation(output, expression, inputTypes, Optional.empty());
         }
 
         public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Symbol mask)
         {
-            return addAggregation(output, expression, inputTypes, Optional.of(mask), ImmutableList.of(), ImmutableList.of());
+            return addAggregation(output, expression, inputTypes, Optional.of(mask));
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Symbol mask, List<Symbol> orderBy, List<SortOrder> ordering)
-        {
-            return addAggregation(output, expression, inputTypes, Optional.of(mask), orderBy, ordering);
-        }
-
-        private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask, List<Symbol> orderBy, List<SortOrder> ordering)
+        private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
             Signature signature = metadata.getFunctionRegistry().resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(aggregation, signature, mask, orderBy, ordering));
+            return addAggregation(output, new Aggregation(aggregation, signature, mask));
         }
 
         public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)

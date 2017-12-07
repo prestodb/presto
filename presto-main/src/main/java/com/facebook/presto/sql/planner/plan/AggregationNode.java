@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -37,7 +36,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -70,7 +68,12 @@ public class AggregationNode
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
         this.groupingSets = listOfListsCopy(groupingSets);
 
-        checkArgument(aggregations.values().stream().noneMatch(Aggregation::hasOrderBy) || step == SINGLE, "ORDER BY does not support distributed aggregation");
+        boolean hasOrderBy = aggregations.values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .noneMatch(Optional::isPresent);
+        checkArgument(hasOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
+
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
@@ -165,12 +168,12 @@ public class AggregationNode
         return groupIdSymbol;
     }
 
-    public List<Symbol> getOrderBySymbols()
+    public boolean hasOrderings()
     {
-        return this.getAggregations().values().stream()
-                .map(Aggregation::getOrderBy)
-                .flatMap(List::stream)
-                .collect(toImmutableList());
+        return aggregations.values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .anyMatch(Optional::isPresent);
     }
 
     @Override
@@ -191,7 +194,7 @@ public class AggregationNode
                 .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
                 .allMatch(InternalAggregationFunction::isDecomposable)) &&
                 getAggregations().entrySet().stream()
-                        .allMatch(entry -> !entry.getValue().hasOrderBy());
+                        .allMatch(entry -> !entry.getValue().getCall().getOrderBy().isPresent());
     }
 
     public enum Step
@@ -246,25 +249,16 @@ public class AggregationNode
         private final FunctionCall call;
         private final Signature signature;
         private final Optional<Symbol> mask;
-        private final List<Symbol> orderBy;
-        private final List<SortOrder> ordering;
 
         @JsonCreator
         public Aggregation(
                 @JsonProperty("call") FunctionCall call,
                 @JsonProperty("signature") Signature signature,
-                @JsonProperty("mask") Optional<Symbol> mask,
-                @JsonProperty("orderBy") List<Symbol> orderBy,
-                @JsonProperty("ordering") List<SortOrder> ordering)
+                @JsonProperty("mask") Optional<Symbol> mask)
         {
             this.call = call;
             this.signature = signature;
             this.mask = mask;
-            requireNonNull(orderBy, "orderBy is null");
-            requireNonNull(ordering, "ordering is null");
-            checkArgument(orderBy.size() == ordering.size(), "orderBy and ordering have different size");
-            this.orderBy = ImmutableList.copyOf(orderBy);
-            this.ordering = ImmutableList.copyOf(ordering);
         }
 
         @JsonProperty
@@ -283,23 +277,6 @@ public class AggregationNode
         public Optional<Symbol> getMask()
         {
             return mask;
-        }
-
-        @JsonProperty
-        public List<Symbol> getOrderBy()
-        {
-            return orderBy;
-        }
-
-        @JsonProperty
-        public List<SortOrder> getOrdering()
-        {
-            return ordering;
-        }
-
-        boolean hasOrderBy()
-        {
-            return !orderBy.isEmpty();
         }
     }
 }

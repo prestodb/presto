@@ -46,6 +46,11 @@ public class FunctionCall
         this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), distinct, arguments);
     }
 
+    public FunctionCall(QualifiedName name, boolean distinct, List<Expression> arguments, Optional<Expression> filter)
+    {
+        this(Optional.empty(), name, Optional.empty(), filter, Optional.empty(), distinct, arguments);
+    }
+
     public FunctionCall(QualifiedName name, Optional<Window> window, boolean distinct, List<Expression> arguments)
     {
         this(Optional.empty(), name, window, Optional.empty(), Optional.empty(), distinct, arguments);

@@ -77,7 +77,7 @@ public class AddIntermediateAggregations
             .with(step().equalTo(AggregationNode.Step.FINAL))
             .with(empty(groupingKeys()))
             // Only consider aggregations without ORDER BY clause
-            .matching(node -> node.getOrderBySymbols().isEmpty());
+            .matching(node -> !node.hasOrderings());
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -177,15 +177,13 @@ public class AddIntermediateAggregations
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
-            checkState(aggregation.getOrderBy().isEmpty() && aggregation.getOrdering().isEmpty(), "Intermediate aggregation does not support ORDER BY");
+            checkState(!aggregation.getCall().getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
                     new AggregationNode.Aggregation(
                             new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
                             aggregation.getSignature(),
-                            Optional.empty(),  // No mask for INTERMEDIATE
-                            ImmutableList.of(),
-                            ImmutableList.of()));
+                            Optional.empty()));  // No mask for INTERMEDIATE
         }
         return builder.build();
     }

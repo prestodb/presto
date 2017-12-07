@@ -152,6 +152,8 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1978,10 +1980,25 @@ public class LocalExecutionPlanner
                 maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
             }
 
+            List<SortOrder> sortOrders = ImmutableList.of();
+            List<Symbol> sortKeys = ImmutableList.of();
+            if (aggregation.getCall().getOrderBy().isPresent()) {
+                OrderBy orderBy = aggregation.getCall().getOrderBy().get();
+
+                sortKeys = orderBy.getSortItems().stream()
+                        .map(SortItem::getSortKey)
+                        .map(Symbol::from)
+                        .collect(toImmutableList());
+
+                sortOrders = orderBy.getSortItems().stream()
+                        .map(QueryPlanner::toSortOrder)
+                        .collect(toImmutableList());
+            }
+
             return metadata
                     .getFunctionRegistry()
                     .getAggregateFunctionImplementation(aggregation.getSignature())
-                    .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(aggregation.getOrderBy(), source.getLayout()), aggregation.getOrdering(), pagesIndexFactory);
+                    .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(sortKeys, source.getLayout()), sortOrders, pagesIndexFactory);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)

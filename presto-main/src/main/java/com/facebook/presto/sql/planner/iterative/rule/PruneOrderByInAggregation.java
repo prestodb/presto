@@ -19,7 +19,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -48,7 +48,7 @@ public class PruneOrderByInAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        if (node.getAggregations().values().stream().allMatch(aggregation -> aggregation.getOrderBy().isEmpty())) {
+        if (!node.hasOrderings()) {
             return Result.empty();
         }
 
@@ -56,7 +56,7 @@ public class PruneOrderByInAggregation
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            if (aggregation.getOrderBy().isEmpty()) {
+            if (!aggregation.getCall().getOrderBy().isPresent()) {
                 aggregations.put(entry);
             }
             // getAggregateFunctionImplementation can be expensive, so check it last.
@@ -65,7 +65,13 @@ public class PruneOrderByInAggregation
             }
             else {
                 anyRewritten = true;
-                aggregations.put(entry.getKey(), new Aggregation(aggregation.getCall(), aggregation.getSignature(), aggregation.getMask(), ImmutableList.of(), ImmutableList.of()));
+                FunctionCall rewritten = new FunctionCall(
+                        aggregation.getCall().getName(),
+                        aggregation.getCall().isDistinct(),
+                        aggregation.getCall().getArguments(),
+                        aggregation.getCall().getFilter());
+
+                aggregations.put(entry.getKey(), new Aggregation(rewritten, aggregation.getSignature(), aggregation.getMask()));
             }
         }
 

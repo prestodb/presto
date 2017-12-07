@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -26,10 +27,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregationWithOrderBy;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 
@@ -44,17 +45,16 @@ public class TestPruneOrderByInAggregation
         tester().assertThat(new PruneOrderByInAggregation(functionRegistry))
                 .on(this::buildAggregation)
                 .matches(
-                        aggregationWithOrderBy(
+                        aggregation(
                                 ImmutableList.of(ImmutableList.of("key")),
                                 ImmutableMap.of(
-                                        Optional.of("avg"),
-                                        functionCall("avg", ImmutableList.of("input")),
-                                        Optional.of("array_agg"),
-                                        functionCall("array_agg", ImmutableList.of("input"))),
+                                        Optional.of("avg"), functionCall("avg", ImmutableList.of("input")),
+                                        Optional.of("array_agg"), functionCall(
+                                                "array_agg",
+                                                ImmutableList.of("input"),
+                                                ImmutableList.of(sort("input", SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)))),
                                 ImmutableMap.of(),
                                 Optional.empty(),
-                                ImmutableMap.of("avg", ImmutableList.of(), "array_agg", ImmutableList.of("input")),
-                                ImmutableMap.of("avg", ImmutableList.of(), "array_agg", ImmutableList.of(ASC_NULLS_FIRST)),
                                 SINGLE,
                                 values("input", "key", "keyHash", "mask")));
     }
@@ -70,8 +70,8 @@ public class TestPruneOrderByInAggregation
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .addGroupingSet(key)
-                .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask, ImmutableList.of(input), ImmutableList.of(ASC_NULLS_FIRST))
-                .addAggregation(arrayAgg, planBuilder.expression("array_agg(input)"), ImmutableList.of(BIGINT), mask, ImmutableList.of(input), ImmutableList.of(ASC_NULLS_FIRST))
+                .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
                 .hashSymbol(keyHash)
                 .source(planBuilder.values(sourceSymbols, ImmutableList.of())));
     }
