@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Geometry;
@@ -36,10 +36,10 @@ import io.airlift.slice.Slice;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.facebook.presto.geospatial.BingTile.MAX_ZOOM_LEVEL;
-import static com.facebook.presto.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.geospatial.GeometryUtils.serialize;
+import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
+import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
