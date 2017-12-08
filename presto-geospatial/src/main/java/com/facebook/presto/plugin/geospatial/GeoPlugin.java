@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.Type;
@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.facebook.presto.geospatial.BingTileType.BING_TILE;
-import static com.facebook.presto.geospatial.GeometryType.GEOMETRY;
+import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
+import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 
 public class GeoPlugin
         implements Plugin

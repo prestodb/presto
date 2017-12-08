@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.MultiPath;
@@ -25,6 +25,7 @@ import com.esri.core.geometry.ogc.OGCLineString;
 import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
+import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
@@ -41,7 +42,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
-import static com.facebook.presto.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.MULTI_LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.MULTI_POINT;
@@ -50,6 +50,7 @@ import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POIN
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POLYGON;
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.geospatial.GeometryUtils.serialize;
+import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
