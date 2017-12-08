@@ -11,11 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore;
+package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
+import com.facebook.presto.hive.metastore.PrincipalType;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnNotFoundException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;

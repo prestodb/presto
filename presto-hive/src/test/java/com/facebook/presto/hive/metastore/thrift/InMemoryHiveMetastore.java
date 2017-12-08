@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore;
+package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -52,7 +53,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
-import static com.facebook.presto.hive.metastore.TestingHiveMetastore.deleteDirectory;
+import static com.facebook.presto.hive.metastore.thrift.TestingHiveMetastore.deleteDirectory;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
