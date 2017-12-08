@@ -561,9 +561,14 @@ public final class GeoFunctions
 
     private static OGCGeometry geometryFromText(Slice input)
     {
-        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
-        geometry.setSpatialReference(null);
-        return geometry;
+        try {
+            OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+            geometry.setSpatialReference(null);
+            return geometry;
+        }
+        catch (IllegalArgumentException ex) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid WKT form: " + input.toStringUtf8());
+        }
     }
 
     private static void validateType(String function, OGCGeometry geometry, Set<GeometryTypeName> validTypes)
