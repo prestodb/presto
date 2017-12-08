@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.thrift.TException;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -46,7 +45,6 @@ public class HivePrincipal
     }
 
     public static HivePrincipal toHivePrincipal(String grantee)
-            throws TException
     {
         if (grantee.equalsIgnoreCase(PUBLIC_ROLE_NAME)) {
             return new HivePrincipal(PUBLIC_ROLE_NAME, ROLE);
