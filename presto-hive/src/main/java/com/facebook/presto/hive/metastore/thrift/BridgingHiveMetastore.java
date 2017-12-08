@@ -27,10 +27,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
 import javax.inject.Inject;
 
@@ -43,7 +44,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -289,38 +289,56 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Set<String> getRoles(String user)
+    public void createRole(String role, String grantor)
     {
-        return delegate.getRoles(user);
+        delegate.createRole(role, grantor);
     }
 
     @Override
-    public Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
+    public void dropRole(String role)
     {
-        return delegate.getDatabasePrivileges(user, databaseName);
+        delegate.dropRole(role);
     }
 
     @Override
-    public Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
+    public Set<String> listRoles()
     {
-        return delegate.getTablePrivileges(user, databaseName, tableName);
+        return delegate.listRoles();
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
     {
-        Set<PrivilegeGrantInfo> privilegeGrantInfos = privileges.stream()
-                .map(privilege -> toMetastoreApiPrivilegeGrantInfo(grantee, privilege))
-                .collect(Collectors.toSet());
-        delegate.grantTablePrivileges(databaseName, tableName, grantee, privilegeGrantInfos);
+        delegate.grantRoles(roles, grantees, withAdminOption, grantor);
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
     {
-        Set<PrivilegeGrantInfo> privilegeGrantInfos = privileges.stream()
-                .map(privilege -> toMetastoreApiPrivilegeGrantInfo(grantee, privilege))
-                .collect(Collectors.toSet());
-        delegate.revokeTablePrivileges(databaseName, tableName, grantee, privilegeGrantInfos);
+        delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        return delegate.listRoleGrants(principal);
+    }
+
+    @Override
+    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
+    }
+
+    @Override
+    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
+    }
+
+    @Override
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    {
+        return delegate.listTablePrivileges(databaseName, tableName, principal);
     }
 }

@@ -69,6 +69,7 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.RangeColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
@@ -162,6 +163,7 @@ import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
@@ -860,10 +862,10 @@ public abstract class AbstractTestHiveClient
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
                     ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.SELECT, true, new PrestoPrincipal(USER, session.getUser())))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.INSERT, true, new PrestoPrincipal(USER, session.getUser())))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true, new PrestoPrincipal(USER, session.getUser())))
+                            .put(session.getUser(), new HivePrivilegeInfo(HivePrivilege.DELETE, true, new PrestoPrincipal(USER, session.getUser())))
                             .build(),
                     ImmutableMultimap.of());
             Table oldTable = transaction.getMetastore(schemaName).getTable(schemaName, tableName).get();
@@ -3198,10 +3200,10 @@ public abstract class AbstractTestHiveClient
 
             PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(
                     ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true))
-                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true))
-                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
-                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, new PrestoPrincipal(USER, session.getUser())))
+                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, new PrestoPrincipal(USER, session.getUser())))
+                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, new PrestoPrincipal(USER, session.getUser())))
+                            .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, new PrestoPrincipal(USER, session.getUser())))
                             .build(),
                     ImmutableMultimap.of());
             transaction.getMetastore(schemaName).createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true);
