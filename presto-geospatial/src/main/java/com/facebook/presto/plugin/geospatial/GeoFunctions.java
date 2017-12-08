@@ -565,7 +565,13 @@ public final class GeoFunctions
 
     private static OGCGeometry geometryFromText(Slice input)
     {
-        OGCGeometry geometry = OGCGeometry.fromText(input.toStringUtf8());
+        OGCGeometry geometry;
+        try {
+            geometry = OGCGeometry.fromText(input.toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + input.toStringUtf8(), e);
+        }
         geometry.setSpatialReference(null);
         return geometry;
     }
