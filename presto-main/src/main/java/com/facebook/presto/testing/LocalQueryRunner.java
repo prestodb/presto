@@ -659,6 +659,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),
+                subplan.getFragment().getPartitionedSources(),
                 outputFactory);
 
         // generate sources

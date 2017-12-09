@@ -22,7 +22,10 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.base.Throwables;
+import io.airlift.concurrent.SetThreadName;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -68,13 +71,29 @@ public class SqlTaskExecutionFactory
                 verboseStats,
                 cpuTimerEnabled);
 
+        LocalExecutionPlan localExecutionPlan;
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {
+            try {
+                localExecutionPlan = planner.plan(
+                        taskContext,
+                        fragment.getRoot(),
+                        fragment.getSymbols(),
+                        fragment.getPartitioningScheme(),
+                        fragment.getPartitionedSources(),
+                        outputBuffer);
+            }
+            catch (Throwable e) {
+                // planning failed
+                taskStateMachine.failed(e);
+                throw Throwables.propagate(e);
+            }
+        }
         return createSqlTaskExecution(
                 taskStateMachine,
                 taskContext,
                 outputBuffer,
-                fragment,
                 sources,
-                planner,
+                localExecutionPlan,
                 taskExecutor,
                 taskNotificationExecutor,
                 queryMonitor);
