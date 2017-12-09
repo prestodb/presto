@@ -19,19 +19,25 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.base.Throwables;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.concurrent.SetThreadName;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecutionFactory
@@ -81,11 +87,24 @@ public class SqlTaskExecutionFactory
                         fragment.getPartitioningScheme(),
                         fragment.getPartitionedSources(),
                         outputBuffer);
+
+                for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+                    Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
+                    if (sourceId.isPresent() && fragment.isPartitionedSources(sourceId.get())) {
+                        checkArgument(fragment.getPipelineExecutionStrategy() == driverFactory.getPipelineExecutionStrategy(),
+                                "Partitioned pipelines are expected to have the same execution strategy as the fragment");
+                    }
+                    else {
+                        checkArgument(fragment.getPipelineExecutionStrategy() != UNGROUPED_EXECUTION || driverFactory.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION,
+                                "When fragment execution strategy is ungrouped, all pipelines should have ungrouped execution strategy");
+                    }
+                }
             }
             catch (Throwable e) {
                 // planning failed
                 taskStateMachine.failed(e);
-                throw Throwables.propagate(e);
+                throwIfUnchecked(e);
+                throw new RuntimeException(e);
             }
         }
         return createSqlTaskExecution(

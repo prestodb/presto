@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.google.common.collect.ArrayListMultimap;
@@ -132,12 +133,12 @@ public class PipelineContext
 
     public DriverContext addDriverContext()
     {
-        return addDriverContext(false);
+        return addDriverContext(false, Lifespan.taskWide());
     }
 
-    public DriverContext addDriverContext(boolean partitioned)
+    public DriverContext addDriverContext(boolean partitioned, Lifespan lifespan)
     {
-        DriverContext driverContext = new DriverContext(this, notificationExecutor, yieldExecutor, partitioned);
+        DriverContext driverContext = new DriverContext(this, notificationExecutor, yieldExecutor, partitioned, lifespan);
         drivers.add(driverContext);
         return driverContext;
     }
