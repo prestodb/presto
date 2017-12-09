@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -122,6 +123,11 @@ public class PlanFragment
     public PartitioningScheme getPartitioningScheme()
     {
         return partitioningScheme;
+    }
+
+    public PipelineExecutionStrategy getPipelineExecutionStrategy()
+    {
+        return PipelineExecutionStrategy.UNGROUPED_EXECUTION;
     }
 
     public List<Type> getTypes()

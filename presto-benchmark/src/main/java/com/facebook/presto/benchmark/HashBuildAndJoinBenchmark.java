@@ -37,6 +37,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
@@ -97,7 +98,7 @@ public class HashBuildAndJoinBenchmark
                 false,
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
         driversBuilder.add(hashBuilder);
-        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty());
+        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, false).addDriverContext());
         hashBuildDriverFactory.noMoreDrivers();
 
@@ -115,7 +116,7 @@ public class HashBuildAndJoinBenchmark
         OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(2, new PlanNodeId("test"), hashBuilder.getLookupSourceFactory(), source.getTypes(), Ints.asList(0), hashChannel, Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
-        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty());
+        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
         Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
         joinDriverFactory.noMoreDrivers();
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -89,13 +90,15 @@ public class DriverContext
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
+    private final Lifespan lifespan;
 
-    public DriverContext(PipelineContext pipelineContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, boolean partitioned)
+    public DriverContext(PipelineContext pipelineContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, boolean partitioned, Lifespan lifespan)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "scheduler is null");
         this.partitioned = partitioned;
+        this.lifespan = requireNonNull(lifespan, "lifespan is null");
         this.yieldSignal = new DriverYieldSignal();
     }
 
@@ -486,6 +489,11 @@ public class DriverContext
     public boolean isPartitioned()
     {
         return partitioned;
+    }
+
+    public Lifespan getLifespan()
+    {
+        return lifespan;
     }
 
     public ScheduledExecutorService getYieldExecutor()

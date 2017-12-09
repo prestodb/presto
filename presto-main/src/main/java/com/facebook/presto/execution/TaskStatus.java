@@ -16,10 +16,12 @@ package com.facebook.presto.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.execution.TaskState.PLANNED;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -53,6 +55,7 @@ public class TaskStatus
     private final TaskState state;
     private final URI self;
     private final String nodeId;
+    private final Set<Lifespan> completedDriverGroups;
 
     private final int queuedPartitionedDrivers;
     private final int runningPartitionedDrivers;
@@ -63,12 +66,14 @@ public class TaskStatus
     private final List<ExecutionFailureInfo> failures;
 
     @JsonCreator
-    public TaskStatus(@JsonProperty("taskId") TaskId taskId,
+    public TaskStatus(
+            @JsonProperty("taskId") TaskId taskId,
             @JsonProperty("taskInstanceId") String taskInstanceId,
             @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("nodeId") String nodeId,
+            @JsonProperty("completedDriverGroups") Set<Lifespan> completedDriverGroups,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
@@ -84,6 +89,7 @@ public class TaskStatus
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        this.completedDriverGroups = requireNonNull(completedDriverGroups, "completedDriverGroups is null");
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
@@ -133,6 +139,12 @@ public class TaskStatus
     public String getNodeId()
     {
         return nodeId;
+    }
+
+    @JsonProperty
+    public Set<Lifespan> getCompletedDriverGroups()
+    {
+        return completedDriverGroups;
     }
 
     @JsonProperty
@@ -189,6 +201,7 @@ public class TaskStatus
                 PLANNED,
                 location,
                 nodeId,
+                ImmutableSet.of(),
                 ImmutableList.of(),
                 0,
                 0,
@@ -206,6 +219,7 @@ public class TaskStatus
                 state,
                 taskStatus.getSelf(),
                 taskStatus.getNodeId(),
+                taskStatus.getCompletedDriverGroups(),
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
