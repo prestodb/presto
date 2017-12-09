@@ -37,6 +37,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
@@ -109,6 +110,7 @@ public class TestingPrestoServer
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager> resourceGroupManager;
     private final SplitManager splitManager;
+    private final NodePartitioningManager nodePartitioningManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
     private final InternalNodeManager nodeManager;
@@ -260,10 +262,12 @@ public class TestingPrestoServer
         splitManager = injector.getInstance(SplitManager.class);
         if (coordinator) {
             resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
+            nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         }
         else {
             resourceGroupManager = Optional.empty();
+            nodePartitioningManager = null;
             clusterMemoryManager = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
@@ -378,6 +382,11 @@ public class TestingPrestoServer
     public Optional<InternalResourceGroupManager> getResourceGroupManager()
     {
         return resourceGroupManager;
+    }
+
+    public NodePartitioningManager getNodePartitioningManager()
+    {
+        return nodePartitioningManager;
     }
 
     public LocalMemoryManager getLocalMemoryManager()
