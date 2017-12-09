@@ -377,7 +377,7 @@ public final class SqlQueryExecution
         stateMachine.setOutput(output);
 
         // fragment the plan
-        SubPlan fragmentedPlan = PlanFragmenter.createSubPlans(stateMachine.getSession(), metadata, plan);
+        SubPlan fragmentedPlan = PlanFragmenter.createSubPlans(stateMachine.getSession(), metadata, plan, false);
         stateMachine.setPlan(planFlattener.flatten(fragmentedPlan, stateMachine.getSession()));
 
         // record analysis time

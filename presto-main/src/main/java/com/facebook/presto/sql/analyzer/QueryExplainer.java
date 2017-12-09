@@ -151,6 +151,6 @@ public class QueryExplainer
     private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters)
     {
         Plan plan = getLogicalPlan(session, statement, parameters);
-        return PlanFragmenter.createSubPlans(session, metadata, plan);
+        return PlanFragmenter.createSubPlans(session, metadata, plan, false);
     }
 }

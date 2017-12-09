@@ -65,11 +65,6 @@ public class PlanFragmenter
     {
     }
 
-    public static SubPlan createSubPlans(Session session, Metadata metadata, Plan plan)
-    {
-        return createSubPlans(session, metadata, plan, false);
-    }
-
     public static SubPlan createSubPlans(Session session, Metadata metadata, Plan plan, boolean forceSingleNode)
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes());
