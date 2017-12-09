@@ -17,7 +17,6 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 
@@ -62,7 +61,7 @@ public interface OutputBuffer
      * If the buffer result is marked as complete, the client must call abort to acknowledge
      * receipt of the final state.
      */
-    ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize);
+    ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, long maxBytes);
 
     /**
      * Closes the specified output buffer.

@@ -19,6 +19,7 @@ import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
@@ -197,12 +199,22 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, long maxBytes)
     {
         requireNonNull(outputBufferId, "outputBufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
 
-        return partitions.get(outputBufferId.getId()).getPages(startingSequenceId, maxSize);
+        return Futures.transform(
+                partitions.get(outputBufferId.getId()).getSummary(startingSequenceId, maxBytes),
+                result -> {
+                    if (result.isBufferComplete()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
+                    }
+                    if (result.getPageSizesInBytes().isEmpty()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
+                    }
+                    return partitions.get(outputBufferId.getId()).getData(startingSequenceId, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
+                });
     }
 
     @Override

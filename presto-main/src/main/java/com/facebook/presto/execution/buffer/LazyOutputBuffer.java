@@ -188,7 +188,7 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, long maxBytes)
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
@@ -197,13 +197,13 @@ public class LazyOutputBuffer
                     return immediateFuture(emptyResults(taskInstanceId, 0, true));
                 }
 
-                PendingRead pendingRead = new PendingRead(bufferId, token, maxSize);
+                PendingRead pendingRead = new PendingRead(bufferId, token, maxBytes);
                 pendingReads.add(pendingRead);
                 return pendingRead.getFutureResult();
             }
             outputBuffer = delegate;
         }
-        return outputBuffer.get(bufferId, token, maxSize);
+        return outputBuffer.get(bufferId, token, maxBytes);
     }
 
     @Override
@@ -305,15 +305,16 @@ public class LazyOutputBuffer
     {
         private final OutputBufferId bufferId;
         private final long startingSequenceId;
-        private final DataSize maxSize;
+        private final long maxBytes;
 
         private final ExtendedSettableFuture<BufferResult> futureResult = ExtendedSettableFuture.create();
 
-        public PendingRead(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+        public PendingRead(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
             this.startingSequenceId = startingSequenceId;
-            this.maxSize = requireNonNull(maxSize, "maxSize is null");
+            checkArgument(maxBytes > 0, "maxBytes must be at least 1");
+            this.maxBytes = maxBytes;
         }
 
         public ExtendedSettableFuture<BufferResult> getFutureResult()
@@ -328,7 +329,7 @@ public class LazyOutputBuffer
             }
 
             try {
-                ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxSize);
+                ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxBytes);
                 futureResult.setAsync(result);
             }
             catch (Exception e) {

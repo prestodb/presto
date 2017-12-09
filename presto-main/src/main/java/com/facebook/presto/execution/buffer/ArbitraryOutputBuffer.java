@@ -22,6 +22,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
@@ -42,6 +43,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
@@ -241,13 +243,23 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
         checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
 
-        return getBuffer(bufferId).getPages(startingSequenceId, maxSize, Optional.of(masterBuffer));
+        return Futures.transform(
+                getBuffer(bufferId).getSummary(startingSequenceId, maxBytes, Optional.of(masterBuffer)),
+                result -> {
+                    if (result.isBufferComplete()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
+                    }
+                    if (result.getPageSizesInBytes().isEmpty()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
+                    }
+                    return getBuffer(bufferId).getData(startingSequenceId, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
+                });
     }
 
     @Override
@@ -394,9 +406,8 @@ public class ArbitraryOutputBuffer
         }
 
         @Override
-        public synchronized List<SerializedPageReference> getPages(DataSize maxSize)
+        public synchronized List<SerializedPageReference> getPages(long maxBytes)
         {
-            long maxBytes = maxSize.toBytes();
             List<SerializedPageReference> pages = new ArrayList<>();
             long bytesRemoved = 0;
 

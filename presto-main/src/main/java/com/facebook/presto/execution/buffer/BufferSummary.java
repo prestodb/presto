@@ -17,35 +17,28 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
-public class BufferResult
+public class BufferSummary
 {
-    public static BufferResult emptyResults(String taskInstanceId, long token, boolean bufferComplete)
+    public static BufferSummary emptySummary(String taskInstanceId, long token, boolean bufferComplete)
     {
-        return new BufferResult(taskInstanceId, token, token, bufferComplete, ImmutableList.of());
+        return new BufferSummary(taskInstanceId, token, bufferComplete, ImmutableList.of());
     }
 
     private final String taskInstanceId;
     private final long token;
-    private final long nextToken;
     private final boolean bufferComplete;
-    private final List<SerializedPage> serializedPages;
+    private final List<Long> pageSizesInBytes;
 
-    public BufferResult(String taskInstanceId, long token, long nextToken, boolean bufferComplete, List<SerializedPage> serializedPages)
+    public BufferSummary(String taskInstanceId, long token, boolean bufferComplete, List<Long> pageSizesInBytes)
     {
-        checkArgument(!isNullOrEmpty(taskInstanceId), "taskInstanceId is null");
-
-        this.taskInstanceId = taskInstanceId;
+        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.token = token;
-        this.nextToken = nextToken;
         this.bufferComplete = bufferComplete;
-        this.serializedPages = ImmutableList.copyOf(requireNonNull(serializedPages, "serializedPages is null"));
+        this.pageSizesInBytes = requireNonNull(pageSizesInBytes, "pageSizesInBytes is null");
     }
 
     public String getTaskInstanceId()
@@ -58,41 +51,24 @@ public class BufferResult
         return token;
     }
 
-    public long getNextToken()
-    {
-        return nextToken;
-    }
-
     public boolean isBufferComplete()
     {
         return bufferComplete;
     }
 
-    public List<SerializedPage> getSerializedPages()
+    public List<Long> getPageSizesInBytes()
     {
-        return serializedPages;
+        return pageSizesInBytes;
     }
 
     public int size()
     {
-        return serializedPages.size();
+        return pageSizesInBytes.size();
     }
 
     public boolean isEmpty()
     {
-        return serializedPages.isEmpty();
-    }
-
-    public BufferSummary summarize()
-    {
-        return new BufferSummary(
-                taskInstanceId,
-                token,
-                bufferComplete,
-                serializedPages
-                        .stream()
-                        .map(SerializedPage::getRetainedSizeInBytes)
-                        .collect(Collectors.toList()));
+        return pageSizesInBytes.isEmpty();
     }
 
     @Override
@@ -104,18 +80,17 @@ public class BufferResult
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        BufferResult that = (BufferResult) o;
+        BufferSummary that = (BufferSummary) o;
         return Objects.equals(token, that.token) &&
-                Objects.equals(nextToken, that.nextToken) &&
                 Objects.equals(taskInstanceId, that.taskInstanceId) &&
                 Objects.equals(bufferComplete, that.bufferComplete) &&
-                Objects.equals(serializedPages, that.serializedPages);
+                Objects.equals(pageSizesInBytes, that.pageSizesInBytes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(token, nextToken, taskInstanceId, bufferComplete, serializedPages);
+        return Objects.hash(token, taskInstanceId, bufferComplete, pageSizesInBytes);
     }
 
     @Override
@@ -123,10 +98,9 @@ public class BufferResult
     {
         return toStringHelper(this)
                 .add("token", token)
-                .add("nextToken", nextToken)
                 .add("taskInstanceId", taskInstanceId)
                 .add("bufferComplete", bufferComplete)
-                .add("serializedPages", serializedPages)
+                .add("pageSizesInBytes", pageSizesInBytes)
                 .toString();
     }
 }

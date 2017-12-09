@@ -363,7 +363,7 @@ public class SqlTask
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        return outputBuffer.get(bufferId, startingSequenceId, maxSize);
+        return outputBuffer.get(bufferId, startingSequenceId, maxSize.toBytes());
     }
 
     public TaskInfo abortTaskResults(OutputBufferId bufferId)

@@ -661,7 +661,7 @@ public class TestSqlTaskExecution
             surplusPositions -= positions;
             while (surplusPositions < 0) {
                 assertFalse(bufferComplete, "bufferComplete is set before enough positions are consumed");
-                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, new DataSize(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
+                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, new DataSize(1, MEGABYTE).toBytes()).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
                 for (SerializedPage serializedPage : results.getSerializedPages()) {
                     surplusPositions += serializedPage.getPositionCount();
@@ -676,7 +676,7 @@ public class TestSqlTaskExecution
             assertEquals(surplusPositions, 0);
             long nanoUntil = System.nanoTime() + timeout.toMillis() * 1_000_000;
             while (!bufferComplete) {
-                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, new DataSize(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
+                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, new DataSize(1, MEGABYTE).toBytes()).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
                 for (SerializedPage serializedPage : results.getSerializedPages()) {
                     assertEquals(serializedPage.getPositionCount(), 0);
