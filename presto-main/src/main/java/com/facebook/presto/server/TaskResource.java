@@ -69,6 +69,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
@@ -244,7 +245,17 @@ public class TaskResource
         requireNonNull(bufferId, "bufferId is null");
 
         long start = System.nanoTime();
-        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
+        ListenableFuture<BufferResult> bufferResultFuture = Futures.transform(
+                taskManager.getTaskSummary(taskId, bufferId, token, maxSize.toBytes()),
+                result -> {
+                    if (result.isBufferComplete()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
+                    }
+                    if (result.getPageSizesInBytes().isEmpty()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
+                    }
+                    return taskManager.getTaskData(taskId, bufferId, token, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
+                });
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,

@@ -20,6 +20,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPoolAssignment;
@@ -32,12 +33,10 @@ import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -63,9 +62,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
-import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -324,24 +323,25 @@ public class SqlTaskManager
     }
 
     @Override
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferSummary> getTaskSummary(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
-        Preconditions.checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
-        requireNonNull(maxSize, "maxSize is null");
+        checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
+        checkArgument(maxBytes > 0, "maxBytes should be at least 1");
 
-        return Futures.transform(
-                tasks.getUnchecked(taskId).getTaskSummary(bufferId, startingSequenceId, maxSize.toBytes()),
-                result -> {
-                    if (result.isBufferComplete()) {
-                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
-                    }
-                    if (result.getPageSizesInBytes().isEmpty()) {
-                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
-                    }
-                    return tasks.getUnchecked(taskId).getTaskData(bufferId, startingSequenceId, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
-                });
+        return tasks.getUnchecked(taskId).getTaskSummary(bufferId, startingSequenceId, maxBytes);
+    }
+
+    @Override
+    public BufferResult getTaskData(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, long maxBytes)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(bufferId, "bufferId is null");
+        checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
+        checkArgument(maxBytes > 0, "maxBytes should be at least 1");
+
+        return tasks.getUnchecked(taskId).getTaskData(bufferId, startingSequenceId, maxBytes);
     }
 
     @Override
