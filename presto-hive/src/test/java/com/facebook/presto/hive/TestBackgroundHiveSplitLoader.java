@@ -248,7 +248,7 @@ public class TestBackgroundHiveSplitLoader
             BackgroundHiveSplitLoader backgroundHiveSplitLoader,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate)
     {
-        return new HiveSplitSource(
+        return HiveSplitSource.allAtOnce(
                 SESSION,
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),

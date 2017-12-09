@@ -46,6 +46,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
+import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -2049,6 +2051,99 @@ public class TestHiveIntegrationSmokeTest
         }
         finally {
             assertUpdate("DROP TABLE test_table_with_char");
+        }
+    }
+
+    @Test
+    public void testGroupedJoin()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE test_grouped_join1\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                            "SELECT orderkey key1, comment value1 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_grouped_join2\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
+                            "SELECT orderkey key2, comment value2 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_grouped_join3\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
+                            "SELECT orderkey key3, comment value3 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_grouped_joinN AS\n" +
+                            "SELECT orderkey keyN, comment valueN FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_grouped_joinP\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['keyP']) AS\n" +
+                            "SELECT orderkey keyP, comment valueP FROM orders WHERE orderkey % 2 = 0",
+                    7500);
+
+            @Language("SQL") String joinThreeBucketedTable =
+                    "SELECT key1, value1, key2, value2, key3, value3\n" +
+                            "FROM test_grouped_join1\n" +
+                            "JOIN test_grouped_join2\n" +
+                            "ON key1 = key2\n" +
+                            "JOIN test_grouped_join3\n" +
+                            "ON key2 = key3";
+            @Language("SQL") String joinThreeMixedTable =
+                    "SELECT key1, value1, key2, value2, keyN, valueN\n" +
+                            "FROM test_grouped_join1\n" +
+                            "JOIN test_grouped_join2\n" +
+                            "ON key1 = key2\n" +
+                            "JOIN test_grouped_joinN\n" +
+                            "ON key2 = keyN";
+            @Language("SQL") String expectedQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders";
+            @Language("SQL") String leftJoinBucketedTable =
+                    "SELECT key1, value1, keyP, valueP\n" +
+                            "FROM test_grouped_join1\n" +
+                            "LEFT JOIN test_grouped_joinP\n" +
+                            "ON key1 = keyP";
+            @Language("SQL") String rightJoinBucketedTable =
+                    "SELECT key1, value1, keyP, valueP\n" +
+                            "FROM test_grouped_joinP\n" +
+                            "RIGHT JOIN test_grouped_join1\n" +
+                            "ON key1 = keyP";
+            @Language("SQL") String expectedOuterQuery = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN orderkey END, CASE mod(orderkey, 2) WHEN 0 THEN comment END from orders";
+
+            // NOT grouped execution; default
+            Session notColocated = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "false")
+                    .build();
+            // Co-located JOIN with all groups at once
+            Session colocatedAllGroupsAtOnce = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "-1")
+                    .build();
+            // Co-located JOIN, 1 group per worker at a time
+            Session colocatedOneGroupAtATime = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
+                    .build();
+
+            assertQuery(notColocated, joinThreeBucketedTable, expectedQuery);
+            assertQuery(notColocated, leftJoinBucketedTable, expectedOuterQuery);
+            assertQuery(notColocated, rightJoinBucketedTable, expectedOuterQuery);
+
+            assertQuery(colocatedAllGroupsAtOnce, joinThreeBucketedTable, expectedQuery);
+            assertQuery(colocatedAllGroupsAtOnce, joinThreeMixedTable, expectedQuery);
+            assertQuery(colocatedOneGroupAtATime, joinThreeBucketedTable, expectedQuery);
+            assertQuery(colocatedOneGroupAtATime, joinThreeMixedTable, expectedQuery);
+
+            assertQuery(colocatedAllGroupsAtOnce, leftJoinBucketedTable, expectedOuterQuery);
+            assertQuery(colocatedAllGroupsAtOnce, rightJoinBucketedTable, expectedOuterQuery);
+            assertQuery(colocatedOneGroupAtATime, leftJoinBucketedTable, expectedOuterQuery);
+            assertQuery(colocatedOneGroupAtATime, rightJoinBucketedTable, expectedOuterQuery);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_join2");
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
         }
     }
 

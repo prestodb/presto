@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
@@ -32,7 +33,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntFunction;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class HiveNodePartitioningProvider
@@ -81,6 +84,14 @@ public class HiveNodePartitioningProvider
             ConnectorPartitioningHandle partitioningHandle)
     {
         return value -> ((HiveSplit) value).getBucketNumber().getAsInt();
+    }
+
+    @Override
+    public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        int bucketCount = handle.getBucketCount();
+        return IntStream.range(0, bucketCount).mapToObj(HivePartitionHandle::new).collect(toImmutableList());
     }
 
     private static <T> List<T> shuffle(Collection<T> items)

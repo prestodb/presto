@@ -57,11 +57,13 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -161,6 +163,7 @@ public class HiveSplitManager
         SchemaTableName tableName = partition.getTableName();
         List<HiveBucketing.HiveBucket> buckets = partition.getBuckets();
         Optional<HiveBucketHandle> bucketHandle = layout.getBucketHandle();
+        checkArgument(splitSchedulingStrategy != GROUPED_SCHEDULING || bucketHandle.isPresent(), "SchedulingPolicy is bucketed, but BucketHandle is not present");
 
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
@@ -186,17 +189,37 @@ public class HiveSplitManager
                 splitLoaderConcurrency,
                 recursiveDfsWalkerEnabled);
 
-        HiveSplitSource splitSource = new HiveSplitSource(
-                session,
-                table.get().getDatabaseName(),
-                table.get().getTableName(),
-                layout.getCompactEffectivePredicate(),
-                maxInitialSplits,
-                maxOutstandingSplits,
-                maxOutstandingSplitsSize,
-                hiveSplitLoader,
-                executor,
-                highMemorySplitSourceCounter);
+        HiveSplitSource splitSource;
+        switch (splitSchedulingStrategy) {
+            case UNGROUPED_SCHEDULING:
+                splitSource = HiveSplitSource.allAtOnce(
+                        session,
+                        table.get().getDatabaseName(),
+                        table.get().getTableName(),
+                        layout.getCompactEffectivePredicate(),
+                        maxInitialSplits,
+                        maxOutstandingSplits,
+                        maxOutstandingSplitsSize,
+                        hiveSplitLoader,
+                        executor,
+                        new CounterStat());
+                break;
+            case GROUPED_SCHEDULING:
+                splitSource = HiveSplitSource.bucketed(
+                        session,
+                        table.get().getDatabaseName(),
+                        table.get().getTableName(),
+                        layout.getCompactEffectivePredicate(),
+                        maxInitialSplits,
+                        maxOutstandingSplits,
+                        new DataSize(32, MEGABYTE),
+                        hiveSplitLoader,
+                        executor,
+                        new CounterStat());
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
+        }
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
