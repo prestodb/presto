@@ -62,6 +62,8 @@ import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -97,7 +99,6 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -120,7 +121,20 @@ public class TestHashJoinOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        // Before/AfterMethod is chosen here because the executor needs to be shutdown
+        // after every single test case to terminate outstanding threads, if any.
+
+        // The line below is the same as newCachedThreadPool(daemonThreadsNamed(...)) except RejectionExecutionHandler.
+        // RejectionExecutionHandler is set to DiscardPolicy (instead of the default AbortPolicy) here.
+        // Otherwise, a large number of RejectedExecutionException will flood logging, resulting in Travis failure.
+        executor = new ThreadPoolExecutor(
+                0,
+                Integer.MAX_VALUE,
+                60L,
+                SECONDS,
+                new SynchronousQueue<Runnable>(),
+                daemonThreadsNamed("test-executor-%s"),
+                new ThreadPoolExecutor.DiscardPolicy());
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
     }
 
