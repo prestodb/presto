@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -23,13 +25,18 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -59,22 +66,20 @@ public class LocalExchange
     private boolean noMoreSinkFactories;
 
     @GuardedBy("this")
+    private final List<LocalExchangeSinkFactory> allSinkFactories;
+
+    @GuardedBy("this")
     private final Set<LocalExchangeSinkFactory> openSinkFactories = new HashSet<>();
 
     @GuardedBy("this")
     private final Set<LocalExchangeSink> sinks = new HashSet<>();
 
-    public LocalExchange(
-            PartitioningHandle partitioning,
-            int defaultConcurrency,
-            List<? extends Type> types,
-            List<Integer> partitionChannels,
-            Optional<Integer> partitionHashChannel)
-    {
-        this(partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, DEFAULT_MAX_BUFFERED_BYTES);
-    }
+    @GuardedBy("this")
+    private int nextSourceIndex;
 
     public LocalExchange(
+            int sinkFactoryCount,
+            int bufferCount,
             PartitioningHandle partitioning,
             int defaultConcurrency,
             List<? extends Type> types,
@@ -82,28 +87,12 @@ public class LocalExchange
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes)
     {
+        this.allSinkFactories = Stream.generate(() -> new LocalExchangeSinkFactory(LocalExchange.this))
+                .limit(sinkFactoryCount)
+                .collect(toImmutableList());
+        openSinkFactories.addAll(allSinkFactories);
+        noMoreSinkFactories();
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-
-        int bufferCount;
-        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
-            bufferCount = 1;
-            checkArgument(partitionChannels.isEmpty(), "Gather exchange must not have partition channels");
-        }
-        else if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-            bufferCount = defaultConcurrency;
-            checkArgument(partitionChannels.isEmpty(), "Broadcast exchange must not have partition channels");
-        }
-        else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            bufferCount = defaultConcurrency;
-            checkArgument(partitionChannels.isEmpty(), "Random exchange must not have partition channels");
-        }
-        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
-            bufferCount = defaultConcurrency;
-            checkArgument(!partitionChannels.isEmpty(), "Partitioned exchange must have partition channels");
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);
-        }
 
         ImmutableList.Builder<LocalExchangeSource> sources = ImmutableList.builder();
         for (int i = 0; i < bufferCount; i++) {
@@ -154,6 +143,19 @@ public class LocalExchange
         LocalExchangeSinkFactory newFactory = new LocalExchangeSinkFactory(this);
         openSinkFactories.add(newFactory);
         return newFactory;
+    }
+
+    public synchronized LocalExchangeSinkFactory getSinkFactory(LocalExchangeSinkFactoryId id)
+    {
+        return allSinkFactories.get(id.id);
+    }
+
+    public synchronized LocalExchangeSource getNextSource()
+    {
+        checkState(nextSourceIndex < sources.size(), "All operators already created");
+        LocalExchangeSource result = sources.get(nextSourceIndex);
+        nextSourceIndex++;
+        return result;
     }
 
     public LocalExchangeSource getSource(int partitionIndex)
@@ -251,6 +253,145 @@ public class LocalExchange
     private static void checkNotHoldsLock(Object lock)
     {
         checkState(!Thread.holdsLock(lock), "Can not execute this method while holding a lock");
+    }
+
+    public static class LocalExchangeFactory
+    {
+        private final PartitioningHandle partitioning;
+        private final int defaultConcurrency;
+        private final List<Type> types;
+        private final List<Integer> partitionChannels;
+        private final Optional<Integer> partitionHashChannel;
+        private final PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy;
+        private final DataSize maxBufferedBytes;
+        private final int bufferCount;
+
+        private boolean noMoreSinkFactories;
+        // The number of total sink factories are tracked at planning time
+        // so that the exact number of sink factory is known by the time execution starts.
+        private int numSinkFactories;
+
+        private ConcurrentMap<Lifespan, LocalExchange> localExchangeMap = new ConcurrentHashMap<>();
+        private List<LocalExchangeSinkFactoryId> closedSinkFactories = new ArrayList<>();
+
+        public LocalExchangeFactory(
+                PartitioningHandle partitioning,
+                int defaultConcurrency,
+                List<Type> types,
+                List<Integer> partitionChannels,
+                Optional<Integer> partitionHashChannel,
+                PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy)
+        {
+            this(partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, exchangeSourcePipelineExecutionStrategy, DEFAULT_MAX_BUFFERED_BYTES);
+        }
+
+        public LocalExchangeFactory(
+                PartitioningHandle partitioning,
+                int defaultConcurrency,
+                List<Type> types,
+                List<Integer> partitionChannels,
+                Optional<Integer> partitionHashChannel,
+                PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy,
+                DataSize maxBufferedBytes)
+        {
+            this.partitioning = requireNonNull(partitioning, "partitioning is null");
+            this.defaultConcurrency = defaultConcurrency;
+            this.types = requireNonNull(types, "types is null");
+            this.partitionChannels = requireNonNull(partitionChannels, "partitioningChannels is null");
+            this.partitionHashChannel = requireNonNull(partitionHashChannel, "partitionHashChannel is null");
+            this.exchangeSourcePipelineExecutionStrategy = requireNonNull(exchangeSourcePipelineExecutionStrategy, "exchangeSourcePipelineExecutionStrategy is null");
+            this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
+
+            this.bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
+        }
+
+        public synchronized LocalExchangeSinkFactoryId newSinkFactoryId()
+        {
+            checkState(!noMoreSinkFactories);
+            LocalExchangeSinkFactoryId result = new LocalExchangeSinkFactoryId(numSinkFactories);
+            numSinkFactories++;
+            return result;
+        }
+
+        public synchronized void noMoreSinkFactories()
+        {
+            noMoreSinkFactories = true;
+        }
+
+        public List<Type> getTypes()
+        {
+            return types;
+        }
+
+        public int getBufferCount()
+        {
+            return bufferCount;
+        }
+
+        private LocalExchange createLocalExchange()
+        {
+            return new LocalExchange(numSinkFactories, bufferCount, partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, maxBufferedBytes);
+        }
+
+        public synchronized LocalExchange getLocalExchange(Lifespan lifespan)
+        {
+            if (exchangeSourcePipelineExecutionStrategy == UNGROUPED_EXECUTION) {
+                checkArgument(lifespan.isTaskWide(), "LocalExchangeFactory is declared as UNGROUPED_EXECUTION. Driver-group exchange cannot be created.");
+            }
+            else {
+                checkArgument(!lifespan.isTaskWide(), "LocalExchangeFactory is declared as GROUPED_EXECUTION. Task-wide exchange cannot be created.");
+            }
+            return localExchangeMap.computeIfAbsent(lifespan, ignored -> {
+                LocalExchange localExchange = createLocalExchange();
+                for (LocalExchangeSinkFactoryId closedSinkFactoryId : closedSinkFactories) {
+                    localExchange.getSinkFactory(closedSinkFactoryId).close();
+                }
+                return localExchange;
+            });
+        }
+
+        public synchronized void closeSinks(LocalExchangeSinkFactoryId sinkFactoryId)
+        {
+            closedSinkFactories.add(sinkFactoryId);
+            for (LocalExchange localExchange : localExchangeMap.values()) {
+                localExchange.getSinkFactory(sinkFactoryId).close();
+            }
+        }
+    }
+
+    private static int computeBufferCount(PartitioningHandle partitioning, int defaultConcurrency, List<Integer> partitionChannels)
+    {
+        int bufferCount;
+        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
+            bufferCount = 1;
+            checkArgument(partitionChannels.isEmpty(), "Gather exchange must not have partition channels");
+        }
+        else if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+            bufferCount = defaultConcurrency;
+            checkArgument(partitionChannels.isEmpty(), "Broadcast exchange must not have partition channels");
+        }
+        else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+            bufferCount = defaultConcurrency;
+            checkArgument(partitionChannels.isEmpty(), "Arbitrary exchange must not have partition channels");
+        }
+        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
+            bufferCount = defaultConcurrency;
+            checkArgument(!partitionChannels.isEmpty(), "Partitioned exchange must have partition channels");
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);
+        }
+        return bufferCount;
+    }
+
+    public static class LocalExchangeSinkFactoryId
+    {
+        private final int id;
+
+        public LocalExchangeSinkFactoryId(int id)
+        {
+            this.id = id;
+        }
     }
 
     // Sink factory is entirely a pass thought to LocalExchange.
