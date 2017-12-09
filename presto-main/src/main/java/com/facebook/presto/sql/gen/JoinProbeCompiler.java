@@ -30,7 +30,7 @@ import com.facebook.presto.operator.LookupJoinOperator;
 import com.facebook.presto.operator.LookupJoinOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.LookupSourceFactory;
+import com.facebook.presto.operator.LookupSourceFactoryManager;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.SimpleJoinProbe;
 import com.facebook.presto.spi.Page;
@@ -91,7 +91,7 @@ public class JoinProbeCompiler
 
     public OperatorFactory compileJoinOperatorFactory(int operatorId,
             PlanNodeId planNodeId,
-            LookupSourceFactory lookupSourceFactory,
+            LookupSourceFactoryManager lookupSourceFactory,
             List<? extends Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -172,7 +172,10 @@ public class JoinProbeCompiler
                 classLoader,
                 OperatorFactory.class,
                 LookupJoinOperatorFactory.class,
-                LookupJoinOperator.class);
+                LookupJoinOperator.class,
+                LookupJoinOperatorFactory.FreezeOnReadCounter.class,
+                LookupJoinOperatorFactory.PerLifespanData.class,
+                LookupJoinOperatorFactory.PerLifespanDataManager.class);
 
         return new HashJoinOperatorFactoryFactory(joinProbeFactory, operatorFactoryClass);
     }
@@ -604,7 +607,8 @@ public class JoinProbeCompiler
                 constructor = operatorFactoryClass.getConstructor(
                         int.class,
                         PlanNodeId.class,
-                        LookupSourceFactory.class,
+                        LookupSourceFactoryManager.class,
+                        List.class,
                         List.class,
                         List.class,
                         JoinType.class,
@@ -622,7 +626,7 @@ public class JoinProbeCompiler
         public OperatorFactory createHashJoinOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                LookupSourceFactory lookupSourceFactory,
+                LookupSourceFactoryManager lookupSourceFactoryManager,
                 List<? extends Type> probeTypes,
                 List<? extends Type> probeOutputTypes,
                 JoinType joinType,
@@ -635,9 +639,10 @@ public class JoinProbeCompiler
                 return constructor.newInstance(
                         operatorId,
                         planNodeId,
-                        lookupSourceFactory,
+                        lookupSourceFactoryManager,
                         probeTypes,
                         probeOutputTypes,
+                        lookupSourceFactoryManager.getBuildOutputTypes(),
                         joinType,
                         joinProbeFactory,
                         totalOperatorsCount,
