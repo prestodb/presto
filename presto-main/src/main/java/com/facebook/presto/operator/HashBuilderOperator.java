@@ -209,7 +209,7 @@ public class HashBuilderOperator
     private static final double INDEX_COMPACTION_ON_REVOCATION_TARGET = 0.8;
 
     private final OperatorContext operatorContext;
-    private final PartitionedLookupSourceFactory lookupSourceFactory;
+    private final LookupSourceFactory lookupSourceFactory;
     private final ListenableFuture<?> lookupSourceFactoryDestroyed;
     private final int partitionIndex;
 
@@ -241,7 +241,7 @@ public class HashBuilderOperator
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
-            PartitionedLookupSourceFactory lookupSourceFactory,
+            LookupSourceFactory lookupSourceFactory,
             int partitionIndex,
             List<Integer> outputChannels,
             List<Integer> hashChannels,

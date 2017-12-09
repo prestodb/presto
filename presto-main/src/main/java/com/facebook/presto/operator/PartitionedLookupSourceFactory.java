@@ -163,6 +163,7 @@ public final class PartitionedLookupSourceFactory
         }
     }
 
+    @Override
     public ListenableFuture<?> lendPartitionLookupSource(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
     {
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
@@ -192,6 +193,7 @@ public final class PartitionedLookupSourceFactory
         return partitionsNoLongerNeeded;
     }
 
+    @Override
     public void setPartitionSpilledLookupSourceHandle(int partitionIndex, SpilledLookupSourceHandle spilledLookupSourceHandle)
     {
         requireNonNull(spilledLookupSourceHandle, "spilledLookupSourceHandle is null");
@@ -406,6 +408,7 @@ public final class PartitionedLookupSourceFactory
         }
     }
 
+    @Override
     public ListenableFuture<?> isDestroyed()
     {
         return nonCancellationPropagating(destroyed);
