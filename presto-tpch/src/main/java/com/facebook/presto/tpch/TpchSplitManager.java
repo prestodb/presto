@@ -42,7 +42,7 @@ public class TpchSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         TpchTableLayoutHandle tableLayoutHandle = (TpchTableLayoutHandle) layout;
         TpchTableHandle tableHandle = tableLayoutHandle.getTable();

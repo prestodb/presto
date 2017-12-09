@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -142,7 +143,10 @@ public class DistributedExecutionPlanner
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
             // get dataSource for table
-            SplitSource splitSource = splitManager.getSplits(session, node.getLayout().get());
+            SplitSource splitSource = splitManager.getSplits(
+                    session,
+                    node.getLayout().get(),
+                    UNGROUPED_SCHEDULING);
 
             splitSources.add(splitSource);
 

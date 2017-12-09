@@ -57,7 +57,7 @@ public class AccumuloSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         AccumuloTableLayoutHandle layoutHandle = (AccumuloTableLayoutHandle) layout;
         AccumuloTableHandle tableHandle = layoutHandle.getTable();
