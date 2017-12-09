@@ -67,7 +67,7 @@ import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.exchange.LocalExchange;
+import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
 import com.facebook.presto.operator.exchange.PageChannelSelector;
@@ -1961,30 +1961,58 @@ public class LocalExecutionPlanner
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(symbol -> node.getOutputSymbols().indexOf(symbol));
 
-            LocalExchange localExchange = new LocalExchange(node.getPartitioningScheme().getPartitioning().getHandle(), driverInstanceCount, types, channels, hashChannel);
-
+            PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy = GROUPED_EXECUTION;
+            List<DriverFactoryParameters> driverFactoryParametersList = new ArrayList<>();
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode sourceNode = node.getSources().get(i);
-                List<Symbol> expectedLayout = node.getInputs().get(i);
 
                 LocalExecutionPlanContext subContext = context.createSubContext();
                 PhysicalOperation source = sourceNode.accept(this, subContext);
+                driverFactoryParametersList.add(new DriverFactoryParameters(subContext, source));
+
+                if (source.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION) {
+                    exchangeSourcePipelineExecutionStrategy = UNGROUPED_EXECUTION;
+                }
+            }
+
+            LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                    node.getPartitioningScheme().getPartitioning().getHandle(),
+                    driverInstanceCount,
+                    types,
+                    channels,
+                    hashChannel,
+                    exchangeSourcePipelineExecutionStrategy);
+            for (int i = 0; i < node.getSources().size(); i++) {
+                DriverFactoryParameters driverFactoryParameters = driverFactoryParametersList.get(i);
+                PhysicalOperation source = driverFactoryParameters.getSource();
+                LocalExecutionPlanContext subContext = driverFactoryParameters.getSubContext();
+
+                List<Symbol> expectedLayout = node.getInputs().get(i);
+                Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
                 List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
 
-                Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
-                operatorFactories.add(new LocalExchangeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), localExchange.createSinkFactory(), pagePreprocessor));
-
-                context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount(), UNGROUPED_EXECUTION);
+                operatorFactories.add(new LocalExchangeSinkOperatorFactory(
+                        localExchangeFactory,
+                        subContext.getNextOperatorId(),
+                        node.getId(),
+                        localExchangeFactory.newSinkFactoryId(),
+                        pagePreprocessor));
+                context.addDriverFactory(
+                        subContext.isInputDriver(),
+                        false,
+                        operatorFactories,
+                        subContext.getDriverInstanceCount(),
+                        exchangeSourcePipelineExecutionStrategy);
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
             // instance count must match the number of partitions in the exchange
-            verify(context.getDriverInstanceCount().getAsInt() == localExchange.getBufferCount(),
+            verify(context.getDriverInstanceCount().getAsInt() == localExchangeFactory.getBufferCount(),
                     "driver instance count must match the number of exchange partitions");
 
-            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node), UNGROUPED_EXECUTION);
+            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchangeFactory), makeLayout(node), exchangeSourcePipelineExecutionStrategy);
         }
 
         @Override
@@ -2251,6 +2279,28 @@ public class LocalExecutionPlanner
         public PipelineExecutionStrategy getPipelineExecutionStrategy()
         {
             return pipelineExecutionStrategy;
+        }
+    }
+
+    private static class DriverFactoryParameters
+    {
+        private final LocalExecutionPlanContext subContext;
+        private final PhysicalOperation source;
+
+        public DriverFactoryParameters(LocalExecutionPlanContext subContext, PhysicalOperation source)
+        {
+            this.subContext = subContext;
+            this.source = source;
+        }
+
+        public LocalExecutionPlanContext getSubContext()
+        {
+            return subContext;
+        }
+
+        public PhysicalOperation getSource()
+        {
+            return source;
         }
     }
 }
