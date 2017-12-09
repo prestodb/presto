@@ -32,6 +32,7 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -61,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -70,6 +72,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.execution.StageState.ABORTED;
@@ -78,13 +81,17 @@ import static com.facebook.presto.execution.StageState.FAILED;
 import static com.facebook.presto.execution.StageState.FINISHED;
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
+import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.simpleSourcePartitionedScheduler;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -93,6 +100,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -156,6 +164,7 @@ public class SqlQueryScheduler
                 session,
                 splitBatchSize,
                 partitioningHandle -> partitioningCache.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle)),
+                nodePartitioningManager,
                 queryExecutor,
                 schedulerExecutor,
                 failureDetector,
@@ -226,6 +235,7 @@ public class SqlQueryScheduler
             Session session,
             int splitBatchSize,
             Function<PartitioningHandle, NodePartitionMap> partitioningCache,
+            NodePartitioningManager nodePartitioningManager,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
             FailureDetector failureDetector,
@@ -255,13 +265,17 @@ public class SqlQueryScheduler
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
             Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
-            ConnectorId connectorId = entry.getValue().getConnectorId();
+            PlanNodeId planNodeId = entry.getKey();
+            SplitSource splitSource = entry.getValue();
+            ConnectorId connectorId = splitSource.getConnectorId();
             if (isInternalSystemConnector(connectorId)) {
                 connectorId = null;
             }
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
-            stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, entry.getKey(), entry.getValue(), placementPolicy, splitBatchSize));
+
+            checkArgument(plan.getFragment().getPipelineExecutionStrategy() == UNGROUPED_EXECUTION);
+            stageSchedulers.put(stageId, simpleSourcePartitionedScheduler(stage, planNodeId, splitSource, placementPolicy, splitBatchSize));
             bucketToPartition = Optional.of(new int[1]);
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
@@ -270,16 +284,34 @@ public class SqlQueryScheduler
         else {
             // nodes are pre determined by the nodePartitionMap
             NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
+            long nodeCount = nodePartitionMap.getPartitionToNode().values().stream().distinct().count();
+            OptionalInt concurrentLifespansPerTask = getConcurrentLifespansPerNode(session);
 
             Map<PlanNodeId, SplitSource> splitSources = plan.getSplitSources();
             if (!splitSources.isEmpty()) {
+                List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
+                List<ConnectorPartitionHandle> connectorPartitionHandles;
+                switch (plan.getFragment().getPipelineExecutionStrategy()) {
+                    case GROUPED_EXECUTION:
+                        connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
+                        checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
+                        break;
+                    case UNGROUPED_EXECUTION:
+                        connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
+                        break;
+                    default:
+                        throw new UnsupportedOperationException();
+                }
                 stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
                         stage,
                         splitSources,
-                        plan.getFragment().getPartitionedSources(),
+                        plan.getFragment().getPipelineExecutionStrategy(),
+                        schedulingOrder,
                         nodePartitionMap,
                         splitBatchSize,
-                        nodeScheduler.createNodeSelector(null)));
+                        concurrentLifespansPerTask.isPresent() ? OptionalInt.of(toIntExact(concurrentLifespansPerTask.getAsInt() * nodeCount)) : OptionalInt.empty(),
+                        nodeScheduler.createNodeSelector(null),
+                        connectorPartitionHandles));
                 bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
             }
             else {
@@ -303,6 +335,7 @@ public class SqlQueryScheduler
                     session,
                     splitBatchSize,
                     partitioningCache,
+                    nodePartitioningManager,
                     queryExecutor,
                     schedulerExecutor,
                     failureDetector,
@@ -441,6 +474,9 @@ public class SqlQueryScheduler
                                 break;
                             case SPLIT_QUEUES_FULL:
                                 schedulerStats.getSplitQueuesFull().update(1);
+                                break;
+                            case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
+                            case NO_ACTIVE_DRIVER_GROUP:
                                 break;
                             default:
                                 throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());

@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
@@ -61,6 +62,7 @@ public final class SystemSessionProperties
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
     public static final String COLOCATED_JOIN = "colocated_join";
+    public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String REORDER_JOINS = "reorder_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
@@ -285,6 +287,11 @@ public final class SystemSessionProperties
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
                         false),
+                integerSessionProperty(
+                        CONCURRENT_LIFESPANS_PER_NODE,
+                        "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
+                        -1,
+                        false),
                 new PropertyMetadata<>(
                         SPILL_ENABLED,
                         "Experimental: Enable spilling",
@@ -504,6 +511,18 @@ public final class SystemSessionProperties
     public static boolean isColocatedJoinEnabled(Session session)
     {
         return session.getSystemProperty(COLOCATED_JOIN, Boolean.class);
+    }
+
+    public static OptionalInt getConcurrentLifespansPerNode(Session session)
+    {
+        Integer result = session.getSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, Integer.class);
+        if (result == -1) {
+            return OptionalInt.empty();
+        }
+        else {
+            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set");
+            return OptionalInt.of(result);
+        }
     }
 
     public static int getInitialSplitsPerNode(Session session)

@@ -335,6 +335,12 @@ public class MockRemoteTaskFactory
         }
 
         @Override
+        public void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void setOutputBuffers(OutputBuffers outputBuffers)
         {
             outputBuffer.setOutputBuffers(outputBuffers);

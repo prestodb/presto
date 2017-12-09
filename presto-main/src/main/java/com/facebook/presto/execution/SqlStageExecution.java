@@ -34,22 +34,27 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
@@ -68,6 +73,7 @@ public final class SqlStageExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
+    private final Executor executor;
     private final FailureDetector failureDetector;
 
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
@@ -83,6 +89,8 @@ public final class SqlStageExecution
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
+
+    private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
     public SqlStageExecution(
             StageId stageId,
@@ -106,15 +114,17 @@ public final class SqlStageExecution
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
+                executor,
                 failureDetector);
     }
 
-    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, FailureDetector failureDetector)
+    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
+        this.executor = requireNonNull(executor, "executor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
@@ -139,6 +149,11 @@ public final class SqlStageExecution
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
+    }
+
+    public void addCompletedDriverGroupsChangedListener(Consumer<Set<Lifespan>> newlyCompletedDriverGroupConsumer)
+    {
+        completedLifespansChangeListeners.addListener(newlyCompletedDriverGroupConsumer);
     }
 
     public PlanFragment getFragment()
@@ -293,7 +308,7 @@ public final class SqlStageExecution
         return scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of());
     }
 
-    public synchronized Set<RemoteTask> scheduleSplits(Node node, Multimap<PlanNodeId, Split> splits)
+    public synchronized Set<RemoteTask> scheduleSplits(Node node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
     {
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
@@ -304,15 +319,26 @@ public final class SqlStageExecution
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);
+        RemoteTask task;
         if (tasks == null) {
             // The output buffer depends on the task id starting from 0 and being sequential, since each
             // task is assigned a private buffer based on task id.
             TaskId taskId = new TaskId(stateMachine.getStageId(), nextTaskId.getAndIncrement());
-            newTasks.add(scheduleTask(node, taskId, splits));
+            task = scheduleTask(node, taskId, splits);
+            newTasks.add(task);
         }
         else {
-            RemoteTask task = tasks.iterator().next();
+            task = tasks.iterator().next();
             task.addSplits(splits);
+        }
+        if (noMoreSplitsNotification.size() > 1) {
+            // The assumption that `noMoreSplitsNotification.size() <= 1` currently holds.
+            // If this assumption no longer holds, we should consider calling task.noMoreSplits with multiple entries in one shot.
+            // These kind of methods can be expensive since they are grabbing locks and/or sending HTTP requests on change.
+            throw new UnsupportedOperationException("This assumption no longer holds: noMoreSplitsNotification.size() < 1");
+        }
+        for (Entry<PlanNodeId, Lifespan> entry : noMoreSplitsNotification.entries()) {
+            task.noMoreSplits(entry.getKey(), entry.getValue());
         }
         return newTasks.build();
     }
@@ -386,11 +412,13 @@ public final class SqlStageExecution
             implements StateChangeListener<TaskStatus>
     {
         private long previousMemory;
+        private final Set<Lifespan> completedDriverGroups = new HashSet<>();
 
         @Override
         public void stateChanged(TaskStatus taskStatus)
         {
             updateMemoryUsage(taskStatus);
+            updateCompletedDriverGroups(taskStatus);
 
             StageState stageState = getState();
             if (stageState.isDone()) {
@@ -432,6 +460,23 @@ public final class SqlStageExecution
             stateMachine.updateMemoryUsage(deltaMemoryInBytes);
         }
 
+        private synchronized void updateCompletedDriverGroups(TaskStatus taskStatus)
+        {
+            // Sets.difference returns a view.
+            // Once we add the difference into `completedDriverGroups`, the view will be empty.
+            // `completedLifespansChangeListeners.invoke` happens asynchronously.
+            // As a result, calling the listeners before updating `completedDriverGroups` doesn't make a difference.
+            // That's why a copy must be made here.
+            Set<Lifespan> newlyCompletedDriverGroups = ImmutableSet.copyOf(Sets.difference(taskStatus.getCompletedDriverGroups(), this.completedDriverGroups));
+            if (newlyCompletedDriverGroups.isEmpty()) {
+                return;
+            }
+            completedLifespansChangeListeners.invoke(newlyCompletedDriverGroups, executor);
+            // newlyCompletedDriverGroups is a view.
+            // Making changes to completedDriverGroups will change newlyCompletedDriverGroups.
+            completedDriverGroups.addAll(newlyCompletedDriverGroups);
+        }
+
         private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
         {
             if (executionFailureInfo.getRemoteHost() != null &&
@@ -448,6 +493,26 @@ public final class SqlStageExecution
             }
             else {
                 return executionFailureInfo;
+            }
+        }
+    }
+
+    private static class ListenerManager<T>
+    {
+        private final List<Consumer<T>> listeners = new ArrayList<>();
+        private boolean freezed;
+
+        public synchronized void addListener(Consumer<T> listener)
+        {
+            checkState(!freezed, "Listeners have been invoked");
+            listeners.add(listener);
+        }
+
+        public synchronized void invoke(T payload, Executor executor)
+        {
+            freezed = true;
+            for (Consumer<T> listener : listeners) {
+                executor.execute(() -> listener.accept(payload));
             }
         }
     }
