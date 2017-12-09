@@ -22,6 +22,7 @@ import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -95,6 +96,17 @@ public class NodePartitioningManager
             checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
         }
         return new BucketPartitionFunction(bucketFunction, partitioningScheme.getBucketToPartition().get());
+    }
+
+    public List<ConnectorPartitionHandle> listPartitionHandles(
+            Session session,
+            PartitioningHandle partitioningHandle)
+    {
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(partitioningHandle.getConnectorId().get());
+        return partitioningProvider.listPartitionHandles(
+                partitioningHandle.getTransactionHandle().orElse(null),
+                session.toConnectorSession(),
+                partitioningHandle.getConnectorHandle());
     }
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
