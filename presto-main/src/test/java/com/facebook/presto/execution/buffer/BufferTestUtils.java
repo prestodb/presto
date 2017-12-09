@@ -114,10 +114,15 @@ public final class BufferTestUtils
         return BUFFERED_PAGE_SIZE.toBytes() * count;
     }
 
-    static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, long maxBytes, Duration maxWait)
+    static BufferSummary getBufferSummary(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, long maxBytes, Duration maxWait)
     {
-        ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxBytes);
+        ListenableFuture<BufferSummary> future = buffer.getSummary(bufferId, sequenceId, maxBytes);
         return getFuture(future, maxWait);
+    }
+
+    static BufferResult getBufferResult(OutputBuffer buffer, OutputBuffers.OutputBufferId bufferId, long sequenceId, long maxBytes)
+    {
+        return buffer.getData(bufferId, sequenceId, maxBytes);
     }
 
     static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)

@@ -21,7 +21,6 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
@@ -38,7 +37,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
-import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
@@ -240,23 +238,23 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, long maxBytes)
+    public ListenableFuture<BufferSummary> getSummary(OutputBufferId outputBufferId, long startingSequenceId, long maxBytes)
     {
         checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
         requireNonNull(outputBufferId, "outputBufferId is null");
         checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
 
-        return Futures.transform(
-                getBuffer(outputBufferId).getSummary(startingSequenceId, maxBytes),
-                result -> {
-                    if (result.isBufferComplete()) {
-                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
-                    }
-                    if (result.getPageSizesInBytes().isEmpty()) {
-                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
-                    }
-                    return getBuffer(outputBufferId).getData(startingSequenceId, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
-                });
+        return getBuffer(outputBufferId).getSummary(startingSequenceId, maxBytes);
+    }
+
+    @Override
+    public BufferResult getData(OutputBufferId outputBufferId, long startingSequenceId, long maxBytes)
+    {
+        checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
+        requireNonNull(outputBufferId, "outputBufferId is null");
+        checkArgument(maxBytes > 0, "maxBytes must be at least 1 byte");
+
+        return getBuffer(outputBufferId).getData(startingSequenceId, maxBytes);
     }
 
     @Override

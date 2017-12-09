@@ -55,13 +55,23 @@ public interface OutputBuffer
     void setOutputBuffers(OutputBuffers newOutputBuffers);
 
     /**
-     * Gets pages from the output buffer, and acknowledges all pages received from the last
-     * request.  The initial token is zero. Subsequent tokens are acquired from the
-     * next token field in the BufferResult returned from the previous request.
+     * Acknowledges a list of pages fetched in the last request
+     * and gets a list of page summary from the output buffer.
+     * The initial token is zero. Subsequent tokens are acquired from the
+     * next token field in the BufferResult returned from the previous get request.
+     * If the buffer pages is marked as complete, the client must call abort to acknowledge
+     * receipt of the final state.
+     */
+    ListenableFuture<BufferSummary> getSummary(OutputBufferId bufferId, long token, long maxBytes);
+
+    /**
+     * Gets pages from the output buffer. The token is determined by the one received in the last getSummary call
+     * Subsequent tokens and sizes are acquired from the
+     * token field in the BufferPages returned from the previous peek request.
      * If the buffer result is marked as complete, the client must call abort to acknowledge
      * receipt of the final state.
      */
-    ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, long maxBytes);
+    BufferResult getData(OutputBufferId bufferId, long token, long maxBytes);
 
     /**
      * Closes the specified output buffer.

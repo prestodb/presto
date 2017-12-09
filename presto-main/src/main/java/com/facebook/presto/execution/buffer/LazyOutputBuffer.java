@@ -39,6 +39,7 @@ import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static com.facebook.presto.execution.buffer.BufferSummary.emptySummary;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -188,13 +189,13 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, long maxBytes)
+    public ListenableFuture<BufferSummary> getSummary(OutputBufferId bufferId, long token, long maxBytes)
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             if (delegate == null) {
                 if (state.get() == FINISHED) {
-                    return immediateFuture(emptyResults(taskInstanceId, 0, true));
+                    return immediateFuture(emptySummary(taskInstanceId, 0, true));
                 }
 
                 PendingRead pendingRead = new PendingRead(bufferId, token, maxBytes);
@@ -203,7 +204,21 @@ public class LazyOutputBuffer
             }
             outputBuffer = delegate;
         }
-        return outputBuffer.get(bufferId, token, maxBytes);
+        return outputBuffer.getSummary(bufferId, token, maxBytes);
+    }
+
+    @Override
+    public BufferResult getData(OutputBufferId bufferId, long token, long maxBytes)
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            if (delegate == null) {
+                checkState(state.get() == FINISHED, "State is not finished");
+                return emptyResults(taskInstanceId, 0, true);
+            }
+            outputBuffer = delegate;
+        }
+        return outputBuffer.getData(bufferId, token, maxBytes);
     }
 
     @Override
@@ -276,7 +291,7 @@ public class LazyOutputBuffer
         // if there is no output buffer, free the pending reads
         if (outputBuffer == null) {
             for (PendingRead pendingRead : pendingReads) {
-                pendingRead.getFutureResult().set(emptyResults(taskInstanceId, 0, true));
+                pendingRead.getFutureResult().set(emptySummary(taskInstanceId, 0, true));
             }
             return;
         }
@@ -307,7 +322,7 @@ public class LazyOutputBuffer
         private final long startingSequenceId;
         private final long maxBytes;
 
-        private final ExtendedSettableFuture<BufferResult> futureResult = ExtendedSettableFuture.create();
+        private final ExtendedSettableFuture<BufferSummary> futureResult = ExtendedSettableFuture.create();
 
         public PendingRead(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
         {
@@ -317,7 +332,7 @@ public class LazyOutputBuffer
             this.maxBytes = maxBytes;
         }
 
-        public ExtendedSettableFuture<BufferResult> getFutureResult()
+        public ExtendedSettableFuture<BufferSummary> getFutureResult()
         {
             return futureResult;
         }
@@ -329,7 +344,7 @@ public class LazyOutputBuffer
             }
 
             try {
-                ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxBytes);
+                ListenableFuture<BufferSummary> result = delegate.getSummary(bufferId, startingSequenceId, maxBytes);
                 futureResult.setAsync(result);
             }
             catch (Exception e) {

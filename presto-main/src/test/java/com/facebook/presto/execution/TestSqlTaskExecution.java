@@ -23,6 +23,7 @@ import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.PartitionedOutputBuffer;
@@ -661,8 +662,13 @@ public class TestSqlTaskExecution
             surplusPositions -= positions;
             while (surplusPositions < 0) {
                 assertFalse(bufferComplete, "bufferComplete is set before enough positions are consumed");
-                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, new DataSize(1, MEGABYTE).toBytes()).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
-                bufferComplete = results.isBufferComplete();
+                BufferSummary summary = outputBuffer.getSummary(outputBufferId, sequenceId, new DataSize(1, MEGABYTE).toBytes()).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
+                bufferComplete = summary.isBufferComplete();
+                long pageSizeInBytes = summary.getPageSizesInBytes().stream().mapToLong(i -> i).sum();
+                if (pageSizeInBytes == 0) {
+                    continue;
+                }
+                BufferResult results = outputBuffer.getData(outputBufferId, sequenceId, pageSizeInBytes);
                 for (SerializedPage serializedPage : results.getSerializedPages()) {
                     surplusPositions += serializedPage.getPositionCount();
                 }
@@ -676,8 +682,13 @@ public class TestSqlTaskExecution
             assertEquals(surplusPositions, 0);
             long nanoUntil = System.nanoTime() + timeout.toMillis() * 1_000_000;
             while (!bufferComplete) {
-                BufferResult results = outputBuffer.get(outputBufferId, sequenceId, new DataSize(1, MEGABYTE).toBytes()).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
-                bufferComplete = results.isBufferComplete();
+                BufferSummary summary = outputBuffer.getSummary(outputBufferId, sequenceId, new DataSize(1, MEGABYTE).toBytes()).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
+                bufferComplete = summary.isBufferComplete();
+                long pageSizeInBytes = summary.getPageSizesInBytes().stream().mapToLong(i -> i).sum();
+                if (pageSizeInBytes == 0) {
+                    continue;
+                }
+                BufferResult results = outputBuffer.getData(outputBufferId, sequenceId, pageSizeInBytes);
                 for (SerializedPage serializedPage : results.getSerializedPages()) {
                     assertEquals(serializedPage.getPositionCount(), 0);
                 }

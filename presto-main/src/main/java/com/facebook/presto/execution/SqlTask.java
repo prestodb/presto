@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -363,7 +364,17 @@ public class SqlTask
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        return outputBuffer.get(bufferId, startingSequenceId, maxSize.toBytes());
+        return Futures.transform(
+                outputBuffer.getSummary(bufferId, startingSequenceId, maxSize.toBytes()),
+                result -> {
+                    if (result.isBufferComplete()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
+                    }
+                    if (result.getPageSizesInBytes().isEmpty()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
+                    }
+                    return outputBuffer.getData(bufferId, startingSequenceId, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
+                });
     }
 
     public TaskInfo abortTaskResults(OutputBufferId bufferId)
