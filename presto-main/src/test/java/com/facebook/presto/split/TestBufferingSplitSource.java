@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.testng.annotations.DataProvider;
@@ -21,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.split.MockSplitSource.Action.FAIL;
 import static com.facebook.presto.split.MockSplitSource.Action.FINISH;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -37,7 +40,7 @@ public class TestBufferingSplitSource
     @DataProvider
     public static Object[][] nextBatchAsserters()
     {
-        return new Object[][]{{new SingleArgumentSplitSourceAsserter()}};
+        return new Object[][]{{new SingleArgumentSplitSourceAsserter()}, {new WithNotGroupedSplitSourceAsserter()}};
     }
 
     @Test(dataProvider = "nextBatchAsserters")
@@ -95,7 +98,7 @@ public class TestBufferingSplitSource
                     .assertSize(0)
                     .assertNoMoreSplits(true);
             assertTrue(source.isFinished());
-            assertEquals(mockSource.getNextBatchInvocationCount(), 0);
+            assertEquals(mockSource.getNextBatchInvocationCount(), 1);
         }
     }
 
@@ -185,6 +188,32 @@ public class TestBufferingSplitSource
     }
 
     @Test(dataProvider = "nextBatchAsserters")
+    public void testFinishedSetWithoutIndicationFromSplitBatch(NextBatchAsserter nextBatchAsserter)
+            throws Exception
+    {
+        MockSplitSource mockSource = new MockSplitSource()
+                .setBatchSize(1)
+                .increaseAvailableSplits(1);
+        try (SplitSource source = new BufferingSplitSource(mockSource, 100)) {
+            tryGetFutureValue(nextBatchAsserter.invokeNextBatch(source, 1)).get()
+                    .assertSize(1)
+                    .assertNoMoreSplits(false);
+            assertFalse(source.isFinished());
+            // Most of the time, mockSource.isFinished() returns the same value as
+            // the SplitBatch.noMoreSplits field of the preceding mockSource.getNextBatch() call.
+            // However, this is NOT always the case.
+            // In this case, the preceding getNextBatch() indicates the noMoreSplits is false,
+            // but the next isFinished call will return true.
+            mockSource.atSplitCompletion(FINISH);
+            tryGetFutureValue(nextBatchAsserter.invokeNextBatch(source, 1)).get()
+                    .assertSize(0)
+                    .assertNoMoreSplits(true);
+            assertTrue(source.isFinished());
+            assertEquals(mockSource.getNextBatchInvocationCount(), 2);
+        }
+    }
+
+    @Test(dataProvider = "nextBatchAsserters")
     public void testFailImmediate(NextBatchAsserter nextBatchAsserter)
             throws Exception
     {
@@ -266,6 +295,41 @@ public class TestBufferingSplitSource
         public NextBatchResult assertNoMoreSplits(boolean expectedNoMoreSplits)
         {
             // do nothing
+            return this;
+        }
+    }
+
+    private static class WithNotGroupedSplitSourceAsserter
+            implements NextBatchAsserter
+    {
+        @Override
+        public ListenableFuture<NextBatchResult> invokeNextBatch(SplitSource splitSource, int maxSize)
+        {
+            return Futures.transform(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), maxSize), TwoArgumentsNextBatchResult::new);
+        }
+    }
+
+    private static class TwoArgumentsNextBatchResult
+            implements NextBatchResult
+    {
+        private final SplitBatch splitBatch;
+
+        public TwoArgumentsNextBatchResult(SplitBatch splitBatch)
+        {
+            this.splitBatch = requireNonNull(splitBatch, "splits is null");
+        }
+
+        @Override
+        public NextBatchResult assertSize(int expectedSize)
+        {
+            assertEquals(splitBatch.getSplits().size(), expectedSize);
+            return this;
+        }
+
+        @Override
+        public NextBatchResult assertNoMoreSplits(boolean expectedNoMoreSplits)
+        {
+            assertEquals(splitBatch.isLastBatch(), expectedNoMoreSplits);
             return this;
         }
     }

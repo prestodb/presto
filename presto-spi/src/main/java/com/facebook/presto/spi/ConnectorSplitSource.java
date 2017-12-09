@@ -13,14 +13,31 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+
 import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static java.util.Objects.requireNonNull;
+
 public interface ConnectorSplitSource
         extends Closeable
 {
-    CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize);
+    @Deprecated
+    default CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
+    {
+        throw new UnsupportedOperationException("deprecated");
+    }
+
+    default CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    {
+        if (partitionHandle != NOT_PARTITIONED) {
+            throw new UnsupportedOperationException();
+        }
+        return getNextBatch(maxSize).thenApply(splits -> new ConnectorSplitBatch(splits, isFinished()));
+    }
 
     @Override
     void close();
@@ -34,4 +51,26 @@ public interface ConnectorSplitSource
      * will be inherently racy.
      */
     boolean isFinished();
+
+    class ConnectorSplitBatch
+    {
+        private final List<ConnectorSplit> splits;
+        private final boolean noMoreSplits;
+
+        public ConnectorSplitBatch(List<ConnectorSplit> splits, boolean noMoreSplits)
+        {
+            this.splits = requireNonNull(splits, "splits is null");
+            this.noMoreSplits = noMoreSplits;
+        }
+
+        public List<ConnectorSplit> getSplits()
+        {
+            return splits;
+        }
+
+        public boolean isNoMoreSplits()
+        {
+            return noMoreSplits;
+        }
+    }
 }
