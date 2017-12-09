@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.predicate.Range.equal;
 import static com.facebook.presto.spi.predicate.Range.greaterThan;
+import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.lessThan;
 import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -48,6 +49,20 @@ public class TestMongoSession
         Document expected = new Document()
                 .append(COL1.getName(), new Document().append("$gt", 100L).append("$lte", 200L))
                 .append(COL2.getName(), new Document("$eq", "a value"));
+        assertEquals(query, expected);
+    }
+
+    @Test
+    public void testBuildQueryStringType()
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                COL1, Domain.create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("hello"), false, utf8Slice("world"), true)), false),
+                COL2, Domain.create(ValueSet.ofRanges(greaterThanOrEqual(createUnboundedVarcharType(), utf8Slice("a value"))), false)));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document()
+                .append(COL1.getName(), new Document().append("$gt", "hello").append("$lte", "world"))
+                .append(COL2.getName(), new Document("$gte", "a value"));
         assertEquals(query, expected);
     }
 
