@@ -56,5 +56,20 @@ public interface LookupSourceFactory
     // this is only here for the index lookup source
     default void setTaskContext(TaskContext taskContext) {}
 
+    default ListenableFuture<?> lendPartitionLookupSource(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setPartitionSpilledLookupSourceHandle(int partitionIndex, SpilledLookupSourceHandle spilledLookupSourceHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     void destroy();
+
+    default ListenableFuture<?> isDestroyed()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
