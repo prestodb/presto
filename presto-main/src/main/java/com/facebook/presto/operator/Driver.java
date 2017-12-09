@@ -190,11 +190,9 @@ public class Driver
     {
         checkState(initialized.get(), "Driver is not initialized");
         checkLockNotHeld("Can not update sources while holding the driver lock");
-
-        // does this driver have an operator for the specified source node?
-        if (!sourceOperator.isPresent() || !sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId())) {
-            return;
-        }
+        checkArgument(
+                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()),
+                "sourceUpdate is for a plan node that is different from this Driver's source node");
 
         // stage the new updates
         pendingTaskSourceUpdates.updateAndGet(current -> current == null ? sourceUpdate : current.update(sourceUpdate));
