@@ -85,6 +85,7 @@ public class SqlTaskExecutionFactory
                         fragment.getRoot(),
                         fragment.getSymbols(),
                         fragment.getPartitioningScheme(),
+                        fragment.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
                         fragment.getPartitionedSources(),
                         outputBuffer);
 
