@@ -46,7 +46,6 @@ import static com.facebook.presto.operator.PartitionedLookupSource.createPartiti
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Collections.emptyList;
@@ -105,19 +104,17 @@ public final class PartitionedLookupSourceFactory
      */
     private final ConcurrentHashMap<SpillAwareLookupSourceProvider, LookupSource> suppliedLookupSources = new ConcurrentHashMap<>();
 
-    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
+        checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
+
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
+        this.hashChannelTypes = ImmutableList.copyOf(hashChannelTypes);
         this.layout = ImmutableMap.copyOf(layout);
         checkArgument(partitionCount > 0);
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
-
-        hashChannelTypes = hashChannels.stream()
-                .map(types::get)
-                .collect(toImmutableList());
-
         spilledLookupSource = new SpilledLookupSource(outputTypes.size());
     }
 
