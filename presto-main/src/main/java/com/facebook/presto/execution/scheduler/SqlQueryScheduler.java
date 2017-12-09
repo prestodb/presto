@@ -221,7 +221,7 @@ public class SqlQueryScheduler
     {
         Set<URI> bufferLocations = tasks.stream()
                 .map(task -> task.getTaskStatus().getSelf())
-                .map(location -> uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build())
+                .map(location -> uriBuilderFrom(location).appendPath("buffer").appendPath(rootBufferId.toString()).build())
                 .collect(toImmutableSet());
         queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
     }

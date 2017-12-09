@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
@@ -22,6 +23,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.http.client.HttpClient;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -62,6 +64,7 @@ public class ExchangeClient
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final ScheduledExecutorService scheduler;
+    private final JsonCodec<BufferSummary> bufferSummaryCodec;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -102,7 +105,8 @@ public class ExchangeClient
             HttpClient httpClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            JsonCodec<BufferSummary> bufferSummaryCodec)
     {
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
@@ -111,6 +115,7 @@ public class ExchangeClient
         this.httpClient = httpClient;
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
+        this.bufferSummaryCodec = bufferSummaryCodec;
         this.maxBufferBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
     }
@@ -158,7 +163,8 @@ public class ExchangeClient
                 location,
                 new ExchangeClientCallback(),
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                bufferSummaryCodec);
         allClients.put(location, client);
         queuedClients.add(client);
 

@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -45,12 +47,14 @@ public class ExchangeClientFactory
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
+    private final JsonCodec<BufferSummary> bufferSummaryCodec;
 
     @Inject
     public ExchangeClientFactory(
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
-            @ForExchange ScheduledExecutorService scheduler)
+            @ForExchange ScheduledExecutorService scheduler,
+            JsonCodec<BufferSummary> bufferSummaryCodec)
     {
         this(
                 config.getMaxBufferSize(),
@@ -59,7 +63,8 @@ public class ExchangeClientFactory
                 config.getMaxErrorDuration(),
                 config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
-                scheduler);
+                scheduler,
+                bufferSummaryCodec);
     }
 
     public ExchangeClientFactory(
@@ -69,7 +74,8 @@ public class ExchangeClientFactory
             Duration maxErrorDuration,
             int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
-            ScheduledExecutorService scheduler)
+            ScheduledExecutorService scheduler,
+            JsonCodec<BufferSummary> bufferSummaryCodec)
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -86,6 +92,7 @@ public class ExchangeClientFactory
 
         this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
+        this.bufferSummaryCodec = requireNonNull(bufferSummaryCodec, "bufferSummaryCodec is null");
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
@@ -116,6 +123,7 @@ public class ExchangeClientFactory
                 httpClient,
                 scheduler,
                 systemMemoryContext,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                bufferSummaryCodec);
     }
 }

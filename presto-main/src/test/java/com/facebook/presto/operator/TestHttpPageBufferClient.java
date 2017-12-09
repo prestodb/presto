@@ -13,18 +13,22 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
+import io.airlift.json.JsonCodec;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -32,6 +36,8 @@ import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import javax.ws.rs.core.MediaType;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -49,15 +55,28 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.SequencePageBuilder.createSequencePage;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.BufferSummary.emptySummary;
+import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writePages;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static com.facebook.presto.server.TaskResource.PATH_BUFFER_DATA;
+import static com.facebook.presto.server.TaskResource.PATH_BUFFER_SUMMARY;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -66,7 +85,9 @@ public class TestHttpPageBufferClient
     private ScheduledExecutorService scheduler;
     private ExecutorService pageBufferClientCallbackExecutor;
 
+    private static final String TASK_INSTANCE_ID = "task-instance-id";
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private static final JsonCodec<BufferSummary> BUFFER_SUMMARY_CODEC = jsonCodec(BufferSummary.class);
 
     @BeforeClass
     public void setUp()
@@ -108,7 +129,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -180,7 +202,9 @@ public class TestHttpPageBufferClient
         CyclicBarrier beforeRequest = new CyclicBarrier(2);
         CyclicBarrier afterRequest = new CyclicBarrier(2);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
-        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
+
+        // NO_CONTENT will fail the get size request
+        processor.setSummaryResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
@@ -192,7 +216,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -205,16 +230,32 @@ public class TestHttpPageBufferClient
         requestComplete.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
-        client.close();
+        // Make get size request pass
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(emptySummary(TASK_INSTANCE_ID, 0, false))));
+
+        client.scheduleRequest();
         beforeRequest.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "PROCESSING_REQUEST");
+        assertStatus(client, location, "running", 0, 2, 1, 1, "PROCESSING_REQUEST");
+        assertEquals(client.isRunning(), true);
         afterRequest.await(10, TimeUnit.SECONDS);
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
+        assertStatus(client, location, "queued", 0, 2, 2, 1, "not scheduled");
+
+        // Send delete request
+        processor.setDataResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
+        client.close();
+        beforeRequest.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 2, 2, 1, "PROCESSING_REQUEST");
+        afterRequest.await(10, TimeUnit.SECONDS);
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 2, 3, 1, "not scheduled");
     }
 
     @Test
-    public void testInvalidResponses()
+    public void testInvalidSummaryResponses()
             throws Exception
     {
         CyclicBarrier beforeRequest = new CyclicBarrier(1);
@@ -231,12 +272,13 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         // send not found response and verify response was ignored
-        processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
+        processor.setSummaryResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
@@ -249,7 +291,126 @@ public class TestHttpPageBufferClient
 
         // send invalid content type response and verify response was ignored
         callback.resetStats();
-        processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "INVALID_TYPE"), new byte[0]));
+        processor.setSummaryResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "INVALID_TYPE"), new byte[0]));
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), format("Error fetching http://localhost:8080/%s/0: Could not parse 'INVALID_TYPE'", PATH_BUFFER_SUMMARY));
+        assertStatus(client, location, "queued", 0, 2, 2, 2, "not scheduled");
+
+        // send unexpected content type response and verify response was ignored
+        callback.resetStats();
+        processor.setSummaryResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "text/plain"), new byte[0]));
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), "Expected application/json response from server but got text/plain");
+        assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
+
+        // send buffer complete with non-empty buffer and verify response was ignored
+        callback.resetStats();
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(new BufferSummary(TASK_INSTANCE_ID, 0, true, ImmutableList.of(1L)))));
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), format("Error fetching http://localhost:8080/%s/0: buffer completes with 1 pages", PATH_BUFFER_SUMMARY));
+        assertStatus(client, location, "queued", 0, 4, 4, 4, "not scheduled");
+
+        // send response empty task id and verify response was ignored
+        callback.resetStats();
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(emptySummary(TASK_INSTANCE_ID, 0, false))));
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        String newTaskID = TASK_INSTANCE_ID + "_DIFF";
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(emptySummary(newTaskID, 0, false))));
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 2);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), format("Error fetching http://localhost:8080/%s/0: expected task id [%s]; found [%s]", PATH_BUFFER_SUMMARY, TASK_INSTANCE_ID, newTaskID));
+        assertStatus(client, location, "queued", 0, 6, 6, 5, "not scheduled");
+
+        // close client and verify
+        processor.setDataResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
+        client.close();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertStatus(client, location, "closed", 0, 6, 7, 5, "not scheduled");
+    }
+
+    @Test
+    public void testInvalidDataResponses()
+            throws Exception
+    {
+        DynamicSliceOutput output = new DynamicSliceOutput(256);
+        writePages(PAGES_SERDE, output, createSequencePage(ImmutableList.of(VARCHAR), 10, 100));
+
+        CyclicBarrier beforeRequest = new CyclicBarrier(1);
+        CyclicBarrier afterRequest = new CyclicBarrier(1);
+        StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
+
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
+                new DataSize(10, Unit.MEGABYTE),
+                new Duration(1, TimeUnit.MINUTES),
+                location,
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
+
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
+
+        // send not found response and verify response was ignored
+        processor.setDataResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
+        // force client to fetch pages
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(new BufferSummary(TASK_INSTANCE_ID, 0, false, ImmutableList.of(1L)))));
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404 Not Found");
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
+
+        // send invalid content type response and verify response was ignored
+        callback.resetStats();
+        processor.setDataResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "INVALID_TYPE"), new byte[0]));
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(new BufferSummary(TASK_INSTANCE_ID, 0, false, ImmutableList.of(1L)))));
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
@@ -262,7 +423,11 @@ public class TestHttpPageBufferClient
 
         // send unexpected content type response and verify response was ignored
         callback.resetStats();
-        processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "text/plain"), new byte[0]));
+        processor.setDataResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "text/plain"), new byte[0]));
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(new BufferSummary(TASK_INSTANCE_ID, 0, false, ImmutableList.of(1L)))));
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
@@ -273,10 +438,61 @@ public class TestHttpPageBufferClient
         assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got text/plain");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
 
+        // send unmatched token response and verify response was ignored
+        callback.resetStats();
+        processor.setDataResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(
+                        CONTENT_TYPE, PRESTO_PAGES,
+                        PRESTO_TASK_INSTANCE_ID, TASK_INSTANCE_ID,
+                        PRESTO_PAGE_TOKEN, "100",
+                        PRESTO_PAGE_NEXT_TOKEN, "101",
+                        PRESTO_BUFFER_COMPLETE, String.valueOf(false)),
+                output.slice().getInput()));
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(new BufferSummary(TASK_INSTANCE_ID, 0, false, ImmutableList.of(1L)))));
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), format("Error fetching http://localhost:8080/%s/0: expected token [100]; found [0]", PATH_BUFFER_DATA));
+        assertStatus(client, location, "queued", 0, 4, 4, 4, "not scheduled");
+
+        // send unmatched task id response and verify response was ignored
+        callback.resetStats();
+        String newTaskID = TASK_INSTANCE_ID + "_DIFF";
+        processor.setDataResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(
+                        CONTENT_TYPE, PRESTO_PAGES,
+                        PRESTO_TASK_INSTANCE_ID, newTaskID,
+                        PRESTO_PAGE_TOKEN, "0",
+                        PRESTO_PAGE_NEXT_TOKEN, "1",
+                        PRESTO_BUFFER_COMPLETE, String.valueOf(false)),
+                output.slice().getInput()));
+        processor.setSummaryResponse(new TestingResponse(
+                HttpStatus.OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON),
+                BUFFER_SUMMARY_CODEC.toJsonBytes(new BufferSummary(TASK_INSTANCE_ID, 0, false, ImmutableList.of(1L)))));
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), format("Error fetching http://localhost:8080/%s/0: expected task id [%s]; found [%s]", PATH_BUFFER_DATA, TASK_INSTANCE_ID, newTaskID));
+        assertStatus(client, location, "queued", 0, 5, 5, 5, "not scheduled");
+
         // close client and verify
         client.close();
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 3, 4, 3, "not scheduled");
+        assertStatus(client, location, "closed", 0, 5, 6, 5, "not scheduled");
     }
 
     @Test
@@ -286,7 +502,8 @@ public class TestHttpPageBufferClient
         CyclicBarrier beforeRequest = new CyclicBarrier(2);
         CyclicBarrier afterRequest = new CyclicBarrier(2);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
-        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
+        processor.setSummaryResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
+        processor.setDataResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
@@ -298,7 +515,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -352,7 +570,8 @@ public class TestHttpPageBufferClient
                 callback,
                 scheduler,
                 ticker,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -389,7 +608,9 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportTimeoutException.class);
-        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - 3 failures, failure duration 31.00s, total failed request time 31.00s)");
+        assertContains(
+                callback.getFailure().getMessage(),
+                format("%s (http://localhost:8080/%s/0 - 3 failures, failure duration 31.00s, total failed request time 31.00s)", WORKER_NODE_ERROR, PATH_BUFFER_SUMMARY));
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
     }
 
@@ -524,7 +745,8 @@ public class TestHttpPageBufferClient
     private static class StaticRequestProcessor
             implements TestingHttpClient.Processor
     {
-        private final AtomicReference<Response> response = new AtomicReference<>();
+        private final AtomicReference<Response> summaryResponse = new AtomicReference<>();
+        private final AtomicReference<Response> dataResponse = new AtomicReference<>();
         private final CyclicBarrier beforeRequest;
         private final CyclicBarrier afterRequest;
 
@@ -534,9 +756,14 @@ public class TestHttpPageBufferClient
             this.afterRequest = afterRequest;
         }
 
-        private void setResponse(Response response)
+        private void setSummaryResponse(Response response)
         {
-            this.response.set(response);
+            this.summaryResponse.set(response);
+        }
+
+        private void setDataResponse(Response response)
+        {
+            this.dataResponse.set(response);
         }
 
         @SuppressWarnings({"ThrowFromFinallyBlock", "Finally"})
@@ -545,9 +772,18 @@ public class TestHttpPageBufferClient
                 throws Exception
         {
             beforeRequest.await(10, TimeUnit.SECONDS);
+            String[] parts = request.getUri().toString().split("/");
+            int length = parts.length;
+            assertGreaterThan(parts.length, 2);
 
             try {
-                return response.get();
+                if (parts[length - 2].equals(PATH_BUFFER_SUMMARY)) {
+                    return summaryResponse.get();
+                }
+                else {
+                    //assertEquals(parts[length - 2], PATH_BUFFER_DATA);
+                    return dataResponse.get();
+                }
             }
             finally {
                 afterRequest.await(10, TimeUnit.SECONDS);

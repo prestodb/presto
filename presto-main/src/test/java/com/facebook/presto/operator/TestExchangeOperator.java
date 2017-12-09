@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
@@ -31,12 +32,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableListMultimap.Builder;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -44,6 +47,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import javax.ws.rs.core.MediaType;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -61,13 +66,17 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.BufferSummary.emptySummary;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writePages;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.server.TaskResource.PATH_BUFFER_DATA;
+import static com.facebook.presto.server.TaskResource.PATH_BUFFER_SUMMARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
@@ -82,6 +91,7 @@ public class TestExchangeOperator
     private static final Page PAGE = createSequencePage(TYPES, 10, 100);
     private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory();
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private static final JsonCodec<BufferSummary> BUFFER_SUMMARY_CODEC = jsonCodec(BufferSummary.class);
 
     private static final String TASK_1_ID = "task1";
     private static final String TASK_2_ID = "task2";
@@ -112,7 +122,8 @@ public class TestExchangeOperator
                 httpClient,
                 scheduler,
                 systemMemoryUsageListener,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
     }
 
     @AfterClass(alwaysRun = true)
@@ -374,12 +385,43 @@ public class TestExchangeOperator
                 return new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(), new byte[0]);
             }
 
-            assertEquals(parts.size(), 2);
+            assertEquals(parts.size(), 3);
             String taskId = parts.get(0);
-            int pageToken = Integer.parseInt(parts.get(1));
+            int pageToken = Integer.parseInt(parts.get(2));
 
+            if (parts.get(1).equals(PATH_BUFFER_SUMMARY)) {
+                return createSummaryResponse(taskId, pageToken);
+            }
+            assertEquals(parts.get(1), PATH_BUFFER_DATA);
+            return createDataResponse(taskId, pageToken);
+        }
+
+        private Response createSummaryResponse(String taskId, int pageToken)
+        {
+            ListMultimap header = ImmutableListMultimap.of(CONTENT_TYPE, MediaType.APPLICATION_JSON);
+
+            TaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
+            Page page = taskBuffer.getPage(pageToken);
+            if (page != null) {
+                return new TestingResponse(
+                        HttpStatus.OK,
+                        header,
+                        BUFFER_SUMMARY_CODEC.toJsonBytes(new BufferSummary(
+                                taskId,
+                                pageToken,
+                                false,
+                                ImmutableList.of((long) PAGES_SERDE.serialize(page).getRetainedSizeInBytes()))));
+            }
+            else if (taskBuffer.isFinished()) {
+                return new TestingResponse(HttpStatus.OK, header, BUFFER_SUMMARY_CODEC.toJsonBytes(emptySummary(taskId, pageToken, true)));
+            }
+            return new TestingResponse(HttpStatus.OK, header, BUFFER_SUMMARY_CODEC.toJsonBytes(emptySummary(taskId, pageToken, false)));
+        }
+
+        private Response createDataResponse(String taskId, int pageToken)
+        {
             Builder<String, String> headers = ImmutableListMultimap.builder();
-            headers.put(PRESTO_TASK_INSTANCE_ID, "task-instance-id");
+            headers.put(PRESTO_TASK_INSTANCE_ID, taskId);
             headers.put(PRESTO_PAGE_TOKEN, String.valueOf(pageToken));
 
             TaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);

@@ -21,6 +21,7 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Page;
@@ -69,7 +70,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
-import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
+import static com.facebook.presto.execution.buffer.BufferSummary.emptySummary;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
@@ -84,6 +85,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Path("/v1/task")
 public class TaskResource
 {
+    public static final String PATH_BUFFER_DATA = "data";
+    public static final String PATH_BUFFER_SUMMARY = "summary";
+
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
@@ -233,9 +237,9 @@ public class TaskResource
     }
 
     @GET
-    @Path("{taskId}/results/{bufferId}/{token}")
-    @Produces(PRESTO_PAGES)
-    public void getResults(@PathParam("taskId") TaskId taskId,
+    @Path("{taskId}/buffer/{bufferId}/" + PATH_BUFFER_SUMMARY + "/{token}/")
+    @Produces(MediaType.APPLICATION_JSON)
+    public void getResultSummary(@PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
             @PathParam("token") final long token,
             @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize,
@@ -243,65 +247,64 @@ public class TaskResource
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+        requireNonNull(maxSize, "maxSize is null");
 
         long start = System.nanoTime();
-        ListenableFuture<BufferResult> bufferResultFuture = Futures.transform(
-                taskManager.getTaskSummary(taskId, bufferId, token, maxSize.toBytes()),
-                result -> {
-                    if (result.isBufferComplete()) {
-                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
-                    }
-                    if (result.getPageSizesInBytes().isEmpty()) {
-                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
-                    }
-                    return taskManager.getTaskData(taskId, bufferId, token, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
-                });
+        ListenableFuture<BufferSummary> bufferResultFuture = taskManager.getTaskSummary(taskId, bufferId, token, maxSize.toBytes());
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
-                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
+                () -> emptySummary(taskManager.getTaskInstanceId(taskId), token, false),
                 waitTime,
                 timeoutExecutor);
 
-        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, result -> {
-            List<SerializedPage> serializedPages = result.getSerializedPages();
-
-            GenericEntity<?> entity = null;
-            Status status;
-            if (serializedPages.isEmpty()) {
-                status = Status.NO_CONTENT;
-            }
-            else {
-                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Page>>() {}.getType());
-                status = Status.OK;
-            }
-
-            return Response.status(status)
-                    .entity(entity)
-                    .header(PRESTO_TASK_INSTANCE_ID, result.getTaskInstanceId())
-                    .header(PRESTO_PAGE_TOKEN, result.getToken())
-                    .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
-                    .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
-                    .build();
-        });
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, result -> Response.ok(result).build());
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
-                .withTimeout(timeout,
-                        Response.status(Status.NO_CONTENT)
-                                .header(PRESTO_TASK_INSTANCE_ID, taskManager.getTaskInstanceId(taskId))
-                                .header(PRESTO_PAGE_TOKEN, token)
-                                .header(PRESTO_PAGE_NEXT_TOKEN, token)
-                                .header(PRESTO_BUFFER_COMPLETE, false)
-                                .build());
+                .withTimeout(timeout, Response.ok(emptySummary(taskManager.getTaskInstanceId(taskId), token, false)).build());
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
         asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
+    @GET
+    @Path("{taskId}/buffer/{bufferId}/" + PATH_BUFFER_DATA + "/{token}")
+    @Produces(PRESTO_PAGES)
+    public Response getResultData(@PathParam("taskId") TaskId taskId,
+            @PathParam("bufferId") OutputBufferId bufferId,
+            @PathParam("token") final long token,
+            @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(bufferId, "bufferId is null");
+        requireNonNull(maxSize, "maxSize is null");
+
+        BufferResult bufferResult = taskManager.getTaskData(taskId, bufferId, token, maxSize.toBytes());
+        List<SerializedPage> serializedPages = bufferResult.getSerializedPages();
+
+        GenericEntity<?> entity = null;
+        Status status;
+        if (serializedPages.isEmpty()) {
+            status = Status.NO_CONTENT;
+        }
+        else {
+            entity = new GenericEntity<>(serializedPages, new TypeToken<List<Page>>() {}.getType());
+            status = Status.OK;
+        }
+
+        return Response.status(status)
+                .entity(entity)
+                .header(PRESTO_TASK_INSTANCE_ID, bufferResult.getTaskInstanceId())
+                .header(PRESTO_PAGE_TOKEN, bufferResult.getToken())
+                .header(PRESTO_PAGE_NEXT_TOKEN, bufferResult.getNextToken())
+                .header(PRESTO_BUFFER_COMPLETE, bufferResult.isBufferComplete())
+                .build();
+    }
+
     @DELETE
-    @Path("{taskId}/results/{bufferId}")
+    @Path("{taskId}/buffer/{bufferId}")
     @Produces(MediaType.APPLICATION_JSON)
     public void abortResults(@PathParam("taskId") TaskId taskId, @PathParam("bufferId") OutputBufferId bufferId, @Context UriInfo uriInfo)
     {

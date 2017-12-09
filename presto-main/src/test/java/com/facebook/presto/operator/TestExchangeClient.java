@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -41,6 +43,7 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -58,6 +61,7 @@ public class TestExchangeClient
     private ExecutorService pageBufferClientCallbackExecutor;
 
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private static final JsonCodec<BufferSummary> BUFFER_SUMMARY_CODEC = jsonCodec(BufferSummary.class);
 
     @BeforeClass
     public void setUp()
@@ -92,7 +96,16 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, scheduler), scheduler, new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()), pageBufferClientCallbackExecutor);
+        ExchangeClient exchangeClient = new ExchangeClient(
+                new DataSize(32, Unit.MEGABYTE),
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -130,7 +143,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -201,7 +215,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -282,7 +297,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                BUFFER_SUMMARY_CODEC);
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
 

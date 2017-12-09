@@ -403,7 +403,7 @@ public final class SqlStageExecution
     private static Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
     {
         // Fetch the results from the buffer assigned to the task based on id
-        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(String.valueOf(taskId.getId())).build();
+        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("buffer").appendPath(String.valueOf(taskId.getId())).build();
         return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(splitLocation));
     }
 

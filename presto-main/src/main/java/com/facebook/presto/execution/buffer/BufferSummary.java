@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,6 +25,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class BufferSummary
 {
     public static BufferSummary emptySummary(String taskInstanceId, long token, boolean bufferComplete)
@@ -33,7 +38,12 @@ public class BufferSummary
     private final boolean bufferComplete;
     private final List<Long> pageSizesInBytes;
 
-    public BufferSummary(String taskInstanceId, long token, boolean bufferComplete, List<Long> pageSizesInBytes)
+    @JsonCreator
+    public BufferSummary(
+            @JsonProperty("taskInstanceId") String taskInstanceId,
+            @JsonProperty("token") long token,
+            @JsonProperty("bufferComplete") boolean bufferComplete,
+            @JsonProperty("pageSizesInBytes") List<Long> pageSizesInBytes)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.token = token;
@@ -41,21 +51,25 @@ public class BufferSummary
         this.pageSizesInBytes = requireNonNull(pageSizesInBytes, "pageSizesInBytes is null");
     }
 
+    @JsonProperty
     public String getTaskInstanceId()
     {
         return taskInstanceId;
     }
 
+    @JsonProperty
     public long getToken()
     {
         return token;
     }
 
+    @JsonProperty
     public boolean isBufferComplete()
     {
         return bufferComplete;
     }
 
+    @JsonProperty
     public List<Long> getPageSizesInBytes()
     {
         return pageSizesInBytes;
