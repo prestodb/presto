@@ -249,20 +249,24 @@ public class SqlTaskExecution
             // tell existing drivers about the new splits; it is safe to update drivers
             // multiple times and out of order because sources contain full record of
             // the unpartitioned splits
-            for (TaskSource source : updatedUnpartitionedSources.values()) {
-                // tell all the existing drivers this source is finished
-                for (WeakReference<Driver> driverReference : drivers) {
-                    Driver driver = driverReference.get();
-                    // the driver can be GCed due to a failure or a limit
-                    if (driver != null) {
-                        driver.updateSource(source);
-                    }
-                    else {
-                        // remove the weak reference from the list to avoid a memory leak
-                        // NOTE: this is a concurrent safe operation on a CopyOnWriteArrayList
-                        drivers.remove(driverReference);
-                    }
+            for (WeakReference<Driver> driverReference : drivers) {
+                Driver driver = driverReference.get();
+                // the driver can be GCed due to a failure or a limit
+                if (driver == null) {
+                    // remove the weak reference from the list to avoid a memory leak
+                    // NOTE: this is a concurrent safe operation on a CopyOnWriteArrayList
+                    drivers.remove(driverReference);
+                    continue;
                 }
+                Optional<PlanNodeId> sourceId = driver.getSourceId();
+                if (!sourceId.isPresent()) {
+                    continue;
+                }
+                TaskSource sourceUpdate = updatedUnpartitionedSources.get(sourceId.get());
+                if (sourceUpdate == null) {
+                    continue;
+                }
+                driver.updateSource(sourceUpdate);
             }
 
             // we may have transitioned to no more splits, so check for completion
@@ -524,8 +528,12 @@ public class SqlTaskExecution
             }
 
             // add unpartitioned sources
-            for (TaskSource source : unpartitionedSources.values()) {
-                driver.updateSource(source);
+            Optional<PlanNodeId> sourceId = driver.getSourceId();
+            if (sourceId.isPresent()) {
+                TaskSource taskSource = unpartitionedSources.get(sourceId.get());
+                if (taskSource != null) {
+                    driver.updateSource(taskSource);
+                }
             }
 
             pendingCreation.decrementAndGet();
