@@ -27,11 +27,8 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -111,9 +108,8 @@ public class SqlTaskExecution
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             OutputBuffer outputBuffer,
-            PlanFragment fragment,
             List<TaskSource> sources,
-            LocalExecutionPlanner planner,
+            LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             Executor notificationExecutor,
             QueryMonitor queryMonitor)
@@ -122,12 +118,10 @@ public class SqlTaskExecution
                 taskStateMachine,
                 taskContext,
                 outputBuffer,
-                fragment,
-                planner,
+                localExecutionPlan,
                 taskExecutor,
                 queryMonitor,
                 notificationExecutor);
-
         try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             task.start();
             task.addSources(sources);
@@ -139,8 +133,7 @@ public class SqlTaskExecution
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             OutputBuffer outputBuffer,
-            PlanFragment fragment,
-            LocalExecutionPlanner planner,
+            LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
             Executor notificationExecutor)
@@ -156,28 +149,13 @@ public class SqlTaskExecution
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
-            List<DriverFactory> driverFactories;
-            try {
-                LocalExecutionPlan localExecutionPlan = planner.plan(
-                        taskContext,
-                        fragment.getRoot(),
-                        fragment.getSymbols(),
-                        fragment.getPartitioningScheme(),
-                        outputBuffer);
-                driverFactories = localExecutionPlan.getDriverFactories();
-            }
-            catch (Throwable e) {
-                // planning failed
-                taskStateMachine.failed(e);
-                throw Throwables.propagate(e);
-            }
-
             // index driver factories
             ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> partitionedDriverFactories = ImmutableMap.builder();
             ImmutableList.Builder<DriverSplitRunnerFactory> unpartitionedDriverFactories = ImmutableList.builder();
-            for (DriverFactory driverFactory : driverFactories) {
+            ImmutableSet<PlanNodeId> partitionedSources = ImmutableSet.copyOf(localExecutionPlan.getPartitionedSourceOrder());
+            for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
-                if (sourceId.isPresent() && fragment.isPartitionedSources(sourceId.get())) {
+                if (sourceId.isPresent() && partitionedSources.contains(sourceId.get())) {
                     partitionedDriverFactories.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory));
                 }
                 else {
@@ -186,10 +164,10 @@ public class SqlTaskExecution
             }
             this.partitionedDriverFactories = partitionedDriverFactories.build();
             this.unpartitionedDriverFactories = unpartitionedDriverFactories.build();
-            this.sourceStartOrder = new ArrayDeque<>(fragment.getPartitionedSources());
+            this.sourceStartOrder = new ArrayDeque<>(localExecutionPlan.getPartitionedSourceOrder());
 
-            checkArgument(this.partitionedDriverFactories.keySet().equals(ImmutableSet.copyOf(fragment.getPartitionedSources())),
-                    "Fragment us partitioned, but all partitioned drivers were not found");
+            checkArgument(this.partitionedDriverFactories.keySet().equals(partitionedSources),
+                    "Fragment is partitioned, but not all partitioned drivers were found");
 
             // don't register the task if it is already completed (most likely failed during planning above)
             if (!taskStateMachine.getState().isDone()) {
@@ -197,7 +175,7 @@ public class SqlTaskExecution
                 taskStateMachine.addStateChangeListener(new RemoveTaskHandleWhenDone(taskExecutor, taskHandle));
                 taskStateMachine.addStateChangeListener(state -> {
                     if (state.isDone()) {
-                        for (DriverFactory factory : driverFactories) {
+                        for (DriverFactory factory : localExecutionPlan.getDriverFactories()) {
                             factory.noMoreDrivers();
                         }
                     }

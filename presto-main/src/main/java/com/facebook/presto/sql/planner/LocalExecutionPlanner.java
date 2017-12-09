@@ -318,6 +318,7 @@ public class LocalExecutionPlanner
             PlanNode plan,
             Map<Symbol, Type> types,
             PartitioningScheme partitioningScheme,
+            List<PlanNodeId> partitionedSourceOrder,
             OutputBuffer outputBuffer)
     {
         List<Symbol> outputLayout = partitioningScheme.getOutputLayout();
@@ -325,7 +326,7 @@ public class LocalExecutionPlanner
                 partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
-            return plan(taskContext, plan, outputLayout, types, new TaskOutputFactory(outputBuffer));
+            return plan(taskContext, plan, outputLayout, types, partitionedSourceOrder, new TaskOutputFactory(outputBuffer));
         }
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
@@ -375,6 +376,7 @@ public class LocalExecutionPlanner
                 plan,
                 outputLayout,
                 types,
+                partitionedSourceOrder,
                 new PartitionedOutputFactory(
                         partitionFunction,
                         partitionChannels,
@@ -385,10 +387,12 @@ public class LocalExecutionPlanner
                         maxPagePartitioningBufferSize));
     }
 
-    public LocalExecutionPlan plan(TaskContext taskContext,
+    public LocalExecutionPlan plan(
+            TaskContext taskContext,
             PlanNode plan,
             List<Symbol> outputLayout,
             Map<Symbol, Type> types,
+            List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory)
     {
         Session session = taskContext.getSession();
@@ -425,7 +429,7 @@ public class LocalExecutionPlanner
                 .map(LocalPlannerAware.class::cast)
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
-        return new LocalExecutionPlan(context.getDriverFactories());
+        return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder);
     }
 
     private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
@@ -585,15 +589,22 @@ public class LocalExecutionPlanner
     public static class LocalExecutionPlan
     {
         private final List<DriverFactory> driverFactories;
+        private final List<PlanNodeId> partitionedSourceOrder;
 
-        public LocalExecutionPlan(List<DriverFactory> driverFactories)
+        public LocalExecutionPlan(List<DriverFactory> driverFactories, List<PlanNodeId> partitionedSourceOrder)
         {
             this.driverFactories = ImmutableList.copyOf(requireNonNull(driverFactories, "driverFactories is null"));
+            this.partitionedSourceOrder = ImmutableList.copyOf(requireNonNull(partitionedSourceOrder, "partitionedSourceOrder is null"));
         }
 
         public List<DriverFactory> getDriverFactories()
         {
             return driverFactories;
+        }
+
+        public List<PlanNodeId> getPartitionedSourceOrder()
+        {
+            return partitionedSourceOrder;
         }
     }
 
