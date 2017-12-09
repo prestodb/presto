@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -127,7 +128,7 @@ public class PlanFragment
 
     public PipelineExecutionStrategy getPipelineExecutionStrategy()
     {
-        return PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+        return UNGROUPED_EXECUTION;
     }
 
     public List<Type> getTypes()

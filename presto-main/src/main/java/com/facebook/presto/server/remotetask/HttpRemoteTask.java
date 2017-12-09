@@ -18,6 +18,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.FutureStateChange;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -121,6 +122,8 @@ public final class HttpRemoteTask
     private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
     @GuardedBy("this")
     private volatile int pendingSourceSplitCount;
+    @GuardedBy("this")
+    private final SetMultimap<PlanNodeId, Lifespan> pendingNoMoreSplitsForLifespan = HashMultimap.create();
     @GuardedBy("this")
     private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
     @GuardedBy("this")
@@ -308,6 +311,7 @@ public final class HttpRemoteTask
             return;
         }
 
+        boolean needsUpdate = false;
         for (Entry<PlanNodeId, Collection<Split>> entry : splitsBySource.asMap().entrySet()) {
             PlanNodeId sourceId = entry.getKey();
             Collection<Split> splits = entry.getValue();
@@ -323,17 +327,29 @@ public final class HttpRemoteTask
                 pendingSourceSplitCount += added;
                 partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             }
-            needsUpdate.set(true);
+            needsUpdate = true;
         }
         updateSplitQueueSpace();
 
-        scheduleUpdate();
+        if (needsUpdate) {
+            this.needsUpdate.set(true);
+            scheduleUpdate();
+        }
     }
 
     @Override
     public synchronized void noMoreSplits(PlanNodeId sourceId)
     {
         if (noMoreSplits.add(sourceId)) {
+            needsUpdate.set(true);
+            scheduleUpdate();
+        }
+    }
+
+    @Override
+    public synchronized void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
+    {
+        if (pendingNoMoreSplitsForLifespan.put(sourceId, lifespan)) {
             needsUpdate.set(true);
             scheduleUpdate();
         }
@@ -427,6 +443,9 @@ public final class HttpRemoteTask
                     removed++;
                 }
             }
+            for (Lifespan lifespan : source.getNoMoreSplitsForLifespan()) {
+                pendingNoMoreSplitsForLifespan.remove(planNodeId, lifespan);
+            }
             if (planFragment.isPartitionedSources(planNodeId)) {
                 pendingSourceSplitCount -= removed;
             }
@@ -481,7 +500,8 @@ public final class HttpRemoteTask
         if (sendPlan.get()) {
             fragment = Optional.of(planFragment);
         }
-        TaskUpdateRequest updateRequest = new TaskUpdateRequest(session.toSessionRepresentation(),
+        TaskUpdateRequest updateRequest = new TaskUpdateRequest(
+                session.toSessionRepresentation(),
                 fragment,
                 sources,
                 outputBuffers.get());
@@ -520,9 +540,10 @@ public final class HttpRemoteTask
     {
         Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
         boolean noMoreSplits = this.noMoreSplits.contains(planNodeId);
+        Set<Lifespan> noMoreSplitsForLifespan = pendingNoMoreSplitsForLifespan.get(planNodeId);
         TaskSource element = null;
         if (!splits.isEmpty() || noMoreSplits) {
-            element = new TaskSource(planNodeId, splits, noMoreSplits);
+            element = new TaskSource(planNodeId, splits, noMoreSplitsForLifespan, noMoreSplits);
         }
         return element;
     }

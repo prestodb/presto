@@ -73,6 +73,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.simpleSourcePartitionedScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -134,15 +135,9 @@ public class TestSourcePartitionedScheduler
 
         ScheduleResult scheduleResult = scheduler.schedule();
 
-        assertFalse(scheduleResult.isFinished());
-        assertTrue(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 1);
-
-        scheduleResult = scheduler.schedule();
-
         assertTrue(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
-        assertTrue(scheduleResult.getNewTasks().isEmpty());
+        assertEquals(scheduleResult.getNewTasks().size(), 1);
 
         stage.abort();
     }
@@ -288,8 +283,8 @@ public class TestSourcePartitionedScheduler
         ScheduleResult scheduleResult = scheduler.schedule();
         assertFalse(scheduleResult.isFinished());
         assertFalse(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 0);
-        assertEquals(stage.getAllTasks().size(), 0);
+        assertEquals(scheduleResult.getNewTasks().size(), 3);
+        assertEquals(stage.getAllTasks().size(), 3);
 
         queuedSplitSource.addSplits(1);
         assertTrue(scheduleResult.getBlocked().isDone());
@@ -307,7 +302,7 @@ public class TestSourcePartitionedScheduler
             StageExecutionPlan plan = createPlan(createFixedSplitSource(20, TestingSplit::createRemoteSplit));
             SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
-            SourcePartitionedScheduler scheduler = new SourcePartitionedScheduler(
+            SourcePartitionedScheduler scheduler = simpleSourcePartitionedScheduler(
                     stage,
                     Iterables.getOnlyElement(plan.getSplitSources().keySet()),
                     Iterables.getOnlyElement(plan.getSplitSources().values()),
@@ -428,7 +423,7 @@ public class TestSourcePartitionedScheduler
         PlanNodeId sourceNode = Iterables.getOnlyElement(plan.getSplitSources().keySet());
         SplitSource splitSource = Iterables.getOnlyElement(plan.getSplitSources().values());
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getConnectorId()), stage::getAllTasks);
-        return new SourcePartitionedScheduler(stage, sourceNode, splitSource, placementPolicy, splitBatchSize);
+        return simpleSourcePartitionedScheduler(stage, sourceNode, splitSource, placementPolicy, splitBatchSize);
     }
 
     private static StageExecutionPlan createPlan(ConnectorSplitSource splitSource)
