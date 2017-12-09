@@ -439,6 +439,12 @@ public class LocalQueryRunner
     }
 
     @Override
+    public NodePartitioningManager getNodePartitioningManager()
+    {
+        return nodePartitioningManager;
+    }
+
+    @Override
     public CostCalculator getCostCalculator()
     {
         return costCalculator;
@@ -618,7 +624,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session));
         }
 
-        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan, true);
+        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, true);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -761,6 +767,7 @@ public class LocalQueryRunner
         QueryExplainer queryExplainer = new QueryExplainer(
                 optimizers,
                 metadata,
+                nodePartitioningManager,
                 accessControl,
                 sqlParser,
                 costCalculator,

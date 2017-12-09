@@ -305,6 +305,7 @@ public abstract class AbstractTestQueryFramework
         return new QueryExplainer(
                 optimizers,
                 metadata,
+                queryRunner.getNodePartitioningManager(),
                 queryRunner.getAccessControl(),
                 sqlParser,
                 costCalculator,
