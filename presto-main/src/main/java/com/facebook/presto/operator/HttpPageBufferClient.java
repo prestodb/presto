@@ -49,6 +49,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -64,6 +65,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.PageCompression.COMPRESSED;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
@@ -113,6 +115,8 @@ public final class HttpPageBufferClient
         void clientFinished(HttpPageBufferClient client);
 
         void clientFailed(HttpPageBufferClient client, Throwable cause);
+
+        void releaseQuota(long bytes);
     }
 
     private final HttpClient httpClient;
@@ -137,6 +141,8 @@ public final class HttpPageBufferClient
     private boolean completed;
     @GuardedBy("this")
     private String taskInstanceId;
+    @GuardedBy("this")
+    private final List<Long> pendingPageSizesInBytes = new LinkedList<>();
 
     private final AtomicLong rowsReceived = new AtomicLong();
     private final AtomicInteger pagesReceived = new AtomicInteger();
@@ -149,6 +155,17 @@ public final class HttpPageBufferClient
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
     private final Executor pageBufferClientCallbackExecutor;
+
+    // reserved bytes and released bytes should be exactly the same (eventually)
+    // record both of them for debugging (e.g., reservedBytes > releasedBytes for a long time denotes a potential deadlock or unhealthy network delay)
+    @GuardedBy("this")
+    private long reservedBytes;
+    @GuardedBy("this")
+    private long releasedBytes;
+    @GuardedBy("this")
+    private long receivedBytes;
+    @GuardedBy("this")
+    private long backoffNanos;
 
     public HttpPageBufferClient(
             HttpClient httpClient,
@@ -223,7 +240,11 @@ public final class HttpPageBufferClient
                 requestsScheduled.get(),
                 requestsCompleted.get(),
                 requestsFailed.get(),
-                httpRequestState);
+                httpRequestState,
+                reservedBytes,
+                releasedBytes,
+                receivedBytes,
+                backoffNanos);
     }
 
     public synchronized boolean isRunning()
@@ -258,9 +279,16 @@ public final class HttpPageBufferClient
         }
     }
 
-    public synchronized void scheduleRequest()
+    public synchronized long getTotalPendingSize()
     {
+        return pendingPageSizesInBytes.stream().mapToLong(Long::longValue).sum();
+    }
+
+    public synchronized void scheduleRequest(long maxBytes)
+    {
+        reservedBytes += maxBytes;
         if (closed || (future != null) || scheduled) {
+            releaseQuota(maxBytes);
             return;
         }
         scheduled = true;
@@ -269,9 +297,12 @@ public final class HttpPageBufferClient
         backoff.startRequest();
 
         long delayNanos = backoff.getBackoffDelayNanos();
+        backoffNanos += delayNanos;
+
+        // TODO: backoff is usually short (< 500ms); but still a problem reserving the memory but not using it
         scheduler.schedule(() -> {
             try {
-                initiateRequest();
+                initiateRequest(maxBytes);
             }
             catch (Throwable t) {
                 // should not happen, but be safe and fail the operator
@@ -283,24 +314,40 @@ public final class HttpPageBufferClient
         requestsScheduled.incrementAndGet();
     }
 
-    private synchronized void initiateRequest()
+    @GuardedBy("this")
+    private void releaseQuota(long bytes)
+    {
+        releasedBytes += bytes;
+        clientCallback.releaseQuota(bytes);
+    }
+
+    private synchronized void initiateRequest(long maxBytes)
     {
         scheduled = false;
         if (closed || (future != null)) {
+            releaseQuota(maxBytes);
             return;
         }
 
         if (completed) {
+            releaseQuota(maxBytes);
             sendDelete();
         }
-        else {
+        else if (pendingPageSizesInBytes.isEmpty() || maxBytes == 0) {
+            // There could be a race when the exchange client found there was no pending pages when scheduling
+            // till this point some other delayed request has come back with some page summary
+            releaseQuota(maxBytes);
             sendGetSummary();
+        }
+        else {
+            sendGetData(maxBytes);
         }
 
         lastUpdate = DateTime.now();
     }
 
-    private synchronized void sendGetSummary()
+    @GuardedBy("this")
+    private void sendGetSummary()
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(PATH_BUFFER_SUMMARY).appendPath(String.valueOf(token)).build();
         HttpResponseFuture<BufferSummary> resultFuture = httpClient.executeAsync(
@@ -347,6 +394,11 @@ public final class HttpPageBufferClient
                         if (future == resultFuture) {
                             future = null;
                         }
+
+                        if (token == bufferSummary.getToken() && pendingPageSizesInBytes.isEmpty()) {
+                            pendingPageSizesInBytes.addAll(bufferSummary.getPageSizesInBytes());
+                        }
+
                         lastUpdate = DateTime.now();
                     }
                 }
@@ -355,19 +407,8 @@ public final class HttpPageBufferClient
                     return;
                 }
 
-                long bytes = pageSizesInBytes.stream().mapToLong(Long::longValue).sum();
-                if (bytes == 0) {
-                    // addPages must be called regardless of whether pages is an empty list because
-                    // clientCallback can keep stats of requests and responses. For example, it may
-                    // keep track of how often a client returns empty response and adjust request
-                    // frequency or buffer size.
-                    clientCallback.addPages(HttpPageBufferClient.this, ImmutableList.of());
-                    requestsCompleted.incrementAndGet();
-                    clientCallback.requestComplete(HttpPageBufferClient.this);
-                    return;
-                }
-
-                sendGetData(bufferSummary.getToken(), new DataSize(bytes, BYTE));
+                requestsCompleted.incrementAndGet();
+                clientCallback.requestComplete(HttpPageBufferClient.this);
             }
 
             @Override
@@ -378,19 +419,22 @@ public final class HttpPageBufferClient
         }, scheduler);
     }
 
-    private synchronized void sendGetData(long token, DataSize maxResponseSize)
+    @GuardedBy("this")
+    private void sendGetData(long maxBytes)
     {
-        // for the normal case, token should be the same as HttpPageBufferClient.this.token
+        // for the normal case, token should be the same as this.token
         // but that is not always guaranteed given there could be duplicated requested
-        // sendGetResults should have checked the equivalence
+        long token = this.token;
+
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(PATH_BUFFER_DATA).appendPath(String.valueOf(token)).build();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
-                        .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
+                        .setHeader(PRESTO_MAX_SIZE, new DataSize(maxBytes, BYTE).toString())
                         .setUri(uri).build(),
                 new PageResponseHandler());
 
         future = resultFuture;
+        resultFuture.addListener(() -> releaseQuota(maxBytes), scheduler);
         Futures.addCallback(resultFuture, new FutureCallback<PagesResponse>()
         {
             @Override
@@ -417,6 +461,28 @@ public final class HttpPageBufferClient
 
                         if (token == HttpPageBufferClient.this.token) {
                             pages = result.getPages();
+                            if (pages.size() > pendingPageSizesInBytes.size()) {
+                                // exchange client should only provide quota no more than the size of all pending pages
+                                // it is impossible for the current client to fetch more pages than expected
+                                throw new PageTransportErrorException(format("expected max number of pages to fetch: %s; found: %s", pendingPageSizesInBytes.size(), pages.size()));
+                            }
+                            for (int i = 0; i < pages.size(); i++) {
+                                SerializedPage page = pages.get(i);
+                                long pendingPageSize = pendingPageSizesInBytes.get(i);
+                                // the size of a serialized page on both server and client should be the same but that is not true for the retained size
+                                // the server uses a dynamic slice to serialize a page
+                                // if the page is uncompressed, the retained size could be larger than the actual size
+                                // if it is compressed, the slice will be copied with the exact same length as the actual one so that the retained sizes on both server and client are the same
+                                if (page.getRetainedSizeInBytes() > pendingPageSize) {
+                                    throw new PageTransportErrorException(format("expected page size: %s; found: %s", page.getRetainedSizeInBytes(), pendingPageSize));
+                                }
+                                else if (page.getRetainedSizeInBytes() < pendingPageSize && page.getCompression().equals(COMPRESSED)) {
+                                    throw new PageTransportErrorException(format("expected compressed page size: %s; found: %s", page.getRetainedSizeInBytes(), pendingPageSize));
+                                }
+                                receivedBytes += page.getRetainedSizeInBytes();
+                            }
+                            // add bytes in batch in order to match the distribution of reservedBytes
+                            pendingPageSizesInBytes.subList(0, pages.size()).clear();
                             HttpPageBufferClient.this.token = result.getNextToken();
                         }
                         else {
@@ -429,18 +495,16 @@ public final class HttpPageBufferClient
                     return;
                 }
 
-                // add pages:
-                // addPages must be called regardless of whether pages is an empty list because
-                // clientCallback can keep stats of requests and responses. For example, it may
-                // keep track of how often a client returns empty response and adjust request
-                // frequency or buffer size.
-                if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
-                    pagesReceived.addAndGet(pages.size());
-                    rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
-                }
-                else {
-                    pagesRejected.addAndGet(pages.size());
-                    rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                // add pages
+                if (!pages.isEmpty()) {
+                    if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
+                        pagesReceived.addAndGet(pages.size());
+                        rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
+                    else {
+                        pagesRejected.addAndGet(pages.size());
+                        rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
                 }
 
                 synchronized (HttpPageBufferClient.this) {

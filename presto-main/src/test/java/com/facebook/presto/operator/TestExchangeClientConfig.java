@@ -34,7 +34,6 @@ public class TestExchangeClientConfig
     {
         assertRecordedDefaults(recordDefaults(ExchangeClientConfig.class)
                 .setMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
-                .setConcurrentRequestMultiplier(3)
                 .setMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
@@ -47,7 +46,6 @@ public class TestExchangeClientConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("exchange.max-buffer-size", "1GB")
-                .put("exchange.concurrent-request-multiplier", "13")
                 .put("exchange.min-error-duration", "13s")
                 .put("exchange.max-error-duration", "33s")
                 .put("exchange.max-response-size", "1MB")
@@ -57,7 +55,6 @@ public class TestExchangeClientConfig
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
                 .setMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
-                .setConcurrentRequestMultiplier(13)
                 .setMinErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))

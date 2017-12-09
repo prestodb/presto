@@ -29,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 public class ExchangeClientConfig
 {
     private DataSize maxBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private int concurrentRequestMultiplier = 3;
     private Duration minErrorDuration = new Duration(1, TimeUnit.MINUTES);
     private Duration maxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
@@ -46,19 +45,6 @@ public class ExchangeClientConfig
     public ExchangeClientConfig setMaxBufferSize(DataSize maxBufferSize)
     {
         this.maxBufferSize = maxBufferSize;
-        return this;
-    }
-
-    @Min(1)
-    public int getConcurrentRequestMultiplier()
-    {
-        return concurrentRequestMultiplier;
-    }
-
-    @Config("exchange.concurrent-request-multiplier")
-    public ExchangeClientConfig setConcurrentRequestMultiplier(int concurrentRequestMultiplier)
-    {
-        this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         return this;
     }
 

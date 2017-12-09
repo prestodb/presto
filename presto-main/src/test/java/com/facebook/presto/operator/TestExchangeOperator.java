@@ -117,7 +117,6 @@ public class TestExchangeOperator
         exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
                 new DataSize(32, MEGABYTE),
                 new DataSize(10, MEGABYTE),
-                3,
                 new Duration(1, TimeUnit.MINUTES),
                 httpClient,
                 scheduler,

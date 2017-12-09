@@ -40,7 +40,6 @@ public class ExchangeClientFactory
         implements ExchangeClientSupplier
 {
     private final DataSize maxBufferedBytes;
-    private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
@@ -59,7 +58,6 @@ public class ExchangeClientFactory
         this(
                 config.getMaxBufferSize(),
                 config.getMaxResponseSize(),
-                config.getConcurrentRequestMultiplier(),
                 config.getMaxErrorDuration(),
                 config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
@@ -70,7 +68,6 @@ public class ExchangeClientFactory
     public ExchangeClientFactory(
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
-            int concurrentRequestMultiplier,
             Duration maxErrorDuration,
             int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
@@ -78,7 +75,6 @@ public class ExchangeClientFactory
             JsonCodec<BufferSummary> bufferSummaryCodec)
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
-        this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
@@ -96,7 +92,6 @@ public class ExchangeClientFactory
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
-        checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
     }
 
     @PreDestroy
@@ -118,7 +113,6 @@ public class ExchangeClientFactory
         return new ExchangeClient(
                 maxBufferedBytes,
                 maxResponseSize,
-                concurrentRequestMultiplier,
                 maxErrorDuration,
                 httpClient,
                 scheduler,

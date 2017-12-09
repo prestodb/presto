@@ -56,6 +56,7 @@ import static com.facebook.presto.server.TaskResource.PATH_BUFFER_SUMMARY;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -104,7 +105,8 @@ public class MockExchangeRequestProcessor
             assertEquals(maxSize, initialExpectedMaxSize);
             return summaryResponse(requestLocation, maxSize);
         }
-        assertEquals(maxSize, buffers.getUnchecked(requestLocation.getLocation()).getMaxSize());
+        // The size of the pages to fetch should be less than the size of all pending pages
+        assertLessThanOrEqual(maxSize, buffers.getUnchecked(requestLocation.getLocation()).getMaxSize());
         return dataResponse(requestLocation, maxSize);
     }
 

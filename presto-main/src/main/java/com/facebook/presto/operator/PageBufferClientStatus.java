@@ -38,6 +38,10 @@ public class PageBufferClientStatus
     private final int requestsCompleted;
     private final int requestsFailed;
     private final String httpRequestState;
+    private final long reservedBytes;
+    private final long releasedBytes;
+    private final long receivedBytes;
+    private final long backoffNanos;
 
     @JsonCreator
     public PageBufferClientStatus(@JsonProperty("uri") URI uri,
@@ -50,7 +54,11 @@ public class PageBufferClientStatus
             @JsonProperty("requestsScheduled") int requestsScheduled,
             @JsonProperty("requestsCompleted") int requestsCompleted,
             @JsonProperty("requestsFailed") int requestsFailed,
-            @JsonProperty("httpRequestState") String httpRequestState)
+            @JsonProperty("httpRequestState") String httpRequestState,
+            @JsonProperty("reservedBytes") long reservedBytes,
+            @JsonProperty("releasedBytes") long releasedBytes,
+            @JsonProperty("receivedBytes") long receivedBytes,
+            @JsonProperty("backoffNanos") long backoffNanos)
     {
         this.uri = uri;
         this.state = state;
@@ -63,6 +71,10 @@ public class PageBufferClientStatus
         this.requestsCompleted = requestsCompleted;
         this.requestsFailed = requestsFailed;
         this.httpRequestState = httpRequestState;
+        this.reservedBytes = reservedBytes;
+        this.releasedBytes = releasedBytes;
+        this.receivedBytes = receivedBytes;
+        this.backoffNanos = backoffNanos;
     }
 
     @JsonProperty
@@ -131,6 +143,30 @@ public class PageBufferClientStatus
         return httpRequestState;
     }
 
+    @JsonProperty
+    public long getReservedBytes()
+    {
+        return reservedBytes;
+    }
+
+    @JsonProperty
+    public long getReleasedBytes()
+    {
+        return releasedBytes;
+    }
+
+    @JsonProperty
+    public long getReceivedBytes()
+    {
+        return receivedBytes;
+    }
+
+    @JsonProperty
+    public long getBackoffNanos()
+    {
+        return backoffNanos;
+    }
+
     @Override
     public String toString()
     {
@@ -141,6 +177,10 @@ public class PageBufferClientStatus
                 .add("rowsReceived", rowsReceived)
                 .add("pagesReceived", pagesReceived)
                 .add("httpRequestState", httpRequestState)
+                .add("reservedBytes", reservedBytes)
+                .add("releasedBytes", releasedBytes)
+                .add("receivedBytes", receivedBytes)
+                .add("backoffNanos", backoffNanos)
                 .toString();
     }
 }
