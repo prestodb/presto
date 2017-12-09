@@ -22,6 +22,7 @@ import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
@@ -54,6 +55,7 @@ import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.execution.TaskTestUtils.updateTask;
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -145,14 +147,25 @@ public class TestSqlTask
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
+        BufferSummary summary = sqlTask.getTaskSummary(OUT, 0, (new DataSize(1, MEGABYTE)).toBytes()).get();
+        assertEquals(summary.isBufferComplete(), false);
+        assertEquals(summary.size(), 1);
+        BufferResult results = sqlTask.getTaskData(OUT, 0, (new DataSize(1, MEGABYTE)).toBytes());
         assertEquals(results.isBufferComplete(), false);
         assertEquals(results.getSerializedPages().size(), 1);
         assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
-        for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-            results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, MEGABYTE)).get();
+        for (boolean moreResults = true; moreResults; moreResults = !summary.isBufferComplete()) {
+            summary = sqlTask.getTaskSummary(OUT, summary.getToken() + summary.size(), (new DataSize(1, MEGABYTE)).toBytes()).get();
+            long bytes = summary.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum();
+            if (bytes == 0) {
+                results = emptyResults(summary.getTaskInstanceId(), summary.getToken(), false);
+            }
+            else {
+                results = sqlTask.getTaskData(OUT, results.getToken() + results.getSerializedPages().size(), bytes);
+            }
         }
+        assertEquals(summary.size(), 0);
         assertEquals(results.getSerializedPages().size(), 0);
 
         // complete the task by calling abort on it
@@ -226,8 +239,8 @@ public class TestSqlTask
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
         updateTask(sqlTask, EMPTY_SOURCES, outputBuffers);
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
-        assertFalse(bufferResult.isDone());
+        ListenableFuture<BufferSummary> futureSummary = sqlTask.getTaskSummary(OUT, 0, (new DataSize(1, MEGABYTE)).toBytes());
+        assertFalse(futureSummary.isDone());
 
         // close the sources (no splits will ever be added)
         updateTask(sqlTask, ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)), outputBuffers);
@@ -236,12 +249,12 @@ public class TestSqlTask
         sqlTask.abortTaskResults(OUT);
 
         // buffer will be closed by cancel event (wait for event to fire)
-        bufferResult.get(1, SECONDS);
+        futureSummary.get(1, SECONDS);
 
         // verify the buffer is closed
-        bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
-        assertTrue(bufferResult.isDone());
-        assertTrue(bufferResult.get().isBufferComplete());
+        futureSummary = sqlTask.getTaskSummary(OUT, 0, (new DataSize(1, MEGABYTE)).toBytes());
+        assertTrue(futureSummary.isDone());
+        assertTrue(futureSummary.get().isBufferComplete());
     }
 
     @Test
@@ -252,18 +265,18 @@ public class TestSqlTask
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
-        assertFalse(bufferResult.isDone());
+        ListenableFuture<BufferSummary> futureSummary = sqlTask.getTaskSummary(OUT, 0, (new DataSize(1, MEGABYTE)).toBytes());
+        assertFalse(futureSummary.isDone());
 
         sqlTask.cancel();
         assertEquals(sqlTask.getTaskInfo().getTaskStatus().getState(), TaskState.CANCELED);
 
         // buffer future will complete.. the event is async so wait a bit for event to propagate
-        bufferResult.get(1, SECONDS);
+        futureSummary.get(1, SECONDS);
 
-        bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
-        assertTrue(bufferResult.isDone());
-        assertTrue(bufferResult.get().isBufferComplete());
+        futureSummary = sqlTask.getTaskSummary(OUT, 0, (new DataSize(1, MEGABYTE)).toBytes());
+        assertTrue(futureSummary.isDone());
+        assertTrue(futureSummary.get().isBufferComplete());
     }
 
     @Test
@@ -274,8 +287,8 @@ public class TestSqlTask
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
-        assertFalse(bufferResult.isDone());
+        ListenableFuture<BufferSummary> futureSummary = sqlTask.getTaskSummary(OUT, 0, (new DataSize(1, MEGABYTE)).toBytes());
+        assertFalse(futureSummary.isDone());
 
         TaskState taskState = sqlTask.getTaskInfo().getTaskStatus().getState();
         sqlTask.failed(new Exception("test"));
@@ -283,13 +296,13 @@ public class TestSqlTask
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         try {
-            assertTrue(bufferResult.get(1, SECONDS).isBufferComplete());
+            assertTrue(futureSummary.get(1, SECONDS).isBufferComplete());
             fail("expected TimeoutException");
         }
         catch (TimeoutException expected) {
             // expected
         }
-        assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).isDone());
+        assertFalse(sqlTask.getTaskSummary(OUT, 0, (new DataSize(1, MEGABYTE)).toBytes()).isDone());
     }
 
     public SqlTask createInitialTask()

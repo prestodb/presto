@@ -19,6 +19,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.BufferSummary;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.memory.QueryContext;
@@ -50,7 +51,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -359,22 +359,20 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferSummary> getTaskSummary(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
     {
         requireNonNull(bufferId, "bufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
 
-        return Futures.transform(
-                outputBuffer.getSummary(bufferId, startingSequenceId, maxSize.toBytes()),
-                result -> {
-                    if (result.isBufferComplete()) {
-                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
-                    }
-                    if (result.getPageSizesInBytes().isEmpty()) {
-                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
-                    }
-                    return outputBuffer.getData(bufferId, startingSequenceId, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
-                });
+        return outputBuffer.getSummary(bufferId, startingSequenceId, maxBytes);
+    }
+
+    public BufferResult getTaskData(OutputBufferId bufferId, long startingSequenceId, long maxBytes)
+    {
+        requireNonNull(bufferId, "bufferId is null");
+        checkArgument(maxBytes > 0, "maxSize must be at least 1 byte");
+
+        return outputBuffer.getData(bufferId, startingSequenceId, maxBytes);
     }
 
     public TaskInfo abortTaskResults(OutputBufferId bufferId)

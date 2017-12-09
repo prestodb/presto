@@ -37,6 +37,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -62,6 +63,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
+import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Predicates.notNull;
@@ -329,7 +331,17 @@ public class SqlTaskManager
         Preconditions.checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
         requireNonNull(maxSize, "maxSize is null");
 
-        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+        return Futures.transform(
+                tasks.getUnchecked(taskId).getTaskSummary(bufferId, startingSequenceId, maxSize.toBytes()),
+                result -> {
+                    if (result.isBufferComplete()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), true);
+                    }
+                    if (result.getPageSizesInBytes().isEmpty()) {
+                        return emptyResults(result.getTaskInstanceId(), result.getToken(), false);
+                    }
+                    return tasks.getUnchecked(taskId).getTaskData(bufferId, startingSequenceId, result.getPageSizesInBytes().stream().mapToLong(Long::longValue).sum());
+                });
     }
 
     @Override
