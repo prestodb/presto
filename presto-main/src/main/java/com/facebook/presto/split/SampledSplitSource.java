@@ -14,7 +14,9 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -59,6 +61,17 @@ public class SampledSplitSource
         return Futures.transform(batch, splits -> splits.stream()
                 .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
                 .collect(toImmutableList()));
+    }
+
+    @Override
+    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
+    {
+        ListenableFuture<SplitBatch> batch = splitSource.getNextBatch(partitionHandle, lifespan, maxSize);
+        return Futures.transform(batch, splitBatch -> new SplitBatch(
+                splitBatch.getSplits().stream()
+                        .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
+                        .collect(toImmutableList()),
+                splitBatch.isLastBatch()));
     }
 
     @Override

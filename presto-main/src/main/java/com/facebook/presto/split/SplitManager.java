@@ -67,7 +67,7 @@ public class SplitManager
                 layout.getConnectorHandle(),
                 splitSchedulingStrategy);
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source, splitSchedulingStrategy);
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }

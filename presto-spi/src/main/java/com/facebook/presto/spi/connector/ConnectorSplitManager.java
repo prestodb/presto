@@ -41,5 +41,6 @@ public interface ConnectorSplitManager
     enum SplitSchedulingStrategy
     {
         UNGROUPED_SCHEDULING,
+        GROUPED_SCHEDULING,
     }
 }
