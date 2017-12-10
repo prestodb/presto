@@ -351,7 +351,7 @@ Convenience Extraction Functions
 
 .. function:: second(x) -> bigint
 
-    Returns the second of the hour from ``x``.
+    Returns the second of the minute from ``x``.
 
 .. function:: timezone_hour(timestamp) -> bigint
 
