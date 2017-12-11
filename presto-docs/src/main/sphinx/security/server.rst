@@ -9,16 +9,9 @@ JDBC and ODBC drivers.
 To enable Kerberos authentication for Presto, configuration changes are made on
 the Presto coordinator. No changes are required to the worker configuration;
 the worker nodes will continue to connect to the coordinator over
-unauthenticated HTTP.
+unauthenticated HTTP. However, if you want to secure the communication between
+Presto nodes with SSL/TLS, configure :doc:`/security/internal-communication`.
 
-.. warning::
-
-  Worker nodes cannot yet be configured to connect to the Presto coordinator
-  using HTTPS or to authenticate with Kerberos. It is the administrator's
-  responsibility to enable unauthenticated access over HTTP for worker nodes
-  and ensure unathenticated access is blocked for any node that is not a worker
-  node. For nodes that are not worker nodes, block access to the Presto
-  coordinator's HTTP port.
 
 Environment Configuration
 -------------------------
