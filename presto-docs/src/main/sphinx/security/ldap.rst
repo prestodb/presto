@@ -12,6 +12,8 @@ credentials using an external LDAP service.
 To enable LDAP authentication for Presto, configuration changes are made on
 the Presto coordinator. No changes are required to the worker configuration;
 only the communication from the clients to the coordinator is authenticated.
+However, if you want to secure the communication between
+Presto nodes with SSL/TLS configure :doc:`/security/internal-communication`.
 
 Presto Server Configuration
 ---------------------------
