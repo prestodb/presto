@@ -29,9 +29,7 @@ import org.testng.annotations.Test;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -41,7 +39,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -74,27 +71,6 @@ public abstract class AbstractTestBlock
         }
     }
 
-    // copied from SliceArrayBlock, any changes should be reflected
-    private static long getSliceArrayRetainedSizeInBytes(Slice[] values)
-    {
-        long sizeInBytes = sizeOf(values);
-        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>(values.length);
-        for (Slice value : values) {
-            if (value == null) {
-                continue;
-            }
-            if (value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
-                sizeInBytes += value.getRetainedSize();
-            }
-            else if (value != EMPTY_SLICE) {
-                // EMPTY_SLICE is a singleton, so we don't account for the memory held onto by that instance.
-                // Otherwise, we will be counting it multiple times.
-                sizeInBytes += ClassLayout.parseClass(Slice.class).instanceSize();
-            }
-        }
-        return sizeInBytes;
-    }
-
     private void assertRetainedSize(Block block)
     {
         long retainedSize = ClassLayout.parseClass(block.getClass()).instanceSize();
@@ -116,9 +92,6 @@ public abstract class AbstractTestBlock
                 }
                 else if (type == BlockBuilder.class || type == Block.class) {
                     retainedSize += ((Block) field.get(block)).getRetainedSizeInBytes();
-                }
-                else if (type == Slice[].class) {
-                    retainedSize += getSliceArrayRetainedSizeInBytes((Slice[]) field.get(block));
                 }
                 else if (type == BlockBuilder[].class || type == Block[].class) {
                     Block[] blocks = (Block[]) field.get(block);

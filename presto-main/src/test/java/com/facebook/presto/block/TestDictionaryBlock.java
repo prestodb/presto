@@ -16,11 +16,11 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -157,7 +157,7 @@ public class TestDictionaryBlock
     public void testBasicGetPositions()
     {
         Slice[] expectedValues = createExpectedValues(10);
-        Block dictionaryBlock = new DictionaryBlock(makeSliceArrayBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
+        Block dictionaryBlock = new DictionaryBlock(createSlicesBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
         assertBlock(dictionaryBlock, new Slice[] {expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5]});
         DictionaryId dictionaryId = ((DictionaryBlock) dictionaryBlock).getDictionarySourceId();
 
@@ -196,7 +196,7 @@ public class TestDictionaryBlock
     @Test
     public void testCompactGetPositions()
     {
-        DictionaryBlock block = new DictionaryBlock(makeSliceArrayBlock(createExpectedValues(10)), new int[] {0, 1, 2, 3, 4, 5}).compact();
+        DictionaryBlock block = new DictionaryBlock(createSlicesBlock(createExpectedValues(10)), new int[] {0, 1, 2, 3, 4, 5}).compact();
 
         // 3, 3, 4, 5, 2, 0, 1, 1
         block = (DictionaryBlock) block.getPositions(new int[] {3, 3, 4, 5, 2, 0, 1, 1});
@@ -247,7 +247,7 @@ public class TestDictionaryBlock
             }
             ids[i] = index;
         }
-        return new DictionaryBlock(new SliceArrayBlock(dictionarySize, expectedValues), ids);
+        return new DictionaryBlock(createSlicesBlock(expectedValues), ids);
     }
 
     private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
@@ -258,12 +258,7 @@ public class TestDictionaryBlock
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(makeSliceArrayBlock(expectedValues), ids);
-    }
-
-    private static Block makeSliceArrayBlock(Slice[] values)
-    {
-        return new SliceArrayBlock(values.length, values);
+        return new DictionaryBlock(createSlicesBlock(expectedValues), ids);
     }
 
     private static void assertDictionaryIds(DictionaryBlock dictionaryBlock, int... expected)

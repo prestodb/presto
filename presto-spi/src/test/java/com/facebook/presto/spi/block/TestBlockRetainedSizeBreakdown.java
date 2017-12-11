@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
+import io.airlift.slice.DynamicSliceOutput;
 import it.unimi.dsi.fastutil.Hash.Strategy;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenCustomHashMap;
 import org.testng.annotations.Test;
@@ -28,7 +28,6 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
 public class TestBlockRetainedSizeBreakdown
@@ -60,7 +59,7 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testDictionaryBlock()
     {
-        Block keyDictionaryBlock = createSliceArrayBlock(EXPECTED_ENTRIES);
+        Block keyDictionaryBlock = createVariableWidthBlock(EXPECTED_ENTRIES);
         int[] keyIds = new int[EXPECTED_ENTRIES];
         for (int i = 0; i < keyIds.length; i++) {
             keyIds[i] = i;
@@ -111,17 +110,9 @@ public class TestBlockRetainedSizeBreakdown
     }
 
     @Test
-    public void testSliceArrayBlock()
-    {
-        checkRetainedSize(createSliceArrayBlock(EXPECTED_ENTRIES), true);
-    }
-
-    @Test
     public void testVariableWidthBlock()
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, 4 * EXPECTED_ENTRIES);
-        writeEntries(EXPECTED_ENTRIES, blockBuilder, VARCHAR);
-        checkRetainedSize(blockBuilder.build(), false);
+        checkRetainedSize(createVariableWidthBlock(EXPECTED_ENTRIES), false);
     }
 
     private static final class ObjectStrategy
@@ -187,12 +178,14 @@ public class TestBlockRetainedSizeBreakdown
         throw new UnsupportedOperationException();
     }
 
-    private static Block createSliceArrayBlock(int entries)
+    private static Block createVariableWidthBlock(int entries)
     {
-        Slice[] sliceArray = new Slice[entries];
+        int[] offsets = new int[entries + 1];
+        DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(entries);
         for (int i = 0; i < entries; i++) {
-            sliceArray[i] = utf8Slice(i + "");
+            dynamicSliceOutput.writeByte(i);
+            offsets[i + 1] = dynamicSliceOutput.size();
         }
-        return new SliceArrayBlock(sliceArray.length, sliceArray);
+        return new VariableWidthBlock(entries, dynamicSliceOutput.slice(), offsets, new boolean[entries]);
     }
 }

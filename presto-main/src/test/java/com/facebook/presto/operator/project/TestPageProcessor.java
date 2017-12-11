@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
@@ -225,7 +225,7 @@ public class TestPageProcessor
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
         Arrays.fill(slices, Slices.allocate(1024));
-        Page inputPage = new Page(new SliceArrayBlock(slices.length, slices));
+        Page inputPage = new Page(createSlicesBlock(slices));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
@@ -233,7 +233,7 @@ public class TestPageProcessor
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
         int batchSize = MAX_BATCH_SIZE;
         for (Optional<Page> actualPage : outputPages) {
-            Page expectedPage = new Page(new SliceArrayBlock(batchSize, slices));
+            Page expectedPage = new Page(createSlicesBlock(Arrays.copyOfRange(slices, 0, batchSize)));
             assertPageEquals(ImmutableList.of(VARCHAR), actualPage.orElse(null), expectedPage);
             if (actualPage.orElseThrow(() -> new AssertionError("page is not present")).getSizeInBytes() > MAX_PAGE_SIZE_IN_BYTES) {
                 batchSize = batchSize / 2;
@@ -242,7 +242,7 @@ public class TestPageProcessor
 
         // process small page which will increase batch size
         Arrays.fill(slices, Slices.allocate(128));
-        inputPage = new Page(new SliceArrayBlock(slices.length, slices));
+        inputPage = new Page(createSlicesBlock(slices));
 
         output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
@@ -250,7 +250,7 @@ public class TestPageProcessor
         outputPages = ImmutableList.copyOf(output);
         int offset = 0;
         for (Optional<Page> actualPage : outputPages) {
-            Page expectedPage = new Page(new SliceArrayBlock(Math.min(inputPage.getPositionCount() - offset, batchSize), slices));
+            Page expectedPage = new Page(createSlicesBlock(Arrays.copyOfRange(slices, 0, Math.min(inputPage.getPositionCount() - offset, batchSize))));
             assertPageEquals(ImmutableList.of(VARCHAR), actualPage.orElse(null), expectedPage);
             offset += actualPage.orElseThrow(() -> new AssertionError("page is not present")).getPositionCount();
             if (actualPage.orElseThrow(() -> new AssertionError("page is not present")).getSizeInBytes() < MIN_PAGE_SIZE_IN_BYTES) {
@@ -270,7 +270,7 @@ public class TestPageProcessor
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
         Arrays.fill(slices, Slices.allocate(1024));
-        Page inputPage = new Page(new SliceArrayBlock(slices.length, slices));
+        Page inputPage = new Page(createSlicesBlock(slices));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
         assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
@@ -284,7 +284,8 @@ public class TestPageProcessor
         int pageCount = 0;
         while (output.hasNext()) {
             Page actualPage = output.next().orElse(null);
-            Page expectedPage = new Page(new SliceArrayBlock(batchSize, slices), new SliceArrayBlock(batchSize, slices));
+            Block sliceBlock = createSlicesBlock(Arrays.copyOfRange(slices, 0, batchSize));
+            Page expectedPage = new Page(sliceBlock, sliceBlock);
             assertPageEquals(ImmutableList.of(VARCHAR, VARCHAR), actualPage, expectedPage);
             pageCount++;
 
@@ -338,7 +339,7 @@ public class TestPageProcessor
 
         Slice[] slices = new Slice[rows];
         Arrays.fill(slices, Slices.allocate(rows));
-        Page inputPage = new Page(new SliceArrayBlock(slices.length, slices));
+        Page inputPage = new Page(createSlicesBlock(slices));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, yieldSignal, inputPage);
 
@@ -360,7 +361,7 @@ public class TestPageProcessor
         yieldSignal.reset();
 
         Block[] blocks = new Block[columns];
-        Arrays.fill(blocks, new SliceArrayBlock(rows, slices));
+        Arrays.fill(blocks, createSlicesBlock(Arrays.copyOfRange(slices, 0, rows)));
         Page expectedPage = new Page(blocks);
         assertPageEquals(Collections.nCopies(columns, VARCHAR), actualPage, expectedPage);
         assertFalse(output.hasNext());
