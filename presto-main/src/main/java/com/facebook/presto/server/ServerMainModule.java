@@ -129,6 +129,7 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
+import com.facebook.presto.util.KerberosPrincipal;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
@@ -140,6 +141,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
 import io.airlift.units.DataSize;
@@ -149,6 +151,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.io.File;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -157,6 +160,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.reflect.Reflection.newProxy;
@@ -216,6 +220,28 @@ public class ServerMainModule
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
         });
+
+        if (internalCommunicationConfig.isKerberosEnabled()) {
+            File kerberosConfig = internalCommunicationConfig.getKerberosConfig();
+            File kerberosKeytab = internalCommunicationConfig.getKerberosKeytab();
+            KerberosPrincipal principal = KerberosPrincipal.valueOf(internalCommunicationConfig.getKerberosPrincipal());
+            String kerberosServiceName = internalCommunicationConfig.getKerberosServiceName();
+            checkArgument(kerberosConfig != null, "kerberos config must be set");
+            checkArgument(kerberosKeytab != null, "kerberos keytab must be set");
+            checkArgument(kerberosServiceName != null, "kerberos service name must be set");
+
+            configBinder(binder).bindConfigGlobalDefaults(KerberosConfig.class, config -> {
+                config.setConfig(kerberosConfig);
+                config.setKeytab(kerberosKeytab);
+                config.setUseCanonicalHostname(internalCommunicationConfig.isKerberosUseCanonicalHostname());
+                config.setCredentialCache(internalCommunicationConfig.getKerberosCredentialCache());
+            });
+            configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+                config.setAuthenticationEnabled(true);
+                config.setKerberosPrincipal(principal.substituteHostnamePlaceholder().toString());
+                config.setKerberosRemoteServiceName(kerberosServiceName);
+            });
+        }
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
 

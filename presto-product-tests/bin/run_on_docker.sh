@@ -184,13 +184,13 @@ shift 1
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
-elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
+elif [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
 fi
 
 CLI_ARGUMENTS="--server presto-master:8080"
-if [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
-    CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456"
+if [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
+    CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456 --enable-authentication --krb5-config-path /etc/krb5.conf --krb5-principal presto-client/presto-master.docker.cluster@LABS.TERADATA.COM --krb5-keytab-path /etc/presto/conf/presto-client.keytab --krb5-remote-service-name presto-server --krb5-disable-remote-service-hostname-canonicalization"
 fi
 
 # check docker and docker compose installation
