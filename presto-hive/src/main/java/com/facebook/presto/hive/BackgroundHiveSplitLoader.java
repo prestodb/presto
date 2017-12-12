@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -174,22 +175,24 @@ public class BackgroundHiveSplitLoader
                 if (stopped) {
                     return TaskStatus.finished();
                 }
+                CompletableFuture<?> future;
+                taskExecutionLock.readLock().lock();
                 try {
-                    CompletableFuture<?> future;
-                    taskExecutionLock.readLock().lock();
-                    try {
-                        future = loadSplits();
-                    }
-                    finally {
-                        taskExecutionLock.readLock().unlock();
-                    }
-                    invokeNoMoreSplitsIfNecessary();
-                    if (!future.isDone()) {
-                        return TaskStatus.continueOn(future);
-                    }
+                    future = loadSplits();
                 }
                 catch (Exception e) {
+                    // Fail the split source before releasing the execution lock
+                    // Otherwise, a race could occur where the split source is completed before we fail it.
                     hiveSplitSource.fail(e);
+                    checkState(stopped);
+                    return TaskStatus.finished();
+                }
+                finally {
+                    taskExecutionLock.readLock().unlock();
+                }
+                invokeNoMoreSplitsIfNecessary();
+                if (!future.isDone()) {
+                    return TaskStatus.continueOn(future);
                 }
             }
         }
