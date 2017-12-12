@@ -166,6 +166,7 @@ public interface Block
 
     /**
      * Returns the logical size of {@code block.getRegion(position, length)} in memory.
+     * The method can be expensive. Do not use it outside an implementation of Block.
      */
     long getRegionSizeInBytes(int position, int length);
 
