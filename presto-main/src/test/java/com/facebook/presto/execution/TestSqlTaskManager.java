@@ -22,6 +22,7 @@ import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
@@ -295,7 +296,7 @@ public class TestSqlTaskManager
             implements ExchangeClientSupplier
     {
         @Override
-        public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
+        public ExchangeClient get(LocalMemoryContext systemMemoryContext)
         {
             throw new UnsupportedOperationException();
         }
