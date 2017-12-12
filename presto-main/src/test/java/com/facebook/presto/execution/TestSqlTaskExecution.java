@@ -28,8 +28,10 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.PartitionedOutputBuffer;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.memory.AggregatedMemoryContext;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.memory.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -617,7 +619,7 @@ public class TestSqlTaskExecution
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),
                 new DataSize(1, MEGABYTE),
-                ignored -> {},
+                () -> new SimpleLocalMemoryContext(new AggregatedMemoryContext()),
                 taskNotificationExecutor);
     }
 

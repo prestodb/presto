@@ -15,6 +15,8 @@ package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.memory.AggregatedMemoryContext;
+import com.facebook.presto.memory.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -133,7 +135,7 @@ public class StatementResource
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> {});
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(new AggregatedMemoryContext()));
         Query query = Query.create(
                 sessionContext,
                 statement,
