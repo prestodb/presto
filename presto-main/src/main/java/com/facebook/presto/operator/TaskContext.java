@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
@@ -90,7 +89,22 @@ public class TaskContext
     @GuardedBy("cumulativeMemoryLock")
     private long lastTaskStatCallNanos = 0;
 
-    public TaskContext(QueryContext queryContext,
+    public static TaskContext createTaskContext(
+            QueryContext queryContext,
+            TaskStateMachine taskStateMachine,
+            Executor notificationExecutor,
+            ScheduledExecutorService yieldExecutor,
+            Session session,
+            boolean verboseStats,
+            boolean cpuTimerEnabled)
+    {
+        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, notificationExecutor, yieldExecutor, session, verboseStats, cpuTimerEnabled);
+        taskContext.initialize();
+        return taskContext;
+    }
+
+    private TaskContext(
+            QueryContext queryContext,
             TaskStateMachine taskStateMachine,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -103,20 +117,21 @@ public class TaskContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
-        taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-        {
-            @Override
-            public void stateChanged(TaskState newState)
-            {
-                if (newState.isDone()) {
-                    executionEndTime.set(DateTime.now());
-                    endNanos.set(System.nanoTime());
-                }
-            }
-        });
-
         this.verboseStats = verboseStats;
         this.cpuTimerEnabled = cpuTimerEnabled;
+    }
+
+    // the state change listener is added here in a separate initialize() method
+    // instead of the constructor to prevent leaking the "this" reference to
+    // another thread, which will cause unsafe publication of this instance.
+    private void initialize()
+    {
+        taskStateMachine.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                executionEndTime.set(DateTime.now());
+                endNanos.set(System.nanoTime());
+            }
+        });
     }
 
     public TaskId getTaskId()
