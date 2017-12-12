@@ -61,6 +61,7 @@ public class InMemoryHashAggregationBuilder
     private final boolean partial;
     private final long maxPartialMemory;
     private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext localUserMemoryContext;
 
     private boolean full;
 
@@ -126,7 +127,8 @@ public class InMemoryHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.toBytes();
-        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -149,7 +151,7 @@ public class InMemoryHashAggregationBuilder
             systemMemoryContext.setBytes(0);
         }
         else {
-            operatorContext.setMemoryReservation(0);
+            localUserMemoryContext.setBytes(0);
         }
     }
 
@@ -334,9 +336,9 @@ public class InMemoryHashAggregationBuilder
             full = (memorySize > maxPartialMemory);
             return true;
         }
-        // Operator/driver will be blocked on memory after we call setMemoryReservation.
+        // Operator/driver will be blocked on memory after we call setBytes.
         // If memory is not available, once we return, this operator will be blocked until memory is available.
-        operatorContext.setMemoryReservation(memorySize);
+        localUserMemoryContext.setBytes(memorySize);
         // If memory is not available, inform the caller that we cannot proceed for allocation.
         return operatorContext.isWaitingForMemory().isDone();
     }

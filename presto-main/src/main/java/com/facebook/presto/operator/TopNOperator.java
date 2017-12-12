@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -186,7 +187,7 @@ public class TopNOperator
                     sortTypes,
                     sortChannels,
                     sortOrders,
-                    operatorContext);
+                    operatorContext.localUserMemoryContext());
         }
 
         topNBuilder.processPage(page);
@@ -224,8 +225,8 @@ public class TopNOperator
         private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
-        private final OperatorContext operatorContext;
         private final PriorityQueue<Block[]> globalCandidates;
+        private final LocalMemoryContext localUserMemoryContext;
 
         private long memorySize;
 
@@ -233,7 +234,7 @@ public class TopNOperator
                 List<Type> sortTypes,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
-                OperatorContext operatorContext)
+                LocalMemoryContext localUserMemoryContext)
         {
             this.n = n;
 
@@ -241,7 +242,7 @@ public class TopNOperator
             this.sortChannels = sortChannels;
             this.sortOrders = sortOrders;
 
-            this.operatorContext = operatorContext;
+            this.localUserMemoryContext = requireNonNull(localUserMemoryContext, "localUserMemoryContext is null");
 
             Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
@@ -251,7 +252,7 @@ public class TopNOperator
         {
             long sizeDelta = mergeWithGlobalCandidates(page);
             memorySize += sizeDelta;
-            operatorContext.setMemoryReservation(memorySize);
+            localUserMemoryContext.setBytes(memorySize);
         }
 
         private long mergeWithGlobalCandidates(Page page)

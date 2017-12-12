@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -81,6 +82,7 @@ public class NestedLoopBuildOperator
     private final OperatorContext operatorContext;
     private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
     private final NestedLoopJoinPagesBuilder nestedLoopJoinPagesBuilder;
+    private final LocalMemoryContext localUserMemoryContext;
     private boolean finished;
 
     public NestedLoopBuildOperator(OperatorContext operatorContext, NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier)
@@ -88,6 +90,7 @@ public class NestedLoopBuildOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.nestedLoopJoinPagesSupplier = requireNonNull(nestedLoopJoinPagesSupplier, "nestedLoopJoinPagesSupplier is null");
         this.nestedLoopJoinPagesBuilder = new NestedLoopJoinPagesBuilder(operatorContext);
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
     }
 
     @Override
@@ -141,7 +144,7 @@ public class NestedLoopBuildOperator
         if (!operatorContext.trySetMemoryReservation(nestedLoopJoinPagesBuilder.getEstimatedSize().toBytes())) {
             nestedLoopJoinPagesBuilder.compact();
         }
-        operatorContext.setMemoryReservation(nestedLoopJoinPagesBuilder.getEstimatedSize().toBytes());
+        localUserMemoryContext.setBytes(nestedLoopJoinPagesBuilder.getEstimatedSize().toBytes());
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
