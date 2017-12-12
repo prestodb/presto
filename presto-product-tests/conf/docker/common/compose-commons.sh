@@ -15,7 +15,7 @@ function export_canonical_path() {
     elif [[ -f $PATH ]]; then
         PATH=$(echo "$(cd ${PATH%/*} && pwd)/${PATH##*/}")
     else
-        echo "Invalid path: [$PATH]. Working directory is [$(pwd)]."
+        echo "Invalid path: [$PATH]. Working directory is [$(pwd)]." >&2
         exit 1
     fi
     export $PATH_REFERENCE=$PATH
