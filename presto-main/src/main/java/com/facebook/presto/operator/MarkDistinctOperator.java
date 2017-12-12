@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -95,6 +96,7 @@ public class MarkDistinctOperator
     private final OperatorContext operatorContext;
     private final List<Type> types;
     private final MarkDistinctHash markDistinctHash;
+    private final LocalMemoryContext localUserMemoryContext;
 
     private Page inputPage;
     private boolean finishing;
@@ -115,6 +117,7 @@ public class MarkDistinctOperator
             distinctTypes.add(types.get(channel));
         }
         this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), Ints.toArray(markDistinctChannels), hashChannel, joinCompiler, this::updateMemoryReservation);
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
     }
 
     @Override
@@ -198,9 +201,9 @@ public class MarkDistinctOperator
     // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
     private boolean updateMemoryReservation()
     {
-        // Operator/driver will be blocked on memory after we call setMemoryReservation.
+        // Operator/driver will be blocked on memory after we call localUserMemoryContext.setBytes().
         // If memory is not available, once we return, this operator will be blocked until memory is available.
-        operatorContext.setMemoryReservation(markDistinctHash.getEstimatedSize());
+        localUserMemoryContext.setBytes(markDistinctHash.getEstimatedSize());
         // If memory is not available, inform the caller that we cannot proceed for allocation.
         return operatorContext.isWaitingForMemory().isDone();
     }

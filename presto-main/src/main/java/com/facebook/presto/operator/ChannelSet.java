@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public class ChannelSet
 {
@@ -76,13 +78,15 @@ public class ChannelSet
         private final GroupByHash hash;
         private final OperatorContext operatorContext;
         private final Page nullBlockPage;
+        private final LocalMemoryContext localMemoryContext;
 
         public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler)
         {
             List<Type> types = ImmutableList.of(type);
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.hash = createGroupByHash(operatorContext.getSession(), types, HASH_CHANNELS, hashChannel, expectedPositions, joinCompiler);
-            this.operatorContext = operatorContext;
             this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
+            this.localMemoryContext = operatorContext.localUserMemoryContext();
         }
 
         public ChannelSet build()
@@ -106,10 +110,7 @@ public class ChannelSet
             boolean done = work.process();
             // TODO: this class does not yield wrt memory limit; enable it
             verify(done);
-
-            if (operatorContext != null) {
-                operatorContext.setMemoryReservation(hash.getEstimatedSize());
-            }
+            localMemoryContext.setBytes(hash.getEstimatedSize());
         }
     }
 }

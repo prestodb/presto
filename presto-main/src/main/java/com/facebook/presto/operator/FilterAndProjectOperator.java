@@ -47,7 +47,7 @@ public class FilterAndProjectOperator
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.outputMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext();
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
     }
