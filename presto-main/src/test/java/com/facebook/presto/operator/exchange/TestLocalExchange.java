@@ -72,6 +72,7 @@ public class TestLocalExchange
                 executionStrategy,
                 new DataSize(retainedSizeOfPages(99), BYTE));
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
+        localExchangeFactory.noMoreSinkFactories();
 
         run(localExchangeFactory, executionStrategy, exchange -> {
             assertEquals(exchange.getBufferCount(), 1);
@@ -142,6 +143,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 executionStrategy);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
+        localExchangeFactory.noMoreSinkFactories();
 
         run(localExchangeFactory, executionStrategy, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -227,6 +229,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 executionStrategy);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
+        localExchangeFactory.noMoreSinkFactories();
 
         run(localExchangeFactory, executionStrategy, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -273,6 +276,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 executionStrategy);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
+        localExchangeFactory.noMoreSinkFactories();
 
         run(localExchangeFactory, executionStrategy, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -339,6 +343,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 executionStrategy);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
+        localExchangeFactory.noMoreSinkFactories();
 
         run(localExchangeFactory, executionStrategy, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -384,6 +389,7 @@ public class TestLocalExchange
                 executionStrategy,
                 new DataSize(1, BYTE));
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
+        localExchangeFactory.noMoreSinkFactories();
 
         run(localExchangeFactory, executionStrategy, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);

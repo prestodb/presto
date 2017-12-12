@@ -26,12 +26,12 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -255,6 +255,7 @@ public class LocalExchange
         checkState(!Thread.holdsLock(lock), "Can not execute this method while holding a lock");
     }
 
+    @ThreadSafe
     public static class LocalExchangeFactory
     {
         private final PartitioningHandle partitioning;
@@ -266,13 +267,17 @@ public class LocalExchange
         private final DataSize maxBufferedBytes;
         private final int bufferCount;
 
+        @GuardedBy("this")
         private boolean noMoreSinkFactories;
         // The number of total sink factories are tracked at planning time
         // so that the exact number of sink factory is known by the time execution starts.
+        @GuardedBy("this")
         private int numSinkFactories;
 
-        private ConcurrentMap<Lifespan, LocalExchange> localExchangeMap = new ConcurrentHashMap<>();
-        private List<LocalExchangeSinkFactoryId> closedSinkFactories = new ArrayList<>();
+        @GuardedBy("this")
+        private final Map<Lifespan, LocalExchange> localExchangeMap = new HashMap<>();
+        @GuardedBy("this")
+        private final List<LocalExchangeSinkFactoryId> closedSinkFactories = new ArrayList<>();
 
         public LocalExchangeFactory(
                 PartitioningHandle partitioning,
@@ -328,11 +333,6 @@ public class LocalExchange
             return bufferCount;
         }
 
-        private LocalExchange createLocalExchange()
-        {
-            return new LocalExchange(numSinkFactories, bufferCount, partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, maxBufferedBytes);
-        }
-
         public synchronized LocalExchange getLocalExchange(Lifespan lifespan)
         {
             if (exchangeSourcePipelineExecutionStrategy == UNGROUPED_EXECUTION) {
@@ -342,7 +342,9 @@ public class LocalExchange
                 checkArgument(!lifespan.isTaskWide(), "LocalExchangeFactory is declared as GROUPED_EXECUTION. Task-wide exchange cannot be created.");
             }
             return localExchangeMap.computeIfAbsent(lifespan, ignored -> {
-                LocalExchange localExchange = createLocalExchange();
+                checkState(noMoreSinkFactories);
+                LocalExchange localExchange =
+                        new LocalExchange(numSinkFactories, bufferCount, partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, maxBufferedBytes);
                 for (LocalExchangeSinkFactoryId closedSinkFactoryId : closedSinkFactories) {
                     localExchange.getSinkFactory(closedSinkFactoryId).close();
                 }
