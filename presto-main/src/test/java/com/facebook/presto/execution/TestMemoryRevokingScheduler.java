@@ -20,6 +20,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.DriverContext;
@@ -143,14 +144,19 @@ public class TestMemoryRevokingScheduler
         assertEquals(10, memoryPool.getFreeBytes());
         assertMemoryRevokingNotRequested();
 
-        operatorContext1.setRevocableMemoryReservation(3);
-        operatorContext3.setRevocableMemoryReservation(6);
+        LocalMemoryContext revocableMemory1 = operatorContext1.localRevocableMemoryContext();
+        LocalMemoryContext revocableMemory3 = operatorContext3.localRevocableMemoryContext();
+        LocalMemoryContext revocableMemory4 = operatorContext4.localRevocableMemoryContext();
+        LocalMemoryContext revocableMemory5 = operatorContext5.localRevocableMemoryContext();
+
+        revocableMemory1.setBytes(3);
+        revocableMemory3.setBytes(6);
         assertEquals(1, memoryPool.getFreeBytes());
         requestMemoryRevoking(scheduler);
         // we are still good - no revoking needed
         assertMemoryRevokingNotRequested();
 
-        operatorContext4.setRevocableMemoryReservation(7);
+        revocableMemory4.setBytes(7);
         assertEquals(-6, memoryPool.getFreeBytes());
         requestMemoryRevoking(scheduler);
         // we need to revoke 3 and 6
@@ -161,21 +167,21 @@ public class TestMemoryRevokingScheduler
         assertMemoryRevokingRequestedFor(operatorContext1, operatorContext3);
 
         // lets revoke some bytes
-        operatorContext1.setRevocableMemoryReservation(0);
+        revocableMemory1.setBytes(0);
         operatorContext1.resetMemoryRevokingRequested();
         requestMemoryRevoking(scheduler);
         assertMemoryRevokingRequestedFor(operatorContext3);
         assertEquals(-3, memoryPool.getFreeBytes());
 
         // and allocate some more
-        operatorContext5.setRevocableMemoryReservation(3);
+        revocableMemory5.setBytes(3);
         assertEquals(-6, memoryPool.getFreeBytes());
         requestMemoryRevoking(scheduler);
         // we are still good with just OC3 in process of revoking
         assertMemoryRevokingRequestedFor(operatorContext3);
 
         // and allocate some more
-        operatorContext5.setRevocableMemoryReservation(4);
+        revocableMemory5.setBytes(4);
         assertEquals(-7, memoryPool.getFreeBytes());
         requestMemoryRevoking(scheduler);
         // no we have to trigger revoking for OC4
@@ -202,14 +208,14 @@ public class TestMemoryRevokingScheduler
         /*
          * sqlTask1 fills its pool
          */
-        operatorContext1.setRevocableMemoryReservation(12);
+        operatorContext1.localRevocableMemoryContext().setBytes(12);
         requestMemoryRevoking(scheduler);
         assertMemoryRevokingRequestedFor(operatorContext1);
 
         /*
          * When sqlTask2 fills its pool
          */
-        operatorContext2.setRevocableMemoryReservation(12);
+        operatorContext2.localRevocableMemoryContext().setBytes(12);
         requestMemoryRevoking(scheduler);
 
         /*
@@ -235,7 +241,7 @@ public class TestMemoryRevokingScheduler
         scheduler.registerPoolListeners(); // no periodic check initiated
 
         // When
-        operatorContext.reserveRevocableMemory(12);
+        operatorContext.localRevocableMemoryContext().setBytes(12);
         awaitAsynchronousCallbacksRun();
 
         // Then

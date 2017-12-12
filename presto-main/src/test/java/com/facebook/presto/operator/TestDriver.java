@@ -17,6 +17,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -494,7 +495,8 @@ public class TestDriver
         {
             // this operator is always blocked and when queried by the driver
             // it triggers memory revocation so that the driver gets unblocked
-            getOperatorContext().reserveRevocableMemory(100);
+            LocalMemoryContext revocableMemoryContext = getOperatorContext().localRevocableMemoryContext();
+            revocableMemoryContext.setBytes(100);
             getOperatorContext().requestMemoryRevoking();
             return SettableFuture.create();
         }
