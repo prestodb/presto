@@ -219,6 +219,10 @@ elif [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
 else
   EXTERNAL_SERVICES="hadoop-master"
 fi
+
+# display how test environment is configured
+environment_compose config
+
 environment_compose up -d ${EXTERNAL_SERVICES}
 
 # start docker logs for the external services
