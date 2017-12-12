@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.MergeHashSort;
 import com.facebook.presto.operator.OperatorContext;
@@ -51,6 +52,8 @@ public class SpillableHashAggregationBuilder
     private final List<Integer> groupByChannels;
     private final Optional<Integer> hashChannel;
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext localUserMemoryContext;
+    private final LocalMemoryContext localRevocableMemoryContext;
     private final long memoryLimitForMerge;
     private final long memoryLimitForMergeWithMemory;
     private Optional<Spiller> spiller = Optional.empty();
@@ -85,6 +88,8 @@ public class SpillableHashAggregationBuilder
         this.groupByChannels = groupByChannels;
         this.hashChannel = hashChannel;
         this.operatorContext = operatorContext;
+        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.localRevocableMemoryContext = operatorContext.localRevocableMemoryContext();
         this.memoryLimitForMerge = memoryLimitForMerge.toBytes();
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
@@ -106,8 +111,8 @@ public class SpillableHashAggregationBuilder
     public void updateMemory()
     {
         checkState(spillInProgress.isDone());
-        operatorContext.setMemoryReservation(emptyHashAggregationBuilderSize);
-        operatorContext.setRevocableMemoryReservation(hashAggregationBuilder.getSizeInMemory() - emptyHashAggregationBuilderSize);
+        localUserMemoryContext.setBytes(emptyHashAggregationBuilderSize);
+        localRevocableMemoryContext.setBytes(hashAggregationBuilder.getSizeInMemory() - emptyHashAggregationBuilderSize);
     }
 
     public long getSizeInMemory()
@@ -192,6 +197,8 @@ public class SpillableHashAggregationBuilder
             merger.ifPresent(closer::register);
             spiller.ifPresent(closer::register);
             mergeHashSort.ifPresent(closer::register);
+            closer.register(() -> localUserMemoryContext.setBytes(0));
+            closer.register(() -> localRevocableMemoryContext.setBytes(0));
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -207,7 +214,7 @@ public class SpillableHashAggregationBuilder
             spiller = Optional.of(spillerFactory.create(
                     hashAggregationBuilder.buildTypes(),
                     operatorContext.getSpillContext(),
-                    operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+                    operatorContext.newAggregateSystemMemoryContext()));
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
@@ -224,7 +231,7 @@ public class SpillableHashAggregationBuilder
         checkState(spiller.isPresent());
 
         hashAggregationBuilder.setOutputPartial();
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext()));
 
         Iterator<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -241,7 +248,7 @@ public class SpillableHashAggregationBuilder
     {
         checkState(spiller.isPresent());
 
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.getSystemMemoryContext().newAggregatedMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext()));
 
         Iterator<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -261,7 +268,7 @@ public class SpillableHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 sortedPages,
-                operatorContext.getSystemMemoryContext().newLocalMemoryContext(),
+                operatorContext.newLocalSystemMemoryContext(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler));
