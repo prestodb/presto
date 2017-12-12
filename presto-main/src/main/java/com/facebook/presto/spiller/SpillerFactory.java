@@ -21,5 +21,5 @@ import java.util.List;
 
 public interface SpillerFactory
 {
-    Spiller create(List<Type> types, SpillContext localSpillContext, AggregatedMemoryContext memoryContext);
+    Spiller create(List<Type> types, SpillContext localSpillContext, AggregatedMemoryContext aggregatedMemoryContext);
 }
