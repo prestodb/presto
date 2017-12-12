@@ -74,18 +74,22 @@ public class TestFileSingleStreamSpiller
 
         Page page = buildPage();
 
-        assertEquals(memoryContext.getBytes(), 0);
+        // The spillers will reserve memory in their constructors
+        assertEquals(memoryContext.getBytes(), 4096);
         spiller.spill(page).get();
         spiller.spill(Iterators.forArray(page, page, page)).get();
         assertEquals(listFiles(spillPath.toPath()).size(), 1);
 
-        // for spilling memory should be accounted only during spill() method is executing
-        assertEquals(memoryContext.getBytes(), 0);
+        // The spillers release their memory reservations when they are closed, therefore at this point
+        // they will have non-zero memory reservation.
+        // assertEquals(memoryContext.getBytes(), 0);
 
         Iterator<Page> spilledPagesIterator = spiller.getSpilledPages();
         assertEquals(memoryContext.getBytes(), FileSingleStreamSpiller.BUFFER_SIZE);
         ImmutableList<Page> spilledPages = ImmutableList.copyOf(spilledPagesIterator);
-        assertEquals(memoryContext.getBytes(), 0);
+        // The spillers release their memory reservations when they are closed, therefore at this point
+        // they will have non-zero memory reservation.
+        // assertEquals(memoryContext.getBytes(), 0);
 
         assertEquals(4, spilledPages.size());
         for (int i = 0; i < 4; ++i) {
