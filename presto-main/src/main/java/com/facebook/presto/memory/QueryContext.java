@@ -221,7 +221,7 @@ public class QueryContext
 
     public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = new TaskContext(this, taskStateMachine, notificationExecutor, yieldExecutor, session, verboseStats, cpuTimerEnabled);
+        TaskContext taskContext = TaskContext.createTaskContext(this, taskStateMachine, notificationExecutor, yieldExecutor, session, verboseStats, cpuTimerEnabled);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }
