@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import org.postgresql.Driver;
@@ -34,7 +35,7 @@ public class PostgreSqlClient
     public PostgreSqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
             throws SQLException
     {
-        super(connectorId, config, "\"", new Driver());
+        super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
     }
 
     @Override

@@ -25,6 +25,7 @@ import io.airlift.units.MaxDataSize;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,6 +50,8 @@ public class FeaturesConfig
     private boolean fastInequalityJoins = true;
     private boolean reorderJoins = true;
     private boolean redistributeWrites = true;
+    private boolean scaleWriters;
+    private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
@@ -216,6 +219,32 @@ public class FeaturesConfig
     public FeaturesConfig setRedistributeWrites(boolean redistributeWrites)
     {
         this.redistributeWrites = redistributeWrites;
+        return this;
+    }
+
+    public boolean isScaleWriters()
+    {
+        return scaleWriters;
+    }
+
+    @Config("scale-writers")
+    public FeaturesConfig setScaleWriters(boolean scaleWriters)
+    {
+        this.scaleWriters = scaleWriters;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getWriterMinSize()
+    {
+        return writerMinSize;
+    }
+
+    @Config("writer-min-size")
+    @ConfigDescription("Target minimum size of writer output when scaling writers")
+    public FeaturesConfig setWriterMinSize(DataSize writerMinSize)
+    {
+        this.writerMinSize = writerMinSize;
         return this;
     }
 

@@ -35,7 +35,6 @@ import javax.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -44,7 +43,6 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 
@@ -100,33 +98,21 @@ public class BaseJdbcClient
             .build();
 
     protected final String connectorId;
-    protected final Driver driver;
-    protected final String connectionUrl;
-    protected final Properties connectionProperties;
+    protected final ConnectionFactory connectionFactory;
     protected final String identifierQuote;
 
-    public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, Driver driver)
+    public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        requireNonNull(config, "config is null"); // currently unused, retained as parameter for future extensions
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
-        this.driver = requireNonNull(driver, "driver is null");
-
-        requireNonNull(config, "config is null");
-        connectionUrl = config.getConnectionUrl();
-
-        connectionProperties = new Properties();
-        if (config.getConnectionUser() != null) {
-            connectionProperties.setProperty("user", config.getConnectionUser());
-        }
-        if (config.getConnectionPassword() != null) {
-            connectionProperties.setProperty("password", config.getConnectionPassword());
-        }
+        this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
     }
 
     @Override
     public Set<String> getSchemaNames()
     {
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties);
+        try (Connection connection = connectionFactory.openConnection();
                 ResultSet resultSet = connection.getMetaData().getSchemas()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -146,7 +132,7 @@ public class BaseJdbcClient
     @Override
     public List<SchemaTableName> getTableNames(@Nullable String schema)
     {
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             DatabaseMetaData metadata = connection.getMetaData();
             if (metadata.storesUpperCaseIdentifiers() && (schema != null)) {
                 schema = schema.toUpperCase(ENGLISH);
@@ -168,7 +154,7 @@ public class BaseJdbcClient
     @Override
     public JdbcTableHandle getTableHandle(SchemaTableName schemaTableName)
     {
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             DatabaseMetaData metadata = connection.getMetaData();
             String jdbcSchemaName = schemaTableName.getSchemaName();
             String jdbcTableName = schemaTableName.getTableName();
@@ -203,12 +189,10 @@ public class BaseJdbcClient
     @Override
     public List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle)
     {
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
-                boolean found = false;
                 while (resultSet.next()) {
-                    found = true;
                     Type columnType = toPrestoType(
                             resultSet.getInt("DATA_TYPE"),
                             resultSet.getInt("COLUMN_SIZE"),
@@ -219,11 +203,9 @@ public class BaseJdbcClient
                         columns.add(new JdbcColumnHandle(connectorId, columnName, columnType));
                     }
                 }
-                if (!found) {
-                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
-                }
                 if (columns.isEmpty()) {
-                    throw new PrestoException(NOT_SUPPORTED, "Table has no supported column types: " + tableHandle.getSchemaTableName());
+                    // In rare cases (e.g. PostgreSQL) a table might have no columns.
+                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
                 }
                 return ImmutableList.copyOf(columns);
             }
@@ -250,7 +232,7 @@ public class BaseJdbcClient
     public Connection getConnection(JdbcSplit split)
             throws SQLException
     {
-        Connection connection = driver.connect(connectionUrl, connectionProperties);
+        Connection connection = connectionFactory.openConnection();
         try {
             connection.setReadOnly(true);
         }
@@ -297,7 +279,7 @@ public class BaseJdbcClient
             throw new PrestoException(NOT_FOUND, "Schema not found: " + schema);
         }
 
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             if (uppercase) {
                 schema = schema.toUpperCase(ENGLISH);
@@ -392,7 +374,7 @@ public class BaseJdbcClient
                 .append("DROP TABLE ")
                 .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
 
-        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+        try (Connection connection = connectionFactory.openConnection()) {
             execute(connection, sql.toString());
         }
         catch (SQLException e) {
@@ -426,7 +408,7 @@ public class BaseJdbcClient
     public Connection getConnection(JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return driver.connect(connectionUrl, connectionProperties);
+        return connectionFactory.openConnection();
     }
 
     @Override

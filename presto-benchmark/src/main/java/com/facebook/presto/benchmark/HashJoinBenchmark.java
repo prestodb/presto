@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.LookupSourceFactory;
+import com.facebook.presto.operator.LookupSourceFactoryManager;
 import com.facebook.presto.operator.LookupSourceProvider;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
@@ -38,14 +40,17 @@ import java.util.OptionalInt;
 import java.util.concurrent.Future;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static java.util.Objects.requireNonNull;
 
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
 {
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators(new JoinProbeCompiler());
-    private LookupSourceFactory lookupSourceFactory;
+    private LookupSourceFactoryManager lookupSourceFactoryManager;
 
     public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
     {
@@ -60,43 +65,53 @@ public class HashJoinBenchmark
     @Override
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
-        if (lookupSourceFactory == null) {
+        if (lookupSourceFactoryManager == null) {
             OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
+            LookupSourceFactoryManager lookupSourceFactoryManager = LookupSourceFactoryManager.allAtOnce(new PartitionedLookupSourceFactory(
+                    ordersTableScan.getTypes(),
+                    ImmutableList.of(0, 1).stream()
+                            .map(ordersTableScan.getTypes()::get)
+                            .collect(toImmutableList()),
+                    Ints.asList(0).stream()
+                            .map(ordersTableScan.getTypes()::get)
+                            .collect(toImmutableList()),
+                    1,
+                    requireNonNull(ImmutableMap.of(), "layout is null"),
+                    false));
             HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                     1,
                     new PlanNodeId("test"),
                     ordersTableScan.getTypes(),
+                    lookupSourceFactoryManager,
                     ImmutableList.of(0, 1),
-                    ImmutableMap.of(),
                     Ints.asList(0),
                     OptionalInt.empty(),
-                    false,
                     Optional.empty(),
                     Optional.empty(),
                     ImmutableList.of(),
                     1_500_000,
-                    1,
                     new PagesIndex.TestingFactory(false),
                     false,
                     SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
 
             DriverContext driverContext = taskContext.addPipelineContext(0, false, false).addDriverContext();
-            Driver driver = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty()).createDriver(driverContext);
-            Future<LookupSourceProvider> lookupSourceProvider = hashBuilder.getLookupSourceFactory().createLookupSourceProvider();
+            Driver driver = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION)
+                    .createDriver(driverContext);
+            Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactoryManager.forLifespan(Lifespan.taskWide()).createLookupSourceProvider();
             while (!lookupSourceProvider.isDone()) {
                 driver.process();
             }
             getFutureValue(lookupSourceProvider).close();
-            lookupSourceFactory = hashBuilder.getLookupSourceFactory();
+            this.lookupSourceFactoryManager = lookupSourceFactoryManager;
         }
 
         OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(1, new PlanNodeId("test"), lookupSourceFactory, lineItemTableScan.getTypes(), Ints.asList(0), OptionalInt.empty(), Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
+        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(1, new PlanNodeId("test"), lookupSourceFactoryManager, lineItemTableScan.getTypes(), Ints.asList(0), OptionalInt.empty(), Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"), joinOperator.getTypes());
 
-        DriverFactory driverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty());
+        DriverFactory driverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty(), UNGROUPED_EXECUTION);
         DriverContext driverContext = taskContext.addPipelineContext(1, true, true).addDriverContext();
         Driver driver = driverFactory.createDriver(driverContext);
         return ImmutableList.of(driver);

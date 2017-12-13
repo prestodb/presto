@@ -71,6 +71,7 @@ import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -111,7 +112,8 @@ public class MockRemoteTaskFactory
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)));
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                UNGROUPED_EXECUTION);
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
@@ -215,7 +217,21 @@ public class MockRemoteTaskFactory
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }
 
-            return new TaskInfo(new TaskStatus(taskStateMachine.getTaskId(), TASK_INSTANCE_ID, nextTaskInfoVersion.getAndIncrement(), state, location, nodeId, failures, 0, 0, new DataSize(0, BYTE)),
+            return new TaskInfo(
+                    new TaskStatus(
+                            taskStateMachine.getTaskId(),
+                            TASK_INSTANCE_ID,
+                            nextTaskInfoVersion.getAndIncrement(),
+                            state,
+                            location,
+                            nodeId,
+                            ImmutableSet.of(),
+                            failures,
+                            0,
+                            0,
+                            false,
+                            new DataSize(0, BYTE),
+                            new DataSize(0, BYTE)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -234,9 +250,12 @@ public class MockRemoteTaskFactory
                     taskStateMachine.getState(),
                     location,
                     nodeId,
+                    ImmutableSet.of(),
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),
+                    false,
+                    stats.getPhysicalWrittenDataSize(),
                     stats.getMemoryReservation());
         }
 
@@ -315,6 +334,12 @@ public class MockRemoteTaskFactory
             if (allSourcesComplete) {
                 taskStateMachine.finished();
             }
+        }
+
+        @Override
+        public void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

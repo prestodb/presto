@@ -19,8 +19,10 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.LookupSourceFactoryManager;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
@@ -37,10 +39,13 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class HashBuildAndJoinBenchmark
         extends AbstractOperatorBenchmark
@@ -79,25 +84,34 @@ public class HashBuildAndJoinBenchmark
         }
 
         // hash build
+        LookupSourceFactoryManager lookupSourceFactoryManager = LookupSourceFactoryManager.allAtOnce(new PartitionedLookupSourceFactory(
+                source.getTypes(),
+                ImmutableList.of(0, 1).stream()
+                        .map(source.getTypes()::get)
+                        .collect(toImmutableList()),
+                Ints.asList(0).stream()
+                        .map(source.getTypes()::get)
+                        .collect(toImmutableList()),
+                1,
+                requireNonNull(ImmutableMap.of(), "layout is null"),
+                false));
         HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 source.getTypes(),
+                lookupSourceFactoryManager,
                 ImmutableList.of(0, 1),
-                ImmutableMap.of(),
                 Ints.asList(0),
                 hashChannel,
-                false,
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 1_500_000,
-                1,
                 new PagesIndex.TestingFactory(false),
                 false,
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
         driversBuilder.add(hashBuilder);
-        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty());
+        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, false).addDriverContext());
         hashBuildDriverFactory.noMoreDrivers();
 
@@ -112,10 +126,19 @@ public class HashBuildAndJoinBenchmark
             hashChannel = OptionalInt.of(2);
         }
 
-        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(2, new PlanNodeId("test"), hashBuilder.getLookupSourceFactory(), source.getTypes(), Ints.asList(0), hashChannel, Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
+        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(
+                2,
+                new PlanNodeId("test"),
+                lookupSourceFactoryManager,
+                source.getTypes(),
+                Ints.asList(0),
+                hashChannel,
+                Optional.empty(),
+                OptionalInt.empty(),
+                unsupportedPartitioningSpillerFactory());
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
-        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty());
+        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
         Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
         joinDriverFactory.noMoreDrivers();
 

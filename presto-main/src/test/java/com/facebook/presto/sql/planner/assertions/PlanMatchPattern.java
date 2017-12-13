@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -175,22 +176,6 @@ public final class PlanMatchPattern
             PlanMatchPattern source)
     {
         PlanMatchPattern result = node(AggregationNode.class, source);
-        aggregations.entrySet().forEach(
-                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
-        return result;
-    }
-
-    public static PlanMatchPattern aggregationWithOrderBy(
-            List<List<String>> groupingSets,
-            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
-            Map<Symbol, Symbol> masks,
-            Optional<Symbol> groupId,
-            Map<String, List<String>> orderBys,
-            Map<String, List<SortOrder>> orderings,
-            Step step,
-            PlanMatchPattern source)
-    {
-        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, masks, groupId, Optional.of(orderBys), Optional.of(orderings), step));
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
@@ -599,6 +584,11 @@ public final class PlanMatchPattern
         return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args));
     }
 
+    public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args, List<Ordering> orderBy)
+    {
+        return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args), orderBy);
+    }
+
     public static ExpectedValueProvider<FunctionCall> functionCall(
             String name,
             Optional<WindowFrame> frame,
@@ -651,6 +641,11 @@ public final class PlanMatchPattern
                         .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), Map.Entry::getValue)));
     }
 
+    public static Ordering sort(String field, SortItem.Ordering sortOrder, SortItem.NullOrdering nullOrder)
+    {
+        return new Ordering(field, sortOrder, nullOrder);
+    }
+
     @Override
     public String toString()
     {
@@ -698,5 +693,45 @@ public final class PlanMatchPattern
     private static String indentString(int indent)
     {
         return Strings.repeat("    ", indent);
+    }
+
+    public static class Ordering
+    {
+        private final String field;
+        private final SortItem.Ordering sortOrder;
+        private final SortItem.NullOrdering nullOrder;
+
+        private Ordering(String field, SortItem.Ordering sortOrder, SortItem.NullOrdering nullOrder)
+        {
+            this.field = field;
+            this.sortOrder = sortOrder;
+            this.nullOrder = nullOrder;
+        }
+
+        public String getField()
+        {
+            return field;
+        }
+
+        public SortItem.Ordering getSortOrder()
+        {
+            return sortOrder;
+        }
+
+        public SortItem.NullOrdering getNullOrder()
+        {
+            return nullOrder;
+        }
+
+        @Override
+        public String toString()
+        {
+            String result = field + " " + sortOrder;
+            if (nullOrder != SortItem.NullOrdering.UNDEFINED) {
+                result += " NULLS " + nullOrder;
+            }
+
+            return result;
+        }
     }
 }

@@ -14,17 +14,27 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SystemMemoryUsageListener;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class ExchangeClientFactory
         implements ExchangeClientSupplier
@@ -35,13 +45,16 @@ public class ExchangeClientFactory
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService scheduler;
+    private final ThreadPoolExecutorMBean executorMBean;
+    private final ExecutorService pageBufferClientCallbackExecutor;
+    private final Executor boundedExecutor;
 
     @Inject
     public ExchangeClientFactory(
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
-            @ForExchange ScheduledExecutorService executor)
+            @ForExchange ScheduledExecutorService scheduler)
     {
         this(
                 config.getMaxBufferSize(),
@@ -49,8 +62,9 @@ public class ExchangeClientFactory
                 config.getConcurrentRequestMultiplier(),
                 config.getMinErrorDuration(),
                 config.getMaxErrorDuration(),
+                config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
-                executor);
+                scheduler);
     }
 
     public ExchangeClientFactory(
@@ -59,8 +73,9 @@ public class ExchangeClientFactory
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
             Duration maxErrorDuration,
+            int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
-            ScheduledExecutorService executor)
+            ScheduledExecutorService scheduler)
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -74,11 +89,28 @@ public class ExchangeClientFactory
         long maxResponseSizeBytes = (long) (Math.min(httpClient.getMaxContentLength(), maxResponseSize.toBytes()) * 0.75);
         this.maxResponseSize = new DataSize(maxResponseSizeBytes, BYTE);
 
-        this.executor = requireNonNull(executor, "executor is null");
+        this.scheduler = requireNonNull(scheduler, "scheduler is null");
+
+        this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
+        this.boundedExecutor = new BoundedExecutor(pageBufferClientCallbackExecutor, pageBufferClientMaxCallbackThreads);
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
         checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        pageBufferClientCallbackExecutor.shutdownNow();
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorMBean;
     }
 
     @Override
@@ -91,7 +123,8 @@ public class ExchangeClientFactory
                 minErrorDuration,
                 maxErrorDuration,
                 httpClient,
-                executor,
-                systemMemoryUsageListener);
+                scheduler,
+                systemMemoryUsageListener,
+                boundedExecutor);
     }
 }

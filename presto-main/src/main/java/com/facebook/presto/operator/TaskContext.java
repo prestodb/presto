@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
@@ -43,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
@@ -71,6 +73,8 @@ public class TaskContext
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
+
+    private final Set<Lifespan> completedDriverGroups = newConcurrentHashSet();
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
@@ -160,6 +164,22 @@ public class TaskContext
     public DataSize getMemoryReservation()
     {
         return new DataSize(memoryReservation.get(), BYTE);
+    }
+
+    /**
+     * Returns the completed driver groups (excluding taskWide).
+     * A driver group is considered complete if all drivers associated with it
+     * has completed, and no new drivers associated with it will be created.
+     */
+    public Set<Lifespan> getCompletedDriverGroups()
+    {
+        return completedDriverGroups;
+    }
+
+    public void addCompletedDriverGroup(Lifespan driverGroup)
+    {
+        checkArgument(!driverGroup.isTaskWide(), "driverGroup is task-wide, not a driver group.");
+        completedDriverGroups.add(driverGroup);
     }
 
     public List<PipelineContext> getPipelineContexts()
@@ -336,6 +356,8 @@ public class TaskContext
         long outputDataSize = 0;
         long outputPositions = 0;
 
+        long physicalWrittenDataSize = 0;
+
         for (PipelineStats pipeline : pipelineStats) {
             if (pipeline.getLastEndTime() != null) {
                 lastExecutionEndTime = max(pipeline.getLastEndTime().getMillis(), lastExecutionEndTime);
@@ -366,6 +388,8 @@ public class TaskContext
                 outputDataSize += pipeline.getOutputDataSize().toBytes();
                 outputPositions += pipeline.getOutputPositions();
             }
+
+            physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSize().toBytes();
         }
 
         long startNanos = this.startNanos.get();
@@ -433,6 +457,7 @@ public class TaskContext
                 processedInputPositions,
                 succinctBytes(outputDataSize),
                 outputPositions,
+                succinctBytes(physicalWrittenDataSize),
                 pipelineStats);
     }
 

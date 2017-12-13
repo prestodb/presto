@@ -15,7 +15,6 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
-import java.util.List;
 import java.util.function.BiConsumer;
 
 public interface Block
@@ -167,6 +166,7 @@ public interface Block
 
     /**
      * Returns the logical size of {@code block.getRegion(position, length)} in memory.
+     * The method can be expensive. Do not use it outside an implementation of Block.
      */
     long getRegionSizeInBytes(int position, int length);
 
@@ -203,11 +203,13 @@ public interface Block
 
     /**
      * Returns a block containing the specified positions.
+     * Positions to copy are stored in a subarray within {@code positions} array
+     * that starts at {@code offset} and has length of {@code length}.
      * All specified positions must be valid for this block.
      * <p>
      * The returned block must be a compact representation of the original block.
      */
-    Block copyPositions(List<Integer> positions);
+    Block copyPositions(int[] positions, int offset, int length);
 
     /**
      * Returns a block starting at the specified position and extends for the

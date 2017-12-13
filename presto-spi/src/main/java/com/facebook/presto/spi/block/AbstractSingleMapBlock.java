@@ -16,8 +16,6 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
-import java.util.List;
-
 public abstract class AbstractSingleMapBlock
         implements Block
 {
@@ -237,7 +235,7 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
         throw new UnsupportedOperationException();
     }

@@ -56,6 +56,7 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     succinctBytes(1L),
                     1L,
+                    succinctBytes(1L),
                     new Duration(1, NANOSECONDS),
                     0L,
                     new Duration(1, NANOSECONDS),
@@ -85,6 +86,7 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     succinctBytes(500L),
                     100L,
+                    succinctBytes(1L),
                     new Duration(1, NANOSECONDS),
                     0L,
                     new Duration(1, NANOSECONDS),
@@ -114,6 +116,7 @@ public class TestQueryStats
                     new Duration(1, NANOSECONDS),
                     succinctBytes(1L),
                     1L,
+                    succinctBytes(1L),
                     new Duration(1, NANOSECONDS),
                     0L,
                     new Duration(1, NANOSECONDS),
@@ -168,6 +171,9 @@ public class TestQueryStats
 
             new DataSize(28, BYTE),
             29,
+
+            new DataSize(30, BYTE),
+
             operatorSummaries);
 
     @Test
@@ -225,7 +231,9 @@ public class TestQueryStats
         assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
         assertEquals(actual.getOutputPositions(), 29);
 
+        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(30, BYTE));
+
         assertEquals(400L, actual.getWrittenPositions());
-        assertEquals(1500L, actual.getWrittenDataSize().toBytes());
+        assertEquals(1500L, actual.getLogicalWrittenDataSize().toBytes());
     }
 }

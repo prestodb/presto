@@ -35,7 +35,7 @@ public class JdbcSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) layout;
         return jdbcClient.getSplits(layoutHandle);

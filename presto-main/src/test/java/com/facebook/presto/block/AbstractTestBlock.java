@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -166,20 +165,20 @@ public abstract class AbstractTestBlock
         assertEquals(block.getRetainedSizeInBytes(), retainedSize);
     }
 
-    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, List<Integer> positions)
+    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, int... positions)
     {
-        Block filteredBlock = block.copyPositions(positions);
+        Block filteredBlock = block.copyPositions(positions, 0, positions.length);
         T[] filteredExpectedValues = filter(expectedValues, positions);
-        assertEquals(filteredBlock.getPositionCount(), positions.size());
+        assertEquals(filteredBlock.getPositionCount(), positions.length);
         assertBlock(filteredBlock, filteredExpectedValues);
     }
 
-    private static <T> T[] filter(T[] expectedValues, List<Integer> positions)
+    private static <T> T[] filter(T[] expectedValues, int[] positions)
     {
         @SuppressWarnings("unchecked")
-        T[] prunedExpectedValues = (T[]) Array.newInstance(expectedValues.getClass().getComponentType(), positions.size());
+        T[] prunedExpectedValues = (T[]) Array.newInstance(expectedValues.getClass().getComponentType(), positions.length);
         for (int i = 0; i < prunedExpectedValues.length; i++) {
-            prunedExpectedValues[i] = expectedValues[positions.get(i)];
+            prunedExpectedValues[i] = expectedValues[positions[i]];
         }
         return prunedExpectedValues;
     }
@@ -236,7 +235,7 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
-        assertPositionValue(block.copyPositions(Ints.asList(position)), 0, expectedValue);
+        assertPositionValue(block.copyPositions(new int[] {position}, 0, 1), 0, expectedValue);
     }
 
     protected <T> void assertPositionValue(Block block, int position, T expectedValue)

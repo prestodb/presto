@@ -70,7 +70,12 @@ public class Driver
     private final List<Operator> operators;
     private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
-    private final AtomicReference<TaskSource> newTaskSource = new AtomicReference<>();
+
+    // This variable acts as a staging area. When new splits (encapsulated in TaskSource) are
+    // provided to a Driver, the Driver will not process them right away. Instead, the splits are
+    // added to this staging area. This staging area will be drained asynchronously. That's when
+    // the new splits get processed.
+    private final AtomicReference<TaskSource> pendingTaskSourceUpdates = new AtomicReference<>();
     private final Map<Operator, ListenableFuture<?>> revokingOperators = new HashMap<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
@@ -181,18 +186,16 @@ public class Driver
         return finished;
     }
 
-    public void updateSource(TaskSource source)
+    public void updateSource(TaskSource sourceUpdate)
     {
         checkState(initialized.get(), "Driver is not initialized");
         checkLockNotHeld("Can not update sources while holding the driver lock");
-
-        // does this driver have an operator for the specified source?
-        if (!sourceOperator.isPresent() || !sourceOperator.get().getSourceId().equals(source.getPlanNodeId())) {
-            return;
-        }
+        checkArgument(
+                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()),
+                "sourceUpdate is for a plan node that is different from this Driver's source node");
 
         // stage the new updates
-        newTaskSource.updateAndGet(current -> current == null ? source : current.update(source));
+        pendingTaskSourceUpdates.updateAndGet(current -> current == null ? sourceUpdate : current.update(sourceUpdate));
 
         // attempt to get the lock and process the updates we staged above
         // updates will be processed in close if and only if we got the lock
@@ -209,15 +212,15 @@ public class Driver
             return;
         }
 
-        TaskSource source = newTaskSource.getAndSet(null);
-        if (source == null) {
+        TaskSource sourceUpdate = pendingTaskSourceUpdates.getAndSet(null);
+        if (sourceUpdate == null) {
             return;
         }
 
-        // merge the current source and the specified source
-        TaskSource newSource = currentTaskSource.update(source);
+        // merge the current source and the specified source update
+        TaskSource newSource = currentTaskSource.update(sourceUpdate);
 
-        // if source contains no new data, just return
+        // if the update contains no new data, just return
         if (newSource == currentTaskSource) {
             return;
         }
@@ -526,6 +529,9 @@ public class Driver
             if (driverContext.getSystemMemoryUsage() > 0) {
                 log.error("Driver still has system memory reserved after freeing all operator memory. Freeing it.");
             }
+            if (driverContext.getRevocableMemoryUsage() > 0) {
+                log.error("Driver still has revocable memory reserved after freeing all operator memory. Freeing it.");
+            }
             driverContext.freeMemory(driverContext.getMemoryUsage());
             driverContext.freeSystemMemory(driverContext.getSystemMemoryUsage());
             driverContext.freeRevocableMemory(driverContext.getRevocableMemoryUsage());
@@ -659,9 +665,10 @@ public class Driver
             }
         }
 
-        // if necessary, attempt to reacquire the lock and process new sources
+        // If there are more source updates available, attempt to reacquire the lock and process them.
+        // This can happen if new sources are added while we're holding the lock here doing work.
         // NOTE: this is separate duplicate code to make debugging lock reacquisition easier
-        while (newTaskSource.get() != null && state.get() == State.ALIVE && exclusiveLock.tryLock()) {
+        while (pendingTaskSourceUpdates.get() != null && state.get() == State.ALIVE && exclusiveLock.tryLock()) {
             try {
                 try {
                     processNewSources();

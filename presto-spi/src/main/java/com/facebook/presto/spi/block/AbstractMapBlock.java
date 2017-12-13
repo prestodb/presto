@@ -17,10 +17,9 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 import static java.lang.String.format;
@@ -77,14 +76,17 @@ public abstract class AbstractMapBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        int[] newOffsets = new int[positions.size() + 1];
-        boolean[] newMapIsNull = new boolean[positions.size()];
+        checkValidPositionsArray(positions, offset, length);
 
-        List<Integer> entriesPositions = new ArrayList<>();
+        int[] newOffsets = new int[length + 1];
+        boolean[] newMapIsNull = new boolean[length];
+
+        IntArrayList entriesPositions = new IntArrayList();
         int newPosition = 0;
-        for (int position : positions) {
+        for (int i = offset; i < offset + length; ++i) {
+            int position = positions[i];
             if (isNull(position)) {
                 newMapIsNull[newPosition] = true;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
@@ -106,7 +108,8 @@ public abstract class AbstractMapBlock
         int[] hashTable = getHashTables();
         int[] newHashTable = new int[newOffsets[newOffsets.length - 1] * HASH_MULTIPLIER];
         int newHashIndex = 0;
-        for (int position : positions) {
+        for (int i = offset; i < offset + length; ++i) {
+            int position = positions[i];
             int entriesStartOffset = getOffset(position);
             int entriesEndOffset = getOffset(position + 1);
             for (int hashIndex = entriesStartOffset * HASH_MULTIPLIER; hashIndex < entriesEndOffset * HASH_MULTIPLIER; hashIndex++) {
@@ -115,9 +118,9 @@ public abstract class AbstractMapBlock
             }
         }
 
-        Block newKeys = getKeys().copyPositions(entriesPositions);
-        Block newValues = getValues().copyPositions(entriesPositions);
-        return new MapBlock(0, positions.size(), newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        Block newKeys = getKeys().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
+        Block newValues = getValues().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
+        return new MapBlock(0, length, newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
     }
 
     @Override

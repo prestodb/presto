@@ -29,8 +29,8 @@ import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -53,7 +53,7 @@ public class TestShadowing
 
     public TestShadowing()
     {
-        handle = DBI.open(URL);
+        handle = Jdbi.open(URL);
     }
 
     @AfterClass(alwaysRun = true)

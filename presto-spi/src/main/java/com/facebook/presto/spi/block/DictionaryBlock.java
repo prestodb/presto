@@ -17,10 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
@@ -265,23 +263,24 @@ public class DictionaryBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        checkValidPositions(positions, positionCount);
+        checkValidPositions(positions, offset, length, positionCount);
 
-        List<Integer> positionsToCopy = new ArrayList<>();
+        IntArrayList positionsToCopy = new IntArrayList();
         Map<Integer, Integer> oldIndexToNewIndex = new HashMap<>();
-        int[] newIds = new int[positions.size()];
+        int[] newIds = new int[length];
 
-        for (int i = 0; i < positions.size(); i++) {
-            int oldIndex = getId(positions.get(i));
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
+            int oldIndex = getId(position);
             if (!oldIndexToNewIndex.containsKey(oldIndex)) {
                 oldIndexToNewIndex.put(oldIndex, positionsToCopy.size());
                 positionsToCopy.add(oldIndex);
             }
             newIds[i] = oldIndexToNewIndex.get(oldIndex);
         }
-        return new DictionaryBlock(dictionary.copyPositions(positionsToCopy), newIds);
+        return new DictionaryBlock(dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size()), newIds);
     }
 
     @Override
@@ -380,7 +379,7 @@ public class DictionaryBlock
 
         // determine which dictionary entries are referenced and build a reindex for them
         int dictionarySize = dictionary.getPositionCount();
-        List<Integer> dictionaryPositionsToCopy = new ArrayList<>(min(dictionarySize, positionCount));
+        IntArrayList dictionaryPositionsToCopy = new IntArrayList(min(dictionarySize, positionCount));
         int[] remapIndex = new int[dictionarySize];
         Arrays.fill(remapIndex, -1);
 
@@ -409,7 +408,7 @@ public class DictionaryBlock
             newIds[i] = newId;
         }
         try {
-            Block compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy);
+            Block compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy.elements(), 0, dictionaryPositionsToCopy.size());
             return new DictionaryBlock(positionCount, compactDictionary, newIds, true);
         }
         catch (UnsupportedOperationException e) {

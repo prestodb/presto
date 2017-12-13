@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,7 +62,7 @@ public class ExchangeClient
     private final Duration minErrorDuration;
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService scheduler;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -90,6 +91,7 @@ public class ExchangeClient
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
     private final SystemMemoryUsageListener systemMemoryUsageListener;
+    private final Executor pageBufferClientCallbackExecutor;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -100,8 +102,9 @@ public class ExchangeClient
             Duration minErrorDuration,
             Duration maxErrorDuration,
             HttpClient httpClient,
-            ScheduledExecutorService executor,
-            SystemMemoryUsageListener systemMemoryUsageListener)
+            ScheduledExecutorService scheduler,
+            SystemMemoryUsageListener systemMemoryUsageListener,
+            Executor pageBufferClientCallbackExecutor)
     {
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
@@ -109,9 +112,10 @@ public class ExchangeClient
         this.minErrorDuration = minErrorDuration;
         this.maxErrorDuration = maxErrorDuration;
         this.httpClient = httpClient;
-        this.executor = executor;
+        this.scheduler = scheduler;
         this.systemMemoryUsageListener = systemMemoryUsageListener;
         this.maxBufferBytes = Long.MIN_VALUE;
+        this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
     }
 
     public ExchangeClientStatus getStatus()
@@ -157,7 +161,8 @@ public class ExchangeClient
                 maxErrorDuration,
                 location,
                 new ExchangeClientCallback(),
-                executor);
+                scheduler,
+                pageBufferClientCallbackExecutor);
         allClients.put(location, client);
         queuedClients.add(client);
 
@@ -333,7 +338,7 @@ public class ExchangeClient
         blockedCallers.clear();
         for (SettableFuture<?> blockedCaller : callers) {
             // Notify callers in a separate thread to avoid callbacks while holding a lock
-            executor.execute(() -> blockedCaller.set(null));
+            scheduler.execute(() -> blockedCaller.set(null));
         }
     }
 

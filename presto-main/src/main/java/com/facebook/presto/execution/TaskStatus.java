@@ -16,10 +16,12 @@ package com.facebook.presto.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.execution.TaskState.PLANNED;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -53,23 +55,30 @@ public class TaskStatus
     private final TaskState state;
     private final URI self;
     private final String nodeId;
+    private final Set<Lifespan> completedDriverGroups;
 
     private final int queuedPartitionedDrivers;
     private final int runningPartitionedDrivers;
+    private final boolean outputBufferFull;
+    private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
 
     private final List<ExecutionFailureInfo> failures;
 
     @JsonCreator
-    public TaskStatus(@JsonProperty("taskId") TaskId taskId,
+    public TaskStatus(
+            @JsonProperty("taskId") TaskId taskId,
             @JsonProperty("taskInstanceId") String taskInstanceId,
             @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("nodeId") String nodeId,
+            @JsonProperty("completedDriverGroups") Set<Lifespan> completedDriverGroups,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("outputBufferFull") boolean outputBufferFull,
+            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
@@ -80,12 +89,17 @@ public class TaskStatus
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        this.completedDriverGroups = requireNonNull(completedDriverGroups, "completedDriverGroups is null");
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
 
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+
+        this.outputBufferFull = outputBufferFull;
+
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
@@ -128,6 +142,12 @@ public class TaskStatus
     }
 
     @JsonProperty
+    public Set<Lifespan> getCompletedDriverGroups()
+    {
+        return completedDriverGroups;
+    }
+
+    @JsonProperty
     public List<ExecutionFailureInfo> getFailures()
     {
         return failures;
@@ -143,6 +163,18 @@ public class TaskStatus
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
+    }
+
+    @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
+    public boolean isOutputBufferFull()
+    {
+        return outputBufferFull;
     }
 
     @JsonProperty
@@ -162,7 +194,20 @@ public class TaskStatus
 
     public static TaskStatus initialTaskStatus(TaskId taskId, URI location, String nodeId)
     {
-        return new TaskStatus(taskId, "", MIN_VERSION, PLANNED, location, nodeId, ImmutableList.of(), 0, 0, new DataSize(0, BYTE));
+        return new TaskStatus(
+                taskId,
+                "",
+                MIN_VERSION,
+                PLANNED,
+                location,
+                nodeId,
+                ImmutableSet.of(),
+                ImmutableList.of(),
+                0,
+                0,
+                false,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE));
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -174,9 +219,12 @@ public class TaskStatus
                 state,
                 taskStatus.getSelf(),
                 taskStatus.getNodeId(),
+                taskStatus.getCompletedDriverGroups(),
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
+                taskStatus.isOutputBufferFull(),
+                taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation());
     }
 }

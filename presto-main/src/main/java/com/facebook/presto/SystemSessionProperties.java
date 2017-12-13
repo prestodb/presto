@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
@@ -54,11 +55,14 @@ public final class SystemSessionProperties
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
+    public static final String SCALE_WRITERS = "scale_writers";
+    public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
     public static final String COLOCATED_JOIN = "colocated_join";
+    public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String REORDER_JOINS = "reorder_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
@@ -152,6 +156,20 @@ public final class SystemSessionProperties
                         "Force parallel distributed writes",
                         featuresConfig.isRedistributeWrites(),
                         false),
+                booleanSessionProperty(
+                        SCALE_WRITERS,
+                        "Scale out writers based on throughput (use minimum necessary)",
+                        featuresConfig.isScaleWriters(),
+                        false),
+                new PropertyMetadata<>(
+                        WRITER_MIN_SIZE,
+                        "Target minimum size of writer output when scaling writers",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getWriterMinSize(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
                 booleanSessionProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
@@ -268,6 +286,11 @@ public final class SystemSessionProperties
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
+                        false),
+                integerSessionProperty(
+                        CONCURRENT_LIFESPANS_PER_NODE,
+                        "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
+                        -1,
                         false),
                 new PropertyMetadata<>(
                         SPILL_ENABLED,
@@ -415,6 +438,16 @@ public final class SystemSessionProperties
         return session.getSystemProperty(REDISTRIBUTE_WRITES, Boolean.class);
     }
 
+    public static boolean isScaleWriters(Session session)
+    {
+        return session.getSystemProperty(SCALE_WRITERS, Boolean.class);
+    }
+
+    public static DataSize getWriterMinSize(Session session)
+    {
+        return session.getSystemProperty(WRITER_MIN_SIZE, DataSize.class);
+    }
+
     public static boolean isPushTableWriteThroughUnion(Session session)
     {
         return session.getSystemProperty(PUSH_TABLE_WRITE_THROUGH_UNION, Boolean.class);
@@ -478,6 +511,18 @@ public final class SystemSessionProperties
     public static boolean isColocatedJoinEnabled(Session session)
     {
         return session.getSystemProperty(COLOCATED_JOIN, Boolean.class);
+    }
+
+    public static OptionalInt getConcurrentLifespansPerNode(Session session)
+    {
+        Integer result = session.getSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, Integer.class);
+        if (result == -1) {
+            return OptionalInt.empty();
+        }
+        else {
+            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set");
+            return OptionalInt.of(result);
+        }
     }
 
     public static int getInitialSplitsPerNode(Session session)

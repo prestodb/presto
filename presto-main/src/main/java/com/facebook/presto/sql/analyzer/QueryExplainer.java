@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
@@ -45,6 +46,7 @@ public class QueryExplainer
 {
     private final List<PlanOptimizer> planOptimizers;
     private final Metadata metadata;
+    private final NodePartitioningManager nodePartitioningManager;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final CostCalculator costCalculator;
@@ -54,6 +56,7 @@ public class QueryExplainer
     public QueryExplainer(
             PlanOptimizers planOptimizers,
             Metadata metadata,
+            NodePartitioningManager nodePartitioningManager,
             AccessControl accessControl,
             SqlParser sqlParser,
             CostCalculator costCalculator,
@@ -61,6 +64,7 @@ public class QueryExplainer
     {
         this(planOptimizers.get(),
                 metadata,
+                nodePartitioningManager,
                 accessControl,
                 sqlParser,
                 costCalculator,
@@ -70,6 +74,7 @@ public class QueryExplainer
     public QueryExplainer(
             List<PlanOptimizer> planOptimizers,
             Metadata metadata,
+            NodePartitioningManager nodePartitioningManager,
             AccessControl accessControl,
             SqlParser sqlParser,
             CostCalculator costCalculator,
@@ -77,6 +82,7 @@ public class QueryExplainer
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
@@ -151,6 +157,6 @@ public class QueryExplainer
     private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters)
     {
         Plan plan = getLogicalPlan(session, statement, parameters);
-        return PlanFragmenter.createSubPlans(session, metadata, plan);
+        return PlanFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, false);
     }
 }

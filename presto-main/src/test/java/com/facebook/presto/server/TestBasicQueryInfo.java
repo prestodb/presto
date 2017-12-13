@@ -85,6 +85,7 @@ public class TestBasicQueryInfo
                                 30,
                                 DataSize.valueOf("31GB"),
                                 32,
+                                DataSize.valueOf("32GB"),
                                 ImmutableList.of()),
                         Optional.empty(),
                         Optional.empty(),

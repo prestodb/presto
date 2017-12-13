@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositionsArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 import static java.lang.String.format;
@@ -59,15 +57,16 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
-        int newPositionCount = positions.size();
-        int[] newOffsets = new int[newPositionCount + 1];
-        boolean[] newRowIsNull = new boolean[newPositionCount];
+        checkValidPositionsArray(positions, offset, length);
 
-        List<Integer> fieldBlockPositions = new ArrayList<>(newPositionCount);
-        for (int i = 0; i < newPositionCount; i++) {
-            int position = positions.get(i);
+        int[] newOffsets = new int[length + 1];
+        boolean[] newRowIsNull = new boolean[length];
+
+        IntArrayList fieldBlockPositions = new IntArrayList(length);
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
             if (isNull(position)) {
                 newRowIsNull[i] = true;
                 newOffsets[i + 1] = newOffsets[i];
@@ -80,9 +79,9 @@ public abstract class AbstractRowBlock
 
         Block[] newBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
-            newBlocks[i] = getFieldBlocks()[i].copyPositions(fieldBlockPositions);
+            newBlocks[i] = getFieldBlocks()[i].copyPositions(fieldBlockPositions.elements(), 0, fieldBlockPositions.size());
         }
-        return new RowBlock(0, positions.size(), newRowIsNull, newOffsets, newBlocks);
+        return new RowBlock(0, length, newRowIsNull, newOffsets, newBlocks);
     }
 
     @Override
@@ -152,7 +151,7 @@ public abstract class AbstractRowBlock
         }
         checkReadablePosition(position);
 
-        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position) * numFields, getFieldBlocks()));
+        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position), getFieldBlocks()));
     }
 
     @Override

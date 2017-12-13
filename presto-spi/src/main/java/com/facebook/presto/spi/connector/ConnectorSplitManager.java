@@ -17,10 +17,30 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+
 public interface ConnectorSplitManager
 {
+    /**
+     * @deprecated use {@link #getSplits(ConnectorTransactionHandle, ConnectorSession, ConnectorTableLayoutHandle, SplitSchedulingStrategy)} instead.
+     */
+    @Deprecated
     default ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    default ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    {
+        if (splitSchedulingStrategy == UNGROUPED_SCHEDULING) {
+            return getSplits(transactionHandle, session, layout);
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    enum SplitSchedulingStrategy
+    {
+        UNGROUPED_SCHEDULING,
+        GROUPED_SCHEDULING,
     }
 }

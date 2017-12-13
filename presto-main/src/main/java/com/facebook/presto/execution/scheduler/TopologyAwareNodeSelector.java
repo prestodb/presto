@@ -108,9 +108,9 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public List<Node> selectRandomNodes(int limit)
+    public List<Node> selectRandomNodes(int limit, Set<Node> excludedNodes)
     {
-        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator));
+        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
     }
 
     @Override

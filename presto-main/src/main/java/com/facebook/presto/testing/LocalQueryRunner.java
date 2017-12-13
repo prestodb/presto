@@ -80,6 +80,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.project.InterpretedPageProjection;
@@ -186,6 +187,9 @@ import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMin
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
@@ -438,6 +442,12 @@ public class LocalQueryRunner
     }
 
     @Override
+    public NodePartitioningManager getNodePartitioningManager()
+    {
+        return nodePartitioningManager;
+    }
+
+    @Override
     public CostCalculator getCostCalculator()
     {
         return costCalculator;
@@ -617,7 +627,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, costCalculator, session));
         }
 
-        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan, true);
+        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, true);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -647,11 +657,14 @@ public class LocalQueryRunner
                 new LookupJoinOperators(new JoinProbeCompiler()));
 
         // plan query
+        PipelineExecutionStrategy pipelineExecutionStrategy = subplan.getFragment().getPipelineExecutionStrategy();
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
                 taskContext,
+                pipelineExecutionStrategy == GROUPED_EXECUTION,
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),
+                subplan.getFragment().getPartitionedSources(),
                 outputFactory);
 
         // generate sources
@@ -660,7 +673,10 @@ public class LocalQueryRunner
         for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
             TableLayoutHandle layout = tableScan.getLayout().get();
 
-            SplitSource splitSource = splitManager.getSplits(session, layout);
+            SplitSource splitSource = splitManager.getSplits(
+                    session,
+                    layout,
+                    pipelineExecutionStrategy == GROUPED_EXECUTION ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
@@ -757,6 +773,7 @@ public class LocalQueryRunner
         QueryExplainer queryExplainer = new QueryExplainer(
                 optimizers,
                 metadata,
+                nodePartitioningManager,
                 accessControl,
                 sqlParser,
                 costCalculator,
@@ -870,7 +887,7 @@ public class LocalQueryRunner
 
     private Split getLocalQuerySplit(Session session, TableLayoutHandle handle)
     {
-        SplitSource splitSource = splitManager.getSplits(session, handle);
+        SplitSource splitSource = splitManager.getSplits(session, handle, UNGROUPED_SCHEDULING);
         List<Split> splits = new ArrayList<>();
         splits.addAll(getFutureValue(splitSource.getNextBatch(1000)));
         while (!splitSource.isFinished()) {

@@ -24,6 +24,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -43,9 +44,9 @@ final class TestingDatabase
         String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime();
         jdbcClient = new BaseJdbcClient(
                 new JdbcConnectorId(CONNECTOR_ID),
-                new BaseJdbcConfig().setConnectionUrl(connectionUrl),
+                new BaseJdbcConfig(),
                 "\"",
-                new Driver());
+                new DriverConnectionFactory(new Driver(), connectionUrl, new Properties()));
 
         connection = DriverManager.getConnection(connectionUrl);
         connection.createStatement().execute("CREATE SCHEMA example");
