@@ -67,6 +67,12 @@ Resource Group Properties
 * ``jmxExport`` (optional): If true, group statistics are exported to JMX for monitoring.
   Defaults to ``false``.
 
+* ``queuedTimeLimit`` (optional): maximum amount of time a query may be in the queue for this group
+  before it is marked as failed.
+
+* ``runningTimeLimit`` (optional): maximum amount of time a query in this group can execute
+  (not including queued time) before it is marked as failed.
+
 * ``subGroups`` (optional): list of sub groups.
 
 Selector Properties
