@@ -14,6 +14,7 @@
 package com.facebook.presto.geospatial;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -474,5 +475,14 @@ public class TestGeoQueries
         assertFunction("ST_Within(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'))", BOOLEAN, true);
         assertFunction("ST_Within(ST_GeometryFromText('LINESTRING (1 1, 3 3)'), ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))'))", BOOLEAN, true);
         assertFunction("ST_Touches(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))'))", BOOLEAN, false);
+    }
+
+    @Test
+    public void testInvalidWKT()
+            throws Exception
+    {
+        assertInvalidFunction("ST_LineFromText('LINESTRING (0 0, 1)')", StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid WKT form: LINESTRING (0 0, 1)");
+        assertInvalidFunction("ST_GeometryFromText('polygon(0 0)')", StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid WKT form: polygon(0 0)");
+        assertInvalidFunction("ST_Polygon('polygon(-1 1, 1 -1)')", StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "invalid WKT form: polygon(-1 1, 1 -1)");
     }
 }
