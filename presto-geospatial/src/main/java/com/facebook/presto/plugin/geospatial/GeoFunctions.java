@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.MultiPath;
@@ -25,6 +25,7 @@ import com.esri.core.geometry.ogc.OGCLineString;
 import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
+import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
@@ -32,16 +33,15 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.commons.lang.StringUtils;
 
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
-import static com.facebook.presto.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.MULTI_LINE_STRING;
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.MULTI_POINT;
@@ -50,12 +50,16 @@ import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POIN
 import static com.facebook.presto.geospatial.GeometryUtils.GeometryTypeName.POLYGON;
 import static com.facebook.presto.geospatial.GeometryUtils.deserialize;
 import static com.facebook.presto.geospatial.GeometryUtils.serialize;
+import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public final class GeoFunctions
 {
+    private static final Joiner OR_JOINER = Joiner.on(" or ");
+
     private GeoFunctions() {}
 
     @Description("Returns a Geometry type LineString object from Well-Known Text representation (WKT)")
@@ -570,7 +574,7 @@ public final class GeoFunctions
     {
         GeometryTypeName type = GeometryUtils.valueOf(geometry.geometryType());
         if (!validTypes.contains(type)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, function + " only applies to " + StringUtils.join(validTypes, " or ") + ". Input type is: " + type);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
     }
 
